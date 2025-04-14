@@ -1,0 +1,17 @@
+ok in order to limit the quantity of API call. let's create a yaml file (categories.yaml) in folder called database . inject it in the proper design of golang project. this yaml will contains the transaction categories and will be loaded in memory at each start of the program. This will make the @categorizer.go  more dynamic
+
+now, create another yaml that will reference the sellers and the categories. 
+This yaml should be in same folder as the first one 
+this database should be loaded in memory at every run.
+it should be updated each time a seller does not have a category. (new seller generally)
+it should be updated each time a seller has a  category using Gemini categorisation 
+it should be stored on disk back at the end of each run
+
+something is wrong in your logic for camt parsing : 
+- file camt53.xml has 66 <Ntry> so 66 transactions
+- file 49.csv, your export have 8 lines only 
+let's fix this. actually it is complety wrong
+
+
+look at @camt53-47.xml @camt53-49.xml @camt53-50.xml @camt53-51.xml @camt53-52.xml  to extract all the values possible. They represent the different way my bank is using camt.053. once we have this, inject your learning in the program and add all the needed colums in the csv. We should not remove column in any case. take your time and make the most beautiful code possible, always in respect of goland, kis and dry.
+don't use partial samples, camt.053 is very verbose, be sure to extract ALL the content 
