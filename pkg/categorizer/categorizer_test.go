@@ -23,32 +23,46 @@ func TestCategorizeTransaction(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "Coffee Shop Transaction",
+			name: "Coffee Shop Transaction (Creditor)",
 			transaction: Transaction{
-				Payee:  "Starbucks Coffee",
-				Amount: "5.75 EUR",
-				Date:   "2023-01-01",
-				Info:   "Coffee purchase",
+				PartyName: "Starbucks Coffee",
+				IsDebtor:  false,
+				Amount:    "5.75 EUR",
+				Date:      "2023-01-01",
+				Info:      "Coffee purchase",
 			},
 			expectError: false,
 		},
 		{
-			name: "Grocery Store Transaction",
+			name: "Grocery Store Transaction (Creditor)",
 			transaction: Transaction{
-				Payee:  "Whole Foods Market",
-				Amount: "87.32 EUR",
-				Date:   "2023-01-02",
-				Info:   "Weekly groceries",
+				PartyName: "Whole Foods Market",
+				IsDebtor:  false,
+				Amount:    "87.32 EUR",
+				Date:      "2023-01-02",
+				Info:      "Weekly groceries",
 			},
 			expectError: false,
 		},
 		{
-			name: "Utility Bill Transaction",
+			name: "Utility Bill Transaction (Creditor)",
 			transaction: Transaction{
-				Payee:  "Electric Company Ltd",
-				Amount: "120.50 EUR",
-				Date:   "2023-01-03",
-				Info:   "Monthly electricity bill",
+				PartyName: "Electric Company Ltd",
+				IsDebtor:  false,
+				Amount:    "120.50 EUR",
+				Date:      "2023-01-03",
+				Info:      "Monthly electricity bill",
+			},
+			expectError: false,
+		},
+		{
+			name: "Salary Transaction (Debtor)",
+			transaction: Transaction{
+				PartyName: "Acme Corp",
+				IsDebtor:  true,
+				Amount:    "3000.00 EUR",
+				Date:      "2023-01-15",
+				Info:      "Monthly salary",
 			},
 			expectError: false,
 		},
@@ -103,10 +117,11 @@ func TestCategorizeTransactionNoAPIKey(t *testing.T) {
 	defer t.Setenv("GEMINI_API_KEY", originalAPIKey)
 	
 	transaction := Transaction{
-		Payee:  "Test Seller",
-		Amount: "10.00 EUR",
-		Date:   "2023-01-01",
-		Info:   "Test transaction",
+		PartyName: "Test Party",
+		IsDebtor:  false,
+		Amount:    "10.00 EUR",
+		Date:      "2023-01-01",
+		Info:      "Test transaction",
 	}
 	
 	category, err := CategorizeTransaction(transaction)

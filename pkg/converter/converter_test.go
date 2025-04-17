@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"fjacquet/camt-csv/internal/models"
 )
 
 func TestValidateCAMT053(t *testing.T) {
@@ -102,25 +104,25 @@ func TestFormatDate(t *testing.T) {
 
 func TestExtractTransactions(t *testing.T) {
 	// Create a test CAMT053 structure
-	camt053 := &CAMT053{
-		BkToCstmrStmt: BkToCstmrStmt{
-			Stmt: Stmt{
+	camt053 := &models.CAMT053{
+		BkToCstmrStmt: models.BkToCstmrStmt{
+			Stmt: models.Stmt{
 				Id:      "12345",
 				CreDtTm: "2023-01-01T12:00:00Z",
-				Ntry: []Ntry{
+				Ntry: []models.Ntry{
 					{
-						Amt: Amt{
+						Amt: models.Amt{
 							Text: "100.00",
 							Ccy:  "EUR",
 						},
 						CdtDbtInd: "DBIT",
-						BookgDt: BookgDt{
+						BookgDt: models.BookgDt{
 							Dt: "2023-01-01",
 						},
-						NtryDtls: NtryDtls{
-							TxDtls: []TxDtls{
+						NtryDtls: models.NtryDtls{
+							TxDtls: []models.TxDtls{
 								{
-									RmtInf: RmtInf{
+									RmtInf: models.RmtInf{
 										Ustrd: []string{"Coffee Shop"},
 									},
 								},
@@ -150,8 +152,8 @@ func TestExtractTransactions(t *testing.T) {
 		t.Errorf("Expected CreditDebit 'DBIT', got '%s'", transactions[0].CreditDebit)
 	}
 
-	if transactions[0].Investment != "Coffee Shop" {
-		t.Errorf("Expected Investment 'Coffee Shop', got '%s'", transactions[0].Investment)
+	if !strings.Contains(transactions[0].Description, "Coffee Shop") {
+		t.Errorf("Expected Description to contain 'Coffee Shop', got '%s'", transactions[0].Description)
 	}
 }
 

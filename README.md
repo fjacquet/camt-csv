@@ -17,6 +17,10 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 ### Prerequisites
 
 - Go 1.24 or higher
+- pdftotext CLI tool (from Poppler Utils)
+  - On macOS: `brew install poppler`
+  - On Ubuntu/Debian: `apt-get install poppler-utils`
+  - On Windows: Download binaries from [Poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
 
 ### Building from source
 

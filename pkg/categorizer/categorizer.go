@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/pkg/config"
 
 	"github.com/google/generative-ai-go/genai"
@@ -21,43 +22,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//------------------------------------------------------------------------------
+// TYPE DEFINITIONS
+//------------------------------------------------------------------------------
+
 // Transaction represents a financial transaction to be categorized
 type Transaction struct {
-	Payee   string
-	Amount  string
-	Date    string
-	Info    string
-}
-
-// Category represents a transaction category
-type Category struct {
-	Name        string
-	Description string
-}
-
-// CategoryConfig represents a category configuration in the YAML file
-type CategoryConfig struct {
-	Name     string   `yaml:"name"`
-	Keywords []string `yaml:"keywords"`
-}
-
-// CategoriesConfig represents the structure of the categories YAML file
-type CategoriesConfig struct {
-	Categories []CategoryConfig `yaml:"categories"`
-}
-
-// SellersConfig represents the structure of the sellers YAML file
-type SellersConfig struct {
-	Sellers map[string]string `yaml:"sellers"`
+	PartyName string // Name of the relevant party (creditor or debitor)
+	IsDebtor  bool   // true if the party is a debitor (sender), false if creditor (recipient)
+	Amount    string
+	Date      string
+	Info      string
 }
 
 // Categorizer handles the categorization of transactions and manages
-// the category and payee mapping databases
+// the category, creditor, and debitor mapping databases
 type Categorizer struct {
-	categories     []CategoryConfig
-	payeeMappings  map[string]string
+	categories      []models.CategoryConfig
+	creditorMappings map[string]string // Maps creditor names to categories
+	debitorMappings  map[string]string // Maps debitor names to categories
 	configMutex    sync.RWMutex
-	isDirty        bool // Track if payeeMappings has been modified and needs to be saved
+	isDirtyCreditors bool // Track if creditorMappings has been modified and needs to be saved
+	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
 	geminiClient   *genai.Client
 	geminiModel    *genai.GenerativeModel
 }
@@ -66,10 +52,15 @@ type Categorizer struct {
 var defaultCategorizer *Categorizer
 var initOnce sync.Once
 
+//------------------------------------------------------------------------------
+// INITIALIZATION
+//------------------------------------------------------------------------------
+
 // initCategorizer initializes the default categorizer instance
 func initCategorizer() {
 	defaultCategorizer = &Categorizer{
-		payeeMappings: make(map[string]string),
+		creditorMappings: make(map[string]string),
+		debitorMappings: make(map[string]string),
 	}
 	
 	// Load categories from YAML
@@ -79,7 +70,7 @@ func initCategorizer() {
 		log.Printf("Falling back to default categories")
 		
 		// Create default categories if YAML loading fails
-		defaultCategorizer.categories = []CategoryConfig{
+		defaultCategorizer.categories = []models.CategoryConfig{
 			{Name: "Food & Dining", Keywords: []string{"restaurant", "food", "dining", "cafe"}},
 			{Name: "Groceries", Keywords: []string{"supermarket", "grocery", "coop", "migros"}},
 			{Name: "Shopping", Keywords: []string{"shop", "store", "retail", "amazon"}},
@@ -89,13 +80,33 @@ func initCategorizer() {
 		}
 	}
 	
-	// Load payee mappings from YAML
-	err = defaultCategorizer.loadPayeesFromYAML()
-	if err != nil {
-		log.Printf("Warning: Could not load payee mappings from YAML: %v", err)
-		log.Printf("Starting with empty payee mappings database")
+	// Load mappings from YAML files
+	// First try to load from old payees.yaml for backward compatibility
+	errPayees := defaultCategorizer.migrateFromPayeesYAML()
+	if errPayees != nil {
+		log.Printf("Warning: Could not migrate from payees.yaml: %v", errPayees)
+	}
+	
+	// Load creditor mappings from YAML
+	errCreditors := defaultCategorizer.loadCreditorsFromYAML()
+	if errCreditors != nil {
+		log.Printf("Warning: Could not load creditor mappings from YAML: %v", errCreditors)
+	}
+	
+	// Load debitor mappings from YAML
+	errDebitors := defaultCategorizer.loadDebitorsFromYAML()
+	if errDebitors != nil {
+		log.Printf("Warning: Could not load debitor mappings from YAML: %v", errDebitors)
+	}
+	
+	if errPayees != nil && errCreditors != nil && errDebitors != nil {
+		log.Printf("Starting with empty party mappings database")
 	}
 }
+
+//------------------------------------------------------------------------------
+// GEMINI AI INTEGRATION
+//------------------------------------------------------------------------------
 
 // ensureGeminiClient ensures the Gemini client is initialized
 func (c *Categorizer) ensureGeminiClient() error {
@@ -121,6 +132,234 @@ func (c *Categorizer) ensureGeminiClient() error {
 	return nil
 }
 
+// categorizeWithGemini uses the Gemini API to categorize a transaction
+func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
+	// Initialize Gemini client if not already initialized
+	if err := c.ensureGeminiClient(); err != nil {
+		return models.Category{}, fmt.Errorf("failed to initialize Gemini client: %w", err)
+	}
+	
+	// Get available categories to provide to Gemini
+	categories := c.getCategories()
+	
+	// Create a prompt for Gemini
+	prompt := fmt.Sprintf(`You are a financial transaction categorizer.
+Please categorize the following transaction into the most appropriate category from the list below:
+
+Transaction Details:
+- Party Name: %s
+- Is Debtor: %t
+- Amount: %s
+- Date: %s
+- Description: %s
+
+Available Categories:
+%s
+
+Please respond ONLY with the category name that best matches this transaction.
+If you're unsure or if none of the categories seem to fit, respond with "Uncategorized".
+Please respond in this exact format: "Category: [category name]"`, 
+		transaction.PartyName, 
+		transaction.IsDebtor, 
+		transaction.Amount, 
+		transaction.Date, 
+		transaction.Info,
+		strings.Join(categories, "\n"))
+	
+	// Send the prompt to Gemini API
+	ctx := context.Background()
+	resp, err := c.geminiModel.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return models.Category{}, fmt.Errorf("error generating content with Gemini: %w", err)
+	}
+	
+	// Extract the category from the response
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return models.Category{}, fmt.Errorf("no response from Gemini model")
+	}
+	
+	responseText := resp.Candidates[0].Content.Parts[0].(genai.Text)
+	categoryName, description := c.extractCategoryFromResponse(string(responseText))
+	
+	// Default to "Uncategorized" if no category was found
+	if categoryName == "" {
+		categoryName = "Uncategorized"
+	}
+	
+	// Add the new mapping to our database for future use
+	if transaction.IsDebtor {
+		c.updateDebitorCategory(transaction.PartyName, categoryName)
+	} else {
+		c.updateCreditorCategory(transaction.PartyName, categoryName)
+	}
+	
+	return models.Category{Name: categoryName, Description: description}, nil
+}
+
+// extractCategoryFromResponse parses the Gemini API response to extract the category
+func (c *Categorizer) extractCategoryFromResponse(response string) (string, string) {
+	// Look for "Category:" in the response
+	responseLower := strings.ToLower(response)
+	categoryIndex := strings.Index(responseLower, "category:")
+	
+	if categoryIndex == -1 {
+		// If "Category:" not found, try to extract the category from the entire response
+		words := strings.Fields(response)
+		if len(words) > 0 {
+			// Check each word against our known categories
+			for _, word := range words {
+				word = strings.Trim(word, ",.;:\"'()")
+				for _, category := range c.categories {
+					if strings.EqualFold(word, category.Name) {
+						return category.Name, "Extracted from unformatted response"
+					}
+				}
+			}
+		}
+		return "Uncategorized", "Could not parse response"
+	}
+	
+	// Extract everything after "Category:"
+	afterCategory := response[categoryIndex+len("Category:"):]
+	
+	// Trim whitespace and extract the category name
+	categoryName := strings.TrimSpace(afterCategory)
+	
+	// If there's more text, extract only up to the first newline or period
+	endIndex := len(categoryName)
+	if nl := strings.Index(categoryName, "\n"); nl != -1 {
+		endIndex = nl
+	}
+	if period := strings.Index(categoryName, "."); period != -1 && period < endIndex {
+		endIndex = period
+	}
+	categoryName = strings.TrimSpace(categoryName[:endIndex])
+	
+	return categoryName, "Extracted from Gemini response"
+}
+
+//------------------------------------------------------------------------------
+// LOCAL CATEGORIZATION METHODS
+//------------------------------------------------------------------------------
+
+// categorizeByCreditorMapping attempts to categorize a transaction using the creditor mapping database
+func (c *Categorizer) categorizeByCreditorMapping(transaction Transaction) (models.Category, bool) {
+	// Check if we have the creditor in our mapping database
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+	
+	// Normalize creditor name for better matching
+	normalizedCreditor := strings.ToLower(strings.TrimSpace(transaction.PartyName))
+	
+	// Try to find an exact match first
+	if category, exists := c.creditorMappings[normalizedCreditor]; exists {
+		return models.Category{Name: category, Description: ""}, true
+	}
+	
+	// If no exact match, try to find a substring match
+	for creditor, category := range c.creditorMappings {
+		if strings.Contains(normalizedCreditor, strings.ToLower(creditor)) {
+			return models.Category{Name: category, Description: ""}, true
+		}
+	}
+	
+	return models.Category{}, false
+}
+
+// categorizeByDebitorMapping attempts to categorize a transaction using the debitor mapping database
+func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (models.Category, bool) {
+	// Check if we have the debitor in our mapping database
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+	
+	// Normalize debitor name for better matching
+	normalizedDebitor := strings.ToLower(strings.TrimSpace(transaction.PartyName))
+	
+	// Try to find an exact match first
+	if category, exists := c.debitorMappings[normalizedDebitor]; exists {
+		return models.Category{Name: category, Description: ""}, true
+	}
+	
+	// If no exact match, try to find a substring match
+	for debitor, category := range c.debitorMappings {
+		if strings.Contains(normalizedDebitor, strings.ToLower(debitor)) {
+			return models.Category{Name: category, Description: ""}, true
+		}
+	}
+	
+	return models.Category{}, false
+}
+
+// categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
+func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (models.Category, bool) {
+	// Normalize description and party name for better matching
+	normalizedText := strings.ToLower(strings.TrimSpace(transaction.PartyName + " " + transaction.Info))
+	
+	// For each category, check if any of its keywords match the transaction
+	for _, category := range c.categories {
+		for _, keyword := range category.Keywords {
+			if strings.Contains(normalizedText, strings.ToLower(keyword)) {
+				return models.Category{Name: category.Name, Description: ""}, true
+			}
+		}
+	}
+	
+	return models.Category{}, false
+}
+
+// categorizeTransaction categorizes a transaction using the following sequence:
+// 1. Check if the creditor/debitor already exists in the mapping database
+// 2. Try to match using local keyword patterns
+// 3. Fall back to Gemini AI as a last resort
+func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
+	// 1. Check if the creditor/debitor already exists in our mapping database
+	if transaction.IsDebtor {
+		if category, found := c.categorizeByDebitorMapping(transaction); found {
+			log.Printf("Transaction categorized by debitor mapping as: %s", category.Name)
+			return category, nil
+		}
+	} else {
+		if category, found := c.categorizeByCreditorMapping(transaction); found {
+			log.Printf("Transaction categorized by creditor mapping as: %s", category.Name)
+			return category, nil
+		}
+	}
+	
+	// 2. Try to categorize using local keyword matching
+	if category, found := c.categorizeLocallyByKeywords(transaction); found {
+		log.Printf("Transaction categorized by keyword matching as: %s", category.Name)
+		// If found by keywords, add to our mapping database for future quick lookups
+		if transaction.PartyName != "" {
+			if transaction.IsDebtor {
+				c.updateDebitorCategory(transaction.PartyName, category.Name)
+			} else {
+				c.updateCreditorCategory(transaction.PartyName, category.Name)
+			}
+		}
+		return category, nil
+	}
+	
+	// 3. Fall back to AI-based categorization if all else fails
+	log.Printf("No local match found, using Gemini AI for categorization")
+	category, err := c.categorizeWithGemini(transaction)
+	
+	// Even if AI categorization fails, add the party to mappings with "Uncategorized"
+	if err != nil && transaction.PartyName != "" {
+		category = models.Category{Name: "Uncategorized", Description: ""}
+		if transaction.IsDebtor {
+			c.updateDebitorCategory(transaction.PartyName, category.Name)
+		} else {
+			c.updateCreditorCategory(transaction.PartyName, category.Name)
+		}
+	}
+	
+	return category, err
+}
+
+//------------------------------------------------------------------------------
+// YAML CONFIG HANDLING
+//------------------------------------------------------------------------------
+
 // loadCategoriesFromYAML loads the categories from the YAML configuration file
 func (c *Categorizer) loadCategoriesFromYAML() error {
 	yamlPath, err := c.findConfigFile("categories.yaml")
@@ -134,7 +373,7 @@ func (c *Categorizer) loadCategoriesFromYAML() error {
 		return fmt.Errorf("could not read categories.yaml file: %w", err)
 	}
 	
-	var config CategoriesConfig
+	var config models.CategoriesConfig
 	err = yaml.Unmarshal(yamlData, &config)
 	if err != nil {
 		return fmt.Errorf("could not parse categories.yaml file: %w", err)
@@ -147,17 +386,243 @@ func (c *Categorizer) loadCategoriesFromYAML() error {
 	return nil
 }
 
-// loadPayeesFromYAML loads the payee-to-category mappings from the YAML configuration file
-func (c *Categorizer) loadPayeesFromYAML() error {
-	yamlPath, err := c.findConfigFile("payees.yaml")
+// loadCreditorsFromYAML loads the creditor-to-category mappings from the YAML configuration file
+func (c *Categorizer) loadCreditorsFromYAML() error {
+	yamlPath, err := c.findConfigFile("creditors.yaml")
 	if err != nil {
 		// If the file doesn't exist yet, this is not an error
 		// We'll create an empty map and save it later
 		c.configMutex.Lock()
-		c.payeeMappings = make(map[string]string)
-		c.isDirty = true  // Mark as dirty so it gets saved
+		c.creditorMappings = make(map[string]string)
+		c.isDirtyCreditors = true  // Mark as dirty so it gets saved
 		c.configMutex.Unlock()
-		log.Printf("Payee mappings file not found, will create it on next save")
+		log.Printf("Creditor mappings file not found, will create it on next save")
+		return nil
+	}
+	
+	// Read and parse the YAML file
+	yamlData, err := ioutil.ReadFile(yamlPath)
+	if err != nil {
+		return fmt.Errorf("could not read creditors.yaml file: %w", err)
+	}
+	
+	// First, try to unmarshal with the expected structure (with 'creditors' key)
+	var config models.CreditorsConfig
+	err = yaml.Unmarshal(yamlData, &config)
+	if err != nil {
+		// Try parsing directly as a map (without the 'creditors' key)
+		directMap := make(map[string]string)
+		err = yaml.Unmarshal(yamlData, &directMap)
+		if err != nil {
+			return fmt.Errorf("could not parse creditors.yaml file: %w", err)
+		}
+		
+		// If successful, use the direct map
+		c.configMutex.Lock()
+		c.creditorMappings = directMap
+		c.isDirtyCreditors = false
+		c.configMutex.Unlock()
+		log.Printf("Loaded %d creditor mappings from YAML file (direct format)", len(directMap))
+		return nil
+	}
+	
+	// Acquire write lock before updating the map
+	c.configMutex.Lock()
+	defer c.configMutex.Unlock()
+	
+	// Store the loaded creditor mappings
+	if config.Creditors != nil {
+		c.creditorMappings = config.Creditors
+		log.Printf("Loaded %d creditor mappings from YAML file", len(c.creditorMappings))
+	} else {
+		c.creditorMappings = make(map[string]string)
+		log.Printf("Initialized empty creditor mappings")
+	}
+	
+	c.isDirtyCreditors = false
+	return nil
+}
+
+// loadDebitorsFromYAML loads the debitor-to-category mappings from the YAML configuration file
+func (c *Categorizer) loadDebitorsFromYAML() error {
+	yamlPath, err := c.findConfigFile("debitors.yaml")
+	if err != nil {
+		// If the file doesn't exist yet, this is not an error
+		// We'll create an empty map and save it later
+		c.configMutex.Lock()
+		c.debitorMappings = make(map[string]string)
+		c.isDirtyDebitors = true  // Mark as dirty so it gets saved
+		c.configMutex.Unlock()
+		log.Printf("Debitor mappings file not found, will create it on next save")
+		return nil
+	}
+	
+	// Read and parse the YAML file
+	yamlData, err := ioutil.ReadFile(yamlPath)
+	if err != nil {
+		return fmt.Errorf("could not read debitors.yaml file: %w", err)
+	}
+	
+	// First, try to unmarshal with the expected structure (with 'debitors' key)
+	var config models.DebitorsConfig
+	err = yaml.Unmarshal(yamlData, &config)
+	if err != nil {
+		// Try parsing directly as a map (without the 'debitors' key)
+		directMap := make(map[string]string)
+		err = yaml.Unmarshal(yamlData, &directMap)
+		if err != nil {
+			return fmt.Errorf("could not parse debitors.yaml file: %w", err)
+		}
+		
+		// If successful, use the direct map
+		c.configMutex.Lock()
+		c.debitorMappings = directMap
+		c.isDirtyDebitors = false
+		c.configMutex.Unlock()
+		log.Printf("Loaded %d debitor mappings from YAML file (direct format)", len(directMap))
+		return nil
+	}
+	
+	// Acquire write lock before updating the map
+	c.configMutex.Lock()
+	defer c.configMutex.Unlock()
+	
+	// Store the loaded debitor mappings
+	if config.Debitors != nil {
+		c.debitorMappings = config.Debitors
+		log.Printf("Loaded %d debitor mappings from YAML file", len(c.debitorMappings))
+	} else {
+		c.debitorMappings = make(map[string]string)
+		log.Printf("Initialized empty debitor mappings")
+	}
+	
+	c.isDirtyDebitors = false
+	return nil
+}
+
+// saveCreditorsToYAML saves the current creditor mappings to the YAML file
+// This should be called at the end of processing or when the application exits
+func (c *Categorizer) saveCreditorsToYAML() error {
+	// If nothing has changed, no need to save
+	c.configMutex.RLock()
+	if !c.isDirtyCreditors {
+		c.configMutex.RUnlock()
+		return nil
+	}
+	c.configMutex.RUnlock()
+	
+	// Try to find existing creditors.yaml file, or decide where to create it
+	yamlPath, err := c.findConfigFile("creditors.yaml")
+	if err != nil {
+		// File doesn't exist, create it in the default location
+		defaultDir := filepath.Join(".", "database")
+		
+		// Ensure the directory exists
+		err = os.MkdirAll(defaultDir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create database directory: %w", err)
+		}
+		
+		yamlPath = filepath.Join(defaultDir, "creditors.yaml")
+	}
+	
+	// Acquire read lock to create a copy of the map
+	c.configMutex.RLock()
+	config := models.CreditorsConfig{
+		Creditors: make(map[string]string, len(c.creditorMappings)),
+	}
+	
+	// Create a copy of the map to avoid holding the lock during disk I/O
+	for k, v := range c.creditorMappings {
+		config.Creditors[k] = v
+	}
+	c.configMutex.RUnlock()
+	
+	// Marshal the data to YAML
+	yamlData, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal creditor mappings to YAML: %w", err)
+	}
+	
+	// Write to file
+	err = ioutil.WriteFile(yamlPath, yamlData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write creditors.yaml file: %w", err)
+	}
+	
+	// Mark as not dirty after successful save
+	c.configMutex.Lock()
+	c.isDirtyCreditors = false
+	c.configMutex.Unlock()
+	
+	log.Printf("Saved %d creditor mappings to %s", len(config.Creditors), yamlPath)
+	return nil
+}
+
+// saveDebitorsToYAML saves the current debitor mappings to the YAML file
+// This should be called at the end of processing or when the application exits
+func (c *Categorizer) saveDebitorsToYAML() error {
+	// If nothing has changed, no need to save
+	c.configMutex.RLock()
+	if !c.isDirtyDebitors {
+		c.configMutex.RUnlock()
+		return nil
+	}
+	c.configMutex.RUnlock()
+	
+	// Try to find existing debitors.yaml file, or decide where to create it
+	yamlPath, err := c.findConfigFile("debitors.yaml")
+	if err != nil {
+		// File doesn't exist, create it in the default location
+		defaultDir := filepath.Join(".", "database")
+		
+		// Ensure the directory exists
+		err = os.MkdirAll(defaultDir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create database directory: %w", err)
+		}
+		
+		yamlPath = filepath.Join(defaultDir, "debitors.yaml")
+	}
+	
+	// Acquire read lock to create a copy of the map
+	c.configMutex.RLock()
+	config := models.DebitorsConfig{
+		Debitors: make(map[string]string, len(c.debitorMappings)),
+	}
+	
+	// Create a copy of the map to avoid holding the lock during disk I/O
+	for k, v := range c.debitorMappings {
+		config.Debitors[k] = v
+	}
+	c.configMutex.RUnlock()
+	
+	// Marshal the data to YAML
+	yamlData, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal debitor mappings to YAML: %w", err)
+	}
+	
+	// Write to file
+	err = ioutil.WriteFile(yamlPath, yamlData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write debitors.yaml file: %w", err)
+	}
+	
+	// Mark as not dirty after successful save
+	c.configMutex.Lock()
+	c.isDirtyDebitors = false
+	c.configMutex.Unlock()
+	
+	log.Printf("Saved %d debitor mappings to %s", len(config.Debitors), yamlPath)
+	return nil
+}
+
+// migrateFromPayeesYAML attempts to migrate from the old payees.yaml file to the new creditors.yaml and debitors.yaml files
+func (c *Categorizer) migrateFromPayeesYAML() error {
+	yamlPath, err := c.findConfigFile("payees.yaml")
+	if err != nil {
+		// File doesn't exist, nothing to migrate
 		return nil
 	}
 	
@@ -168,7 +633,7 @@ func (c *Categorizer) loadPayeesFromYAML() error {
 	}
 	
 	// First, try to unmarshal with the expected structure (with 'payees' key)
-	var config SellersConfig
+	var config models.PayeesConfig
 	err = yaml.Unmarshal(yamlData, &config)
 	if err != nil {
 		// Try parsing directly as a map (without the 'payees' key)
@@ -180,335 +645,149 @@ func (c *Categorizer) loadPayeesFromYAML() error {
 		
 		// If successful, use the direct map
 		c.configMutex.Lock()
-		c.payeeMappings = directMap
-		c.isDirty = false
+		c.creditorMappings = directMap
+		c.debitorMappings = directMap
+		c.isDirtyCreditors = true
+		c.isDirtyDebitors = true
 		c.configMutex.Unlock()
-		log.Printf("Loaded %d payee mappings from YAML file (direct format)", len(directMap))
+		log.Printf("Migrated %d payee mappings from YAML file (direct format)", len(directMap))
 		return nil
 	}
 	
-	// Acquire write lock before updating the map
+	// Acquire write lock before updating the maps
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	
 	// Store the loaded payee mappings
-	if config.Sellers != nil {
-		c.payeeMappings = config.Sellers
-		log.Printf("Loaded %d payee mappings from YAML file", len(c.payeeMappings))
+	if config.Payees != nil {
+		c.creditorMappings = config.Payees
+		c.debitorMappings = config.Payees
+		log.Printf("Migrated %d payee mappings from YAML file", len(c.creditorMappings))
 	} else {
-		c.payeeMappings = make(map[string]string)
-		log.Printf("Initialized empty payee mappings")
+		c.creditorMappings = make(map[string]string)
+		c.debitorMappings = make(map[string]string)
+		log.Printf("Initialized empty creditor and debitor mappings")
 	}
 	
-	// Reset the dirty flag since we just loaded from disk
-	c.isDirty = false
-	
-	return nil
-}
-
-// savePayeesToYAML saves the current payee mappings to the YAML file
-// This should be called at the end of processing or when the application exits
-func (c *Categorizer) savePayeesToYAML() error {
-	// If no changes were made, don't bother saving
-	if !c.isDirty {
-		log.Printf("No changes to payee mappings, skipping save")
-		return nil
-	}
-	
-	yamlPath, err := c.findConfigFile("payees.yaml")
-	if err != nil {
-		// If we can't find the existing file, create a new one in the database directory
-		execPath, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("could not determine executable path: %w", err)
-		}
-		
-		baseDir := filepath.Dir(execPath)
-		dbDir := filepath.Join(baseDir, "database")
-		
-		// Create the database directory if it doesn't exist
-		if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-			err = os.MkdirAll(dbDir, 0755)
-			if err != nil {
-				return fmt.Errorf("could not create database directory: %w", err)
-			}
-		}
-		
-		yamlPath = filepath.Join(dbDir, "payees.yaml")
-	}
-	
-	// Acquire read lock to create a copy of the map
-	c.configMutex.RLock()
-	config := SellersConfig{
-		Sellers: make(map[string]string, len(c.payeeMappings)),
-	}
-	
-	// Copy the map to avoid concurrent access issues
-	for payee, category := range c.payeeMappings {
-		config.Sellers[payee] = category
-	}
-	c.configMutex.RUnlock()
-	
-	// Generate a header comment for the file
-	header := `# Payee to category mappings
-# This file maps payee names to their respective categories
-# It is automatically updated when new payees are categorized
-# Format:
-#   payees:
-#     "Payee Name 1": "Category Name"
-#     "Payee Name 2": "Category Name"
-
-`
-	
-	// Marshal the config to YAML
-	yamlData, err := yaml.Marshal(&config)
-	if err != nil {
-		return fmt.Errorf("could not marshal payees to YAML: %w", err)
-	}
-	
-	// Combine header and YAML data
-	finalData := []byte(header + string(yamlData))
-	
-	// Write the YAML data to file
-	err = ioutil.WriteFile(yamlPath, finalData, 0644)
-	if err != nil {
-		return fmt.Errorf("could not write payees.yaml file: %w", err)
-	}
-	
-	log.Printf("Saved %d payee mappings to YAML file", len(config.Sellers))
-	
-	// Reset the dirty flag
-	c.configMutex.Lock()
-	c.isDirty = false
-	c.configMutex.Unlock()
-	
+	c.isDirtyCreditors = true
+	c.isDirtyDebitors = true
 	return nil
 }
 
 // findConfigFile attempts to locate a configuration file in various paths
 func (c *Categorizer) findConfigFile(filename string) (string, error) {
-	// Try executable directory first
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("could not determine executable path: %w", err)
+	// First check in the current directory
+	if _, err := os.Stat(filename); err == nil {
+		return filename, nil
 	}
 	
-	baseDir := filepath.Dir(execPath)
-	yamlPath := filepath.Join(baseDir, "database", filename)
-	
-	// Check if the file exists
-	if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-		// Try a relative path from current directory
-		yamlPath = filepath.Join("database", filename)
-		if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-			return "", fmt.Errorf("%s file not found: %w", filename, err)
-		}
+	// Check in database/ subdirectory
+	dbPath := filepath.Join("database", filename)
+	if _, err := os.Stat(dbPath); err == nil {
+		return dbPath, nil
 	}
 	
-	return yamlPath, nil
+	// Check in parent directory
+	parentPath := filepath.Join("..", filename)
+	if _, err := os.Stat(parentPath); err == nil {
+		return parentPath, nil
+	}
+	
+	return "", fmt.Errorf("could not find %s in any of the expected locations", filename)
 }
+
+//------------------------------------------------------------------------------
+// HELPER METHODS
+//------------------------------------------------------------------------------
 
 // getCategories returns the list of category names
 func (c *Categorizer) getCategories() []string {
-	var categories []string
-	for _, category := range c.categories {
-		categories = append(categories, category.Name)
+	categories := make([]string, len(c.categories))
+	for i, category := range c.categories {
+		categories[i] = category.Name
 	}
 	return categories
 }
 
-// updatePayeeCategory adds or updates a payee-to-category mapping
-func (c *Categorizer) updatePayeeCategory(payee, category string) {
-	// Normalize the payee name (trim spaces)
-	normalizedPayee := strings.TrimSpace(payee)
-	if normalizedPayee == "" {
+// updateCreditorCategory adds or updates a creditor-to-category mapping
+func (c *Categorizer) updateCreditorCategory(creditor, category string) {
+	if creditor == "" || category == "" {
 		return
 	}
 	
+	// Normalize creditor name for consistent storage
+	normalizedCreditor := strings.ToLower(strings.TrimSpace(creditor))
+	
+	// Acquire write lock before updating the map
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	
-	// Check if the mapping already exists and is the same
-	existingCategory, exists := c.payeeMappings[normalizedPayee]
-	if exists && existingCategory == category {
-		return // No change needed
+	// Check if this is a new mapping or if we're changing an existing one
+	existingCategory, exists := c.creditorMappings[normalizedCreditor]
+	if !exists || existingCategory != category {
+		c.creditorMappings[normalizedCreditor] = category
+		c.isDirtyCreditors = true  // Mark as dirty so it gets saved
 	}
-	
-	// Update the mapping
-	c.payeeMappings[normalizedPayee] = category
-	c.isDirty = true
-	
-	log.Printf("Added/updated payee mapping: %s -> %s", normalizedPayee, category)
 }
 
-// getPayeeCategory retrieves the category for a given payee if it exists
-func (c *Categorizer) getPayeeCategory(payee string) (string, bool) {
-	// Normalize the payee name (trim spaces)
-	normalizedPayee := strings.TrimSpace(payee)
-	if normalizedPayee == "" {
+// updateDebitorCategory adds or updates a debitor-to-category mapping
+func (c *Categorizer) updateDebitorCategory(debitor, category string) {
+	if debitor == "" || category == "" {
+		return
+	}
+	
+	// Normalize debitor name for consistent storage
+	normalizedDebitor := strings.ToLower(strings.TrimSpace(debitor))
+	
+	// Acquire write lock before updating the map
+	c.configMutex.Lock()
+	defer c.configMutex.Unlock()
+	
+	// Check if this is a new mapping or if we're changing an existing one
+	existingCategory, exists := c.debitorMappings[normalizedDebitor]
+	if !exists || existingCategory != category {
+		c.debitorMappings[normalizedDebitor] = category
+		c.isDirtyDebitors = true  // Mark as dirty so it gets saved
+	}
+}
+
+// getCreditorCategory retrieves the category for a given creditor if it exists
+func (c *Categorizer) getCreditorCategory(creditor string) (string, bool) {
+	if creditor == "" {
 		return "", false
 	}
 	
+	// Normalize creditor name for consistent lookup
+	normalizedCreditor := strings.ToLower(strings.TrimSpace(creditor))
+	
+	// Acquire read lock before accessing the map
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
 	
-	category, exists := c.payeeMappings[normalizedPayee]
+	category, exists := c.creditorMappings[normalizedCreditor]
 	return category, exists
 }
 
-// categorizeByPayeeMapping attempts to categorize a transaction using the payee mapping database
-func (c *Categorizer) categorizeByPayeeMapping(transaction Transaction) (Category, bool) {
-	if transaction.Payee == "" {
-		return Category{}, false
+// getDebitorCategory retrieves the category for a given debitor if it exists
+func (c *Categorizer) getDebitorCategory(debitor string) (string, bool) {
+	if debitor == "" {
+		return "", false
 	}
 	
-	category, exists := c.getPayeeCategory(transaction.Payee)
-	if !exists {
-		return Category{}, false
-	}
+	// Normalize debitor name for consistent lookup
+	normalizedDebitor := strings.ToLower(strings.TrimSpace(debitor))
 	
-	return Category{
-		Name:        category,
-		Description: fmt.Sprintf("Categorized based on known payee: %s", transaction.Payee),
-	}, true
+	// Acquire read lock before accessing the map
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+	
+	category, exists := c.debitorMappings[normalizedDebitor]
+	return category, exists
 }
 
-// categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
-func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (Category, bool) {
-	// Combine all text fields for better matching
-	text := strings.ToLower(transaction.Payee + " " + transaction.Info)
-	
-	// Check each category's keywords for matches
-	for _, category := range c.categories {
-		for _, keyword := range category.Keywords {
-			if strings.Contains(text, strings.ToLower(keyword)) {
-				return Category{
-					Name:        category.Name,
-					Description: fmt.Sprintf("Matched keyword: %s", keyword),
-				}, true
-			}
-		}
-	}
-	
-	return Category{}, false
-}
-
-// categorizeWithGemini uses the Gemini API to categorize a transaction
-func (c *Categorizer) categorizeWithGemini(transaction Transaction) (Category, error) {
-	// Ensure the Gemini client is initialized
-	err := c.ensureGeminiClient()
-	if err != nil {
-		return Category{}, err
-	}
-	
-	ctx := context.Background()
-	
-	// Prepare the prompt for Gemini
-	prompt := fmt.Sprintf(`Categorize the following financial transaction:
-Payee: %s
-Amount: %s
-Date: %s
-Additional Info: %s
-
-Please assign this transaction to exactly one of the following categories:
-%s
-
-Respond in this format:
-Category: [Selected Category Name]
-Description: [Brief explanation of why you chose this category]`,
-		transaction.Payee,
-		transaction.Amount,
-		transaction.Date,
-		transaction.Info,
-		strings.Join(c.getCategories(), ", "))
-	
-	// Create the generation request
-	resp, err := c.geminiModel.GenerateContent(ctx, genai.Text(prompt))
-	if err != nil {
-		return Category{}, fmt.Errorf("Gemini API error: %w", err)
-	}
-	
-	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-		return Category{}, fmt.Errorf("no response from Gemini API")
-	}
-	
-	// Extract category and description from response
-	responseText := fmt.Sprintf("%v", resp.Candidates[0].Content.Parts[0])
-	categoryName, description := c.extractCategoryFromResponse(responseText)
-	
-	log.Printf("Gemini classified transaction %s as %s: %s",
-		transaction.Payee, categoryName, description)
-	
-	// Update the payee mapping in our database
-	if transaction.Payee != "" {
-		c.updatePayeeCategory(transaction.Payee, categoryName)
-	}
-	
-	return Category{
-		Name:        categoryName,
-		Description: description,
-	}, nil
-}
-
-// extractCategoryFromResponse parses the Gemini API response to extract the category
-func (c *Categorizer) extractCategoryFromResponse(response string) (string, string) {
-	lines := strings.Split(response, "\n")
-	var categoryName, description string
-	
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Category:") {
-			categoryName = strings.TrimSpace(strings.TrimPrefix(line, "Category:"))
-		} else if strings.HasPrefix(line, "Description:") {
-			description = strings.TrimSpace(strings.TrimPrefix(line, "Description:"))
-		}
-	}
-	
-	// If no structured response was found, use the entire response as the description
-	if categoryName == "" {
-		// Try to find a matching category in the response
-		for _, c := range c.getCategories() {
-			if strings.Contains(response, c) {
-				categoryName = c
-				break
-			}
-		}
-		if categoryName == "" {
-			categoryName = "Uncategorized"
-		}
-		description = strings.TrimSpace(response)
-	}
-	
-	return categoryName, description
-}
-
-// categorizeTransaction categorizes a transaction using the following sequence:
-// 1. Check if the payee already exists in the payee mapping database
-// 2. Try to match using local keyword patterns
-// 3. Fall back to Gemini API as a last resort
-func (c *Categorizer) categorizeTransaction(transaction Transaction) (Category, error) {
-	// 1. Check if the payee already exists in our mapping database
-	if category, found := c.categorizeByPayeeMapping(transaction); found {
-		log.Printf("Transaction categorized by payee mapping as: %s", category.Name)
-		return category, nil
-	}
-	
-	// 2. Try to categorize locally by keywords
-	if category, matched := c.categorizeLocallyByKeywords(transaction); matched {
-		log.Printf("Transaction categorized by keywords as: %s", category.Name)
-		// Update the payee mapping for future use
-		if transaction.Payee != "" {
-			c.updatePayeeCategory(transaction.Payee, category.Name)
-		}
-		return category, nil
-	}
-	
-	// 3. If previous methods fail, use the Gemini API
-	log.Printf("Local categorization failed for: %s, using Gemini API", transaction.Payee)
-	return c.categorizeWithGemini(transaction)
-}
-
-// -------- Public API (Facade Methods) --------
+//------------------------------------------------------------------------------
+// PUBLIC API
+//------------------------------------------------------------------------------
 
 // GetCategories returns the list of category names for external use
 // This is a package-level function that uses the default categorizer
@@ -517,30 +796,51 @@ func GetCategories() []string {
 	return defaultCategorizer.getCategories()
 }
 
-// UpdatePayeeCategory adds or updates a payee-to-category mapping
+// UpdateCreditorCategory adds or updates a creditor-to-category mapping
 // This is a package-level function that uses the default categorizer
-func UpdatePayeeCategory(payee, category string) {
+func UpdateCreditorCategory(creditor, category string) {
 	initOnce.Do(initCategorizer)
-	defaultCategorizer.updatePayeeCategory(payee, category)
+	defaultCategorizer.updateCreditorCategory(creditor, category)
 }
 
-// GetPayeeCategory retrieves the category for a given payee if it exists
+// UpdateDebitorCategory adds or updates a debitor-to-category mapping
 // This is a package-level function that uses the default categorizer
-func GetPayeeCategory(payee string) (string, bool) {
+func UpdateDebitorCategory(debitor, category string) {
 	initOnce.Do(initCategorizer)
-	return defaultCategorizer.getPayeeCategory(payee)
+	defaultCategorizer.updateDebitorCategory(debitor, category)
+}
+
+// GetCreditorCategory retrieves the category for a given creditor if it exists
+// This is a package-level function that uses the default categorizer
+func GetCreditorCategory(creditor string) (string, bool) {
+	initOnce.Do(initCategorizer)
+	return defaultCategorizer.getCreditorCategory(creditor)
+}
+
+// GetDebitorCategory retrieves the category for a given debitor if it exists
+// This is a package-level function that uses the default categorizer
+func GetDebitorCategory(debitor string) (string, bool) {
+	initOnce.Do(initCategorizer)
+	return defaultCategorizer.getDebitorCategory(debitor)
 }
 
 // CategorizeTransaction categorizes a transaction using the default categorizer
 // This is a package-level function that uses the default categorizer
-func CategorizeTransaction(transaction Transaction) (Category, error) {
+func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	initOnce.Do(initCategorizer)
 	return defaultCategorizer.categorizeTransaction(transaction)
 }
 
-// SavePayeesToYAML saves the current payee mappings to the YAML file
+// SaveCreditorsToYAML saves the current creditor mappings to the YAML file
 // This is a package-level function that uses the default categorizer
-func SavePayeesToYAML() error {
+func SaveCreditorsToYAML() error {
 	initOnce.Do(initCategorizer)
-	return defaultCategorizer.savePayeesToYAML()
+	return defaultCategorizer.saveCreditorsToYAML()
+}
+
+// SaveDebitorsToYAML saves the current debitor mappings to the YAML file
+// This is a package-level function that uses the default categorizer
+func SaveDebitorsToYAML() error {
+	initOnce.Do(initCategorizer)
+	return defaultCategorizer.saveDebitorsToYAML()
 }

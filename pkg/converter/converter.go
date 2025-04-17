@@ -11,197 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/pkg/categorizer"
-	"fjacquet/camt-csv/pkg/config"
 )
 
-// CAMT053 is a struct that represents the CAMT.053 XML structure
-type CAMT053 struct {
-	XMLName       xml.Name      `xml:"Document"`
-	BkToCstmrStmt BkToCstmrStmt `xml:"BkToCstmrStmt"`
-}
-
-// BkToCstmrStmt represents the Bank To Customer Statement
-type BkToCstmrStmt struct {
-	GrpHdr GrpHdr `xml:"GrpHdr"`
-	Stmt   Stmt   `xml:"Stmt"`
-}
-
-// GrpHdr represents the Group Header
-type GrpHdr struct {
-	MsgId    string `xml:"MsgId"`
-	CreDtTm  string `xml:"CreDtTm"`
-	MsgPgntn struct {
-		PgNb       string `xml:"PgNb"`
-		LastPgInd  string `xml:"LastPgInd"`
-	} `xml:"MsgPgntn"`
-}
-
-// Stmt represents the Statement
-type Stmt struct {
-	Id        string  `xml:"Id"`
-	ElctrncSeqNb string `xml:"ElctrncSeqNb"`
-	CreDtTm   string  `xml:"CreDtTm"`
-	FrToDt    FrToDt  `xml:"FrToDt"`
-	Acct      Acct    `xml:"Acct"`
-	Bal       []Bal   `xml:"Bal"`
-	Ntry      []Ntry  `xml:"Ntry"`
-}
-
-// FrToDt represents the From To Date
-type FrToDt struct {
-	FrDtTm  string `xml:"FrDtTm"`
-	ToDtTm  string `xml:"ToDtTm"`
-}
-
-// Acct represents the Account
-type Acct struct {
-	Id   struct {
-		IBAN string `xml:"IBAN"`
-	} `xml:"Id"`
-	Ccy  string `xml:"Ccy"`
-	Ownr struct {
-		Nm  string `xml:"Nm"`
-	} `xml:"Ownr"`
-}
-
-// Bal represents the Balance
-type Bal struct {
-	Tp        Tp     `xml:"Tp"`
-	Amt       Amt    `xml:"Amt"`
-	CdtDbtInd string `xml:"CdtDbtInd"`
-	Dt        struct {
-		Dt string `xml:"Dt"`
-	} `xml:"Dt"`
-}
-
-// Tp represents the Type
-type Tp struct {
-	CdOrPrtry CdOrPrtry `xml:"CdOrPrtry"`
-}
-
-// CdOrPrtry represents the Code or Proprietary
-type CdOrPrtry struct {
-	Cd string `xml:"Cd"`
-}
-
-// Amt represents the Amount
-type Amt struct {
-	Text string `xml:",chardata"`
-	Ccy  string `xml:"Ccy,attr"`
-}
-
-// Ntry represents the Entry
-type Ntry struct {
-	NtryRef      string    `xml:"NtryRef"`
-	Amt          Amt       `xml:"Amt"`
-	CdtDbtInd    string    `xml:"CdtDbtInd"`
-	Sts          string    `xml:"Sts"`
-	BookgDt      BookgDt   `xml:"BookgDt"`
-	ValDt        ValDt     `xml:"ValDt"`
-	AcctSvcrRef  string    `xml:"AcctSvcrRef"`
-	BkTxCd       BkTxCd    `xml:"BkTxCd"`
-	NtryDtls     NtryDtls  `xml:"NtryDtls"`
-	AddtlNtryInf string    `xml:"AddtlNtryInf"`
-}
-
-// BookgDt represents the Booking Date
-type BookgDt struct {
-	Dt string `xml:"Dt"`
-}
-
-// ValDt represents the Value Date
-type ValDt struct {
-	Dt string `xml:"Dt"`
-}
-
-// BkTxCd represents the Bank Transaction Code
-type BkTxCd struct {
-	Domn Domn `xml:"Domn"`
-}
-
-// Domn represents the Domain
-type Domn struct {
-	Cd    string `xml:"Cd"`
-	Fmly  Fmly   `xml:"Fmly"`
-}
-
-// Fmly represents the Family
-type Fmly struct {
-	Cd         string `xml:"Cd"`
-	SubFmlyCd  string `xml:"SubFmlyCd"`
-}
-
-// NtryDtls represents the Entry Details
-type NtryDtls struct {
-	TxDtls []TxDtls `xml:"TxDtls"`
-}
-
-// TxDtls represents the Transaction Details
-type TxDtls struct {
-	Refs     Refs     `xml:"Refs"`
-	Amt      Amt      `xml:"Amt"`
-	CdtDbtInd string  `xml:"CdtDbtInd"`
-	AmtDtls  AmtDtls  `xml:"AmtDtls"`
-	RltdPties RltdPties `xml:"RltdPties"`
-	RmtInf    RmtInf   `xml:"RmtInf"`
-}
-
-// Refs represents the References
-type Refs struct {
-	MsgId       string `xml:"MsgId"`
-	EndToEndId  string `xml:"EndToEndId"`
-	TxId        string `xml:"TxId"`
-	InstrId     string `xml:"InstrId"`
-}
-
-// AmtDtls represents the Amount Details
-type AmtDtls struct {
-	InstdAmt struct {
-		Amt Amt `xml:"Amt"`
-	} `xml:"InstdAmt"`
-}
-
-// RltdPties represents the Related Parties
-type RltdPties struct {
-	Dbtr       Party `xml:"Dbtr"`
-	DbtrAcct   Acct  `xml:"DbtrAcct"`
-	Cdtr       Party `xml:"Cdtr"`
-	CdtrAcct   Acct  `xml:"CdtrAcct"`
-}
-
-// Party represents a Party (Debtor or Creditor)
-type Party struct {
-	Nm string `xml:"Nm"`
-}
-
-// RmtInf represents the Remittance Information
-type RmtInf struct {
-	Ustrd []string `xml:"Ustrd"`
-}
-
-// Transaction represents a financial transaction extracted from CAMT.053
-type Transaction struct {
-	Date            string
-	ValueDate       string
-	Description     string
-	BookkeepingNo   string
-	Fund            string
-	Amount          string
-	Currency        string
-	CreditDebit     string
-	EntryReference  string
-	AccountServicer string
-	BankTxCode      string
-	Status          string
-	Payee           string
-	Payer           string
-	IBAN            string
-	NumberOfShares  string
-	StampDuty       string
-	Investment      string
-	Category        string // Added for automatic categorization
-}
+//------------------------------------------------------------------------------
+// MAIN CONVERSION FUNCTIONS
+//------------------------------------------------------------------------------
 
 // ConvertXMLToCSV converts a CAMT.053 XML file to CSV format
 func ConvertXMLToCSV(xmlFile string, csvFile string) error {
@@ -210,7 +26,7 @@ func ConvertXMLToCSV(xmlFile string, csvFile string) error {
 		return fmt.Errorf("error reading XML file: %w", err)
 	}
 
-	var camt053 CAMT053
+	var camt053 models.CAMT053
 	err = xml.Unmarshal(xmlData, &camt053)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling XML: %w", err)
@@ -225,68 +41,69 @@ func ConvertXMLToCSV(xmlFile string, csvFile string) error {
 	writer := csv.NewWriter(csvFileHandle)
 	defer writer.Flush()
 
-	header := []string{"Date", "ValueDate", "Description", "BookkeepingNo", "Fund", "Amount", "Currency", "CreditDebit", "EntryReference", "AccountServicer", "BankTxCode", "Status", "Payee", "Payer", "IBAN", "NumberOfShares", "StampDuty", "Investment", "Category"}
-	err = writer.Write(header)
-	if err != nil {
+	// Write CSV header
+	header := []string{
+		"Date", "Value Date", "Description", "Bookkeeping No.", "Fund", 
+		"Amount", "Currency", "Credit/Debit", "Entry Reference", 
+		"Account Servicer Ref", "Bank Transaction Code", "Status", 
+		"Payee", "Payer", "IBAN", "Category",
+	}
+	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("error writing CSV header: %w", err)
 	}
 
+	// Extract transactions and write to CSV
 	transactions := extractTransactions(&camt053)
-	
-	// Load environment variables for API keys
-	config.LoadEnv()
-	
-	// Automatically categorize each transaction
-	for i := range transactions {
-		// Skip categorization if payee is empty
-		if transactions[i].Payee == "" {
-			transactions[i].Category = "Uncategorized"
-			continue
-		}
+	for _, tx := range transactions {
+		// Determine if the party is a debtor (payer) or creditor (payee) based on credit/debit indicator
+		var partyName string
+		var isDebtor bool
 		
-		// Create a categorizer transaction from our converter transaction
-		catTx := categorizer.Transaction{
-			Payee:   transactions[i].Payee,
-			Amount:  transactions[i].Amount,
-			Date:    transactions[i].Date,
-			Info:    transactions[i].Description,
+		if tx.CreditDebit == "CRDT" {
+			// For credit entries (money coming IN), the party is a creditor (paying you)
+			partyName = tx.Payer
+			isDebtor = false
+		} else {
+			// For debit entries (money going OUT), the party is a debtor (you're paying them)
+			partyName = tx.Payee
+			isDebtor = true
 		}
 		
 		// Try to categorize the transaction
-		category, err := categorizer.CategorizeTransaction(catTx)
-		if err != nil {
-			// If categorization fails, just use "Uncategorized"
-			transactions[i].Category = "Uncategorized"
+		catTx := categorizer.Transaction{
+			PartyName: partyName,
+			IsDebtor:  isDebtor,
+			Amount:    tx.Amount,
+			Date:      tx.Date,
+			Info:      tx.Description,
+		}
+		
+		cat, err := categorizer.CategorizeTransaction(catTx)
+		if err == nil {
+			tx.Category = cat.Name
 		} else {
-			// Otherwise, use the determined category
-			transactions[i].Category = category.Name
+			tx.Category = "Uncategorized"
 		}
-	}
-	
-	for _, transaction := range transactions {
+
 		record := []string{
-			transaction.Date,
-			transaction.ValueDate,
-			transaction.Description,
-			transaction.BookkeepingNo,
-			transaction.Fund,
-			transaction.Amount,
-			transaction.Currency,
-			transaction.CreditDebit,
-			transaction.EntryReference,
-			transaction.AccountServicer,
-			transaction.BankTxCode,
-			transaction.Status,
-			transaction.Payee,
-			transaction.Payer,
-			transaction.IBAN,
-			transaction.NumberOfShares,
-			transaction.StampDuty,
-			transaction.Investment,
-			transaction.Category,
+			tx.Date,
+			tx.ValueDate,
+			tx.Description,
+			tx.BookkeepingNo,
+			tx.Fund,
+			tx.Amount,
+			tx.Currency,
+			tx.CreditDebit,
+			tx.EntryReference,
+			tx.AccountServicer,
+			tx.BankTxCode,
+			tx.Status,
+			tx.Payee,
+			tx.Payer,
+			tx.IBAN,
+			tx.Category,
 		}
-		err = writer.Write(record)
-		if err != nil {
+		if err := writer.Write(record); err != nil {
 			return fmt.Errorf("error writing CSV record: %w", err)
 		}
 	}
@@ -294,125 +111,193 @@ func ConvertXMLToCSV(xmlFile string, csvFile string) error {
 	return nil
 }
 
-// extractTransactions extracts all transactions from a CAMT.053 document
-func extractTransactions(camt053 *CAMT053) []Transaction {
-	var transactions []Transaction
-	
-	// Get account information from statement
-	iban := ""
-	accountOwner := ""
-	if camt053.BkToCstmrStmt.Stmt.Acct.Id.IBAN != "" {
-		iban = camt053.BkToCstmrStmt.Stmt.Acct.Id.IBAN
-	}
-	if camt053.BkToCstmrStmt.Stmt.Acct.Ownr.Nm != "" {
-		accountOwner = camt053.BkToCstmrStmt.Stmt.Acct.Ownr.Nm
+// BatchConvert converts all XML files in a directory to CSV files
+func BatchConvert(inputDir, outputDir string) (int, error) {
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return 0, fmt.Errorf("error creating output directory: %w", err)
 	}
 
-	for _, entry := range camt053.BkToCstmrStmt.Stmt.Ntry {
-		// Default transaction with data available at the entry level
-		transaction := Transaction{
-			Date:            formatDate(entry.BookgDt.Dt),
-			ValueDate:       formatDate(entry.ValDt.Dt),
-			Description:     entry.AddtlNtryInf,
-			BookkeepingNo:   "",
-			Fund:            "",
-			Amount:          entry.Amt.Text,
-			Currency:        entry.Amt.Ccy,
-			CreditDebit:     entry.CdtDbtInd,
-			EntryReference:  entry.NtryRef,
-			AccountServicer: entry.AcctSvcrRef,
-			BankTxCode:      formatBankTxCode(entry.BkTxCd),
-			Status:          entry.Sts,
-			Payee:           "", // Will be filled in based on transaction details
-			Payer:           accountOwner,
-			IBAN:            iban,
-			NumberOfShares:  "",
-			StampDuty:       "",
-			Investment:      entry.AddtlNtryInf,
-			Category:        "", // Initialize Category field
+	// Get all XML files in input directory
+	files, err := os.ReadDir(inputDir)
+	if err != nil {
+		return 0, fmt.Errorf("error reading input directory: %w", err)
+	}
+
+	count := 0
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
+			continue
 		}
-		
-		// Check if there are transaction details
-		if len(entry.NtryDtls.TxDtls) > 0 {
-			// Process each transaction detail
-			for _, txDtl := range entry.NtryDtls.TxDtls {
-				// Create a copy of the base transaction for this detail
-				txCopy := transaction
-				
-				// Handle references
-				txCopy.BookkeepingNo = extractReference(txDtl.Refs)
-				
-				// If no description yet, use the reference as description
-				if txCopy.Description == "" && txCopy.BookkeepingNo != "" {
-					txCopy.Description = txCopy.BookkeepingNo
-				}
-				
-				// Extract payee according to CAMT.053 standard
-				// For credit entries, the debtor is the payee (who paid us)
-				// For debit entries, the creditor is the payee (whom we paid)
-				if entry.CdtDbtInd == "CRDT" && txDtl.RltdPties.Dbtr.Nm != "" {
-					txCopy.Payee = txDtl.RltdPties.Dbtr.Nm
-				} else if entry.CdtDbtInd == "DBIT" && txDtl.RltdPties.Cdtr.Nm != "" {
-					txCopy.Payee = txDtl.RltdPties.Cdtr.Nm
-				}
-				
-				// Extract IBAN information
-				if entry.CdtDbtInd == "CRDT" && txDtl.RltdPties.DbtrAcct.Id.IBAN != "" {
-					txCopy.IBAN = txDtl.RltdPties.DbtrAcct.Id.IBAN
-				} else if entry.CdtDbtInd == "DBIT" && txDtl.RltdPties.CdtrAcct.Id.IBAN != "" {
-					txCopy.IBAN = txDtl.RltdPties.CdtrAcct.Id.IBAN
-				}
-				
-				// Check if there is remittance information
-				if len(txDtl.RmtInf.Ustrd) > 0 {
-					// Process each remittance information
-					for _, ustrd := range txDtl.RmtInf.Ustrd {
-						// Create a copy of the transaction detail
-						rmtCopy := txCopy
-						
-						// Extract additional information from remittance info
-						rmtCopy.Description = cleanDescription(ustrd)
-						
-						// Try to extract bookkeeping number if not already set
-						if rmtCopy.BookkeepingNo == "" {
-							rmtCopy.BookkeepingNo = extractBookkeepingNo(ustrd)
-						}
-						
-						rmtCopy.Fund = extractFund(ustrd)
-						rmtCopy.Investment = ustrd
-						
-						// Try to extract payee from remittance info if not set yet
-						if rmtCopy.Payee == "" {
-							rmtCopy.Payee = extractPayeeFromRemittanceInfo(ustrd, entry.CdtDbtInd)
-						}
-						
-						transactions = append(transactions, rmtCopy)
-					}
-				} else {
-					// No remittance info, just add the transaction with reference info
-					
-					// If payee is still empty, use a fallback
-					if txCopy.Payee == "" {
-						txCopy.Payee = extractFallbackPayee(entry, txCopy.Description)
-					}
-					
-					transactions = append(transactions, txCopy)
-				}
+
+		inputFile := filepath.Join(inputDir, file.Name())
+		outputFile := filepath.Join(outputDir, strings.TrimSuffix(file.Name(), ".xml")+".csv")
+
+		// Validate if the file is CAMT.053
+		isValid, err := ValidateCAMT053(inputFile)
+		if err != nil {
+			fmt.Printf("Error validating %s: %v\n", file.Name(), err)
+			continue
+		}
+
+		if !isValid {
+			fmt.Printf("Skipping %s: Not a valid CAMT.053 file\n", file.Name())
+			continue
+		}
+
+		// Convert file
+		fmt.Printf("Converting %s to %s\n", file.Name(), filepath.Base(outputFile))
+		if err := ConvertXMLToCSV(inputFile, outputFile); err != nil {
+			fmt.Printf("Error converting %s: %v\n", file.Name(), err)
+			continue
+		}
+
+		count++
+	}
+
+	return count, nil
+}
+
+// ValidateCAMT053 validates if an XML file is a valid CAMT.053 format
+func ValidateCAMT053(xmlFile string) (bool, error) {
+	xmlData, err := os.ReadFile(xmlFile)
+	if err != nil {
+		return false, fmt.Errorf("error reading XML file: %w", err)
+	}
+
+	var camt053 models.CAMT053
+	err = xml.Unmarshal(xmlData, &camt053)
+	if err != nil {
+		return false, nil // Not a valid XML or not CAMT.053
+	}
+
+	// Check if it has the necessary CAMT.053 structure
+	if camt053.BkToCstmrStmt.Stmt.Id == "" {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+//------------------------------------------------------------------------------
+// TRANSACTION EXTRACTION AND PROCESSING
+//------------------------------------------------------------------------------
+
+// extractTransactions extracts all transactions from a CAMT.053 document
+func extractTransactions(camt053 *models.CAMT053) []models.Transaction {
+	var transactions []models.Transaction
+
+	for _, entry := range camt053.BkToCstmrStmt.Stmt.Ntry {
+		// Skip entries that are not booked
+		if entry.Sts != "BOOK" {
+			continue
+		}
+
+		// Process each transaction detail
+		for _, txDtl := range entry.NtryDtls.TxDtls {
+			// Extract remittance information
+			var remittanceInfo string
+			if len(txDtl.RmtInf.Ustrd) > 0 {
+				remittanceInfo = strings.Join(txDtl.RmtInf.Ustrd, " ")
 			}
-		} else {
-			// No transaction details, just add the base transaction
-			// Use the description as fallback payee if no other payee is available
-			transaction.Payee = extractFallbackPayee(entry, transaction.Description)
+
+			// Clean up description
+			description := cleanDescription(remittanceInfo)
 			
-			transactions = append(transactions, transaction)
+			// Extract payee from remittance info or related parties
+			var payee string
+			if entry.CdtDbtInd == "DBIT" && txDtl.RltdPties.Cdtr.Nm != "" {
+				// For debit transactions, the creditor is the payee
+				payee = txDtl.RltdPties.Cdtr.Nm
+			} else if entry.CdtDbtInd == "CRDT" && txDtl.RltdPties.Dbtr.Nm != "" {
+				// For credit transactions, the debtor is the payee
+				payee = txDtl.RltdPties.Dbtr.Nm
+			} else {
+				// Try to extract payee from remittance information
+				payee = extractPayeeFromRemittanceInfo(remittanceInfo, entry.CdtDbtInd)
+			}
+
+			// If no payee could be extracted, use a fallback
+			if payee == "" {
+				payee = extractFallbackPayee(entry, description)
+			}
+
+			// Normalize payee name: trim spaces, convert to lowercase for better matching
+			if payee != "" {
+				payee = strings.TrimSpace(payee)
+			}
+
+			// Extract payer information
+			var payer string
+			if entry.CdtDbtInd == "DBIT" {
+				// For debit transactions, account owner is the payer
+				payer = camt053.BkToCstmrStmt.Stmt.Acct.Ownr.Nm
+			} else if txDtl.RltdPties.Dbtr.Nm != "" {
+				payer = txDtl.RltdPties.Dbtr.Nm
+			}
+
+			// Ensure payer is not empty
+			if payer == "" {
+				payer = "JACQUET" // Default payer based on account owner
+			}
+
+			// Normalize payer name: trim spaces for better matching
+			if payer != "" {
+				payer = strings.TrimSpace(payer)
+			}
+
+			// Extract IBAN
+			var iban string
+			if entry.CdtDbtInd == "DBIT" && txDtl.RltdPties.CdtrAcct.Id.IBAN != "" {
+				iban = txDtl.RltdPties.CdtrAcct.Id.IBAN
+			} else if entry.CdtDbtInd == "CRDT" && txDtl.RltdPties.DbtrAcct.Id.IBAN != "" {
+				iban = txDtl.RltdPties.DbtrAcct.Id.IBAN
+			}
+
+			// Format the bank transaction code
+			bankTxCode := formatBankTxCode(entry.BkTxCd)
+
+			// Format dates
+			bookingDate := formatDate(entry.BookgDt.Dt)
+			valueDate := formatDate(entry.ValDt.Dt)
+
+			// Extract additional info from remittance info
+			bookkeepingNo := extractBookkeepingNo(remittanceInfo)
+			fund := extractFund(remittanceInfo)
+
+			// Create transaction object
+			tx := models.Transaction{
+				Date:            bookingDate,
+				ValueDate:       valueDate,
+				Description:     description,
+				BookkeepingNo:   bookkeepingNo,
+				Fund:            fund,
+				Amount:          entry.Amt.Text,
+				Currency:        entry.Amt.Ccy,
+				CreditDebit:     entry.CdtDbtInd,
+				EntryReference:  entry.NtryRef,
+				AccountServicer: entry.AcctSvcrRef,
+				BankTxCode:      bankTxCode,
+				Status:          entry.Sts,
+				Payee:           payee,
+				Payer:           payer,
+				IBAN:            iban,
+				Category:        "", // Will be set during categorization
+			}
+
+			transactions = append(transactions, tx)
 		}
 	}
 
 	return transactions
 }
 
+//------------------------------------------------------------------------------
+// TEXT EXTRACTION AND FORMATTING UTILITIES
+//------------------------------------------------------------------------------
+
 // formatBankTxCode formats the bank transaction code properly
-func formatBankTxCode(bkTxCd BkTxCd) string {
+func formatBankTxCode(bkTxCd models.BkTxCd) string {
 	if bkTxCd.Domn.Cd == "" {
 		return ""
 	}
@@ -429,7 +314,7 @@ func formatBankTxCode(bkTxCd BkTxCd) string {
 }
 
 // extractReference gets the best reference from the available options
-func extractReference(refs Refs) string {
+func extractReference(refs models.Refs) string {
 	if refs.EndToEndId != "" {
 		return refs.EndToEndId
 	} else if refs.TxId != "" {
@@ -484,7 +369,7 @@ func extractPayeeFromRemittanceInfo(ustrd string, cdtDbtInd string) string {
 }
 
 // extractFallbackPayee provides a fallback payee when none can be extracted from the transaction details
-func extractFallbackPayee(entry Ntry, description string) string {
+func extractFallbackPayee(entry models.Ntry, description string) string {
 	// If no description or it's very generic, use transaction type
 	if description == "" || description == "TRANSACTION" || description == "PAYMENT" {
 		if entry.CdtDbtInd == "DBIT" {
@@ -575,59 +460,4 @@ func formatDate(date string) string {
 	}
 
 	return t.Format("Jan 02, 2006")
-}
-
-// BatchConvert converts all XML files in a directory to CSV files
-func BatchConvert(inputDir, outputDir string) (int, error) {
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		err = os.MkdirAll(outputDir, 0755)
-		if err != nil {
-			return 0, fmt.Errorf("error creating output directory: %w", err)
-		}
-	}
-
-	files, err := os.ReadDir(inputDir)
-	if err != nil {
-		return 0, fmt.Errorf("error reading input directory: %w", err)
-	}
-
-	count := 0
-	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
-			continue
-		}
-
-		inputPath := filepath.Join(inputDir, file.Name())
-		outputPath := filepath.Join(outputDir, strings.TrimSuffix(file.Name(), ".xml")+".csv")
-
-		err = ConvertXMLToCSV(inputPath, outputPath)
-		if err != nil {
-			return count, fmt.Errorf("error converting %s: %w", file.Name(), err)
-		}
-
-		count++
-	}
-
-	return count, nil
-}
-
-// ValidateCAMT053 validates if an XML file is a valid CAMT.053 format
-func ValidateCAMT053(xmlFile string) (bool, error) {
-	xmlData, err := os.ReadFile(xmlFile)
-	if err != nil {
-		return false, fmt.Errorf("error reading XML file: %w", err)
-	}
-
-	var camt053 CAMT053
-	err = xml.Unmarshal(xmlData, &camt053)
-	if err != nil {
-		return false, nil // Not a valid XML or not in CAMT.053 format
-	}
-
-	// Check if it has the required structure for CAMT.053
-	if camt053.BkToCstmrStmt.Stmt.Id == "" {
-		return false, nil
-	}
-
-	return true, nil
 }
