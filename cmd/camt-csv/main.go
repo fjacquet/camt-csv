@@ -53,8 +53,8 @@ It also provides transaction categorization based on the party's name using Gemi
 	},
 }
 
-var convertCmd = &cobra.Command{
-	Use:   "convert",
+var camtCmd = &cobra.Command{
+	Use:   "camt",
 	Short: "Convert CAMT.053 XML to CSV",
 	Long:  `Convert CAMT.053 XML files to CSV format.`,
 	Run:   convertFunc,
@@ -207,18 +207,18 @@ func init() {
 	})
 
 	// Add commands to root command
-	rootCmd.AddCommand(convertCmd)
+	rootCmd.AddCommand(camtCmd)
 	rootCmd.AddCommand(categorizeCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(batchCmd)
 	rootCmd.AddCommand(pdfCmd)
 
 	// Define flags for convert command
-	convertCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file (required)")
-	convertCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file (required)")
-	convertCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate XML format before conversion")
-	convertCmd.MarkFlagRequired("xml")
-	convertCmd.MarkFlagRequired("csv")
+	camtCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file (required)")
+	camtCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file (required)")
+	camtCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate XML format before conversion")
+	camtCmd.MarkFlagRequired("xml")
+	camtCmd.MarkFlagRequired("csv")
 
 	// Define flags for batch command
 	batchCmd.Flags().StringVarP(&inputDir, "input", "i", "", "Input directory containing XML files (required)")

@@ -55,8 +55,8 @@ It also provides transaction categorization based on the party's name.`,
 	},
 }
 
-var convertCmd = &cobra.Command{
-	Use:   "convert",
+var camtCmd = &cobra.Command{
+	Use:   "camt",
 	Short: "Convert CAMT.053 XML to CSV",
 	Long:  `Convert CAMT.053 XML files to CSV format.`,
 	Run: convertFunc,
@@ -213,16 +213,16 @@ func init() {
 	pdfparser.SetLogger(log)
 	selmaparser.SetLogger(log)
 	
-	rootCmd.AddCommand(convertCmd)
+	rootCmd.AddCommand(camtCmd)
 	rootCmd.AddCommand(batchCmd)
 	rootCmd.AddCommand(categorizeCmd)
 	rootCmd.AddCommand(pdfCmd)
 	rootCmd.AddCommand(selmaCmd)
 
-	convertCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file")
-	convertCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
-	convertCmd.MarkFlagRequired("xml")
-	convertCmd.MarkFlagRequired("csv")
+	camtCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file")
+	camtCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
+	camtCmd.MarkFlagRequired("xml")
+	camtCmd.MarkFlagRequired("csv")
 	
 	batchCmd.Flags().StringVarP(&inputDir, "input", "i", "", "Input directory containing XML files")
 	batchCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory for CSV files")
