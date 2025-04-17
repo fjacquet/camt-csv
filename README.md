@@ -11,6 +11,7 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 - Detailed logging with Logrus
 - Convert PDF files to CSV format
 - Batch processing for multiple files
+- Process Selma investment CSV files with intelligent categorization
 
 ## Installation
 
@@ -28,6 +29,33 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 git clone https://github.com/fjacquet/camt-csv.git
 cd camt-csv
 go build -o camt-csv ./cmd/camt-csv
+```
+
+## Configuration
+
+The application can be configured using environment variables or an `.env` file in the project root. 
+A sample configuration file `.env.sample` is provided as a template.
+
+### Environment Variables
+
+| Variable | Description | Default | Available Options |
+|----------|-------------|---------|-------------------|
+| GOOGLE_API_KEY | API key for Gemini AI (transaction categorization) | - | - |
+| LOG_LEVEL | Controls the verbosity of logging | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic` |
+| LOG_FORMAT | Format of the log output | `text` | `text`, `json` |
+| DATA_DIR | Directory for configuration files | `.` | Any valid directory path |
+
+For example:
+
+```bash
+# Enable debug logging
+export LOG_LEVEL=debug
+
+# Use JSON log format (useful for log aggregation)
+export LOG_FORMAT=json
+
+# Run the application
+./camt-csv convert -i input.xml -o output.csv
 ```
 
 ## Usage
@@ -50,6 +78,12 @@ go build -o camt-csv ./cmd/camt-csv
 ./camt-csv batch -i input_directory -o output_directory
 ```
 
+### Process Selma CSV Files
+
+```bash
+./camt-csv selma -i input_selma.csv -o processed_output.csv
+```
+
 ### Validate XML Format
 
 ```bash
@@ -67,19 +101,65 @@ go build -o camt-csv ./cmd/camt-csv
 ```
 camt-csv/
 ├── cmd/
-│   └── camt-csv/       # CLI application entry point
-├── pkg/
-│   ├── converter/      # XML to CSV conversion logic
-│   ├── categorizer/    # Transaction categorization logic
-│   ├── pdfparser/      # PDF to CSV conversion logic
-│   └── config/         # Environment configuration
-├── database/           # Configuration data files
-│   └── categories.yaml # Transaction categorization rules
-└── samples/            # Sample files for testing
-    ├── camt053/        # Sample CAMT.053 XML files
-    ├── csv/            # Output CSV files
-    └── pdf/            # Sample PDF files
+│   └── camt-csv/        # CLI application entry point
+├── internal/            # Application-specific packages
+│   ├── categorizer/     # Transaction categorization logic
+│   ├── config/          # Environment configuration
+│   ├── converter/       # XML to CSV conversion logic
+│   ├── models/          # Data models used internally
+│   ├── pdfparser/       # PDF to CSV conversion logic
+│   └── selmaparser/     # Selma CSV processing logic
+├── database/            # Configuration data files
+│   └── categories.yaml  # Transaction categorization rules
+└── samples/             # Sample files for testing
+    ├── camt053/         # Sample CAMT.053 XML files
+    ├── csv/             # Output CSV files
+    └── pdf/             # Sample PDF files
 ```
+
+According to Go best practices, all application-specific code is placed in the `internal/` directory, ensuring it cannot be imported by other projects. This follows the principle of encapsulation and helps maintain clear boundaries in the codebase.
+
+## Standardized Parser Architecture
+
+The application has been designed with a standardized parser architecture across all data source types. Each parser package follows the same interface pattern, making it easy to maintain and extend with new data sources.
+
+### Parser Interface
+
+All parsers implement the following standard functions:
+
+| Function | Description |
+|----------|-------------|
+| `ParseFile(filePath string) ([]models.Transaction, error)` | Parses a source file and extracts transactions |
+| `WriteToCSV(transactions []models.Transaction, csvFile string) error` | Writes a slice of transactions to a CSV file |
+| `ValidateFormat(filePath string) (bool, error)` | Validates that a file is in the expected format |
+| `ConvertToCSV(inputFile, outputFile string) error` | Convenience method to parse and write in one operation |
+| `SetLogger(logger *logrus.Logger)` | Sets a configured logger for the parser |
+
+### Available Parsers
+
+1. **camtparser**: Parses CAMT.053 XML bank statement files
+   ```go
+   transactions, err := camtparser.ParseFile("statement.xml")
+   ```
+
+2. **pdfparser**: Extracts transaction data from PDF bank statements
+   ```go
+   transactions, err := pdfparser.ParseFile("statement.pdf")
+   ```
+
+3. **selmaparser**: Processes Selma investment CSV files
+   ```go
+   transactions, err := selmaparser.ParseFile("investments.csv")
+   err = selmaparser.WriteToCSV(transactions, "output.csv")
+   ```
+
+### Internal Architecture
+
+Each parser package follows a consistent structure:
+- `xxxparser.go`: Contains the public API and main functions
+- `xxxparser_helpers.go`: Contains internal implementation details and helper functions
+
+This separation improves code organization by clearly distinguishing between the public interface and the implementation details.
 
 ## CAMT.053 Format
 
@@ -118,3 +198,30 @@ To add new categories or modify existing ones:
 3. Restart the application for changes to take effect
 
 This approach significantly reduces API calls for recurring transaction types, making the categorization process faster and more efficient.
+
+## Selma CSV Processing
+
+The Selma CSV processor is designed to work with investment transaction data from Selma, enhancing it with:
+
+1. **Transaction Categorization**: Automatically identifies and categorizes different types of investment transactions:
+   - Initial categorization based on transaction type (Dividend, Income, etc.)
+   - Advanced AI-based categorization for unrecognized transactions
+   - Integration with the same categorization engine used for CAMT transactions
+
+2. **Stamp Duty Handling**: Associates stamp duty amounts with their corresponding trade transactions.
+
+3. **Data Cleaning**: Filters out redundant entries and improves data organization.
+
+### Sample Selma CSV Command
+
+Process a Selma investment CSV file and output the categorized transactions:
+
+```bash
+# Basic processing
+./camt-csv selma -i selma_transactions.csv -o processed_selma.csv
+
+# View the processed output
+cat processed_selma.csv
+```
+
+The processed output will include additional fields for categorization and associated stamp duty amounts.

@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -15,6 +16,36 @@ var (
 	log  = logrus.New()
 )
 
+// ConfigureLogging sets up logging based on environment variables
+func ConfigureLogging() *logrus.Logger {
+	// Configure log level
+	logLevelStr := os.Getenv("LOG_LEVEL")
+	if logLevelStr == "" {
+		logLevelStr = "info" // Default log level
+	}
+
+	// Parse the log level
+	logLevel, err := logrus.ParseLevel(strings.ToLower(logLevelStr))
+	if err != nil {
+		log.Warnf("Invalid log level '%s', using 'info'", logLevelStr)
+		logLevel = logrus.InfoLevel
+	}
+	log.SetLevel(logLevel)
+
+	// Configure log format
+	logFormat := os.Getenv("LOG_FORMAT")
+	if strings.ToLower(logFormat) == "json" {
+		log.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		// Default to text formatter
+		log.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp: true,
+		})
+	}
+
+	return log
+}
+
 // LoadEnv loads environment variables from .env file if it exists
 func LoadEnv() {
 	once.Do(func() {
@@ -22,22 +53,23 @@ func LoadEnv() {
 		envFile := ".env"
 		if _, err := os.Stat(envFile); os.IsNotExist(err) {
 			// Try to find .env in parent directory (project root)
-			workDir, err := os.Getwd()
-			if err == nil {
-				parentEnvFile := filepath.Join(filepath.Dir(workDir), ".env")
-				if _, err := os.Stat(parentEnvFile); err == nil {
-					envFile = parentEnvFile
-				}
+			envFile = filepath.Join("..", ".env")
+			if _, err := os.Stat(envFile); os.IsNotExist(err) {
+				log.Info("No .env file found, using environment variables")
+				return
 			}
 		}
 
+		// Load .env file
 		err := godotenv.Load(envFile)
 		if err != nil {
 			log.Warnf("Error loading .env file: %v", err)
-			log.Info("Continuing with existing environment variables")
-		} else {
-			log.Infof("Environment variables loaded from %s", envFile)
+			return
 		}
+		log.Infof("Loaded environment variables from %s", envFile)
+		
+		// Configure logging after loading environment variables
+		ConfigureLogging()
 	})
 }
 

@@ -3,7 +3,7 @@ package categorizer
 import (
 	"testing"
 
-	"fjacquet/camt-csv/pkg/config"
+	"fjacquet/camt-csv/internal/config"
 )
 
 func TestCategorizeTransaction(t *testing.T) {

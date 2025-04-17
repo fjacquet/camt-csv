@@ -4,24 +4,30 @@ import (
 	"fmt"
 	"os"
 
-	"fjacquet/camt-csv/pkg/categorizer"
-	"fjacquet/camt-csv/pkg/converter"
-	"fjacquet/camt-csv/pkg/config"
-	"fjacquet/camt-csv/pkg/pdfparser"
-	"fjacquet/camt-csv/pkg/paprika"
+	"fjacquet/camt-csv/internal/camtparser"
+	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/pdfparser"
+	"fjacquet/camt-csv/internal/selmaparser"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
-	log = logrus.New()
-	xmlFile string
-	csvFile string
-	inputDir string
+	log       = logrus.New()
+	xmlFile   string
+	csvFile   string
+	pdfFile   string
+	inputDir  string
 	outputDir string
-	pdfFile string
-	paprikaFile string
+	validate  bool
+	partyName string
+	isDebtor  bool
+	amount    string
+	date      string
+	info      string
+	selmaFile string
 )
 
 var rootCmd = &cobra.Command{
@@ -31,8 +37,8 @@ var rootCmd = &cobra.Command{
 It also provides transaction categorization based on the party's name.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Do Stuff Here
-		fmt.Println("Welcome to camt-csv!")
-		fmt.Println("Use --help to see available commands")
+		log.Info("Welcome to camt-csv!")
+		log.Info("Use --help to see available commands")
 	},
 	// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -63,28 +69,6 @@ var batchCmd = &cobra.Command{
 	Run: batchFunc,
 }
 
-func convertFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("Convert command called")
-	// Call the convertXMLToCSV function from converter package
-	err := converter.ConvertXMLToCSV(xmlFile, csvFile)
-	if err != nil {
-		log.Fatalf("Error converting XML to CSV: %v", err)
-	}
-	fmt.Println("XML to CSV conversion completed successfully!")
-}
-
-func batchFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("Batch convert command called")
-	fmt.Printf("Input directory: %s\n", inputDir)
-	fmt.Printf("Output directory: %s\n", outputDir)
-	
-	count, err := converter.BatchConvert(inputDir, outputDir)
-	if err != nil {
-		log.Fatalf("Error during batch conversion: %v", err)
-	}
-	fmt.Printf("Batch conversion completed successfully! Converted %d files.\n", count)
-}
-
 var categorizeCmd = &cobra.Command{
 	Use:   "categorize",
 	Short: "Categorize transactions using Gemini-2.0-fast model",
@@ -99,44 +83,51 @@ var pdfCmd = &cobra.Command{
 	Run: pdfFunc,
 }
 
-var exportPaprikaCmd = &cobra.Command{
-	Use:   "export-paprika",
-	Short: "Export CSV to Paprika format",
-	Long:  `Export transaction data from CSV file to Paprika-compatible format for import into financial applications.`,
-	Run: exportPaprikaFunc,
+var selmaCmd = &cobra.Command{
+	Use:   "selma",
+	Short: "Process Selma CSV files",
+	Long:  `Process Selma CSV files to categorize and organize investment transactions.`,
+	Run: selmaFunc,
 }
 
-var importPaprikaCmd = &cobra.Command{
-	Use:   "import-paprika",
-	Short: "Import from Paprika format to CSV",
-	Long:  `Import transaction data from Paprika-compatible format into CSV for use with this application.`,
-	Run: importPaprikaFunc,
+func convertFunc(cmd *cobra.Command, args []string) {
+	log.Info("Convert command called")
+	log.Infof("Input file: %s", xmlFile)
+	log.Infof("Output file: %s", csvFile)
+
+	if validate {
+		log.Info("Validating CAMT.053 format...")
+		valid, err := camtparser.ValidateFormat(xmlFile)
+		if err != nil {
+			log.Fatalf("Error validating XML file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not in valid CAMT.053 format")
+		}
+		log.Info("Validation successful. File is in valid CAMT.053 format.")
+	}
+
+	err := camtparser.ConvertToCSV(xmlFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting XML to CSV: %v", err)
+	}
+	log.Info("XML to CSV conversion completed successfully!")
 }
 
-func pdfFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("PDF convert command called")
-	fmt.Printf("Input PDF file: %s\n", pdfFile)
-	fmt.Printf("Output CSV file: %s\n", csvFile)
-	
-	// Validate PDF file
-	isValid, err := pdfparser.ValidatePDF(pdfFile)
+func batchFunc(cmd *cobra.Command, args []string) {
+	log.Info("Batch convert command called")
+	log.Infof("Input directory: %s", inputDir)
+	log.Infof("Output directory: %s", outputDir)
+
+	count, err := camtparser.BatchConvert(inputDir, outputDir)
 	if err != nil {
-		log.Fatalf("Error validating PDF file: %v", err)
+		log.Fatalf("Error during batch conversion: %v", err)
 	}
-	if !isValid {
-		log.Fatalf("Invalid PDF file: %s", pdfFile)
-	}
-	
-	// Call the ConvertPDFToCSV function from pdfparser package
-	err = pdfparser.ConvertPDFToCSV(pdfFile, csvFile)
-	if err != nil {
-		log.Fatalf("Error converting PDF to CSV: %v", err)
-	}
-	fmt.Println("PDF to CSV conversion completed successfully!")
+	log.Infof("Batch conversion completed successfully! Converted %d files.", count)
 }
 
 func categorizeFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("Categorize command called")
+	log.Info("Categorize command called")
 	
 	// Ensure the environment variables are loaded
 	config.LoadEnv()
@@ -156,42 +147,77 @@ func categorizeFunc(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error categorizing transaction: %v", err)
 	}
 	
-	fmt.Printf("Transaction categorized as: %s\n", category.Name)
+	log.Infof("Transaction categorized as: %s", category.Name)
 }
 
-func exportPaprikaFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("Export Paprika command called")
-	fmt.Printf("Input CSV file: %s\n", csvFile)
-	fmt.Printf("Output Paprika file: %s\n", paprikaFile)
-	
-	// Call the ExportToPaprika function from paprika package
-	err := paprika.ExportToPaprika(csvFile, paprikaFile)
-	if err != nil {
-		log.Fatalf("Error exporting to Paprika: %v", err)
+func pdfFunc(cmd *cobra.Command, args []string) {
+	log.Info("PDF convert command called")
+	log.Infof("Input file: %s", pdfFile)
+	log.Infof("Output file: %s", csvFile)
+
+	if validate {
+		log.Info("Validating PDF format...")
+		valid, err := pdfparser.ValidateFormat(pdfFile)
+		if err != nil {
+			log.Fatalf("Error validating PDF file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not a valid PDF")
+		}
+		log.Info("Validation successful. File is a valid PDF.")
 	}
-	fmt.Println("Export to Paprika completed successfully!")
+
+	err := pdfparser.ConvertToCSV(pdfFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting PDF to CSV: %v", err)
+	}
+	log.Info("PDF to CSV conversion completed successfully!")
 }
 
-func importPaprikaFunc(cmd *cobra.Command, args []string) {
-	fmt.Println("Import Paprika command called")
-	fmt.Printf("Input Paprika file: %s\n", paprikaFile)
-	fmt.Printf("Output CSV file: %s\n", csvFile)
+func selmaFunc(cmd *cobra.Command, args []string) {
+	log.Info("Selma CSV process command called")
+	log.Infof("Input Selma CSV file: %s", selmaFile)
+	log.Infof("Output CSV file: %s", csvFile)
 	
-	// Call the ImportFromPaprika function from paprika package
-	err := paprika.ImportFromPaprika(paprikaFile, csvFile)
-	if err != nil {
-		log.Fatalf("Error importing from Paprika: %v", err)
+	// Set the logger for the selma parser
+	selmaparser.SetLogger(log)
+	
+	if validate {
+		log.Info("Validating Selma CSV format...")
+		valid, err := selmaparser.ValidateFormat(selmaFile)
+		if err != nil {
+			log.Fatalf("Error validating Selma CSV file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not a valid Selma CSV")
+		}
+		log.Info("Validation successful. File is a valid Selma CSV.")
 	}
-	fmt.Println("Import from Paprika completed successfully!")
+
+	// Use the standardized ConvertToCSV method
+	err := selmaparser.ConvertToCSV(selmaFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting Selma CSV to standard CSV: %v", err)
+	}
+	
+	log.Info("Selma CSV processing completed successfully!")
 }
 
 func init() {
+	// Initialize and configure logging
+	config.LoadEnv()
+	log = config.ConfigureLogging()
+	
+	// Set the configured logger for all parsers
+	camtparser.SetLogger(log)
+	pdfparser.SetLogger(log)
+	selmaparser.SetLogger(log)
+	
 	rootCmd.AddCommand(convertCmd)
 	rootCmd.AddCommand(batchCmd)
 	rootCmd.AddCommand(categorizeCmd)
 	rootCmd.AddCommand(pdfCmd)
-	rootCmd.AddCommand(exportPaprikaCmd)
-	rootCmd.AddCommand(importPaprikaCmd)
+	rootCmd.AddCommand(selmaCmd)
 
 	convertCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file")
 	convertCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
@@ -208,22 +234,13 @@ func init() {
 	pdfCmd.MarkFlagRequired("pdf")
 	pdfCmd.MarkFlagRequired("csv")
 	
-	exportPaprikaCmd.Flags().StringVarP(&csvFile, "csv", "i", "", "Input CSV file")
-	exportPaprikaCmd.Flags().StringVarP(&paprikaFile, "paprika", "o", "", "Output Paprika file")
-	exportPaprikaCmd.MarkFlagRequired("csv")
-	exportPaprikaCmd.MarkFlagRequired("paprika")
-	
-	importPaprikaCmd.Flags().StringVarP(&paprikaFile, "paprika", "i", "", "Input Paprika file")
-	importPaprikaCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
-	importPaprikaCmd.MarkFlagRequired("paprika")
-	importPaprikaCmd.MarkFlagRequired("csv")
+	selmaCmd.Flags().StringVarP(&selmaFile, "selma", "i", "", "Input Selma CSV file")
+	selmaCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output processed CSV file")
+	selmaCmd.MarkFlagRequired("selma")
+	selmaCmd.MarkFlagRequired("csv")
 }
 
 func main() {
-	log.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

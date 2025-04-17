@@ -8,16 +8,16 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/pkg/config"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"gopkg.in/yaml.v3"
 )
@@ -51,6 +51,7 @@ type Categorizer struct {
 // Global singleton instance
 var defaultCategorizer *Categorizer
 var initOnce sync.Once
+var log = logrus.New()
 
 //------------------------------------------------------------------------------
 // INITIALIZATION
@@ -66,8 +67,8 @@ func initCategorizer() {
 	// Load categories from YAML
 	err := defaultCategorizer.loadCategoriesFromYAML()
 	if err != nil {
-		log.Printf("Warning: Could not load categories from YAML: %v", err)
-		log.Printf("Falling back to default categories")
+		log.WithError(err).Warning("Could not load categories from YAML")
+		log.Warning("Falling back to default categories")
 		
 		// Create default categories if YAML loading fails
 		defaultCategorizer.categories = []models.CategoryConfig{
@@ -84,23 +85,23 @@ func initCategorizer() {
 	// First try to load from old payees.yaml for backward compatibility
 	errPayees := defaultCategorizer.migrateFromPayeesYAML()
 	if errPayees != nil {
-		log.Printf("Warning: Could not migrate from payees.yaml: %v", errPayees)
+		log.WithError(errPayees).Warning("Warning: Could not migrate from payees.yaml")
 	}
 	
 	// Load creditor mappings from YAML
 	errCreditors := defaultCategorizer.loadCreditorsFromYAML()
 	if errCreditors != nil {
-		log.Printf("Warning: Could not load creditor mappings from YAML: %v", errCreditors)
+		log.WithError(errCreditors).Warning("Warning: Could not load creditor mappings from YAML")
 	}
 	
 	// Load debitor mappings from YAML
 	errDebitors := defaultCategorizer.loadDebitorsFromYAML()
 	if errDebitors != nil {
-		log.Printf("Warning: Could not load debitor mappings from YAML: %v", errDebitors)
+		log.WithError(errDebitors).Warning("Warning: Could not load debitor mappings from YAML")
 	}
 	
 	if errPayees != nil && errCreditors != nil && errDebitors != nil {
-		log.Printf("Starting with empty party mappings database")
+		log.Warning("Starting with empty party mappings database")
 	}
 }
 
@@ -315,19 +316,19 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 	// 1. Check if the creditor/debitor already exists in our mapping database
 	if transaction.IsDebtor {
 		if category, found := c.categorizeByDebitorMapping(transaction); found {
-			log.Printf("Transaction categorized by debitor mapping as: %s", category.Name)
+			log.WithField("category", category.Name).Info("Transaction categorized by debitor mapping")
 			return category, nil
 		}
 	} else {
 		if category, found := c.categorizeByCreditorMapping(transaction); found {
-			log.Printf("Transaction categorized by creditor mapping as: %s", category.Name)
+			log.WithField("category", category.Name).Info("Transaction categorized by creditor mapping")
 			return category, nil
 		}
 	}
 	
 	// 2. Try to categorize using local keyword matching
 	if category, found := c.categorizeLocallyByKeywords(transaction); found {
-		log.Printf("Transaction categorized by keyword matching as: %s", category.Name)
+		log.WithField("category", category.Name).Info("Transaction categorized by keyword matching")
 		// If found by keywords, add to our mapping database for future quick lookups
 		if transaction.PartyName != "" {
 			if transaction.IsDebtor {
@@ -340,12 +341,18 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 	}
 	
 	// 3. Fall back to AI-based categorization if all else fails
-	log.Printf("No local match found, using Gemini AI for categorization")
+	log.Info("No local match found, using Gemini AI for categorization")
 	category, err := c.categorizeWithGemini(transaction)
 	
 	// Even if AI categorization fails, add the party to mappings with "Uncategorized"
 	if err != nil && transaction.PartyName != "" {
-		category = models.Category{Name: "Uncategorized", Description: ""}
+		description := ""
+		if strings.Contains(err.Error(), "GEMINI_API_KEY environment variable not set") {
+			description = "No API key provided for categorization"
+		} else {
+			description = "Categorization failed"
+		}
+		category = models.Category{Name: "Uncategorized", Description: description}
 		if transaction.IsDebtor {
 			c.updateDebitorCategory(transaction.PartyName, category.Name)
 		} else {
@@ -381,7 +388,7 @@ func (c *Categorizer) loadCategoriesFromYAML() error {
 	
 	// Store the loaded categories
 	c.categories = config.Categories
-	log.Printf("Loaded %d categories from YAML file", len(c.categories))
+	log.WithField("count", len(c.categories)).Info("Loaded categories from YAML file")
 	
 	return nil
 }
@@ -396,7 +403,7 @@ func (c *Categorizer) loadCreditorsFromYAML() error {
 		c.creditorMappings = make(map[string]string)
 		c.isDirtyCreditors = true  // Mark as dirty so it gets saved
 		c.configMutex.Unlock()
-		log.Printf("Creditor mappings file not found, will create it on next save")
+		log.Info("Creditor mappings file not found, will create it on next save")
 		return nil
 	}
 	
@@ -422,7 +429,7 @@ func (c *Categorizer) loadCreditorsFromYAML() error {
 		c.creditorMappings = directMap
 		c.isDirtyCreditors = false
 		c.configMutex.Unlock()
-		log.Printf("Loaded %d creditor mappings from YAML file (direct format)", len(directMap))
+		log.WithField("count", len(directMap)).Info("Loaded creditor mappings from YAML file (direct format)")
 		return nil
 	}
 	
@@ -433,10 +440,10 @@ func (c *Categorizer) loadCreditorsFromYAML() error {
 	// Store the loaded creditor mappings
 	if config.Creditors != nil {
 		c.creditorMappings = config.Creditors
-		log.Printf("Loaded %d creditor mappings from YAML file", len(c.creditorMappings))
+		log.WithField("count", len(c.creditorMappings)).Info("Loaded creditor mappings from YAML file")
 	} else {
 		c.creditorMappings = make(map[string]string)
-		log.Printf("Initialized empty creditor mappings")
+		log.Info("Initialized empty creditor mappings")
 	}
 	
 	c.isDirtyCreditors = false
@@ -453,7 +460,7 @@ func (c *Categorizer) loadDebitorsFromYAML() error {
 		c.debitorMappings = make(map[string]string)
 		c.isDirtyDebitors = true  // Mark as dirty so it gets saved
 		c.configMutex.Unlock()
-		log.Printf("Debitor mappings file not found, will create it on next save")
+		log.Info("Debitor mappings file not found, will create it on next save")
 		return nil
 	}
 	
@@ -479,7 +486,7 @@ func (c *Categorizer) loadDebitorsFromYAML() error {
 		c.debitorMappings = directMap
 		c.isDirtyDebitors = false
 		c.configMutex.Unlock()
-		log.Printf("Loaded %d debitor mappings from YAML file (direct format)", len(directMap))
+		log.WithField("count", len(directMap)).Info("Loaded debitor mappings from YAML file (direct format)")
 		return nil
 	}
 	
@@ -490,10 +497,10 @@ func (c *Categorizer) loadDebitorsFromYAML() error {
 	// Store the loaded debitor mappings
 	if config.Debitors != nil {
 		c.debitorMappings = config.Debitors
-		log.Printf("Loaded %d debitor mappings from YAML file", len(c.debitorMappings))
+		log.WithField("count", len(c.debitorMappings)).Info("Loaded debitor mappings from YAML file")
 	} else {
 		c.debitorMappings = make(map[string]string)
-		log.Printf("Initialized empty debitor mappings")
+		log.Info("Initialized empty debitor mappings")
 	}
 	
 	c.isDirtyDebitors = false
@@ -555,7 +562,7 @@ func (c *Categorizer) saveCreditorsToYAML() error {
 	c.isDirtyCreditors = false
 	c.configMutex.Unlock()
 	
-	log.Printf("Saved %d creditor mappings to %s", len(config.Creditors), yamlPath)
+	log.WithField("count", len(config.Creditors)).Info("Saved creditor mappings to YAML file")
 	return nil
 }
 
@@ -614,7 +621,7 @@ func (c *Categorizer) saveDebitorsToYAML() error {
 	c.isDirtyDebitors = false
 	c.configMutex.Unlock()
 	
-	log.Printf("Saved %d debitor mappings to %s", len(config.Debitors), yamlPath)
+	log.WithField("count", len(config.Debitors)).Info("Saved debitor mappings to YAML file")
 	return nil
 }
 
@@ -650,7 +657,7 @@ func (c *Categorizer) migrateFromPayeesYAML() error {
 		c.isDirtyCreditors = true
 		c.isDirtyDebitors = true
 		c.configMutex.Unlock()
-		log.Printf("Migrated %d payee mappings from YAML file (direct format)", len(directMap))
+		log.WithField("count", len(directMap)).Info("Migrated payee mappings from YAML file (direct format)")
 		return nil
 	}
 	
@@ -662,11 +669,11 @@ func (c *Categorizer) migrateFromPayeesYAML() error {
 	if config.Payees != nil {
 		c.creditorMappings = config.Payees
 		c.debitorMappings = config.Payees
-		log.Printf("Migrated %d payee mappings from YAML file", len(c.creditorMappings))
+		log.WithField("count", len(c.creditorMappings)).Info("Migrated payee mappings from YAML file")
 	} else {
 		c.creditorMappings = make(map[string]string)
 		c.debitorMappings = make(map[string]string)
-		log.Printf("Initialized empty creditor and debitor mappings")
+		log.Info("Initialized empty creditor and debitor mappings")
 	}
 	
 	c.isDirtyCreditors = true

@@ -21,8 +21,17 @@
 go.work
 go.work.sum
 
+vendor
+
 # env file
 .env
 
 # samples
 samples
+
+database/test.yaml
+
+
+/camt-csv
+
+text
