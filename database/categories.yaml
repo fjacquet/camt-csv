@@ -5,7 +5,7 @@
 
 categories:
   # Catégories par ordre alphabétique
-  - name: "Abonnements & Services"
+  - name: "Abonnements"
     keywords:
       - "abonnement"
       - "service"
@@ -19,7 +19,25 @@ categories:
       - "streaming"
       - "digital"
   
-  - name: "Alimentation & Restaurants"
+ 
+  - name: "Alimentation"
+    keywords:
+      - "restaurant"
+      - "mcdonalds"
+      - "burger"
+      - "pizza"
+      - "repas"
+      - "café"
+      - "cafe"
+      - "boulangerie"
+      - "nourriture"
+      - "bistro"
+      - "traiteur"
+      - "cantine"
+      - "fast-food"
+      - "gastro"
+  
+  - name: "Restaurants"
     keywords:
       - "restaurant"
       - "mcdonalds"
@@ -83,7 +101,22 @@ categories:
       - "mobilière"
       - "helvetia"
   
-  - name: "Cadeaux & Dons"
+  - name: "Cadeaux"
+    keywords:
+      - "cadeau"
+      - "présent"
+      - "don"
+      - "charité"
+      - "fondation"
+      - "collecte"
+      - "bienfaisance"
+      - "humanitaire"
+      - "croix-rouge"
+      - "solidarité"
+      - "association"
+      - "soutien"
+  
+  - name: "Dons"
     keywords:
       - "cadeau"
       - "présent"
@@ -113,7 +146,7 @@ categories:
       - "volg"
       - "manor food"
   
-  - name: "Divers & Non Classé"
+  - name: "Divers"
     keywords:
       - "inconnu"
       - "autre"
@@ -121,7 +154,30 @@ categories:
       - "non classé"
       - "inclassable"
   
-  - name: "Éducation & Formation"
+  - name: "Non Classé"
+    keywords:
+      - "inconnu"
+      - "autre"
+      - "divers"
+      - "non classé"
+      - "inclassable"
+  
+  - name: "Éducation"
+    keywords:
+      - "école"
+      - "université"
+      - "écolage"
+      - "formation"
+      - "cours"
+      - "éducation"
+      - "livre"
+      - "apprentissage"
+      - "étude"
+      - "frais de scolarité"
+      - "formation continue"
+      - "séminaire"
+  
+  - name: "Formation"
     keywords:
       - "école"
       - "université"
@@ -147,7 +203,20 @@ categories:
       - "livret"
       - "3ème pilier"
   
-  - name: "Famille & Enfants"
+  - name: "Famille"
+    keywords:
+      - "crèche"
+      - "garde d'enfant"
+      - "garderie"
+      - "jeux"
+      - "jouets"
+      - "activités enfants"
+      - "babysitter"
+      - "nourrice"
+      - "école privée"
+      - "reme"
+  
+  - name: "Enfants"
     keywords:
       - "crèche"
       - "garde d'enfant"
@@ -171,7 +240,19 @@ categories:
       - "découvert"
       - "frais de dossier"
   
-  - name: "Impôts & Taxes"
+  - name: "Impôts"
+    keywords:
+      - "impôt"
+      - "taxe"
+      - "fiscal"
+      - "acompte"
+      - "icc"
+      - "ifd"
+      - "déclaration"
+      - "administration fiscale"
+      - "prélèvement"
+  
+  - name: "Taxes"
     keywords:
       - "impôt"
       - "taxe"
@@ -210,7 +291,7 @@ categories:
       - "appartement"
       - "location"
   
-  - name: "Loisirs & Divertissement"
+  - name: "Loisirs"
     keywords:
       - "cinéma"
       - "film"
@@ -227,7 +308,24 @@ categories:
       - "sorties"
       - "loisirs"
   
-  - name: "Mobilier & Équipement Maison"
+  - name: "Divertissement"
+    keywords:
+      - "cinéma"
+      - "film"
+      - "netflix"
+      - "spotify"
+      - "apple music"
+      - "théâtre"
+      - "concert"
+      - "événement"
+      - "spectacle"
+      - "streaming"
+      - "musée"
+      - "exposition"
+      - "sorties"
+      - "loisirs"
+  
+  - name: "Mobilier"
     keywords:
       - "ikea"
       - "meubles"
@@ -241,7 +339,21 @@ categories:
       - "conforama"
       - "article de ménage"
   
-  - name: "Pension & Allocations"
+  - name: "Équipement Maison"
+    keywords:
+      - "ikea"
+      - "meubles"
+      - "electroménager"
+      - "rénovation"
+      - "décoration"
+      - "bricolage"
+      - "maison"
+      - "cuisine"
+      - "mobilier"
+      - "conforama"
+      - "article de ménage"
+  
+  - name: "Pension"
     keywords:
       - "avs"
       - "ai"
@@ -256,7 +368,35 @@ categories:
       - "indemnité"
       - "subside"
   
-  - name: "Prêts & Hypothèques"
+  - name: "Allocations"
+    keywords:
+      - "avs"
+      - "ai"
+      - "lpp"
+      - "pension"
+      - "retraite"
+      - "rente"
+      - "allocation"
+      - "prévoyance"
+      - "caisse de pension"
+      - "prestations"
+      - "indemnité"
+      - "subside"
+  
+  - name: "Prêts"
+    keywords:
+      - "prêt"
+      - "hypothèque"
+      - "crédit"
+      - "amortissement"
+      - "intérêt"
+      - "remboursement"
+      - "financement"
+      - "échéance"
+      - "mensualité"
+      - "leasing"
+  
+  - name: "Hypothèques"
     keywords:
       - "prêt"
       - "hypothèque"
@@ -289,7 +429,7 @@ categories:
       - "revenu locatif"
       - "gérance"
   
-  - name: "Salaire & Revenus Professionnels"
+  - name: "Salaire"
     keywords:
       - "salaire"
       - "revenu"
@@ -304,7 +444,22 @@ categories:
       - "prime"
       - "commission"
   
-  - name: "Santé & Bien-être"
+  - name: "Revenus Professionnels"
+    keywords:
+      - "salaire"
+      - "revenu"
+      - "paye"
+      - "traitement"
+      - "honoraire"
+      - "rémunération"
+      - "employeur"
+      - "mensualité"
+      - "versement"
+      - "13ème salaire"
+      - "prime"
+      - "commission"
+  
+  - name: "Santé"
     keywords:
       - "médecin"
       - "docteur"
@@ -320,7 +475,27 @@ categories:
       - "physiothérapie"
       - "thérapeute"
   
-  - name: "Services & Utilités"
+  - name: "Bien-être"
+    keywords:
+      - "médecin"
+      - "docteur"
+      - "hôpital"
+      - "clinique"
+      - "médical"
+      - "fitness"
+      - "gym"
+      - "sport"
+      - "santé"
+      - "dentiste"
+      - "opticien"
+      - "physiothérapie"
+      - "thérapeute"
+  
+  - name: "Services"
+    keywords:
+-  
+  
+  - name: "Utilités"
     keywords:
       - "électricité"
       - "eau"
@@ -386,7 +561,21 @@ categories:
       - "parfumerie"
       - "esthétique"
   
-  - name: "Sport & Activités"
+  - name: "Sport"
+    keywords:
+      - "abonnement sport"
+      - "club"
+      - "fitness"
+      - "ski"
+      - "piscine"
+      - "tennis"
+      - "golf"
+      - "salle de sport"
+      - "équipement sportif"
+      - "activité"
+      - "cours"
+  
+  - name: "Activités"
     keywords:
       - "abonnement sport"
       - "club"
@@ -415,7 +604,7 @@ categories:
       - "swisspass"
       - "mobilis"
   
-  - name: "Virements & Transferts"
+  - name: "Virements"
     keywords:
       - "virement"
       - "transfert"
@@ -428,7 +617,20 @@ categories:
       - "swift"
       - "compte à compte"
   
-  - name: "Voiture & Transport Privé"
+  - name: "Transferts"
+    keywords:
+      - "virement"
+      - "transfert"
+      - "remboursement"
+      - "versement"
+      - "e-banking"
+      - "twint"
+      - "mobile banking"
+      - "transaction"
+      - "swift"
+      - "compte à compte"
+  
+  - name: "Voiture"
     keywords:
       - "essence"
       - "carburant"
@@ -444,7 +646,39 @@ categories:
       - "uber"
       - "location voiture"
   
-  - name: "Voyages & Séjours"
+  - name: "Transport Privé"
+    keywords:
+      - "essence"
+      - "carburant"
+      - "garage"
+      - "réparation"
+      - "entretien"
+      - "automobile"
+      - "parking"
+      - "péage"
+      - "autoroute"
+      - "vignette"
+      - "taxi"
+      - "uber"
+      - "location voiture"
+  
+  - name: "Voyages"
+    keywords:
+      - "hôtel"
+      - "booking.com"
+      - "airbnb"
+      - "compagnie aérienne"
+      - "avion"
+      - "vol"
+      - "vacances"
+      - "voyage"
+      - "séjour"
+      - "agence de voyage"
+      - "croisière"
+      - "hébergement"
+      - "tourisme"
+  
+  - name: "Séjours"
     keywords:
       - "hôtel"
       - "booking.com"
