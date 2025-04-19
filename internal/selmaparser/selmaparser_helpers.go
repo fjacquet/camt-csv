@@ -12,13 +12,13 @@ import (
 // SelmaCSVRow represents a single row in a Selma CSV file
 // It uses struct tags for gocsv unmarshaling
 type SelmaCSVRow struct {
-	Date          string `csv:"Date"`
-	Description   string `csv:"Description"`
-	BookkeepingNo string `csv:"Bookkeeping No."`
-	Fund          string `csv:"Fund"`
-	Amount        string `csv:"Amount"`
-	Currency      string `csv:"Currency"`
-	NumberOfShares string `csv:"Number of Shares"`
+	Date            string `csv:"Date"`
+	Description     string `csv:"Description"`
+	BookkeepingNo   string `csv:"Bookkeeping No."`
+	Fund            string `csv:"Fund"`
+	Amount          string `csv:"Amount"`
+	Currency        string `csv:"Currency"`
+	NumberOfShares  string `csv:"Number of Shares"`
 }
 
 // StampDutyInfo holds information about a stamp duty transaction

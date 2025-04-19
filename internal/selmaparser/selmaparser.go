@@ -62,28 +62,76 @@ func ReadSelmaCSV(filePath string) ([]models.Transaction, error) {
 		return nil, err
 	}
 
-	// Use the common.ReadCSVFile function to read and parse the CSV
-	selmaRows, err := common.ReadCSVFile[SelmaCSVRow](filePath)
+	// Open the file
+	file, err := os.Open(filePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to read Selma CSV file")
+		log.WithError(err).Error("Failed to open Selma CSV file")
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1 // allow variable number of fields
+	header, err := reader.Read()
+	if err != nil {
+		log.WithError(err).Error("Failed to read Selma CSV header")
 		return nil, err
 	}
 
-	// Convert SelmaCSVRow objects to Transaction objects
+	// Map header fields to struct fields
+	headerMap := make(map[int]string)
+	for i, h := range header {
+		headerMap[i] = h
+	}
+
 	var transactions []models.Transaction
-	for _, row := range selmaRows {
-		// Skip empty rows
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			log.WithError(err).Warn("Skipping malformed CSV row")
+			continue
+		}
+		// Pad or truncate record to match header length
+		if len(record) < len(header) {
+			// Pad with empty strings
+			padded := make([]string, len(header))
+			copy(padded, record)
+			record = padded
+		} else if len(record) > len(header) {
+			record = record[:len(header)]
+		}
+
+		// Map record to SelmaCSVRow
+		row := SelmaCSVRow{}
+		for i, val := range record {
+			switch headerMap[i] {
+			case "Date":
+				row.Date = val
+			case "Description":
+				row.Description = val
+			case "Bookkeeping No.":
+				row.BookkeepingNo = val
+			case "Fund":
+				row.Fund = val
+			case "Amount":
+				row.Amount = val
+			case "Currency":
+				row.Currency = val
+			case "Number of Shares":
+				row.NumberOfShares = val
+			}
+		}
 		if row.Date == "" || row.Description == "" {
 			continue
 		}
-
-		// Convert Selma row to Transaction
 		tx, err := convertSelmaRowToTransaction(row)
 		if err != nil {
 			log.WithError(err).WithField("row", row).Warn("Failed to convert row to transaction")
 			continue
 		}
-
 		transactions = append(transactions, tx)
 	}
 
@@ -287,12 +335,12 @@ func ValidateFormat(filePath string) (bool, error) {
 
 	// Define the required headers for a valid Selma CSV
 	requiredHeaders := []string{
-		"Date", 
-		"Description", 
-		"Bookkeeping No.", 
-		"Fund", 
-		"Amount", 
-		"Currency", 
+		"Date",
+		"Description",
+		"Bookkeeping No.",
+		"Fund",
+		"Amount",
+		"Currency",
 		"Number of Shares",
 	}
 
