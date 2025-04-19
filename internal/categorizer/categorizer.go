@@ -9,9 +9,14 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
+
+	"os"
+
+	"strconv"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/sirupsen/logrus"
@@ -24,11 +29,12 @@ import (
 
 // Transaction represents a financial transaction to be categorized
 type Transaction struct {
-	PartyName string // Name of the relevant party (creditor or debitor)
-	IsDebtor  bool   // true if the party is a debitor (sender), false if creditor (recipient)
-	Amount    string
-	Date      string
-	Info      string
+	PartyName   string // Name of the relevant party (creditor or debitor)
+	IsDebtor    bool   // true if the party is a debitor (sender), false if creditor (recipient)
+	Amount      string
+	Date        string
+	Info        string
+	Description string
 }
 
 // Categorizer handles the categorization of transactions and manages
@@ -54,10 +60,10 @@ var log = logrus.New()
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
-		
+
 		// Also set the logger for the store package
 		store.SetLogger(logger)
-		
+
 		// Update default categorizer if it exists
 		if defaultCategorizer != nil {
 			defaultCategorizer.logger = logger
@@ -77,7 +83,7 @@ func initCategorizer() {
 			store:            store.NewCategoryStore(),
 			logger:           log,
 		}
-		
+
 		// Load categories from YAML
 		categories, err := defaultCategorizer.store.LoadCategories()
 		if err != nil {
@@ -85,7 +91,7 @@ func initCategorizer() {
 		} else {
 			defaultCategorizer.categories = categories
 		}
-		
+
 		// Load creditor mappings
 		creditorMappings, err := defaultCategorizer.store.LoadCreditorMappings()
 		if err != nil {
@@ -93,7 +99,7 @@ func initCategorizer() {
 		} else {
 			defaultCategorizer.creditorMappings = creditorMappings
 		}
-		
+
 		// Load debitor mappings
 		debitorMappings, err := defaultCategorizer.store.LoadDebitorMappings()
 		if err != nil {
@@ -108,77 +114,96 @@ func initCategorizer() {
 // GEMINI AI INTEGRATION
 //------------------------------------------------------------------------------
 
-// ensureGeminiClient ensures the Gemini client is initialized
-func (c *Categorizer) ensureGeminiClient() error {
-	if c.geminiClient == nil {
-		// Get API key from environment variable
-		apiKey := getGeminiAPIKey()
-		if apiKey == "" {
-			return fmt.Errorf("GEMINI_API_KEY environment variable not set")
-		}
-
-		// Initialize the client
-		var err error
-		c.geminiClient, err = genai.NewClient(context.Background(), option.WithAPIKey(apiKey))
-		if err != nil {
-			return fmt.Errorf("failed to create Gemini client: %w", err)
-		}
-
-		// Create a generative model using Gemini 1.0
-		c.geminiModel = c.geminiClient.GenerativeModel("gemini-1.0-pro")
-		if c.geminiModel == nil {
-			return fmt.Errorf("failed to create Gemini model")
-		}
+// initGeminiClient initializes the Gemini API client
+func (c *Categorizer) initGeminiClient() error {
+	apiKey := getGeminiAPIKey()
+	if apiKey == "" {
+		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
 	}
+
+	// Create a new GenAI client
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return fmt.Errorf("failed to create GenAI client: %w", err)
+	}
+	c.geminiClient = client
+
+	// Get model name from environment
+	modelName := getGeminiModelName()
+	c.logger.Infof("Initializing Gemini with model: %s", modelName)
+
+	// Create a generative model using configured model
+	c.geminiModel = c.geminiClient.GenerativeModel(modelName)
+	if c.geminiModel == nil {
+		return fmt.Errorf("failed to create Gemini model")
+	}
+
+	// NOTE: We're not setting any safety settings as they are not compatible
+	// across different Gemini model versions
+
 	return nil
 }
 
-// categorizeWithGemini uses the Gemini API to categorize a transaction
-func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
-	// Ensure Gemini client is initialized
-	if err := c.ensureGeminiClient(); err != nil {
-		return models.Category{}, err
-	}
+// Function to create a prompt for AI categorization
+func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
+	// Create a prompt for the Gemini API
+	prompt := "Categorize the following transaction:\n"
+	prompt += fmt.Sprintf("Description: %s\n", transaction.Description)
+	prompt += fmt.Sprintf("Party: %s\n", transaction.PartyName)
+	prompt += fmt.Sprintf("Amount: %s\n", transaction.Amount)
+	prompt += fmt.Sprintf("Type: %s\n", func() string {
+		if transaction.IsDebtor {
+			return "Debit (spending)"
+		}
+		return "Credit (income)"
+	}())
 
-	// Prepare the prompt for Gemini
-	prompt := fmt.Sprintf(`You are a financial categorization assistant. Analyze this transaction and assign ONE category from the list provided.
+	prompt += "\nYou MUST choose ONE category from the following list:\n"
 
-Transaction Details:
-- Party Name: %s
-- Role: %s
-- Amount: %s
-- Date: %s
-- Additional Info: %s
-
-Available Categories:
-`,
-		transaction.PartyName,
-		func() string {
-			if transaction.IsDebtor {
-				return "Debtor (sender)"
-			}
-			return "Creditor (recipient)"
-		}(),
-		transaction.Amount,
-		transaction.Date,
-		transaction.Info,
-	)
-
-	// Add available categories to the prompt
+	// Get the list of categories
 	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+
 	for _, category := range c.categories {
 		prompt += fmt.Sprintf("- %s\n", category.Name)
 	}
-	c.configMutex.RUnlock()
 
 	prompt += `
 Respond with ONLY the category name that best matches this transaction. Do not add any explanations or other text.
 For example, if it's a restaurant expense, just respond with "Food & Dining".`
 
+	return prompt
+}
+
+// categorizeWithGemini attempts to categorize a transaction using the Gemini API
+func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
+	if c.geminiClient == nil || c.geminiModel == nil {
+		// Initialize Gemini client if not already initialized
+		if err := c.initGeminiClient(); err != nil {
+			return models.Category{}, err
+		}
+	}
+
+	// Create a prompt for AI categorization
+	prompt := c.createCategorizationPrompt(transaction)
+	c.logger.Infof("Gemini request model: %s, prompt length: %d", getGeminiModelName(), len(prompt))
+
+	// Wait if needed to respect the rate limit before making a Gemini API call
+	waitForRateLimit(c.logger)
+
 	// Generate a response from Gemini
-	ctx := context.Background()
+	// Create a context with a timeout (5 seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	resp, err := c.geminiModel.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			c.logger.Warnf("Gemini API timed out after 5 seconds for transaction: %s", transaction.PartyName)
+			return models.Category{}, fmt.Errorf("gemini API timed out after 5 seconds")
+		}
+		c.logger.Warnf("Gemini API error for transaction %s: %v", transaction.PartyName, err)
 		return models.Category{}, fmt.Errorf("gemini API error: %w", err)
 	}
 
@@ -187,6 +212,10 @@ For example, if it's a restaurant expense, just respond with "Food & Dining".`
 	if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
 		responseText := fmt.Sprintf("%v", resp.Candidates[0].Content.Parts[0])
 		categoryName = c.extractCategoryFromResponse(responseText)
+		c.logger.Infof("Gemini response for '%s': '%s' extracted as '%s'",
+			transaction.PartyName, responseText, categoryName)
+	} else {
+		c.logger.Warnf("Empty response from Gemini for transaction: %s", transaction.PartyName)
 	}
 
 	if categoryName == "" {
@@ -194,46 +223,34 @@ For example, if it's a restaurant expense, just respond with "Food & Dining".`
 	}
 
 	// Find the category in our list
-	c.configMutex.RLock()
-	defer c.configMutex.RUnlock()
-	
 	for _, category := range c.categories {
 		if strings.EqualFold(category.Name, categoryName) {
-			// Update mappings for future use
-			if transaction.IsDebtor {
-				c.updateDebitorCategory(transaction.PartyName, category.Name)
-			} else {
-				c.updateCreditorCategory(transaction.PartyName, category.Name)
-			}
-			
+			// Create a new Category with name and description
 			return models.Category{
-				Name:        category.Name,
+				Name:        category.Name, // Use the exact case from our database
 				Description: categoryDescriptionFromName(category.Name),
 			}, nil
 		}
 	}
 
-	// Return a generic category if not found
-	return models.Category{
-		Name:        categoryName,
-		Description: "Category assigned by Gemini AI",
-	}, nil
+	// If we get here, the category wasn't found in our list
+	return models.Category{}, fmt.Errorf("category '%s' not found in database", categoryName)
 }
 
 // extractCategoryFromResponse parses the Gemini API response to extract the category
 func (c *Categorizer) extractCategoryFromResponse(response string) string {
 	// Clean up the response
 	response = strings.TrimSpace(response)
-	
+
 	// Some models return the category name wrapped in quotes or other formatting
 	response = strings.Trim(response, `"'`)
-	
+
 	// If there's a colon, it might be "Category: Food & Dining" format
 	if strings.Contains(response, ":") {
 		parts := strings.SplitN(response, ":", 2)
 		return strings.TrimSpace(parts[1])
 	}
-	
+
 	// If there are multiple lines, take the first one
 	if strings.Contains(response, "\n") {
 		lines := strings.Split(response, "\n")
@@ -244,18 +261,18 @@ func (c *Categorizer) extractCategoryFromResponse(response string) string {
 			}
 		}
 	}
-	
+
 	// Check if it matches any of our known categories
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
+
 	bestMatch := ""
-	
+
 	for _, category := range c.categories {
 		if strings.EqualFold(category.Name, response) {
 			return category.Name
 		}
-		
+
 		// Handle partial matches
 		if strings.Contains(strings.ToLower(response), strings.ToLower(category.Name)) {
 			if len(category.Name) > len(bestMatch) {
@@ -263,11 +280,11 @@ func (c *Categorizer) extractCategoryFromResponse(response string) string {
 			}
 		}
 	}
-	
+
 	if bestMatch != "" {
 		return bestMatch
 	}
-	
+
 	return response
 }
 
@@ -280,15 +297,18 @@ func (c *Categorizer) categorizeByCreditorMapping(transaction Transaction) (mode
 	if transaction.IsDebtor {
 		return models.Category{}, false
 	}
-	
+
+	// Convert to lowercase for case-insensitive lookup
+	partyNameLower := strings.ToLower(transaction.PartyName)
+
 	c.configMutex.RLock()
-	categoryName, found := c.creditorMappings[transaction.PartyName]
+	categoryName, found := c.creditorMappings[partyNameLower]
 	c.configMutex.RUnlock()
-	
+
 	if !found {
 		return models.Category{}, false
 	}
-	
+
 	// Create a new Category with name and description
 	return models.Category{
 		Name:        categoryName,
@@ -301,15 +321,18 @@ func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (model
 	if !transaction.IsDebtor {
 		return models.Category{}, false
 	}
-	
+
+	// Convert to lowercase for case-insensitive lookup
+	partyNameLower := strings.ToLower(transaction.PartyName)
+
 	c.configMutex.RLock()
-	categoryName, found := c.debitorMappings[transaction.PartyName]
+	categoryName, found := c.debitorMappings[partyNameLower]
 	c.configMutex.RUnlock()
-	
+
 	if !found {
 		return models.Category{}, false
 	}
-	
+
 	// Create a new Category with name and description
 	return models.Category{
 		Name:        categoryName,
@@ -320,10 +343,10 @@ func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (model
 // categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
 func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (models.Category, bool) {
 	partyNameLower := strings.ToLower(transaction.PartyName)
-	
+
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
+
 	for _, category := range c.categories {
 		for _, keyword := range category.Keywords {
 			if strings.Contains(partyNameLower, strings.ToLower(keyword)) {
@@ -334,26 +357,33 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 			}
 		}
 	}
-	
+
 	return models.Category{}, false
 }
 
 // categorizeTransaction categorizes a transaction using the following sequence:
 // 1. Check if the creditor/debitor already exists in the mapping database
 // 2. Try to match using local keyword patterns
-// 3. Fall back to Gemini AI as a last resort
+// 3. Fall back to Gemini AI for classification if enabled
 func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
 	// First try to find an exact match in our mappings
 	if category, found := c.categorizeByCreditorMapping(transaction); found {
+		c.logger.Debugf("Transaction categorized from creditor mapping: %s -> %s",
+			transaction.PartyName, category.Name)
 		return category, nil
 	}
-	
+
 	if category, found := c.categorizeByDebitorMapping(transaction); found {
+		c.logger.Debugf("Transaction categorized from debitor mapping: %s -> %s",
+			transaction.PartyName, category.Name)
 		return category, nil
 	}
-	
+
 	// Next try to match by keywords
 	if category, found := c.categorizeLocallyByKeywords(transaction); found {
+		c.logger.Debugf("Transaction categorized by keywords: %s -> %s",
+			transaction.PartyName, category.Name)
+
 		// Save this mapping for future use
 		if transaction.IsDebtor {
 			c.updateDebitorCategory(transaction.PartyName, category.Name)
@@ -362,27 +392,41 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 		}
 		return category, nil
 	}
-	
-	// As a last resort, use the Gemini API
-	category, err := c.categorizeWithGemini(transaction)
-	if err != nil {
-		// Check if the error is specifically about missing API key
-		if strings.Contains(err.Error(), "GEMINI_API_KEY environment variable not set") {
-			// Return the expected category for the missing API key case
+
+	// Only try AI categorization if explicitly enabled AND no matches were found above
+	if isAICategorizeEnabled() {
+		category, err := c.categorizeWithGemini(transaction)
+		if err != nil {
+			c.logger.Warnf("AI categorization failed for transaction %s: %v, using Uncategorized instead",
+				transaction.PartyName, err)
+
+			// Just return Miscellaneous without propagating the error
 			return models.Category{
 				Name:        "Uncategorized",
-				Description: "No API key provided for categorization",
-			}, fmt.Errorf("failed to categorize transaction: %w", err)
+				Description: "Uncategorized transaction",
+			}, nil
 		}
-		
-		// For other errors, return a generic "Miscellaneous" category
-		return models.Category{
-			Name:        "Miscellaneous",
-			Description: "Uncategorized transaction",
-		}, fmt.Errorf("failed to categorize transaction: %w", err)
+
+		// If Gemini returned a valid category, update the database for future use
+		c.logger.Infof("Transaction categorized by Gemini AI: %s -> %s",
+			transaction.PartyName, category.Name)
+
+		// Save this mapping for future use
+		if transaction.IsDebtor {
+			c.updateDebitorCategory(transaction.PartyName, category.Name)
+		} else {
+			c.updateCreditorCategory(transaction.PartyName, category.Name)
+		}
+
+		return category, nil
 	}
-	
-	return category, nil
+
+	// Return a generic "Uncategorized" category
+	c.logger.Debugf("No category found for transaction: %s", transaction.PartyName)
+	return models.Category{
+		Name:        "Uncategorized",
+		Description: "Uncategorized transaction",
+	}, nil
 }
 
 //------------------------------------------------------------------------------
@@ -393,7 +437,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 func (c *Categorizer) getCategories() []string {
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
+
 	categories := make([]string, len(c.categories))
 	for i, category := range c.categories {
 		categories[i] = category.Name
@@ -402,39 +446,27 @@ func (c *Categorizer) getCategories() []string {
 }
 
 // updateCreditorCategory adds or updates a creditor-to-category mapping
-func (c *Categorizer) updateCreditorCategory(creditor, category string) {
-	// Skip empty values
-	if creditor == "" || category == "" {
-		return
-	}
-	
+func (c *Categorizer) updateCreditorCategory(creditor, categoryName string) {
+	// Convert creditor name to lowercase for consistency
+	creditorLower := strings.ToLower(creditor)
+
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
-	
-	// Check if this changes the existing mapping
-	currentCategory, exists := c.creditorMappings[creditor]
-	if !exists || currentCategory != category {
-		c.creditorMappings[creditor] = category
-		c.isDirtyCreditors = true
-	}
+
+	c.creditorMappings[creditorLower] = categoryName
+	c.isDirtyCreditors = true
 }
 
 // updateDebitorCategory adds or updates a debitor-to-category mapping
-func (c *Categorizer) updateDebitorCategory(debitor, category string) {
-	// Skip empty values
-	if debitor == "" || category == "" {
-		return
-	}
-	
+func (c *Categorizer) updateDebitorCategory(debitor, categoryName string) {
+	// Convert debitor name to lowercase for consistency
+	debitorLower := strings.ToLower(debitor)
+
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
-	
-	// Check if this changes the existing mapping
-	currentCategory, exists := c.debitorMappings[debitor]
-	if !exists || currentCategory != category {
-		c.debitorMappings[debitor] = category
-		c.isDirtyDebitors = true
-	}
+
+	c.debitorMappings[debitorLower] = categoryName
+	c.isDirtyDebitors = true
 }
 
 // getCreditorCategory retrieves the category for a given creditor if it exists
@@ -442,11 +474,11 @@ func (c *Categorizer) getCreditorCategory(creditor string) (string, bool) {
 	if creditor == "" {
 		return "", false
 	}
-	
+
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
-	category, found := c.creditorMappings[creditor]
+
+	category, found := c.creditorMappings[strings.ToLower(creditor)]
 	return category, found
 }
 
@@ -455,11 +487,11 @@ func (c *Categorizer) getDebitorCategory(debitor string) (string, bool) {
 	if debitor == "" {
 		return "", false
 	}
-	
+
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
-	category, found := c.debitorMappings[debitor]
+
+	category, found := c.debitorMappings[strings.ToLower(debitor)]
 	return category, found
 }
 
@@ -480,13 +512,13 @@ func categoryDescriptionFromName(name string) string {
 		"Taxes & Fees":      "Government taxes, fees, and related expenses",
 		"Income":            "Salary, wages, transfers, and other income",
 		"Investments":       "Stock, cryptocurrency, and investment transactions",
-		"Miscellaneous":     "Other uncategorized transactions",
+		"Uncategorized":     "Other uncategorized transactions",
 	}
-	
+
 	if desc, ok := descriptions[name]; ok {
 		return desc
 	}
-	
+
 	return "Category for " + name
 }
 
@@ -540,7 +572,7 @@ func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 // This is a package-level function that uses the default categorizer
 func SaveCreditorsToYAML() error {
 	initCategorizer()
-	
+
 	defaultCategorizer.configMutex.RLock()
 	isDirty := defaultCategorizer.isDirtyCreditors
 	mappings := make(map[string]string)
@@ -548,13 +580,13 @@ func SaveCreditorsToYAML() error {
 		mappings[k] = v
 	}
 	defaultCategorizer.configMutex.RUnlock()
-	
+
 	// Skip saving if nothing has changed
 	if !isDirty {
 		log.Debug("Creditor mappings have not changed, skipping save")
 		return nil
 	}
-	
+
 	// Save to YAML using the store
 	err := defaultCategorizer.store.SaveCreditorMappings(mappings)
 	if err == nil {
@@ -563,7 +595,7 @@ func SaveCreditorsToYAML() error {
 		defaultCategorizer.isDirtyCreditors = false
 		defaultCategorizer.configMutex.Unlock()
 	}
-	
+
 	return err
 }
 
@@ -571,7 +603,7 @@ func SaveCreditorsToYAML() error {
 // This is a package-level function that uses the default categorizer
 func SaveDebitorsToYAML() error {
 	initCategorizer()
-	
+
 	defaultCategorizer.configMutex.RLock()
 	isDirty := defaultCategorizer.isDirtyDebitors
 	mappings := make(map[string]string)
@@ -579,13 +611,13 @@ func SaveDebitorsToYAML() error {
 		mappings[k] = v
 	}
 	defaultCategorizer.configMutex.RUnlock()
-	
+
 	// Skip saving if nothing has changed
 	if !isDirty {
 		log.Debug("Debitor mappings have not changed, skipping save")
 		return nil
 	}
-	
+
 	// Save to YAML using the store
 	err := defaultCategorizer.store.SaveDebitorMappings(mappings)
 	if err == nil {
@@ -594,7 +626,7 @@ func SaveDebitorsToYAML() error {
 		defaultCategorizer.isDirtyDebitors = false
 		defaultCategorizer.configMutex.Unlock()
 	}
-	
+
 	return err
 }
 
@@ -603,10 +635,69 @@ func getGeminiAPIKey() string {
 	return strings.TrimSpace(getEnv("GEMINI_API_KEY", ""))
 }
 
+// Helper function to get the Gemini model name
+func getGeminiModelName() string {
+	// Default to gemini-2.0-flash if not specified
+	return strings.TrimSpace(getEnv("GEMINI_MODEL", "gemini-2.0-flash"))
+}
+
+// Helper function to get the Gemini API rate limit (requests per minute)
+func getGeminiRateLimit() int {
+	// Default to 10 requests per minute if not specified
+	limitStr := getEnv("GEMINI_REQUESTS_PER_MINUTE", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return 10 // Default to 10 if parsing fails or value is invalid
+	}
+	return limit
+}
+
+// Helper function to check if AI categorization is enabled
+func isAICategorizeEnabled() bool {
+	value := strings.ToLower(getEnv("USE_AI_CATEGORIZATION", "false"))
+	return value == "true" || value == "1" || value == "yes"
+}
+
+// Rate limiter for Gemini API calls
+var (
+	geminiLastCallTime time.Time
+	geminiMutex        sync.Mutex
+)
+
+// Wait if needed to respect the rate limit before making a Gemini API call
+func waitForRateLimit(logger *logrus.Logger) {
+	geminiMutex.Lock()
+	defer geminiMutex.Unlock()
+
+	// Calculate minimum time between API calls in milliseconds
+	requestsPerMinute := getGeminiRateLimit()
+	minTimeBetweenCalls := time.Duration(60000/requestsPerMinute) * time.Millisecond
+
+	// Calculate time since last call
+	timeSinceLastCall := time.Since(geminiLastCallTime)
+
+	// If we need to wait to respect rate limit
+	if timeSinceLastCall < minTimeBetweenCalls && !geminiLastCallTime.IsZero() {
+		waitTime := minTimeBetweenCalls - timeSinceLastCall
+		if logger != nil {
+			logger.Infof("Rate limiting: waiting %dms before next Gemini API call", waitTime.Milliseconds())
+		}
+		time.Sleep(waitTime)
+	}
+
+	// Update last call time
+	geminiLastCallTime = time.Now()
+}
+
 // Helper function to get an environment variable with a default value
 func getEnv(key, defaultValue string) string {
-	value := strings.TrimSpace(defaultValue)
-	// The implementation should use os.Getenv or viper to get environment variables
-	// But for now we'll just look at the environment and config
-	return value
+	// Get the value from environment variables
+	value := os.Getenv(key)
+
+	// If empty, use the default value
+	if value == "" {
+		value = defaultValue
+	}
+
+	return strings.TrimSpace(value)
 }

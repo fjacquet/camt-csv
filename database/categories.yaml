@@ -493,7 +493,11 @@ categories:
   
   - name: "Services"
     keywords:
--  
+      - "service"
+      - "facture"
+      - "abonnement"
+      - "tv"
+
   
   - name: "Utilités"
     keywords:
