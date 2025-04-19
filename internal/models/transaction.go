@@ -10,25 +10,29 @@ import (
 
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
-	Date            string `csv:"Date"`           // Date in DD.MM.YYYY format
-	ValueDate       string `csv:"ValueDate"`      // Value date in DD.MM.YYYY format
-	Description     string `csv:"Description"`    // Description of the transaction
-	BookkeepingNo   string `csv:"BookkeepingNo"`  // Bookkeeping number
-	Fund            string `csv:"Fund"`           // Fund name if applicable
-	Amount          string `csv:"Amount"`         // Amount as string (without currency symbol)
-	Currency        string `csv:"Currency"`       // Currency code (CHF, EUR, etc)
-	CreditDebit     string `csv:"CreditDebit"`    // Either "DBIT" (debit) or "CRDT" (credit)
-	EntryReference  string `csv:"EntryReference"` // Entry reference number
-	AccountServicer string `csv:"AccountServicer"`// Account servicer reference
-	BankTxCode      string `csv:"BankTxCode"`     // Bank transaction code
-	Status          string `csv:"Status"`         // Status code
-	Payee           string `csv:"Payee"`          // Beneficiary/recipient name
-	Payer           string `csv:"Payer"`          // Payer name
-	IBAN            string `csv:"IBAN"`           // IBAN if available
-	NumberOfShares  int    `csv:"NumberOfShares"` // Number of shares for investment transactions
-	StampDuty       string `csv:"StampDutyAmount"`// Stamp duty
-	Category        string `csv:"Category"`       // Transaction category
-	Investment      string `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
+	Date             string `csv:"Date"`           // Date in DD.MM.YYYY format
+	ValueDate        string `csv:"ValueDate"`      // Value date in DD.MM.YYYY format
+	Description      string `csv:"Description"`    // Description of the transaction
+	BookkeepingNo    string `csv:"BookkeepingNo"`  // Bookkeeping number
+	Fund             string `csv:"Fund"`           // Fund name if applicable
+	Amount           string `csv:"Amount"`         // Amount as string (without currency symbol)
+	Currency         string `csv:"Currency"`       // Currency code (CHF, EUR, etc)
+	CreditDebit      string `csv:"CreditDebit"`    // Either "DBIT" (debit) or "CRDT" (credit)
+	EntryReference   string `csv:"EntryReference"` // Entry reference number
+	AccountServicer  string `csv:"AccountServicer"`// Account servicer reference
+	BankTxCode       string `csv:"BankTxCode"`     // Bank transaction code
+	Status           string `csv:"Status"`         // Status code
+	Payee            string `csv:"Payee"`          // Beneficiary/recipient name
+	Payer            string `csv:"Payer"`          // Payer name
+	IBAN             string `csv:"IBAN"`           // IBAN if available
+	NumberOfShares   int    `csv:"NumberOfShares"` // Number of shares for investment transactions
+	StampDuty        string `csv:"StampDutyAmount"`// Stamp duty
+	Category         string `csv:"Category"`       // Transaction category
+	Investment       string `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
+	OriginalCurrency string `csv:"OriginalCurrency"` // Original currency for foreign currency transactions
+	OriginalAmount   string `csv:"OriginalAmount"`   // Original amount in foreign currency
+	ExchangeRate     string `csv:"ExchangeRate"`     // Exchange rate for currency conversion
+	Fee              string `csv:"Fee"`              // Transaction fees
 }
 
 // GetAmountAsFloat returns the Amount as a float64

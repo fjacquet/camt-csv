@@ -10,7 +10,7 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
   - Fallback to Gemini AI when local matching fails (with configurable rate limiting)
 - Clean CLI interface using modular command structure
 - Detailed logging with Logrus
-- Convert PDF files to CSV format
+- Convert PDF files to CSV format (including Viseca credit card statements with specialized parsing)
 - Process Revolut CSV export files to standard format
 - Batch processing for multiple files
 - Process Selma investment CSV files with intelligent categorization
@@ -73,6 +73,7 @@ LOG_FORMAT=text
 ```
 
 ### Convert viseca PDF to CSV
+This command supports Viseca credit card statements with specialized parsing logic (multi-line headers, categories, foreign currency).
 
 ```bash
 ./camt-csv pdf -i input.pdf -o output.csv
