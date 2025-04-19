@@ -7,6 +7,7 @@ import (
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/pdfparser"
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
@@ -30,6 +31,7 @@ var (
 	info        string
 	selmaFile   string
 	revolutFile string
+	debitFile   string
 )
 
 var rootCmd = &cobra.Command{
@@ -97,6 +99,13 @@ var revolutCmd = &cobra.Command{
 	Short: "Process Revolut CSV files",
 	Long:  `Process Revolut CSV files to convert to standard format and categorize transactions.`,
 	Run: revolutFunc,
+}
+
+var debitCmd = &cobra.Command{
+	Use:   "debit",
+	Short: "Process Debit CSV files",
+	Long:  `Process Visa Debit CSV files to convert to standard format and categorize transactions.`,
+	Run: debitFunc,
 }
 
 func convertFunc(cmd *cobra.Command, args []string) {
@@ -241,6 +250,33 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 	log.Info("Revolut CSV conversion completed successfully!")
 }
 
+func debitFunc(cmd *cobra.Command, args []string) {
+	log.Info("Debit command called")
+	log.Infof("Input file: %s", debitFile)
+	log.Infof("Output file: %s", csvFile)
+
+	// Set the logger for the debit parser
+	debitparser.SetLogger(log)
+
+	if validate {
+		log.Info("Validating Debit CSV format...")
+		valid, err := debitparser.ValidateFormat(debitFile)
+		if err != nil {
+			log.Fatalf("Error validating Debit CSV file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not a valid Visa Debit CSV format")
+		}
+		log.Info("Validation successful. File is in valid Visa Debit CSV format.")
+	}
+
+	err := debitparser.ConvertToCSV(debitFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting Debit CSV to standard CSV: %v", err)
+	}
+	log.Info("Debit CSV to standard CSV conversion completed successfully!")
+}
+
 func init() {
 	// Initialize and configure logging
 	config.LoadEnv()
@@ -251,6 +287,7 @@ func init() {
 	pdfparser.SetLogger(log)
 	selmaparser.SetLogger(log)
 	revolutparser.SetLogger(log)
+	debitparser.SetLogger(log)
 	
 	// CAMT command flags
 	camtCmd.Flags().StringVarP(&xmlFile, "input", "i", "", "Input CAMT.053 XML file")
@@ -286,6 +323,13 @@ func init() {
 	revolutCmd.MarkFlagRequired("input")
 	revolutCmd.MarkFlagRequired("output")
 
+	// Debit command flags
+	debitCmd.Flags().StringVarP(&debitFile, "input", "i", "", "Input Visa Debit CSV file")
+	debitCmd.Flags().StringVarP(&csvFile, "output", "o", "", "Output CSV file")
+	debitCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate Debit CSV file format before conversion")
+	debitCmd.MarkFlagRequired("input")
+	debitCmd.MarkFlagRequired("output")
+
 	// Add commands to root
 	rootCmd.AddCommand(camtCmd)
 	rootCmd.AddCommand(batchCmd)
@@ -293,6 +337,7 @@ func init() {
 	rootCmd.AddCommand(pdfCmd)
 	rootCmd.AddCommand(selmaCmd)
 	rootCmd.AddCommand(revolutCmd)
+	rootCmd.AddCommand(debitCmd)
 }
 
 func main() {
