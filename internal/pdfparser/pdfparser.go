@@ -1,13 +1,12 @@
-// Package pdfparser provides functionality to parse PDF files and extract transaction data.
-// It supports reading bank statements in PDF format and converting them to standardized CSV files.
+// Package pdfparser provides functionality to parse and process PDF bank statements.
 package pdfparser
 
 import (
-	"encoding/csv"
 	"fmt"
 	"os"
 	"strings"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
@@ -15,14 +14,11 @@ import (
 
 var log = logrus.New()
 
-// SetLogger allows setting a configured logger for this package.
-// This function enables integration with the application's logging system.
-// 
-// Parameters:
-//   - logger: A configured logrus.Logger instance. If nil, no change will occur.
+// SetLogger allows setting a custom logger
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
+		common.SetLogger(logger)
 	}
 }
 
@@ -81,95 +77,15 @@ func ParseFile(pdfFile string) ([]models.Transaction, error) {
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
-// It formats the transactions according to a standardized structure and writes them to the specified file.
-// 
-// Parameters:
-//   - transactions: A slice of Transaction objects to write to the CSV file
-//   - csvFile: Path where the CSV file should be written
-//
-// Returns:
-//   - error: Any error encountered during the writing process
+// It formats the transactions and applies categorization before writing.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"file": csvFile,
-		"count": len(transactions),
-	}).Info("Writing transactions to CSV file")
-
-	file, err := os.Create(csvFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to create CSV file")
-		return fmt.Errorf("error creating CSV file: %w", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header
-	header := []string{
-		"Date", "Value Date", "Description", "Bookkeeping No.", "Fund", 
-		"Amount", "Currency", "Credit/Debit", "Entry Reference", 
-		"Account Servicer Ref", "Bank Transaction Code", "Status", 
-		"Payee", "Payer", "IBAN", "Category",
-	}
-	if err := writer.Write(header); err != nil {
-		log.WithError(err).Error("Failed to write CSV header")
-		return fmt.Errorf("error writing CSV header: %w", err)
-	}
-
-	// Write transactions
-	for _, tx := range transactions {
-		record := []string{
-			tx.Date,
-			tx.ValueDate,
-			tx.Description,
-			tx.BookkeepingNo,
-			tx.Fund,
-			tx.Amount,
-			tx.Currency,
-			tx.CreditDebit,
-			tx.EntryReference,
-			tx.AccountServicer,
-			tx.BankTxCode,
-			tx.Status,
-			tx.Payee,
-			tx.Payer,
-			tx.IBAN,
-			tx.Category,
-		}
-		if err := writer.Write(record); err != nil {
-			log.WithError(err).Error("Failed to write transaction record")
-			return fmt.Errorf("error writing transaction record: %w", err)
-		}
-	}
-
-	log.WithField("count", len(transactions)).Info("Successfully wrote transactions to CSV file")
-	return nil
+	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
-// ConvertToCSV is the main function to convert a PDF file to a CSV file containing transaction data.
-// This function combines ParseFile and WriteToCSV into a single operation for convenience.
-// 
-// Parameters:
-//   - pdfFile: Path to the PDF file to be converted
-//   - csvFile: Path where the resulting CSV file should be written
-//
-// Returns:
-//   - error: Any error encountered during conversion
-func ConvertToCSV(pdfFile, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"pdfFile": pdfFile,
-		"csvFile": csvFile,
-	}).Info("Converting PDF to CSV")
-	
-	// Parse the PDF file to extract transactions
-	transactions, err := ParseFile(pdfFile)
-	if err != nil {
-		return err
-	}
-	
-	// Write transactions to CSV
-	return WriteToCSV(transactions, csvFile)
+// ConvertToCSV converts a PDF bank statement to the standard CSV format.
+// This is a convenience function that combines ParseFile and WriteToCSV.
+func ConvertToCSV(inputFile, outputFile string) error {
+	return common.GeneralizedConvertToCSV(inputFile, outputFile, ParseFile, ValidateFormat)
 }
 
 // ValidateFormat checks if a file is a valid PDF.

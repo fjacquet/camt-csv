@@ -7,6 +7,7 @@ import (
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/pdfparser"
 
@@ -19,6 +20,7 @@ var (
 	xmlFile   string
 	csvFile   string
 	pdfFile   string
+	debitFile string
 	inputDir  string
 	outputDir string
 	validate  bool
@@ -86,6 +88,13 @@ var pdfCmd = &cobra.Command{
 	Short: "Convert PDF to CSV",
 	Long:  `Convert PDF file containing transaction data to CSV format.`,
 	Run:   pdfFunc,
+}
+
+var debitCmd = &cobra.Command{
+	Use:   "debit",
+	Short: "Convert Visa Debit CSV to standard CSV",
+	Long:  `Convert Visa Debit CSV files to standard CSV format with categorization.`,
+	Run:   debitFunc,
 }
 
 func convertFunc(cmd *cobra.Command, args []string) {
@@ -200,6 +209,33 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 	log.Info("PDF to CSV conversion completed successfully!")
 }
 
+func debitFunc(cmd *cobra.Command, args []string) {
+	log.Info("Debit convert command called")
+	log.Infof("Input file: %s", debitFile)
+	log.Infof("Output file: %s", csvFile)
+
+	// Set the logger for the debit parser
+	debitparser.SetLogger(log)
+
+	if validate {
+		log.Info("Validating Debit CSV format...")
+		valid, err := debitparser.ValidateFormat(debitFile)
+		if err != nil {
+			log.Fatalf("Error validating Debit CSV file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not a valid Visa Debit CSV format")
+		}
+		log.Info("Validation successful. File is in valid Visa Debit CSV format.")
+	}
+
+	err := debitparser.ConvertToCSV(debitFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting Debit CSV to standard CSV: %v", err)
+	}
+	log.Info("Debit CSV to standard CSV conversion completed successfully!")
+}
+
 func init() {
 	// Configure logging
 	log.SetFormatter(&logrus.TextFormatter{
@@ -208,14 +244,15 @@ func init() {
 
 	// Add commands to root command
 	rootCmd.AddCommand(camtCmd)
-	rootCmd.AddCommand(categorizeCmd)
-	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(batchCmd)
+	rootCmd.AddCommand(validateCmd)
+	rootCmd.AddCommand(categorizeCmd)
 	rootCmd.AddCommand(pdfCmd)
+	rootCmd.AddCommand(debitCmd)
 
 	// Define flags for convert command
-	camtCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file (required)")
-	camtCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file (required)")
+	camtCmd.Flags().StringVarP(&xmlFile, "xml", "x", "", "Input XML file (required)")
+	camtCmd.Flags().StringVarP(&csvFile, "csv", "c", "", "Output CSV file (required)")
 	camtCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate XML format before conversion")
 	camtCmd.MarkFlagRequired("xml")
 	camtCmd.MarkFlagRequired("csv")
@@ -227,23 +264,30 @@ func init() {
 	batchCmd.MarkFlagRequired("output")
 
 	// Define flags for validate command
-	validateCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file to validate (required)")
+	validateCmd.Flags().StringVarP(&xmlFile, "xml", "x", "", "XML file to validate (required)")
 	validateCmd.MarkFlagRequired("xml")
 
 	// Define flags for categorize command
-	categorizeCmd.Flags().StringVarP(&partyName, "party", "p", "", "Name of the transaction party (required)")
+	categorizeCmd.Flags().StringVarP(&partyName, "party", "p", "", "Name of the party (required)")
 	categorizeCmd.Flags().BoolVarP(&isDebtor, "debtor", "d", false, "Whether the party is a debtor (sender) or creditor (recipient)")
-	categorizeCmd.Flags().StringVarP(&amount, "amount", "a", "0.00", "Transaction amount with currency (e.g., 10.50 EUR)")
-	categorizeCmd.Flags().StringVarP(&date, "date", "t", "", "Transaction date (e.g., 2023-01-01)")
-	categorizeCmd.Flags().StringVarP(&info, "info", "n", "", "Additional transaction information")
+	categorizeCmd.Flags().StringVarP(&amount, "amount", "a", "", "Transaction amount")
+	categorizeCmd.Flags().StringVar(&date, "date", "", "Transaction date")
+	categorizeCmd.Flags().StringVar(&info, "info", "", "Additional transaction information")
 	categorizeCmd.MarkFlagRequired("party")
 
 	// Define flags for pdf command
-	pdfCmd.Flags().StringVarP(&pdfFile, "pdf", "i", "", "Input PDF file (required)")
-	pdfCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file (required)")
+	pdfCmd.Flags().StringVarP(&pdfFile, "pdf", "p", "", "Input PDF file (required)")
+	pdfCmd.Flags().StringVarP(&csvFile, "csv", "c", "", "Output CSV file (required)")
 	pdfCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate PDF format before conversion")
 	pdfCmd.MarkFlagRequired("pdf")
 	pdfCmd.MarkFlagRequired("csv")
+
+	// Define flags for debit command
+	debitCmd.Flags().StringVarP(&debitFile, "in", "i", "", "Input Visa Debit CSV file (required)")
+	debitCmd.Flags().StringVarP(&csvFile, "out", "o", "", "Output CSV file (required)")
+	debitCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate Debit CSV format before conversion")
+	debitCmd.MarkFlagRequired("in")
+	debitCmd.MarkFlagRequired("out")
 }
 
 func main() {

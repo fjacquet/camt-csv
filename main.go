@@ -8,6 +8,7 @@ import (
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/pdfparser"
+	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
 
 	"github.com/sirupsen/logrus"
@@ -15,19 +16,20 @@ import (
 )
 
 var (
-	log       = logrus.New()
-	xmlFile   string
-	csvFile   string
-	pdfFile   string
-	inputDir  string
-	outputDir string
-	validate  bool
-	partyName string
-	isDebtor  bool
-	amount    string
-	date      string
-	info      string
-	selmaFile string
+	log         = logrus.New()
+	xmlFile     string
+	csvFile     string
+	pdfFile     string
+	inputDir    string
+	outputDir   string
+	validate    bool
+	partyName   string
+	isDebtor    bool
+	amount      string
+	date        string
+	info        string
+	selmaFile   string
+	revolutFile string
 )
 
 var rootCmd = &cobra.Command{
@@ -88,6 +90,13 @@ var selmaCmd = &cobra.Command{
 	Short: "Process Selma CSV files",
 	Long:  `Process Selma CSV files to categorize and organize investment transactions.`,
 	Run: selmaFunc,
+}
+
+var revolutCmd = &cobra.Command{
+	Use:   "revolut",
+	Short: "Process Revolut CSV files",
+	Long:  `Process Revolut CSV files to convert to standard format and categorize transactions.`,
+	Run: revolutFunc,
 }
 
 func convertFunc(cmd *cobra.Command, args []string) {
@@ -200,7 +209,36 @@ func selmaFunc(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error converting Selma CSV to standard CSV: %v", err)
 	}
 	
-	log.Info("Selma CSV processing completed successfully!")
+	log.Info("Selma CSV conversion completed successfully!")
+}
+
+func revolutFunc(cmd *cobra.Command, args []string) {
+	log.Info("Revolut CSV process command called")
+	log.Infof("Input Revolut CSV file: %s", revolutFile)
+	log.Infof("Output CSV file: %s", csvFile)
+	
+	// Set the logger for the revolut parser
+	revolutparser.SetLogger(log)
+	
+	if validate {
+		log.Info("Validating Revolut CSV format...")
+		valid, err := revolutparser.ValidateFormat(revolutFile)
+		if err != nil {
+			log.Fatalf("Error validating Revolut CSV file: %v", err)
+		}
+		if !valid {
+			log.Fatal("The file is not a valid Revolut CSV")
+		}
+		log.Info("Validation successful. File is a valid Revolut CSV.")
+	}
+
+	// Use the standardized ConvertToCSV method
+	err := revolutparser.ConvertToCSV(revolutFile, csvFile)
+	if err != nil {
+		log.Fatalf("Error converting Revolut CSV to standard CSV: %v", err)
+	}
+	
+	log.Info("Revolut CSV conversion completed successfully!")
 }
 
 func init() {
@@ -212,32 +250,49 @@ func init() {
 	camtparser.SetLogger(log)
 	pdfparser.SetLogger(log)
 	selmaparser.SetLogger(log)
+	revolutparser.SetLogger(log)
 	
+	// CAMT command flags
+	camtCmd.Flags().StringVarP(&xmlFile, "input", "i", "", "Input CAMT.053 XML file")
+	camtCmd.Flags().StringVarP(&csvFile, "output", "o", "", "Output CSV file")
+	camtCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate XML file format before conversion")
+	camtCmd.MarkFlagRequired("input")
+	camtCmd.MarkFlagRequired("output")
+
+	// Batch command flags
+	batchCmd.Flags().StringVarP(&inputDir, "input-dir", "i", "", "Input directory containing CAMT.053 XML files")
+	batchCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Output directory for CSV files")
+	batchCmd.MarkFlagRequired("input-dir")
+	batchCmd.MarkFlagRequired("output-dir")
+
+	// PDF command flags
+	pdfCmd.Flags().StringVarP(&pdfFile, "input", "i", "", "Input PDF file")
+	pdfCmd.Flags().StringVarP(&csvFile, "output", "o", "", "Output CSV file")
+	pdfCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate PDF file format before conversion")
+	pdfCmd.MarkFlagRequired("input")
+	pdfCmd.MarkFlagRequired("output")
+	
+	// Selma command flags
+	selmaCmd.Flags().StringVarP(&selmaFile, "input", "i", "", "Input Selma CSV file")
+	selmaCmd.Flags().StringVarP(&csvFile, "output", "o", "", "Output CSV file")
+	selmaCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate Selma CSV file format before conversion")
+	selmaCmd.MarkFlagRequired("input")
+	selmaCmd.MarkFlagRequired("output")
+	
+	// Revolut command flags
+	revolutCmd.Flags().StringVarP(&revolutFile, "input", "i", "", "Input Revolut CSV file")
+	revolutCmd.Flags().StringVarP(&csvFile, "output", "o", "", "Output CSV file")
+	revolutCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate Revolut CSV file format before conversion")
+	revolutCmd.MarkFlagRequired("input")
+	revolutCmd.MarkFlagRequired("output")
+
+	// Add commands to root
 	rootCmd.AddCommand(camtCmd)
 	rootCmd.AddCommand(batchCmd)
 	rootCmd.AddCommand(categorizeCmd)
 	rootCmd.AddCommand(pdfCmd)
 	rootCmd.AddCommand(selmaCmd)
-
-	camtCmd.Flags().StringVarP(&xmlFile, "xml", "i", "", "Input XML file")
-	camtCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
-	camtCmd.MarkFlagRequired("xml")
-	camtCmd.MarkFlagRequired("csv")
-	
-	batchCmd.Flags().StringVarP(&inputDir, "input", "i", "", "Input directory containing XML files")
-	batchCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory for CSV files")
-	batchCmd.MarkFlagRequired("input")
-	batchCmd.MarkFlagRequired("output")
-	
-	pdfCmd.Flags().StringVarP(&pdfFile, "pdf", "i", "", "Input PDF file")
-	pdfCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output CSV file")
-	pdfCmd.MarkFlagRequired("pdf")
-	pdfCmd.MarkFlagRequired("csv")
-	
-	selmaCmd.Flags().StringVarP(&selmaFile, "selma", "i", "", "Input Selma CSV file")
-	selmaCmd.Flags().StringVarP(&csvFile, "csv", "o", "", "Output processed CSV file")
-	selmaCmd.MarkFlagRequired("selma")
-	selmaCmd.MarkFlagRequired("csv")
+	rootCmd.AddCommand(revolutCmd)
 }
 
 func main() {

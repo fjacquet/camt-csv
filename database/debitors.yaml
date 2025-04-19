@@ -1,8 +1,15 @@
 debitors:
+    5àsec: Services
+    777-pressing 5asec: Services
+    al volo pizzeria: Restaurants
     amag automobil- und motoren ag: Voiture
+    amavita montreux 100: Santé
+    amazon: Services
     amnesty international: Dons
-    ana milicevic-lemut:  Voyages
+    ana milicevic-lemut: Voyages
+    angel s bar: Restaurants
     asloca: Services
+    au grotto: Res  
     avenir assurance maladie sa: Assurance Maladie
     avenir assurances maladie sa: Assurance Maladie
     awp p + c s.a., saint-ouen (paris): Assurances
@@ -10,9 +17,18 @@ debitors:
     awp p+c s.a: Assurances
     back pain solutions sarl: Pension
     bank frick + co. ag: Services
+    bazar suisse: Shopping
+    berghotel wildstrubel: Restaurants
+    boreal coffee shop: Alimentation
+    boucherie la vallée: Alimentation
+    boucherie-charcuteri: Alimentation
     brack consulting: Shopping
     brack.ch ag: Shopping
+    bread store: Alimentation
+    briand sport & mode: Loisirs
     byjuno: Services
+    cafe des alpes: Alimentation
+    caffè spettacolo: Alimentation
     caisse de pensions l etat de vaud: Logement
     caisse pour medecins-dentistes sa: Santé
     caisse pour médecins-dentistes sa: Santé
@@ -20,8 +36,13 @@ debitors:
     cembra money bank sa: Services
     cembrapay sa: Services
     centre hospitalier universitaire vaudois / chuv: Santé
+    cff vevey wc: Soins Personnels
+    codeium: Services
     commune de montreux: Enfants
+    confiserie zurcher: Alimentation
     conrad electronic ag: Shopping
+    coop: Alimentation
+    coop pronto: Alimentation
     croix-rouge suisse: Dons
     croix-rouge vaudoise: Dons
     daniel  et lana vergeres: Voyages
@@ -30,43 +51,89 @@ debitors:
     der touristik suisse sa: Voyages
     dertour suisse ag: Voyages
     dynapresse marketing sa: Abonnements
+    easypark: Voiture
     eca vd: Assurances
     eco it: Loisirs
     editions plus s.à r.l.: Abonnements
+    elvetino: Restaurants
     etabl. ass. contre l'incendie et les elements naturels canton vd (eca): Assurances
     etablissement cantonal d assurance: Assurance Maladie
+    exchange to eur: Frais Bancaires
     federation suisse des sourds: Dons
+    filae: Services
     florence jacquet: Virements
+    fnac - montreux: Shopping
     fondation prev. ep3 bcv: Cadeaux
-    frederic jacquet:  Virements
+    frederic jacquet: Virements
+    fun planet rennaz: Loisirs
+    gate gourmet helvetia: Alimentation
     generali personenversicherungen ag: Assurances
+    gofundme: Services
+    hotel schwarenbach: Voyages
+    indigo: Shopping
+    inglewood montreux: Restaurants
     ivan lago: Virements
+    ivs france: Shopping
     jacquet florence et f.: Virements
     jacquet frederic: Virements
+    k-kiosk: Shopping
     keyfinder: Services
     kuoni voyages: Voyages
+    la molisana: Restaurants
     la societe de theatre: Loisirs
+    le kamuy ramen isaka: Restaurants
+    le minestrone: Alimentation
     le nouvelliste: Abonnements
+    le piaf - deli cafébar luzern: Restaurants
     lemonway: Shopping
     let s go fitness montreux sa: Sport
     ligue vaudoise contre le cancer: Assurances
+    livique-5110 villene: Mobilier
     martinez: Virements
+    maru: Restaurants
+    maxi bazar: Shopping
+    medium: Services
+    migrolino: Shopping
+    migros: Shopping
+    mistral: Services
     mobility genossenschaft: Voiture
     moebel pfister ag: Mobilier
+    motel de la gruyère: Restaurants
     mutuel assurance maladie sa: Assurance Maladie
     mutuel assurances maladie sa: Assurance Maladie
     my leukerbad: Voyages
+    müller handels ag sc: Shopping
+    obsidian: Services
+    openai: Services
     pamela pitteloud: Virements
+    parking-relais lausa: Voiture
     patrick dobler: Virements
     paycard c/o retail marketing switzerland ag: Frais Bancaires
+    payot libraire sa: Shopping
     payot sa: Shopping
     payward ltd.: Virements
     pensionskasse des bundes publica: Logement
     pentogravo sarl: Voiture
+    piscine de la malada: Sport
+    piscine et spa de zi: Sport
+    pizzeria al volo: Restaurants
     polizia cantonale: Taxes
+    premium plan fee: Frais Bancaires
+    quartier 5 restaurant: Restaurants
+    rathausstrasse: Voiture
+    ratp: Transports Publics
     rega: Dons
+    relay: Shopping
+    restaurant rinderhütte: Restaurants
+    retrait bcv montreux 1: Divers
+    retrait bcv montreux forum: Divers
+    retrait br montreux gare: Divers
+    retrait rb brig sbb: Divers
+    retrait ubs montreux: Divers
     retraites populaires: Logement
     romande energie sa: Utilités
+    royalty entertainmen: Divers
+    sbb cff ffs: Transports Publics
     sbb contact center swiss pass: Transports Publics
     sc, swisscaution sa: Assurances
     schweiz. rettungsflugwacht (rega): Dons
@@ -74,28 +141,38 @@ debitors:
     schweizer wanderwege saw: Dons
     schweizerische bundesbahnen sbb div: Transports Publics
     securite riviera: Assurances
+    selecta: Shopping
+    selma_fee: Frais Bancaires
     serafe ag: Taxes
     service automobiles et navigation: Taxes
     societe de tir: Loisirs
+    stamp_duty: Frais Bancaires
     suisse rando: Dons
     sunrise communications ag: Services
     sunrise gmbh: Services
+    sushi zen sa montreu: Restaurants
     swiss caution: Assurances
     swissborg solutions ou: Loisirs
     swisscom (schweiz) ag: Utilités
     swisspass c/o mf group ag: Transports Publics
     switchplus: Loisirs
+    thermalbad brigerbad: Loisirs
+    to chf vacances: Frais Bancaires
+    trade: Frais Bancaires
     unilabs riviera: Assurances
+    université de lausanne parking: Voiture
     unknown payee: Salaire
     vaudoise generale: Assurances
     vaudoise vie compagnie d assurances sa: Assurances
     vaudoise vie compagnie d'assurances sa: Assurances
     vedia sa: Logement
+    verkehrshaus der schweiz: Loisirs
     viseca payment services: Abonnements
     vorwerk ch: Shopping
     vzug: Shopping
     wikimedia ch: Dons
     wingo: Services
+    withholding_tax: Frais Bancaires
     wwf schweiz, zurich: Dons
     wwf suisse: Dons
     xlch ag: Pension

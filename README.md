@@ -10,6 +10,7 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 - Clean CLI interface using Cobra
 - Detailed logging with Logrus
 - Convert PDF files to CSV format
+- Process Revolut CSV export files to standard format
 - Batch processing for multiple files
 - Process Selma investment CSV files with intelligent categorization
 
@@ -84,6 +85,16 @@ export LOG_FORMAT=json
 ./camt-csv selma -i input_selma.csv -o processed_output.csv
 ```
 
+### Process Revolut CSV Files
+
+```bash
+./camt-csv revolut -i input_revolut.csv -o processed_output.csv
+```
+### Process Visa Debit CSV Files
+
+```bash
+./camt-csv debit -i input_debit.csv -o processed_output.csv
+```
 ### Validate XML Format
 
 ```bash
@@ -108,6 +119,7 @@ camt-csv/
 │   ├── converter/       # XML to CSV conversion logic
 │   ├── models/          # Data models used internally
 │   ├── pdfparser/       # PDF to CSV conversion logic
+│   ├── revolutparser/   # Revolut CSV processing logic
 │   └── selmaparser/     # Selma CSV processing logic
 ├── database/            # Configuration data files
 │   └── categories.yaml  # Transaction categorization rules
@@ -151,6 +163,12 @@ All parsers implement the following standard functions:
    ```go
    transactions, err := selmaparser.ParseFile("investments.csv")
    err = selmaparser.WriteToCSV(transactions, "output.csv")
+   ```
+
+4. **revolutparser**: Processes Revolut CSV export files
+   ```go
+   transactions, err := revolutparser.ParseFile("revolut_export.csv")
+   err = revolutparser.WriteToCSV(transactions, "output.csv")
    ```
 
 ### Internal Architecture

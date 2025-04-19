@@ -2,10 +2,13 @@ creditors:
     avenir assurance maladie sa: Assurance Maladie
     axa versicherungen ag: Assurances
     brack.ch ag: Loisirs
+    cash_transfer:  Revenus Financiers
     concur technologies, inc.: Loisirs
     cpev lausanne: Virements
     dell sa: Salaire
     dipl. ing. fust ag: Équipement Maison
+    dividend:  Revenus Financiers
+    exchange to chf:  Revenus Financiers
     florence c. i. jacquet: Impôts
     fondation de prevoyance epargne 3: Cadeaux
     frederic jacquet: Virements
@@ -18,5 +21,7 @@ creditors:
     jordi ochoa: Virements
     mutuel assurance maladie sa: Salaire
     sword technologies sa: Salaire
+    to chf vacances:  Revenus Financiers
+    trade:  Revenus Financiers
     vaudoise generale, comp. d'ass: Salaire
     vaudoise generale. comp. d'ass: Salaire

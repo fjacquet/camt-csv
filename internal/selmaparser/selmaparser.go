@@ -1,11 +1,11 @@
-// Package selmaparser provides functionality for processing Selma investment CSV files.
-// It allows parsing, converting and processing Selma CSV exports into standardized formats.
+// Package selmaparser provides functionality to parse and process Selma CSV files.
 package selmaparser
 
 import (
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
+	"fjacquet/camt-csv/internal/common"
 )
 
 var log = logrus.New()
@@ -74,16 +74,9 @@ func ProcessTransactions(transactions []models.Transaction) []models.Transaction
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
-// This is the standardized parser interface for writing transaction data to CSV.
-// 
-// Parameters:
-//   - transactions: A slice of Transaction objects to write to the CSV file
-//   - filePath: Path where the CSV file should be written
-//
-// Returns:
-//   - error: Any error encountered during the writing process
-func WriteToCSV(transactions []models.Transaction, filePath string) error {
-	return WriteSelmaCSV(filePath, transactions)
+// It formats the transactions and applies categorization before writing.
+func WriteToCSV(transactions []models.Transaction, csvFile string) error {
+	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // WriteSelmaCSV writes a slice of Transaction structs to a CSV file in Selma format.
@@ -138,30 +131,8 @@ func ValidateFormat(filePath string) (bool, error) {
 	return isValid, nil
 }
 
-// ConvertToCSV is the main function to convert a Selma CSV file to a standardized CSV file.
-// It reads the source file, processes the transactions, and writes them to the destination.
-// 
-// Parameters:
-//   - inputFile: Path to the Selma CSV file to be converted
-//   - outputFile: Path where the resulting CSV file should be written
-//
-// Returns:
-//   - error: Any error encountered during conversion
+// ConvertToCSV converts a Selma CSV file to the standard CSV format.
+// This is a convenience function that combines ParseFile and WriteToCSV.
 func ConvertToCSV(inputFile, outputFile string) error {
-	log.WithFields(logrus.Fields{
-		"input": inputFile,
-		"output": outputFile,
-	}).Info("Converting Selma CSV file")
-	
-	// Read the Selma CSV file
-	transactions, err := ReadSelmaCSV(inputFile)
-	if err != nil {
-		return err
-	}
-	
-	// Process the transactions 
-	processedTransactions := ProcessTransactions(transactions)
-	
-	// Write the processed transactions to CSV
-	return WriteToCSV(processedTransactions, outputFile)
+	return common.GeneralizedConvertToCSV(inputFile, outputFile, ParseFile, ValidateFormat)
 }

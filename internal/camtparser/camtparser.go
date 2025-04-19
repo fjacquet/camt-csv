@@ -1,16 +1,14 @@
-// Package camtparser provides functionality to parse CAMT.053 XML files and convert them to CSV format.
-// It handles the extraction of transaction data from XML files following the CAMT.053 standard.
+// Package camtparser provides functionality to parse and process CAMT.053 XML files.
 package camtparser
 
 import (
-	"encoding/csv"
 	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
@@ -18,10 +16,11 @@ import (
 
 var log = logrus.New()
 
-// SetLogger allows setting a configured logger
+// SetLogger allows setting a custom logger
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
+		common.SetLogger(logger)
 	}
 }
 
@@ -52,107 +51,13 @@ func ParseFile(xmlFile string) ([]models.Transaction, error) {
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
 // It formats the transactions and applies categorization before writing.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Writing transactions to CSV file")
-
-	csvFileHandle, err := os.Create(csvFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to create CSV file")
-		return fmt.Errorf("error creating CSV file: %w", err)
-	}
-	defer csvFileHandle.Close()
-
-	writer := csv.NewWriter(csvFileHandle)
-	defer writer.Flush()
-
-	// Write CSV header
-	header := []string{
-		"Date", "Value Date", "Description", "Bookkeeping No.", "Fund",
-		"Amount", "Currency", "Credit/Debit", "Entry Reference",
-		"Account Servicer Ref", "Bank Transaction Code", "Status",
-		"Payee", "Payer", "IBAN", "Category",
-	}
-	if err := writer.Write(header); err != nil {
-		log.WithError(err).Error("Failed to write CSV header")
-		return fmt.Errorf("error writing CSV header: %w", err)
-	}
-
-	// Write transaction data
-	for _, tx := range transactions {
-		// Try to categorize the transaction if not already categorized
-		if tx.Category == "" {
-			// Determine if the transaction is a debit or credit
-			isDebtor := tx.CreditDebit == "DBIT"
-
-			// Create a categorizer.Transaction from our transaction data
-			catTx := categorizer.Transaction{
-				PartyName: func() string {
-					if isDebtor {
-						return tx.Payee
-					}
-					return tx.Payer
-				}(),
-				IsDebtor: isDebtor,
-				Amount:   fmt.Sprintf("%s %s", tx.Amount, tx.Currency),
-				Date:     tx.Date,
-				Info:     tx.Description,
-			}
-
-			// Try to categorize using the categorizer
-			if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-				tx.Category = category.Name
-				log.WithFields(logrus.Fields{
-					"description": tx.Description,
-					"category":    category.Name,
-				}).Debug("Applied categorization")
-			}
-		}
-
-		row := []string{
-			tx.Date,
-			tx.ValueDate,
-			tx.Description,
-			tx.BookkeepingNo,
-			tx.Fund,
-			tx.Amount,
-			tx.Currency,
-			tx.CreditDebit,
-			tx.EntryReference,
-			tx.AccountServicer,
-			tx.BankTxCode,
-			tx.Status,
-			tx.Payee,
-			tx.Payer,
-			tx.IBAN,
-			tx.Category,
-		}
-
-		if err := writer.Write(row); err != nil {
-			log.WithError(err).Error("Failed to write transaction row")
-			return fmt.Errorf("error writing transaction row: %w", err)
-		}
-	}
-
-	log.Info("Successfully wrote all transactions to CSV file")
-	return nil
+	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // ConvertToCSV converts a CAMT.053 XML file to a CSV file.
 // This is a convenience function that combines ParseFile and WriteToCSV.
 func ConvertToCSV(xmlFile, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"input":  xmlFile,
-		"output": csvFile,
-	}).Info("Converting CAMT.053 XML to CSV")
-
-	transactions, err := ParseFile(xmlFile)
-	if err != nil {
-		return err
-	}
-
-	return WriteToCSV(transactions, csvFile)
+	return common.GeneralizedConvertToCSV(xmlFile, csvFile, ParseFile, ValidateFormat)
 }
 
 // BatchConvert converts all XML files in a directory to CSV files.
