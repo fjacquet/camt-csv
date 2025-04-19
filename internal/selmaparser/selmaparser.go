@@ -73,7 +73,7 @@ func ReadSelmaCSV(filePath string) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 	for _, row := range selmaRows {
 		// Skip empty rows
-		if row.Date == "" || row.Name == "" {
+		if row.Date == "" || row.Description == "" {
 			continue
 		}
 
@@ -93,28 +93,35 @@ func ReadSelmaCSV(filePath string) ([]models.Transaction, error) {
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
 func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
-	// Convert NumberOfShares from string to int
-	shares, err := strconv.Atoi(row.NumberOfShares)
-	if err != nil {
-		shares = 0 // Default to 0 if conversion fails
+	// Convert NumberOfShares from string to int if not empty
+	var shares int
+	if row.NumberOfShares != "" {
+		// Try to parse as float first since some values might have decimal points
+		sharesFloat, err := strconv.ParseFloat(row.NumberOfShares, 64)
+		if err == nil {
+			shares = int(sharesFloat)
+		} else {
+			// If that fails, try parsing as int
+			shares, err = strconv.Atoi(row.NumberOfShares)
+			if err != nil {
+				shares = 0 // Default to 0 if conversion fails
+			}
+		}
 	}
 
-	// For Selma, create a description that includes ISIN and transaction type
-	description := fmt.Sprintf("%s - %s (%s)", row.Name, row.TransactionType, row.ISIN)
-
-	// Format date to standard DD.MM.YYYY format
-	formattedDate := models.FormatDate(row.Date)
+	// For Selma CSV, we keep the date as is since it's already in YYYY-MM-DD format
+	// We don't need to call models.FormatDate as that would convert to DD.MM.YYYY
 
 	transaction := models.Transaction{
-		Date:           formattedDate,
-		ValueDate:      formattedDate, // Use same date for ValueDate for Selma
-		Description:    description,
-		Amount:         row.TotalAmount,
+		Date:           row.Date, // Keep original YYYY-MM-DD format
+		ValueDate:      row.Date, // Use same date for ValueDate for Selma
+		Description:    row.Description,
+		BookkeepingNo:  row.BookkeepingNo,
+		Amount:         row.Amount,
 		Currency:       row.Currency,
 		NumberOfShares: shares,
-		CreditDebit:    determineCreditDebit(row.TransactionType, row.TotalAmount),
-		// Store transaction fee in the description if present
-		Fund: row.Name, // Use Name as Fund for investment transactions
+		Fund:           row.Fund,
+		CreditDebit:    determineCreditDebit(row.Description, row.Amount),
 	}
 
 	return transaction, nil
@@ -123,13 +130,10 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 // determineCreditDebit determines if a transaction is a debit or credit
 // based on transaction type and amount
 func determineCreditDebit(transactionType, amount string) string {
-	// For Selma, "BUY" typically means outgoing money (DBIT)
-	// "SELL" typically means incoming money (CRDT)
-	if transactionType == "BUY" {
+	// For Selma, "trade" with negative amount typically means outgoing money (DBIT)
+	if transactionType == "trade" && strings.HasPrefix(amount, "-") {
 		return "DBIT"
-	} else if transactionType == "SELL" {
-		return "CRDT"
-	}
+	} 
 
 	// If we can't determine from type, try to use the amount sign
 	if strings.HasPrefix(amount, "-") {
@@ -171,10 +175,80 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 		"count": len(transactions),
 	}).Info("Writing Selma transactions to CSV file")
 
-	err := common.WriteTransactionsToCSV(transactions, csvFile)
+	// Create output file
+	file, err := os.Create(csvFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to write Selma CSV file")
-		return err
+		log.WithError(err).Error("Failed to create output CSV file")
+		return fmt.Errorf("error creating output CSV file: %w", err)
+	}
+	defer file.Close()
+
+	// Create a CSV writer
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write the exact header format from the reference file
+	header := []string{
+		"Date", 
+		"Description", 
+		"Bookkeeping No.", 
+		"Fund", 
+		"Amount", 
+		"Currency", 
+		"Number of Shares", 
+		"Stamp Duty Amount", 
+		"Investment",
+	}
+	if err := writer.Write(header); err != nil {
+		log.WithError(err).Error("Failed to write CSV header")
+		return fmt.Errorf("error writing CSV header: %w", err)
+	}
+
+	// Process each transaction
+	for _, tx := range transactions {
+		// Format the date to YYYY-MM-DD
+		date := tx.Date
+		if strings.Contains(date, ".") {
+			// If in DD.MM.YYYY format, convert to YYYY-MM-DD
+			parts := strings.Split(date, ".")
+			if len(parts) == 3 {
+				date = fmt.Sprintf("%s-%s-%s", parts[2], parts[1], parts[0])
+			}
+		}
+
+		// Format the amount with exactly 2 decimal places
+		amountFloat, _ := strconv.ParseFloat(tx.Amount, 64)
+		amountStr := fmt.Sprintf("%.2f", amountFloat)
+
+		// Format the number of shares - preserve as is for trade transactions, or empty for others
+		sharesStr := ""
+		if tx.NumberOfShares > 0 {
+			sharesStr = fmt.Sprintf("%.1f", float64(tx.NumberOfShares))
+		}
+
+		// Format the stamp duty amount, defaulting to "0.00" if empty
+		stampDutyStr := "0.00"
+		if tx.StampDuty != "" {
+			stampDutyStr = tx.StampDuty
+		}
+
+		// Write the row in the exact format needed
+		row := []string{
+			date,
+			tx.Description,
+			tx.BookkeepingNo,
+			tx.Fund,
+			amountStr,
+			tx.Currency,
+			sharesStr,
+			stampDutyStr,
+			tx.Investment,
+		}
+
+		if err := writer.Write(row); err != nil {
+			log.WithError(err).Error("Failed to write CSV row")
+			return fmt.Errorf("error writing CSV row: %w", err)
+		}
 	}
 
 	log.Info("Successfully wrote Selma transactions to CSV file")
@@ -205,25 +279,33 @@ func ValidateFormat(filePath string) (bool, error) {
 	reader := csv.NewReader(file)
 
 	// Read the header row
-	headers, err := reader.Read()
+	header, err := reader.Read()
 	if err != nil {
-		log.WithError(err).Error("Error reading headers from CSV file")
-		return false, err
+		log.WithError(err).Error("Error reading CSV header")
+		return false, fmt.Errorf("error reading CSV header: %w", err)
 	}
 
-	// Check for required headers in Selma CSV format
-	// These must match the field names in the SelmaCSVRow struct
-	requiredHeaders := []string{"Date", "Name", "Transaction Type", "Total Amount", "Currency"}
-	headerMap := make(map[string]bool)
+	// Define the required headers for a valid Selma CSV
+	requiredHeaders := []string{
+		"Date", 
+		"Description", 
+		"Bookkeeping No.", 
+		"Fund", 
+		"Amount", 
+		"Currency", 
+		"Number of Shares",
+	}
 
-	for _, header := range headers {
-		headerMap[header] = true
+	// Check if all required headers are present
+	headerMap := make(map[string]bool)
+	for _, h := range header {
+		headerMap[h] = true
 	}
 
 	for _, required := range requiredHeaders {
 		if !headerMap[required] {
 			log.WithField("missing_header", required).Debug("Missing required header")
-			return false, nil
+			return false, fmt.Errorf("input file is not in a valid format")
 		}
 	}
 

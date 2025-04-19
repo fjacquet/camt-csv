@@ -26,8 +26,9 @@ type Transaction struct {
 	Payer           string `csv:"Payer"`          // Payer name
 	IBAN            string `csv:"IBAN"`           // IBAN if available
 	NumberOfShares  int    `csv:"NumberOfShares"` // Number of shares for investment transactions
-	StampDuty       string `csv:"StampDuty"`      // Stamp duty
+	StampDuty       string `csv:"StampDutyAmount"`// Stamp duty
 	Category        string `csv:"Category"`       // Transaction category
+	Investment      string `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
 }
 
 // GetAmountAsFloat returns the Amount as a float64
