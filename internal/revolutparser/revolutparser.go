@@ -8,9 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
@@ -18,6 +16,21 @@ import (
 )
 
 var log = logrus.New()
+
+// RevolutCSVRow represents a single row in a Revolut CSV file
+// It uses struct tags for gocsv unmarshaling
+type RevolutCSVRow struct {
+	Type          string `csv:"Type"`
+	Product       string `csv:"Product"`
+	StartedDate   string `csv:"Started Date"`
+	CompletedDate string `csv:"Completed Date"`
+	Description   string `csv:"Description"`
+	Amount        string `csv:"Amount"`
+	Fee           string `csv:"Fee"`
+	Currency      string `csv:"Currency"`
+	State         string `csv:"State"`
+	Balance       string `csv:"Balance"`
+}
 
 // SetLogger allows setting a configured logger
 func SetLogger(logger *logrus.Logger) {
@@ -32,85 +45,77 @@ func SetLogger(logger *logrus.Logger) {
 func ParseFile(filePath string) ([]models.Transaction, error) {
 	log.WithField("file", filePath).Info("Parsing Revolut CSV file")
 
-	file, err := os.Open(filePath)
+	// Check if the file format is valid
+	valid, err := ValidateFormat(filePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to open Revolut CSV file")
-		return nil, fmt.Errorf("error opening Revolut CSV file: %w", err)
+		return nil, fmt.Errorf("validation error: %w", err)
 	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	
-	// Read header
-	header, err := reader.Read()
-	if err != nil {
-		log.WithError(err).Error("Failed to read CSV header")
-		return nil, fmt.Errorf("error reading CSV header: %w", err)
-	}
-	
-	// Map column indices
-	indexMap := make(map[string]int)
-	for i, columnName := range header {
-		indexMap[columnName] = i
-	}
-	
-	// Verify required columns exist
-	requiredColumns := []string{"Started Date", "Description", "Amount", "Currency", "State"}
-	for _, col := range requiredColumns {
-		if _, exists := indexMap[col]; !exists {
-			log.WithField("column", col).Error("Required column not found in CSV")
-			return nil, fmt.Errorf("required column not found in CSV: %s", col)
-		}
+	if !valid {
+		return nil, fmt.Errorf("invalid Revolut CSV format")
 	}
 
-	// Parse transactions
+	// Use common.ReadCSVFile to read the CSV
+	revolutRows, err := common.ReadCSVFile[RevolutCSVRow](filePath)
+	if err != nil {
+		log.WithError(err).Error("Failed to read Revolut CSV file")
+		return nil, fmt.Errorf("error reading Revolut CSV: %w", err)
+	}
+
+	// Convert RevolutCSVRow objects to Transaction objects
 	var transactions []models.Transaction
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
+	for _, row := range revolutRows {
+		// Skip empty rows
+		if row.CompletedDate == "" || row.Description == "" {
+			continue
 		}
+
+		// Only include completed transactions
+		if row.State != "COMPLETED" {
+			continue
+		}
+
+		// Convert Revolut row to Transaction
+		tx, err := convertRevolutRowToTransaction(row)
 		if err != nil {
-			log.WithError(err).Error("Error reading CSV record")
-			return nil, fmt.Errorf("error reading CSV record: %w", err)
-		}
-
-		// Process Started Date to remove time part
-		dateStr := record[indexMap["Started Date"]]
-		parsedDate, err := time.Parse("2006-01-02 15:04:05", dateStr)
-		if err != nil {
-			log.WithError(err).WithField("date", dateStr).Warning("Failed to parse date, using as-is")
-			// Use the original string if parsing fails
-		} else {
-			// Format as YYYY-MM-DD
-			dateStr = parsedDate.Format("2006-01-02")
-		}
-
-		// Determine credit/debit based on amount sign
-		amount := record[indexMap["Amount"]]
-		creditDebit := "CRDT" // Default to credit
-		// If amount starts with minus sign, it's a debit
-		if strings.HasPrefix(amount, "-") {
-			creditDebit = "DBIT"
-			// Remove the minus sign for standard format
-			amount = amount[1:]
-		}
-
-		tx := models.Transaction{
-			Date:        dateStr,
-			ValueDate:   dateStr, // Use the same date for ValueDate
-			Description: record[indexMap["Description"]],
-			Amount:      amount,
-			Currency:    record[indexMap["Currency"]],
-			CreditDebit: creditDebit,
-			Status:      record[indexMap["State"]],
+			log.WithError(err).WithField("row", row).Warn("Failed to convert row to transaction")
+			continue
 		}
 
 		transactions = append(transactions, tx)
 	}
 
-	log.WithField("count", len(transactions)).Info("Successfully extracted transactions from Revolut CSV file")
+	log.WithField("count", len(transactions)).Info("Successfully parsed Revolut CSV file")
 	return transactions, nil
+}
+
+// convertRevolutRowToTransaction converts a RevolutCSVRow to a Transaction
+func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, error) {
+	// Determine credit/debit based on amount sign
+	creditDebit := "CRDT" // Default to credit
+	amount := row.Amount
+
+	if strings.HasPrefix(amount, "-") {
+		creditDebit = "DBIT"
+		// Remove the negative sign for consistency
+		amount = strings.TrimPrefix(amount, "-")
+	}
+
+	// Format dates to DD.MM.YYYY format for consistency
+	completedDate := models.FormatDate(row.CompletedDate)
+	startedDate := models.FormatDate(row.StartedDate)
+
+	transaction := models.Transaction{
+		Date:           completedDate,
+		ValueDate:      startedDate,
+		Description:    row.Description,
+		Amount:         amount,
+		Currency:       row.Currency,
+		CreditDebit:    creditDebit,
+		Status:         row.State,
+		NumberOfShares: 0, // Revolut transactions don't have shares
+	}
+
+	return transaction, nil
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
@@ -131,26 +136,26 @@ func ValidateFormat(filePath string) (bool, error) {
 	defer file.Close()
 
 	reader := csv.NewReader(file)
-	
+
 	// Read header
 	header, err := reader.Read()
 	if err != nil {
 		log.WithError(err).Error("Failed to read CSV header")
 		return false, fmt.Errorf("error reading CSV header: %w", err)
 	}
-	
+
 	// Required columns for a valid Revolut CSV
 	requiredColumns := []string{
-		"Type", "Product", "Started Date", "Description", 
+		"Type", "Product", "Started Date", "Description",
 		"Amount", "Currency", "State",
 	}
-	
+
 	// Map header columns to check if all required ones exist
 	headerMap := make(map[string]bool)
 	for _, col := range header {
 		headerMap[col] = true
 	}
-	
+
 	// Check if all required columns exist
 	for _, requiredCol := range requiredColumns {
 		if !headerMap[requiredCol] {
@@ -158,7 +163,7 @@ func ValidateFormat(filePath string) (bool, error) {
 			return false, nil
 		}
 	}
-	
+
 	// Check at least one data row is present
 	_, err = reader.Read()
 	if err == io.EOF {
@@ -168,7 +173,7 @@ func ValidateFormat(filePath string) (bool, error) {
 		log.WithError(err).Error("Error reading CSV record")
 		return false, fmt.Errorf("error reading CSV record: %w", err)
 	}
-	
+
 	log.Info("File is a valid Revolut CSV")
 	return true, nil
 }
@@ -206,21 +211,21 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".csv") {
 			continue
 		}
-		
+
 		inputPath := fmt.Sprintf("%s/%s", inputDir, file.Name())
-		
+
 		// Validate if it's a Revolut CSV file
 		isValid, err := ValidateFormat(inputPath)
 		if err != nil {
 			log.WithError(err).WithField("file", inputPath).Warning("Error validating file, skipping")
 			continue
 		}
-		
+
 		if !isValid {
 			log.WithField("file", inputPath).Info("Not a valid Revolut CSV file, skipping")
 			continue
 		}
-		
+
 		// Create output file path
 		baseName := file.Name()
 		baseNameWithoutExt := strings.TrimSuffix(baseName, ".csv")

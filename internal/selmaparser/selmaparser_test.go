@@ -12,9 +12,10 @@ import (
 )
 
 func init() {
-	// Setup a test logger
-	log = logrus.New()
-	log.SetLevel(logrus.DebugLevel)
+	// Initialize logger for tests
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	SetLogger(logger)
 }
 
 func TestValidateFormat(t *testing.T) {
@@ -27,9 +28,9 @@ func TestValidateFormat(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Create a valid Selma CSV file with the correct headers and data format
-	validCSV := `Date,Description,Amount,Currency,ValueDate,BookkeepingNo,Fund,Balance
-2023-01-01,"Coffee Shop",-100.00,EUR,2023-01-01,BK001,Fund1,900.00
-2023-01-02,"Salary",1000.00,EUR,2023-01-02,BK002,Fund2,1900.00`
+	validCSV := `Date,Name,ISIN,Transaction Type,Number of Shares,Price,Currency,Transaction Fee,Total Amount,Portfolio Id
+2023-01-01,VANGUARD FTSE ALL WORLD,IE00BK5BQT80,BUY,2,123.45,CHF,-1.23,-247.90,abc123
+2023-01-02,ISHARES CORE S&P 500 UCITS ETF,IE00B5BMR087,SELL,1,456.78,CHF,-4.56,452.22,def456`
 
 	// Create an invalid CSV file (missing required headers)
 	invalidCSV := `foo,bar,baz
@@ -73,10 +74,10 @@ func TestParseFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create a test CSV file with the correct format
-	testCSV := `Date,Description,Amount,Currency,ValueDate,BookkeepingNo,Fund,Balance
-2023-01-01,"Coffee Shop",-100.00,EUR,2023-01-01,BK001,Fund1,900.00
-2023-01-02,"Salary",1000.00,EUR,2023-01-02,BK002,Fund2,1900.00`
+	// Create a test CSV file that matches the SelmaCSVRow structure
+	testCSV := `Date,Name,ISIN,Transaction Type,Number of Shares,Price,Currency,Transaction Fee,Total Amount,Portfolio Id
+2023-01-01,VANGUARD FTSE ALL WORLD,IE00BK5BQT80,BUY,2,123.45,CHF,-1.23,-247.90,abc123
+2023-01-02,ISHARES CORE S&P 500 UCITS ETF,IE00B5BMR087,SELL,1,456.78,CHF,-4.56,452.22,def456`
 
 	testFile := filepath.Join(tempDir, "transactions.csv")
 	err = os.WriteFile(testFile, []byte(testCSV), 0644)
@@ -86,18 +87,29 @@ func TestParseFile(t *testing.T) {
 
 	// Test parsing the file
 	transactions, err := ParseFile(testFile)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "ParseFile should not return an error for valid input")
+	assert.NotNil(t, transactions, "Transactions should not be nil")
+	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
 	
-	// Since we're dealing with a real parser function, we need to handle the actual results
-	// We should have at least one transaction if parsing was successful
-	assert.NotNil(t, transactions)
-	if len(transactions) > 0 {
-		// Check first transaction attributes if it exists
-		assert.Equal(t, "2023-01-01", transactions[0].Date)
-		assert.Equal(t, "Coffee Shop", transactions[0].Description)
-		assert.Contains(t, transactions[0].Amount, "-100.00")
-		assert.Equal(t, "EUR", transactions[0].Currency)
-	}
+	// Check first transaction (BUY)
+	assert.Equal(t, "01.01.2023", transactions[0].Date, "Date should be formatted as DD.MM.YYYY")
+	assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
+	assert.Contains(t, transactions[0].Description, "BUY")
+	assert.Contains(t, transactions[0].Description, "IE00BK5BQT80")
+	assert.Equal(t, "-247.90", transactions[0].Amount)
+	assert.Equal(t, "CHF", transactions[0].Currency)
+	assert.Equal(t, 2, transactions[0].NumberOfShares)
+	assert.Equal(t, "DBIT", transactions[0].CreditDebit)
+	
+	// Check second transaction (SELL)
+	assert.Equal(t, "02.01.2023", transactions[1].Date, "Date should be formatted as DD.MM.YYYY")
+	assert.Contains(t, transactions[1].Description, "ISHARES CORE S&P 500 UCITS ETF")
+	assert.Contains(t, transactions[1].Description, "SELL")
+	assert.Contains(t, transactions[1].Description, "IE00B5BMR087")
+	assert.Equal(t, "452.22", transactions[1].Amount)
+	assert.Equal(t, "CHF", transactions[1].Currency)
+	assert.Equal(t, 1, transactions[1].NumberOfShares)
+	assert.Equal(t, "CRDT", transactions[1].CreditDebit)
 }
 
 func TestConvertToCSV(t *testing.T) {
@@ -144,52 +156,41 @@ func TestConvertToCSV(t *testing.T) {
 }
 
 func TestWriteToCSV(t *testing.T) {
-	// Create temp directories
-	tempDir := filepath.Join(os.TempDir(), "selma-test")
-	err := os.MkdirAll(tempDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Create a temporary directory for output
+	tempDir := t.TempDir()
+	outputFile := filepath.Join(tempDir, "transactions.csv")
 
-	// Create some test transactions
+	// Create test transactions
 	transactions := []models.Transaction{
 		{
 			Date:        "2023-01-01",
+			ValueDate:   "2023-01-01",
 			Description: "Coffee Shop",
 			Amount:      "-100.00",
 			Currency:    "CHF",
-			ValueDate:   "2023-01-01",
 		},
 		{
 			Date:        "2023-01-02",
+			ValueDate:   "2023-01-02",
 			Description: "Salary",
 			Amount:      "1000.00",
 			Currency:    "CHF",
-			ValueDate:   "2023-01-02",
 		},
 	}
 
-	// Define an output CSV file
-	csvFile := filepath.Join(tempDir, "transactions.csv")
+	// Test writing to CSV
+	err := WriteToCSV(transactions, outputFile)
+	assert.NoError(t, err, "Failed to write transactions to CSV")
 
-	// Test the WriteToCSV function
-	err = WriteToCSV(transactions, csvFile)
-	assert.NoError(t, err)
-
-	// Verify that the CSV file was created
-	_, err = os.Stat(csvFile)
-	assert.NoError(t, err)
-
-	// Read the CSV file and check its content
-	content, err := os.ReadFile(csvFile)
-	assert.NoError(t, err)
+	// Read the output file
+	content, err := os.ReadFile(outputFile)
+	assert.NoError(t, err, "Failed to read output file")
 	
-	// Check that the CSV contains our test data - update to match the actual output format
+	// Check that the CSV contains the expected data
 	csvContent := string(content)
-	assert.Contains(t, csvContent, "Date,Description,Bookkeeping No.,Fund")  // Header
-	assert.Contains(t, csvContent, "2023-01-01,Coffee Shop")  // First transaction
-	assert.Contains(t, csvContent, "2023-01-02,Salary")       // Second transaction
+	assert.Contains(t, csvContent, "Date,ValueDate,Description")        // Header
+	assert.Contains(t, csvContent, "2023-01-01,2023-01-01,Coffee Shop") // First transaction
+	assert.Contains(t, csvContent, "2023-01-02,2023-01-02,Salary")      // Second transaction
 }
 
 func TestSetLogger(t *testing.T) {

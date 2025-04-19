@@ -21,6 +21,31 @@ func SetLogger(logger *logrus.Logger) {
 	}
 }
 
+// ReadCSVFile reads CSV data into a slice of structs using gocsv
+// This is a generic function that can be used by any parser
+// TCSVRow is the struct type that maps to the CSV columns
+func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
+	log.WithField("file", filePath).Info("Reading CSV file")
+
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.WithError(err).Error("Failed to open CSV file")
+		return nil, fmt.Errorf("error opening CSV file: %w", err)
+	}
+	defer file.Close()
+
+	// Parse the CSV into a slice of structs
+	var rows []TCSVRow
+	if err := gocsv.Unmarshal(file, &rows); err != nil {
+		log.WithError(err).Error("Failed to parse CSV file")
+		return nil, fmt.Errorf("error parsing CSV file: %w", err)
+	}
+
+	log.WithField("count", len(rows)).Info("Successfully read rows from CSV file")
+	return rows, nil
+}
+
 // WriteTransactionsToCSV is a generalized function to write transactions to CSV 
 // with categorization. All parsers can use this function.
 func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) error {

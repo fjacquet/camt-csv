@@ -150,7 +150,7 @@ func TestWriteToCSV(t *testing.T) {
 	
 	// Check that the CSV contains our test data
 	csvContent := string(content)
-	assert.Contains(t, csvContent, "Date,Value Date,Description")        // Header
+	assert.Contains(t, csvContent, "Date,ValueDate,Description")        // Header
 	assert.Contains(t, csvContent, "2023-01-01,,Coffee Shop Purchase")   // First transaction description
 	assert.Contains(t, csvContent, "2023-01-02,,Salary Payment")         // Second transaction description
 	assert.Contains(t, csvContent, "REF123456")                          // Entry reference for first transaction

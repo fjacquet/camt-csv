@@ -31,7 +31,6 @@ samples
 
 database/test.yaml
 work
-
 /camt-csv
-
-text
+temp
+internal/pdfparser/debug_pdf_extract.txt

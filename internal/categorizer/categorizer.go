@@ -694,24 +694,148 @@ func (c *Categorizer) migrateFromPayeesYAML() error {
 
 // findConfigFile attempts to locate a configuration file in various paths
 func (c *Categorizer) findConfigFile(filename string) (string, error) {
-	// First check in the current directory
+	// First, try to find the project root directory
+	rootDirs := []string{
+		".", // current directory
+		"..", // one level up
+		"../..", // two levels up
+		"../../..", // three levels up
+	}
+	
+	// Look for the central database directory in the project root
+	for _, dir := range rootDirs {
+		centralPath := filepath.Join(dir, "database", filename)
+		if _, err := os.Stat(centralPath); err == nil {
+			absPath, _ := filepath.Abs(centralPath)
+			return absPath, nil
+		}
+	}
+	
+	// As a fallback, check in the current directory (but we'll prefer the central one)
 	if _, err := os.Stat(filename); err == nil {
-		return filename, nil
+		absPath, _ := filepath.Abs(filename)
+		return absPath, nil
 	}
-
-	// Check in database/ subdirectory
-	dbPath := filepath.Join("database", filename)
-	if _, err := os.Stat(dbPath); err == nil {
-		return dbPath, nil
-	}
-
-	// Check in parent directory
-	parentPath := filepath.Join("..", filename)
-	if _, err := os.Stat(parentPath); err == nil {
-		return parentPath, nil
-	}
-
+	
 	return "", fmt.Errorf("could not find %s in any of the expected locations", filename)
+}
+
+// createDefaultCategoriesYAML creates a default categories.yaml file if one doesn't exist
+func (c *Categorizer) createDefaultCategoriesYAML() error {
+	// Find the appropriate location for the file
+	configPath, err := c.findConfigFile("categories.yaml")
+	if err == nil {
+		// File already exists, don't overwrite it
+		log.Debugf("Categories file already exists at: %s", configPath)
+		return nil
+	}
+	
+	// Determine the central location at the project root
+	// Try to find the project root by looking for common markers
+	var projectRoot string
+	rootDirs := []string{
+		".", // current directory
+		"..", // one level up
+		"../..", // two levels up
+		"../../..", // three levels up
+	}
+	
+	// Look for the central database directory or go.mod file to identify the project root
+	for _, dir := range rootDirs {
+		// Check if database directory exists
+		if _, err := os.Stat(filepath.Join(dir, "database")); err == nil {
+			projectRoot = dir
+			break
+		}
+		
+		// Check if go.mod exists which indicates project root
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			projectRoot = dir
+			break
+		}
+	}
+	
+	if projectRoot == "" {
+		projectRoot = "." // Fallback to current directory if project root not found
+	}
+	
+	// Always use the central database directory at project root
+	dirPath := filepath.Join(projectRoot, "database")
+	filePath := filepath.Join(dirPath, "categories.yaml")
+	
+	// Ensure the directory exists
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory for categories: %w", err)
+	}
+	
+	absPath, _ := filepath.Abs(filePath)
+	log.Infof("Creating default categories file at: %s", absPath)
+	
+	// Use minimal defaults since we're creating a new file
+	content := `# Default transaction categories
+categories:
+  - name: "Food & Dining"
+    keywords:
+      - "restaurant"
+      - "food"
+      - "dining"
+      - "cafe"
+  - name: "Transportation"
+    keywords:
+      - "uber"
+      - "lyft"
+      - "taxi"
+      - "transit"
+      - "parking"
+  - name: "Shopping"
+    keywords:
+      - "amazon"
+      - "walmart"
+      - "target"
+      - "store"
+  - name: "Entertainment"
+    keywords:
+      - "movie"
+      - "cinema"
+      - "theater"
+      - "netflix"
+  - name: "Utilities"
+    keywords:
+      - "electricity"
+      - "water"
+      - "gas"
+      - "internet"
+      - "phone"
+  - name: "Travel"
+    keywords:
+      - "hotel"
+      - "airline"
+      - "airbnb"
+      - "flight"
+  - name: "Health"
+    keywords:
+      - "doctor"
+      - "pharmacy"
+      - "medical"
+      - "health"
+  - name: "Income"
+    keywords:
+      - "salary"
+      - "payment"
+      - "deposit"
+  - name: "Transfer"
+    keywords:
+      - "transfer"
+      - "zelle"
+      - "venmo"
+  - name: "Uncategorized"
+    keywords:
+      - "payment"
+      - "transaction"
+`
+	
+	// Write the default categories file
+	return ioutil.WriteFile(filePath, []byte(content), 0644)
 }
 
 //------------------------------------------------------------------------------
@@ -861,87 +985,4 @@ func SaveCreditorsToYAML() error {
 func SaveDebitorsToYAML() error {
 	initOnce.Do(initCategorizer)
 	return defaultCategorizer.saveDebitorsToYAML()
-}
-
-// createDefaultCategoriesYAML creates a default categories.yaml file if one doesn't exist
-func (c *Categorizer) createDefaultCategoriesYAML() error {
-	// Find the appropriate location for the file
-	configPath, err := c.findConfigFile("categories.yaml")
-	if err == nil {
-		// File already exists, don't overwrite it
-		log.Debugf("Categories file already exists at: %s", configPath)
-		return nil
-	}
-
-	// Determine where to create the file
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir == "" {
-		dataDir = "." // Default to current directory if not set
-	}
-
-	dirPath := filepath.Join(dataDir, "database")
-	filePath := filepath.Join(dirPath, "categories.yaml")
-
-	// Ensure the directory exists
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		return fmt.Errorf("failed to create directory for categories: %w", err)
-	}
-
-	log.Infof("Creating default categories file at: %s", filePath)
-
-	// Try to read the categories.yaml from the database directory if it exists
-	// This is used for copying the default configuration that comes with the project
-	baseDirCandidates := []string{
-		"database",
-		filepath.Join("..", "database"),
-		filepath.Join("..", "..", "database"),
-	}
-
-	for _, baseDir := range baseDirCandidates {
-		projectPath := filepath.Join(baseDir, "categories.yaml")
-		if fileContent, err := ioutil.ReadFile(projectPath); err == nil {
-			log.Infof("Copying categories from: %s", projectPath)
-			return ioutil.WriteFile(filePath, fileContent, 0644)
-		}
-	}
-
-	// Use minimal defaults if we can't read an existing categories file
-	content := `# Default transaction categories
-categories:
-  - name: "Food & Dining"
-    keywords:
-      - "restaurant"
-      - "food"
-      - "dining"
-      - "cafe"
-  - name: "Groceries"
-    keywords:
-      - "supermarket"
-      - "grocery"
-      - "coop"
-      - "migros"
-  - name: "Shopping"
-    keywords:
-      - "shop"
-      - "store"
-      - "retail"
-      - "amazon"
-  - name: "Utilities"
-    keywords:
-      - "electric"
-      - "water"
-      - "utility"
-      - "bill"
-  - name: "Transportation"
-    keywords:
-      - "transport"
-      - "train"
-      - "bus"
-      - "taxi"
-  - name: "Uncategorized"
-    keywords:
-      - "unknown"
-      - "other"
-`
-	return ioutil.WriteFile(filePath, []byte(content), 0644)
 }

@@ -9,14 +9,26 @@ import (
 	"os"
 	"strings"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
+	"github.com/gocarina/gocsv"
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()
+
+// DebitCSVRow represents a single row in a Visa Debit CSV file
+// It uses struct tags for gocsv unmarshaling
+type DebitCSVRow struct {
+	Beneficiaire       string `csv:"Bénéficiaire"`
+	Datum              string `csv:"Date"`
+	Betrag             string `csv:"Montant"`
+	Waehrung           string `csv:"Monnaie"`
+	BuchungsNr         string `csv:"Buchungs-Nr."`
+	Referenznummer     string `csv:"Referenznummer"`
+	StatusKontofuhrung string `csv:"Status Kontoführung"`
+}
 
 // SetLogger allows setting a configured logger
 func SetLogger(logger *logrus.Logger) {
@@ -31,93 +43,125 @@ func SetLogger(logger *logrus.Logger) {
 func ParseFile(filePath string) ([]models.Transaction, error) {
 	log.WithField("file", filePath).Info("Parsing Visa Debit CSV file")
 
-	file, err := os.Open(filePath)
+	// Check if the file format is valid
+	valid, err := ValidateFormat(filePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to open Visa Debit CSV file")
-		return nil, fmt.Errorf("error opening Visa Debit CSV file: %w", err)
+		return nil, fmt.Errorf("validation error: %w", err)
 	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	reader.Comma = ';' // CSV uses semicolon as delimiter
-	
-	// Read header
-	header, err := reader.Read()
-	if err != nil {
-		log.WithError(err).Error("Failed to read CSV header")
-		return nil, fmt.Errorf("error reading CSV header: %w", err)
-	}
-	
-	// Map column indices
-	indexMap := make(map[string]int)
-	for i, columnName := range header {
-		indexMap[columnName] = i
-	}
-	
-	// Verify required columns exist
-	requiredColumns := []string{"Bénéficiaire", "Date", "Montant", "Monnaie"}
-	for _, col := range requiredColumns {
-		if _, exists := indexMap[col]; !exists {
-			log.WithField("column", col).Error("Required column not found in CSV")
-			return nil, fmt.Errorf("required column not found in CSV: %s", col)
-		}
+	if !valid {
+		return nil, fmt.Errorf("invalid Visa Debit CSV format")
 	}
 
-	// Parse transactions
+	// Configure gocsv for semicolon delimiter
+	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
+		r := csv.NewReader(in)
+		r.Comma = ';' // CSV uses semicolon as delimiter
+		return r
+	})
+
+	// Use common.ReadCSVFile to read the CSV with the semicolon delimiter
+	debitRows, err := common.ReadCSVFile[DebitCSVRow](filePath)
+	if err != nil {
+		log.WithError(err).Error("Failed to read Visa Debit CSV file")
+		return nil, fmt.Errorf("error reading Visa Debit CSV: %w", err)
+	}
+
+	// Reset the CSV reader to default for other parsers
+	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
+		return csv.NewReader(in)
+	})
+
+	log.WithField("count", len(debitRows)).Info("Successfully read rows from CSV file")
+
+	// Convert DebitCSVRow objects to Transaction objects
 	var transactions []models.Transaction
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
+	for _, row := range debitRows {
+		// Skip empty rows
+		if row.Datum == "" {
+			continue
 		}
+		
+		// Convert Debit row to Transaction
+		tx, err := convertDebitRowToTransaction(row)
 		if err != nil {
-			log.WithError(err).Error("Error reading CSV record")
-			return nil, fmt.Errorf("error reading CSV record: %w", err)
+			log.WithError(err).Warning("Failed to convert row to transaction, skipping")
+			continue
 		}
-
-		// Get data from CSV
-		beneficiary := record[indexMap["Bénéficiaire"]]
-		date := record[indexMap["Date"]]
-		amount := record[indexMap["Montant"]]
-		currency := record[indexMap["Monnaie"]]
-
-		// Process beneficiary to remove "PMT CARTE " prefix if present
-		if strings.HasPrefix(beneficiary, "PMT CARTE ") {
-			beneficiary = strings.TrimPrefix(beneficiary, "PMT CARTE ")
-		}
-
-		// Determine credit/debit based on amount sign
-		creditDebit := "CRDT" // Default to credit
-		// If amount starts with minus sign, it's a debit
-		if strings.HasPrefix(amount, "-") {
-			creditDebit = "DBIT"
-			// Remove the minus sign for standard format
-			amount = strings.TrimPrefix(amount, "-")
-		}
-
-		// Replace comma with dot in amount (European format to standard)
-		amount = strings.Replace(amount, ",", ".", 1)
-
-		// Create transaction
-		tx := models.Transaction{
-			Date:        date,
-			ValueDate:   date, // Use the same date for ValueDate
-			Description: beneficiary,
-			Amount:      amount,
-			Currency:    currency,
-			CreditDebit: creditDebit,
-			Payee:       beneficiary, // Use beneficiary as payee for categorization
-		}
-
+		
 		transactions = append(transactions, tx)
 	}
-
+	
+	log.WithField("count", len(transactions)).Info("Successfully parsed Visa Debit CSV file")
 	return transactions, nil
+}
+
+// convertDebitRowToTransaction converts a DebitCSVRow to a Transaction
+func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
+	// Simple validation
+	if row.Datum == "" {
+		return models.Transaction{}, fmt.Errorf("date is empty")
+	}
+	
+	// Process amount and determine credit/debit
+	var amount string
+	var creditDebit string
+	
+	// The Montant field is used for the amount, which can be positive or negative
+	// Negative amounts (-) are debits, positive are credits
+	if row.Betrag == "" {
+		// If amount is empty, default to 0
+		amount = "0"
+		creditDebit = "CRDT"
+	} else {
+		// Use StandardizeAmount to handle formatting (comma vs. decimal point)
+		amount = models.StandardizeAmount(row.Betrag)
+		
+		// Determine credit/debit based on sign
+		if strings.HasPrefix(row.Betrag, "-") {
+			creditDebit = "DBIT"
+			// Remove negative sign for consistency
+			amount = strings.TrimPrefix(amount, "-")
+		} else {
+			creditDebit = "CRDT"
+		}
+	}
+	
+	// Format date to standard DD.MM.YYYY format
+	formattedDate := models.FormatDate(row.Datum)
+	
+	// Extract just the business name from the description (after "PMT CARTE " prefix)
+	description := row.Beneficiaire
+	if strings.HasPrefix(description, "PMT CARTE ") {
+		description = strings.TrimPrefix(description, "PMT CARTE ")
+	}
+	
+	// Create and return the transaction
+	transaction := models.Transaction{
+		Date:           formattedDate,
+		ValueDate:      formattedDate, // Use same date for value date since there's no separate value date
+		Description:    description,
+		Amount:         amount,
+		Currency:       row.Waehrung,
+		CreditDebit:    creditDebit,
+		EntryReference: row.Referenznummer,
+		Status:         row.StatusKontofuhrung,
+	}
+	
+	return transaction, nil
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
 // It formats the transactions and applies categorization before writing.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
+	// Check if transactions is nil or empty
+	if transactions == nil {
+		return fmt.Errorf("transactions is nil")
+	}
+	if len(transactions) == 0 {
+		return fmt.Errorf("no transactions to write")
+	}
+	
+	// Use the common CSV writer
 	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
