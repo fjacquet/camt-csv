@@ -342,22 +342,164 @@ func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (model
 
 // categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
 func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (models.Category, bool) {
-	partyNameLower := strings.ToLower(transaction.PartyName)
+	partyName := strings.ToUpper(transaction.PartyName)
+	description := strings.ToUpper(transaction.Info)
 
-	c.configMutex.RLock()
-	defer c.configMutex.RUnlock()
+	// Maps of keyword patterns to categories
+	// These are ordered from most specific to most general
+	merchantCategories := map[string]string{
+		// Transfers & Banking - add additional keywords to detect transfers
+		"VIRT BANC":   "Virements",
+		"VIR TWINT":   "Virements",
+		"VIRT":        "Virements",
+		"TRANSFERT":   "Virements",
+		"ORDRE LSV":   "Virements",
+		"TWINT":       "Virements",   // CR TWINT
+		"CR TWINT":    "Virements", 
+		"BCV-NET":     "Virements",
+		"TRANSFER":    "Virements",
+		"IMPOTS":      "Virements",
+		"FLORENCE":    "Virements",   // Common family transfers
+		"JACQUET":     "Virements",   // Common family transfers
+		
+		// Supermarkets
+		"COOP":       "Alimentation",
+		"MIGROS":     "Alimentation",
+		"ALDI":       "Alimentation",
+		"LIDL":       "Alimentation",
+		"DENNER":     "Alimentation",
+		"MANOR":      "Shopping",
+		"MIGROLINO":  "Alimentation",
+		"KIOSK":      "Alimentation",
+		"MINERALOEL": "Alimentation",
+		
+		// Restaurants & Food
+		"PIZZERIA":   "Restaurants",
+		"CAFE":       "Restaurants",
+		"RESTAURANT": "Restaurants",
+		"SUSHI":      "Restaurants",
+		"KEBAB":      "Restaurants",
+		"BOUCHERIE": "Alimentation",
+		"BOULANGERIE": "Alimentation",
+		"RAMEN":      "Restaurants",
+		"KAMUY":      "Restaurants",
+		"MINESTRONE": "Restaurants",
+		
+		// Leisure
+		"PISCINE":    "Loisirs",
+		"SPA":        "Loisirs",
+		"CINEMA":     "Loisirs",
+		"PILATUS":    "Loisirs",
+		"TOTEM":      "Sport",
+		"ESCALADE":   "Sport",
+		
+		// Shops
+		"OCHSNER":    "Shopping",
+		"SPORT":      "Shopping",
+		"MAMMUT":     "Shopping",
+		"MULLER":     "Shopping", 
+		"BAZAR":      "Shopping",
+		"INTERDISCOUNT": "Shopping",
+		"IKEA":       "Mobilier",
+		"PAYOT":      "Shopping",
+		"CALIDA":     "Shopping",
+		"DIGITAL":    "Shopping",
+		"RHB":        "Shopping",
+		"WEBSHOP":    "Shopping",
+		"POST":       "Shopping",
+		
+		// Services
+		"PRESSING":   "Services",
+		"777-PRESSING": "Services",
+		"5ASEC":      "Services",
+		
+		// Cash withdrawals
+		"RETRAIT":    "Retraits",
+		"ATM":        "Retraits",
+		"WITHDRAWAL": "Retraits",
+		
+		// Utilities and telecom
+		"ROMANDE ENERGIE": "Utilités",
+		"WINGO":      "Services",
+		
+		// Transportation
+		"SBB":        "Transports Publics",
+		"CFF":        "Transports Publics",
+		"MOBILITY":   "Voiture",
+		"PAYBYPHONE": "Transports Publics",
+		
+		// Insurance
+		"ASSURANCE":  "Assurances",
+		"VAUDOISE":   "Assurances",
+		"GENERALI":   "Assurances",
+		"AVENIR":     "Assurance Maladie",
+		
+		// Financial
+		"SELMA_FEE":  "Frais Bancaires",
+		"CEMBRAPAY":  "Services",
+		"VISECA":     "Abonnements",
+		
+		// Housing
+		"PUBLICA":    "Logement",
+		"ASLOCA":     "Logement",
+		
+		// Companies
+		"DELL":       "Virements",
+	}
 
-	for _, category := range c.categories {
-		for _, keyword := range category.Keywords {
-			if strings.Contains(partyNameLower, strings.ToLower(keyword)) {
+	// Match bank transaction codes to categories
+	txCodeCategories := map[string]string{
+		"CWDL":       "Retraits",        // Cash withdrawals
+		"POSD":       "Shopping",        // Point of sale debit
+		"CCRD":       "Shopping",        // Credit card payment
+		"ICDT":       "Virements",       // Internal credit transfer
+		"DMCT":       "Virements",       // Direct debit
+		"RDDT":       "Virements",       // Direct debit
+		"AUTT":       "Virements",       // Automatic transfer
+		"RCDT":       "Virements",       // Received credit transfer
+		"PMNT":       "Virements",       // Payment
+		"RMDR":       "Services",        // Reminders
+	}
+
+	// First try to match merchant name
+	for keyword, category := range merchantCategories {
+		if strings.Contains(partyName, keyword) || strings.Contains(description, keyword) {
+			return models.Category{
+				Name:        category,
+				Description: categoryDescriptionFromName(category),
+			}, true
+		}
+	}
+
+	// Try to detect transaction types from bank codes
+	for bankCode, category := range txCodeCategories {
+		// Check if bank code appears in transaction info
+		if strings.Contains(transaction.Info, bankCode) {
+			return models.Category{
+				Name:        category,
+				Description: categoryDescriptionFromName(category),
+			}, true
+		}
+	}
+
+	// Look for credit cards and cash withdrawals
+	if transaction.IsDebtor {
+		// Special case for Unknown Payee for card payments - don't default to Salaire
+		if strings.Contains(partyName, "UNKNOWN PAYEE") || partyName == "UNKNOWN PAYEE" {
+			// If it looks like a card payment or cash withdrawal
+			if strings.Contains(description, "PMT CARTE") || 
+			   strings.Contains(description, "PMT TWINT") ||
+			   strings.Contains(description, "RETRAIT") ||
+			   strings.Contains(description, "WITHDRAWAL") {
 				return models.Category{
-					Name:        category.Name,
-					Description: categoryDescriptionFromName(category.Name),
+					Name:        "Shopping",
+					Description: categoryDescriptionFromName("Shopping"),
 				}, true
 			}
 		}
 	}
 
+	// No match found
 	return models.Category{}, false
 }
 

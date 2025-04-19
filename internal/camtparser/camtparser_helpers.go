@@ -59,13 +59,31 @@ func extractTransactions(camt053 *models.CAMT053) []models.Transaction {
 			// Extract remittance information for description
 			if len(txDetail.RmtInf.Ustrd) > 0 {
 				// Join all unstructured remittance info lines
-				description = strings.Join(txDetail.RmtInf.Ustrd, " ")
-				description = cleanDescription(description)
+				originalDescription := strings.Join(txDetail.RmtInf.Ustrd, " ")
 				
-				// Try to extract payee from remittance info
-				extractedPayee := extractPayeeFromRemittanceInfo(description, cdtDbtInd)
-				if extractedPayee != "" {
-					payee = extractedPayee
+				// Check if this is a card or TWINT payment to extract merchant name as payee
+				merchantName := ""
+				if strings.HasPrefix(originalDescription, "PMT CARTE ") {
+					merchantName = strings.TrimSpace(strings.TrimPrefix(originalDescription, "PMT CARTE "))
+					if merchantName != "" {
+						payee = merchantName
+					}
+				} else if strings.HasPrefix(originalDescription, "PMT TWINT ") {
+					merchantName = strings.TrimSpace(strings.TrimPrefix(originalDescription, "PMT TWINT "))
+					if merchantName != "" {
+						payee = merchantName
+					}
+				}
+				
+				// Clean the description after extracting the merchant name if applicable
+				description = cleanDescription(originalDescription)
+				
+				// Only try to extract payee from remittance info if we haven't already found a merchant name
+				if payee == "" {
+					extractedPayee := extractPayeeFromRemittanceInfo(description, cdtDbtInd)
+					if extractedPayee != "" {
+						payee = extractedPayee
+					}
 				}
 			}
 			
@@ -76,9 +94,9 @@ func extractTransactions(camt053 *models.CAMT053) []models.Transaction {
 				payer = debtorName
 			}
 			
-			// Check creditor name
+			// Check creditor name - but don't override merchant name if we found one
 			creditorName := txDetail.RltdPties.Cdtr.Nm
-			if creditorName != "" {
+			if creditorName != "" && payee == "" {
 				payee = creditorName
 			}
 		}
@@ -200,6 +218,94 @@ func extractPayeeFromRemittanceInfo(ustrd string, cdtDbtInd string) string {
 
 // extractFallbackPayee provides a fallback payee when none can be extracted from the transaction details.
 func extractFallbackPayee(entry models.Ntry, description string) string {
+	// Extract payee from wire transfers (VIRT BANC, VIR TWINT)
+	if strings.HasPrefix(description, "VIRT BANC ") {
+		return strings.TrimSpace(strings.TrimPrefix(description, "VIRT BANC "))
+	}
+	
+	if strings.HasPrefix(description, "VIR TWINT ") {
+		return strings.TrimSpace(strings.TrimPrefix(description, "VIR TWINT "))
+	}
+	
+	// If this is a card payment or TWINT payment, extract merchant from description
+	if strings.Contains(description, "CARTE") || strings.Contains(description, "TWINT") {
+		return description
+	}
+	
+	// Check for common patterns
+	patterns := []string{
+		"COOP-", 
+		"MIG ", 
+		"MIGROS-", 
+		"MIGROLINO", 
+		"DENNER", 
+		"ALDI", 
+		"LIDL",
+		"MANOR",
+		"MAMMUT",
+		"OCHSNER",
+		"SUSHI",
+		"PIZZERIA",
+		"CAFE",
+		"KIOSK",
+		"KEBAB",
+		"BOUCHERIE",
+		"BOULANGERIE",
+		"PISCINE",
+		"SPA",
+		"PRESSING",
+	}
+	
+	for _, pattern := range patterns {
+		if idx := strings.Index(strings.ToUpper(description), strings.ToUpper(pattern)); idx >= 0 {
+			// Extract a reasonable length substring as the merchant name
+			startIdx := idx
+			endIdx := len(description)
+			
+			// Try to find a natural endpoint (space, comma, etc.)
+			for i := idx; i < len(description) && i < idx+30; i++ {
+				if description[i] == ' ' && i > idx+10 {
+					endIdx = i
+					break
+				}
+			}
+			
+			return strings.TrimSpace(description[startIdx:endIdx])
+		}
+	}
+	
+	// If nothing matches, use the entry type to determine party type
+	bankTxCode := formatBankTxCode(entry.BkTxCd)
+	
+	if strings.Contains(bankTxCode, "CCRD") || strings.Contains(bankTxCode, "POSD") {
+		return description // For card payments, use the description as merchant
+	}
+	
+	if strings.Contains(bankTxCode, "CWDL") {
+		return "ATM Withdrawal" // For ATM withdrawals
+	}
+	
+	if strings.Contains(bankTxCode, "ICDT") || strings.Contains(bankTxCode, "DMCT") || 
+	   strings.Contains(bankTxCode, "AUTT") || strings.Contains(bankTxCode, "RCDT") {
+		// For transfers (BCV-NET, etc.)
+		if strings.Contains(strings.ToUpper(description), "BCV") {
+			parts := strings.Split(description, " ")
+			if len(parts) > 2 {
+				return strings.Join(parts[1:], " ") // For BCV-NET transfers, use the recipient
+			}
+		}
+		
+		// Look for recipient name in transfer description
+		transferPatternsRe := regexp.MustCompile(`(?i)VIRT|VIR|TRANSFERT|ORDRE|CR`)
+		if transferPatternsRe.MatchString(description) {
+			descParts := strings.Split(description, " ")
+			if len(descParts) >= 3 {
+				// Skip the first part (VIRT, VIR, etc.) and use the rest as the payee
+				return strings.Join(descParts[1:], " ")
+			}
+		}
+	}
+	
 	// Check for transaction details with party information
 	for _, txDetail := range entry.NtryDtls.TxDtls {
 		// For debit transactions, the creditor is the payee
@@ -215,28 +321,7 @@ func extractFallbackPayee(entry models.Ntry, description string) string {
 		}
 	}
 	
-	// If no specific party info, try to extract from description using heuristics
-	if description != "" {
-		// Look for patterns like "Payment to COMPANY" or "From: PERSON"
-		paymentToRe := regexp.MustCompile(`(?i)(?:payment|transfer|sent) to[:\s]+([^,;]+)`)
-		matches := paymentToRe.FindStringSubmatch(description)
-		if len(matches) > 1 {
-			return strings.TrimSpace(matches[1])
-		}
-		
-		fromRe := regexp.MustCompile(`(?i)(?:from|by)[:\s]+([^,;]+)`)
-		matches = fromRe.FindStringSubmatch(description)
-		if len(matches) > 1 {
-			return strings.TrimSpace(matches[1])
-		}
-	}
-	
-	// Return a generic placeholder if nothing else is found
-	if entry.CdtDbtInd == "DBIT" {
-		return "Unknown Payee"
-	} else {
-		return "Unknown Payer"
-	}
+	return "Unknown Payee"
 }
 
 // extractBookkeepingNo attempts to extract a bookkeeping number from remittance info.
@@ -293,6 +378,10 @@ func cleanDescription(info string) string {
 		`(?i)^additional info:`,
 		`(?i)^transaction details:`,
 		`(?i)^details:`,
+		`(?i)^PMT CARTE `,  // Remove PMT CARTE prefix
+		`(?i)^PMT TWINT `,  // Remove PMT TWINT prefix
+		`(?i)^VIRT BANC `,  // Remove VIRT BANC prefix
+		`(?i)^VIR TWINT `,  // Remove VIR TWINT prefix
 	}
 	
 	for _, prefix := range prefixes {
@@ -305,4 +394,20 @@ func cleanDescription(info string) string {
 	info = regexp.MustCompile(`(?i)instruction-id:[^\s]+`).ReplaceAllString(info, "")
 	
 	return strings.TrimSpace(info)
+}
+
+// extractMerchantFromDescription attempts to extract a merchant name from description
+// especially for card and TWINT payments where the description contains the merchant name
+func extractMerchantFromDescription(description string) string {
+	// Check for card payment patterns
+	if strings.HasPrefix(strings.ToUpper(description), "PMT CARTE ") {
+		return strings.TrimSpace(strings.TrimPrefix(description, "PMT CARTE "))
+	}
+	
+	// Check for TWINT payment patterns
+	if strings.HasPrefix(strings.ToUpper(description), "PMT TWINT ") {
+		return strings.TrimSpace(strings.TrimPrefix(description, "PMT TWINT "))
+	}
+	
+	return ""
 }
