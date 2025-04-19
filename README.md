@@ -5,14 +5,17 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 
 - Convert CAMT.053 XML files to CSV format with enhanced field extraction
 - Categorize transactions using a hybrid approach:
+  - Exact matching against known payees in the database
   - Local keyword matching based on a customizable YAML configuration
-  - Fallback to Gemini-2.0-fast model when local matching fails
-- Clean CLI interface using Cobra
+  - Fallback to Gemini AI when local matching fails (with configurable rate limiting)
+- Clean CLI interface using modular command structure
 - Detailed logging with Logrus
 - Convert PDF files to CSV format
 - Process Revolut CSV export files to standard format
 - Batch processing for multiple files
 - Process Selma investment CSV files with intelligent categorization
+- Case-insensitive payee matching to avoid duplicate entries
+- Consistent interface for all parser types
 
 ## Installation
 
@@ -29,7 +32,7 @@ Convert file from CAMT053 to csv with transaction categorisation using AI
 ```bash
 git clone https://github.com/fjacquet/camt-csv.git
 cd camt-csv
-go build -o camt-csv ./cmd/camt-csv
+go build
 ```
 
 ## Configuration
@@ -41,7 +44,10 @@ A sample configuration file `.env.sample` is provided as a template.
 
 | Variable | Description | Default | Available Options |
 |----------|-------------|---------|-------------------|
-| GOOGLE_API_KEY | API key for Gemini AI (transaction categorization) | - | - |
+| GEMINI_API_KEY | API key for Gemini AI (transaction categorization) | - | - |
+| GEMINI_MODEL | Gemini model to use for categorization | `gemini-2.0-flash` | Any valid Gemini model |
+| GEMINI_REQUESTS_PER_MINUTE | Rate limit for Gemini API calls | `10` | Any positive integer |
+| USE_AI_CATEGORIZATION | Enable/disable AI-based categorization | `false` | `true`, `false` |
 | LOG_LEVEL | Controls the verbosity of logging | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic` |
 | LOG_FORMAT | Format of the log output | `text` | `text`, `json` |
 | DATA_DIR | Directory for configuration files | `.` | Any valid directory path |
@@ -49,14 +55,13 @@ A sample configuration file `.env.sample` is provided as a template.
 For example:
 
 ```bash
-# Enable debug logging
-export LOG_LEVEL=debug
-
-# Use JSON log format (useful for log aggregation)
-export LOG_FORMAT=json
-
-# Run the application
-./camt-csv convert -i input.xml -o output.csv
+# Sample .env file
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_REQUESTS_PER_MINUTE=10
+USE_AI_CATEGORIZATION=true
+LOG_LEVEL=info
+LOG_FORMAT=text
 ```
 
 ## Usage
@@ -64,7 +69,7 @@ export LOG_FORMAT=json
 ### Convert CAMT.053 XML to CSV
 
 ```bash
-./camt-csv convert -i input.xml -o output.csv
+./camt-csv camt -i input.xml -o output.csv
 ```
 
 ### Convert viseca PDF to CSV
@@ -94,17 +99,6 @@ export LOG_FORMAT=json
 
 ```bash
 ./camt-csv debit -i input_debit.csv -o processed_output.csv
-```
-### Validate XML Format
-
-```bash
-./camt-csv validate -i input.xml
-```
-
-### Categorize transactions
-
-```bash
-./camt-csv categorize -s "Seller Name" -a "100.00 EUR" -d "2023-01-01" -i "Additional info"
 ```
 
 ## Project Structure
