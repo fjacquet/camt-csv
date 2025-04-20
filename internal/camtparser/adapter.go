@@ -8,7 +8,6 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/parsererror"
 	"bytes"
-	"encoding/csv"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -49,11 +48,7 @@ func (a *Adapter) ParseFile(filePath string) ([]models.Transaction, error) {
 		return nil, parsererror.FileNotFoundError(filePath)
 	}
 
-	// This will be delegated to the proper implementation based on the currentParserType
-	if currentParserType == "xpath" {
-		return parseFileXPath(filePath)
-	}
-	// Default to ISO20022 parser
+	// Default to ISO20022 parser (only implementation now)
 	return parseFileISO20022(filePath)
 }
 
@@ -103,36 +98,15 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 	
 	// Handle nil or empty transactions list
 	if transactions == nil || len(transactions) == 0 {
-		// Create an empty CSV file with headers
-		emptyFile, err := os.Create(csvFile)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer emptyFile.Close()
-		
-		// Create a new CSV writer and write headers directly
-		csvWriter := csv.NewWriter(emptyFile)
-		defer csvWriter.Flush()
-		
-		// Get header names from the Transaction struct
-		headers := []string{
-			"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
-			"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit",
-			"Currency", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType",
-			"Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
-			"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency",
-			"OriginalAmount", "ExchangeRate",
-		}
-		
-		if err := csvWriter.Write(headers); err != nil {
-			return fmt.Errorf("failed to write CSV headers: %w", err)
-		}
-		
+		// Create an empty transaction slice and use common package for consistency
+		// This ensures the delimiter setting is properly respected
 		logrus.WithFields(logrus.Fields{
 			"file": csvFile,
+			"delimiter": string(common.Delimiter),
 		}).Info("No transactions found, created empty CSV file with headers")
 		
-		return nil
+		emptyTransactions := []models.Transaction{}
+		return common.WriteTransactionsToCSV(emptyTransactions, csvFile)
 	}
 
 	// Write the transactions to the CSV file
@@ -186,23 +160,6 @@ func NewISO20022Adapter(logger *logrus.Logger) parser.Parser {
 	
 	// Manually set the parser type flag (implementation detail)
 	currentParserType = "iso20022"
-	
-	return adapter
-}
-
-// NewXPathAdapter creates a new adapter that specifically uses the XPath parser.
-func NewXPathAdapter(logger *logrus.Logger) parser.Parser {
-	// Create the adapter without calling SetParserType to avoid recursion
-	adapter := &Adapter{}
-	
-	// Set up the default parser with this adapter as implementation
-	adapter.defaultParser = parser.DefaultParser{
-		Logger: logger,
-		Impl:   adapter,
-	}
-	
-	// Manually set the parser type flag (implementation detail)
-	currentParserType = "xpath"
 	
 	return adapter
 }
@@ -410,23 +367,6 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 	}
 	
 	return transactions, nil
-}
-
-func parseFileXPath(filePath string) ([]models.Transaction, error) {
-	// Implementation of XPath parsing logic
-	// This would contain the actual XPath parsing code
-	// For now, we're providing a stub implementation
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	// This is a placeholder for the actual parsing logic
-	// In a real implementation, this would use XPath to extract data
-	// from the CAMT.053 XML file and convert it to a slice of Transaction objects
-	
-	return []models.Transaction{}, nil
 }
 
 // Helper function to clean payment method prefixes from party names

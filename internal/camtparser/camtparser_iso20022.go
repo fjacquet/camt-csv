@@ -2,7 +2,6 @@
 package camtparser
 
 import (
-	"encoding/csv"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -251,40 +250,24 @@ func (p *ISO20022Parser) ConvertToCSV(inputFile, outputFile string) error {
 	return common.WriteTransactionsToCSV(transactions, outputFile)
 }
 
+// CreateEmptyCSVFile creates an empty CSV file with transaction headers 
+// using the currently set CSV delimiter
+func (c *ISO20022Parser) CreateEmptyCSVFile(outputFile string) error {
+	c.log.WithFields(logrus.Fields{
+		"file": outputFile,
+		"delimiter": string(common.Delimiter),
+	}).Info("No transactions found, creating empty CSV file with headers")
+	
+	// Create an empty transaction slice and use common package for consistency
+	emptyTransactions := []models.Transaction{}
+	return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
+}
+
 // WriteToCSV writes the transactions to a CSV file.
 func (c *ISO20022Parser) WriteToCSV(transactions []models.Transaction, outputFile string) error {
 	if transactions == nil || len(transactions) == 0 {
 		// Create an empty CSV file with headers
-		c.log.WithFields(logrus.Fields{
-			"file": outputFile,
-		}).Info("No transactions found, creating empty CSV file with headers")
-		
-		// Create a CSV file with headers only
-		emptyFile, err := os.Create(outputFile)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer emptyFile.Close()
-		
-		// Create a new CSV writer and write headers directly
-		csvWriter := csv.NewWriter(emptyFile)
-		defer csvWriter.Flush()
-		
-		// Get header names from the Transaction struct using reflection
-		headers := []string{
-			"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
-			"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit",
-			"Currency", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType",
-			"Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
-			"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency",
-			"OriginalAmount", "ExchangeRate",
-		}
-		
-		if err := csvWriter.Write(headers); err != nil {
-			return fmt.Errorf("failed to write CSV headers: %w", err)
-		}
-		
-		return nil
+		return c.CreateEmptyCSVFile(outputFile)
 	}
 
 	c.log.WithFields(logrus.Fields{

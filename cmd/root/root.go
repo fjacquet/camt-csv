@@ -4,11 +4,13 @@ package root
 import (
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/pdfparser"
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -47,6 +49,13 @@ It also provides transaction categorization based on the party's name.`,
 			selmaparser.SetLogger(Log)
 			revolutparser.SetLogger(Log)
 			debitparser.SetLogger(Log)
+			
+			// Ensure CSV delimiter is updated after env variables are loaded
+			if delim := os.Getenv("CSV_DELIMITER"); delim != "" {
+				Log.WithField("delimiter", delim).Debug("Setting CSV delimiter from environment")
+				commonDelim := []rune(delim)[0]
+				common.SetDelimiter(commonDelim)
+			}
 		},
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {

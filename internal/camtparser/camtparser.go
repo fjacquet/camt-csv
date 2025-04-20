@@ -52,10 +52,6 @@ func ParseFile(xmlFile string) ([]models.Transaction, error) {
 	// Direct implementation for specific parser types to avoid circular dependencies
 	_, ok := activeParser.(*Adapter)
 	if ok {
-		// Use adapter-specific methods to avoid circular calls
-		if currentParserType == "xpath" {
-			return parseFileXPath(xmlFile)
-		}
 		return parseFileISO20022(xmlFile)
 	}
 
@@ -212,32 +208,24 @@ func ValidateFormat(xmlFile string) (bool, error) {
 	return isValid, nil
 }
 
-// SetParserType switches between different parser implementations
-// Valid types: "xpath", "iso20022"
+// SetParserType only supports ISO20022 parser after removing XPath implementation
+// Valid types: "iso20022"
 func SetParserType(newParserType string) {
 	lowerType := strings.ToLower(newParserType)
 	
 	// Skip if already using the requested parser type
-	if lowerType == currentParserType && activeParser != nil {
+	if currentParserType == "iso20022" && activeParser != nil {
 		return
 	}
 	
-	currentParserType = lowerType // Store the new parser type
+	// Always use ISO20022 parser now that XPath is removed
+	currentParserType = "iso20022"
 	
-	// Create the new parser instance based on type
-	switch lowerType {
-	case "xpath":
-		// Create a new XPath parser directly 
-		adapter := NewAdapter()
-		activeParser = adapter
-	case "iso20022", "":
-		// Create a new ISO20022 parser directly
-		adapter := NewAdapter()
-		activeParser = adapter
-	default:
-		log.Warnf("Unknown parser type: %s. Using default ISO20022 parser.", newParserType)
-		adapter := NewAdapter()
-		activeParser = adapter
-		currentParserType = "iso20022"
+	// Create the ISO20022 parser
+	adapter := NewAdapter()
+	activeParser = adapter
+	
+	if lowerType != "iso20022" && lowerType != "" {
+		log.Warnf("Parser type '%s' is not supported. Only ISO20022 parser is available.", newParserType)
 	}
 }
