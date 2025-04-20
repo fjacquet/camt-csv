@@ -213,8 +213,8 @@ func TestWriteToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "Date,Description,Amount,Currency,Category")
 	
 	// Check for the transactions with the new format
-	assert.Contains(t, csvContent, "2023-01-15,Monthly dividend,-100.00,CHF")
-	assert.Contains(t, csvContent, "2023-01-20,Quarterly distribution,1000.00,CHF")
+	assert.Contains(t, csvContent, "15.01.2023,Monthly dividend,-100.00,CHF")
+	assert.Contains(t, csvContent, "20.01.2023,Quarterly distribution,1000.00,CHF")
 }
 
 func TestSetLogger(t *testing.T) {

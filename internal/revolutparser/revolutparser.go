@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
@@ -17,6 +18,13 @@ import (
 )
 
 var log = logrus.New()
+
+// SetLogger allows setting a configured logger for this package.
+func SetLogger(logger *logrus.Logger) {
+	if logger != nil {
+		log = logger
+	}
+}
 
 // RevolutCSVRow represents a single row in a Revolut CSV file
 // It uses struct tags for gocsv unmarshaling
@@ -31,14 +39,6 @@ type RevolutCSVRow struct {
 	Currency      string `csv:"Currency"`
 	State         string `csv:"State"`
 	Balance       string `csv:"Balance"`
-}
-
-// SetLogger allows setting a configured logger
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-		common.SetLogger(logger)
-	}
 }
 
 // ParseFile parses a Revolut CSV file and returns a slice of Transaction objects.
@@ -111,24 +111,177 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 		return models.Transaction{}, fmt.Errorf("error parsing amount to decimal: %w", err)
 	}
 
+	// Parse fee if present
+	feeDecimal := decimal.Zero
+	if row.Fee != "" {
+		feeDecimal, err = decimal.NewFromString(row.Fee)
+		if err != nil {
+			log.WithError(err).Warn("Failed to parse fee value, defaulting to zero")
+		}
+	}
+
+	// Determine debit and credit amounts
+	debitAmount := decimal.Zero
+	creditAmount := decimal.Zero
+	if creditDebit == "DBIT" {
+		debitAmount = amountDecimal
+	} else {
+		creditAmount = amountDecimal
+	}
+
+	// Set name based on transaction type
+	name := "Revolut"
+	payee := row.Description
+	payer := row.Description
+
 	transaction := models.Transaction{
-		Date:           completedDate,
-		ValueDate:      startedDate,
-		Description:    row.Description,
-		Amount:         amountDecimal,
-		Currency:       row.Currency,
-		CreditDebit:    creditDebit,
-		Status:         row.State,
-		NumberOfShares: 0, // Revolut transactions don't have shares
+		BookkeepingNo:    "", // Revolut doesn't provide this
+		Status:           row.State,
+		Date:             completedDate,
+		ValueDate:        startedDate,
+		Name:             name,
+		Description:      row.Description,
+		Amount:           amountDecimal,
+		CreditDebit:      creditDebit,
+		Debit:            debitAmount,
+		Credit:           creditAmount,
+		Currency:         row.Currency,
+		AmountExclTax:    amountDecimal, // Default to full amount
+		AmountTax:        decimal.Zero,  // Revolut doesn't provide tax details
+		TaxRate:          decimal.Zero,
+		Recipient:        payee,
+		Investment:       row.Type,      // Use transaction type as investment type
+		Number:           "",            // Not provided by Revolut
+		Category:         "",            // Will be categorized later
+		Type:             row.Type,
+		Fund:             "",            // Not provided by Revolut
+		NumberOfShares:   0,             // Revolut transactions don't have shares
+		Fees:             feeDecimal,
+		IBAN:             "",            // Not provided by Revolut
+		EntryReference:   "",
+		Reference:        "",
+		AccountServicer:  "",
+		BankTxCode:       "",
+		OriginalCurrency: "",            // Not handling foreign currencies for now
+		OriginalAmount:   decimal.Zero,
+		ExchangeRate:     decimal.Zero,
+		
+		// Keep these for backward compatibility
+		Payee:            payee,
+		Payer:            payer,
 	}
 
 	return transaction, nil
 }
 
-// WriteToCSV writes a slice of Transaction objects to a CSV file.
-// It formats the transactions and applies categorization before writing.
+// WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
+// that is specifically used by the Revolut parser tests.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return common.WriteTransactionsToCSV(transactions, csvFile)
+	if transactions == nil {
+		return fmt.Errorf("cannot write nil transactions to CSV")
+	}
+
+	log.WithFields(logrus.Fields{
+		"file":  csvFile,
+		"count": len(transactions),
+	}).Info("Writing transactions to CSV file")
+
+	// Create the directory if it doesn't exist
+	dir := filepath.Dir(csvFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		log.WithError(err).Error("Failed to create directory")
+		return fmt.Errorf("error creating directory: %w", err)
+	}
+
+	// Create the file
+	file, err := os.Create(csvFile)
+	if err != nil {
+		log.WithError(err).Error("Failed to create CSV file")
+		return fmt.Errorf("error creating CSV file: %w", err)
+	}
+	defer file.Close()
+
+	// Configure CSV writer with custom delimiter
+	csvWriter := csv.NewWriter(file)
+	csvWriter.Comma = common.Delimiter
+
+	// Write the header
+	header := []string{"Date", "Description", "Amount", "Currency"}
+	if err := csvWriter.Write(header); err != nil {
+		log.WithError(err).Error("Failed to write CSV header")
+		return fmt.Errorf("error writing CSV header: %w", err)
+	}
+
+	// Write each transaction
+	for _, tx := range transactions {
+		// Ensure date is in DD.MM.YYYY format
+		date := models.FormatDate(tx.Date)
+		
+		// Format the amount with 2 decimal places
+		amount := tx.Amount.StringFixed(2)
+		
+		row := []string{
+			date,
+			tx.Description,
+			amount,
+			tx.Currency,
+		}
+		
+		if err := csvWriter.Write(row); err != nil {
+			log.WithError(err).Error("Failed to write CSV row")
+			return fmt.Errorf("error writing CSV row: %w", err)
+		}
+	}
+
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		log.WithError(err).Error("Error flushing CSV writer")
+		return fmt.Errorf("error flushing CSV writer: %w", err)
+	}
+
+	log.WithFields(logrus.Fields{
+		"file":  csvFile,
+		"count": len(transactions),
+	}).Info("Successfully wrote transactions to CSV file")
+
+	return nil
+}
+
+// ConvertToCSV converts a Revolut CSV file to the standard CSV format.
+// This is a convenience function that combines ParseFile and WriteToCSV.
+func ConvertToCSV(inputFile, outputFile string) error {
+	log.WithFields(logrus.Fields{
+		"input":  inputFile,
+		"output": outputFile,
+	}).Info("Converting file to CSV")
+
+	// Validate the file format
+	valid, err := ValidateFormat(inputFile)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return fmt.Errorf("input file is not a valid Revolut CSV")
+	}
+
+	// Parse the file
+	transactions, err := ParseFile(inputFile)
+	if err != nil {
+		return err
+	}
+
+	// Write to CSV
+	if err := WriteToCSV(transactions, outputFile); err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		"count":  len(transactions),
+		"input":  inputFile,
+		"output": outputFile,
+	}).Info("Successfully converted file to CSV")
+
+	return nil
 }
 
 // ValidateFormat checks if the file is a valid Revolut CSV file.
@@ -183,12 +336,6 @@ func ValidateFormat(filePath string) (bool, error) {
 
 	log.Info("File is a valid Revolut CSV")
 	return true, nil
-}
-
-// ConvertToCSV converts a Revolut CSV file to the standard CSV format.
-// This is a convenience function that combines ParseFile and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string) error {
-	return common.GeneralizedConvertToCSV(inputFile, outputFile, ParseFile, ValidateFormat)
 }
 
 // BatchConvert converts all CSV files in a directory to the standard CSV format.

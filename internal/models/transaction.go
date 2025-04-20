@@ -13,29 +13,46 @@ import (
 
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
-	Date             string          `csv:"Date"`           // Date in DD.MM.YYYY format
-	ValueDate        string          `csv:"ValueDate"`      // Value date in DD.MM.YYYY format
-	Description      string          `csv:"Description"`    // Description of the transaction
-	BookkeepingNo    string          `csv:"BookkeepingNo"`  // Bookkeeping number
-	Fund             string          `csv:"Fund"`           // Fund name if applicable
-	Amount           decimal.Decimal `csv:"Amount"`         // Amount as decimal value
-	Currency         string          `csv:"Currency"`       // Currency code (CHF, EUR, etc)
-	CreditDebit      string          `csv:"CreditDebit"`    // Either "DBIT" (debit) or "CRDT" (credit)
-	EntryReference   string          `csv:"EntryReference"` // Entry reference number
-	AccountServicer  string          `csv:"AccountServicer"`// Account servicer reference
-	BankTxCode       string          `csv:"BankTxCode"`     // Bank transaction code
-	Status           string          `csv:"Status"`         // Status code
-	Payee            string          `csv:"Payee"`          // Beneficiary/recipient name
-	Payer            string          `csv:"Payer"`          // Payer name
-	IBAN             string          `csv:"IBAN"`           // IBAN if available
-	NumberOfShares   int             `csv:"NumberOfShares"` // Number of shares for investment transactions
-	StampDuty        string          `csv:"StampDutyAmount"`// Stamp duty
-	Category         string          `csv:"Category"`       // Transaction category
-	Investment       string          `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
-	OriginalCurrency string          `csv:"OriginalCurrency"` // Original currency for foreign currency transactions
-	OriginalAmount   decimal.Decimal `csv:"OriginalAmount"`   // Original amount in foreign currency
-	ExchangeRate     decimal.Decimal `csv:"ExchangeRate"`     // Exchange rate for currency conversion
-	Fee              decimal.Decimal `csv:"Fee"`              // Transaction fees
+	BookkeepingNumber string          `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
+	BookkeepingNo     string          `csv:"BookkeepingNo"`     // Bookkeeping number (legacy, use BookkeepingNumber)
+	Status            string          `csv:"Status"`            // Status code
+	Date              string          `csv:"Date"`              // Date in DD.MM.YYYY format
+	ValueDate         string          `csv:"ValueDate"`         // Value date in DD.MM.YYYY format
+	Name              string          `csv:"Name"`              // Name of the other party (combined from Payee/Payer)
+	PartyName         string          `csv:"PartyName"`         // Name of the other party (standardized field)
+	PartyIBAN         string          `csv:"PartyIBAN"`         // IBAN of the other party
+	Description       string          `csv:"Description"`       // Description of the transaction
+	RemittanceInfo    string          `csv:"RemittanceInfo"`    // Unstructured remittance information
+	Amount            decimal.Decimal `csv:"Amount"`            // Amount as decimal value
+	CreditDebit       string          `csv:"CreditDebit"`       // Either "DBIT" (debit) or "CRDT" (credit)
+	DebitFlag         bool            `csv:"IsDebit"`           // True if transaction is a debit, false if credit
+	Debit             decimal.Decimal `csv:"Debit"`             // Debit amount (negative)
+	Credit            decimal.Decimal `csv:"Credit"`            // Credit amount (positive)
+	Currency          string          `csv:"Currency"`          // Currency code (CHF, EUR, etc)
+	AmountExclTax     decimal.Decimal `csv:"AmountExclTax"`     // Amount excluding tax
+	AmountTax         decimal.Decimal `csv:"AmountTax"`         // Tax amount
+	TaxRate           decimal.Decimal `csv:"TaxRate"`           // Tax rate percentage
+	Recipient         string          `csv:"Recipient"`         // Recipient/beneficiary name
+	Investment        string          `csv:"InvestmentType"`    // Type of investment (Buy, Sell, Income, etc.)
+	Number            string          `csv:"Number"`            // Transaction number
+	Category          string          `csv:"Category"`          // Transaction category
+	Type              string          `csv:"Type"`              // Transaction type
+	Fund              string          `csv:"Fund"`              // Fund name if applicable
+	NumberOfShares    int             `csv:"NumberOfShares"`    // Number of shares for investment transactions
+	Fees              decimal.Decimal `csv:"Fees"`              // Transaction fees
+	IBAN              string          `csv:"IBAN"`              // IBAN if available
+	EntryReference    string          `csv:"EntryReference"`    // Entry reference number
+	Reference         string          `csv:"Reference"`         // Reference number
+	AccountServicer   string          `csv:"AccountServicer"`   // Account servicer reference
+	BankTxCode        string          `csv:"BankTxCode"`        // Bank transaction code
+	OriginalCurrency  string          `csv:"OriginalCurrency"`  // Original currency for foreign currency transactions
+	OriginalAmount    decimal.Decimal `csv:"OriginalAmount"`    // Original amount in foreign currency
+	ExchangeRate      decimal.Decimal `csv:"ExchangeRate"`      // Exchange rate for currency conversion
+	
+	// Fields not exported to CSV but used internally
+	Payee             string          `csv:"-"`                 // Beneficiary/recipient name (kept for backwards compatibility)
+	Payer             string          `csv:"-"`                 // Payer name (kept for backwards compatibility)
+	StampDuty         string          `csv:"-"`                 // Stamp duty amount (kept for backwards compatibility)
 }
 
 // ParseAmount parses a string amount to decimal.Decimal with proper formatting
@@ -98,27 +115,66 @@ func (t *Transaction) GetExchangeRateAsDecimal() decimal.Decimal {
 	return t.ExchangeRate
 }
 
-// GetFeeAsDecimal returns the Fee as a decimal.Decimal
-func (t *Transaction) GetFeeAsDecimal() decimal.Decimal {
-	return t.Fee
+// GetFeesAsDecimal returns the transaction fees as a decimal.Decimal
+func (t *Transaction) GetFeesAsDecimal() decimal.Decimal {
+	return t.Fees
+}
+
+// SetFeesFromDecimal sets the transaction fees from a decimal.Decimal value
+func (t *Transaction) SetFeesFromDecimal(fees decimal.Decimal) {
+	t.Fees = fees
 }
 
 // IsDebit returns true if the transaction is a debit (outgoing money)
 func (t *Transaction) IsDebit() bool {
-	return t.CreditDebit == "DBIT"
+	return t.DebitFlag || t.CreditDebit == "DBIT" || t.Amount.IsNegative()
 }
 
 // IsCredit returns true if the transaction is a credit (incoming money)
 func (t *Transaction) IsCredit() bool {
-	return t.CreditDebit == "CRDT"
+	return t.CreditDebit == "CRDT" || (t.CreditDebit != "DBIT" && t.CreditDebit != "UNKNOWN" && !t.DebitFlag && !t.Amount.IsNegative())
+}
+
+// UpdateNameFromParties sets the Name field based on the transaction type
+// - For debits, Name is set to Payee
+// - For credits, Name is set to Payer
+func (t *Transaction) UpdateNameFromParties() {
+	if t.IsDebit() {
+		t.Name = t.Payee
+	} else if t.IsCredit() {
+		t.Name = t.Payer
+	}
+}
+
+// UpdateRecipientFromPayee sets the Recipient field from Payee for compatibility
+func (t *Transaction) UpdateRecipientFromPayee() {
+	t.Recipient = t.Payee
+}
+
+// UpdateInvestmentTypeFromInvestment ensures the InvestmentType field is set
+func (t *Transaction) UpdateInvestmentTypeFromLegacyField() {
+	if t.Investment == "" {
+		t.Investment = t.GetPartyName()
+	}
+}
+
+// UpdateDebitCreditAmounts populates the Debit and Credit fields based on the main Amount
+func (t *Transaction) UpdateDebitCreditAmounts() {
+	if t.IsDebit() {
+		t.Debit = t.Amount
+		t.Credit = decimal.Zero
+	} else if t.IsCredit() {
+		t.Credit = t.Amount
+		t.Debit = decimal.Zero
+	}
 }
 
 // GetPartyName returns the relevant party name based on the transaction type
 func (t *Transaction) GetPartyName() string {
 	if t.IsDebit() {
-		return t.Payee // For outgoing money, the payee is the relevant party
+		return t.Payee
 	}
-	return t.Payer // For incoming money, the payer is the relevant party
+	return t.Payer
 }
 
 // StandardizeAmount formats amount consistently with 2 decimal places
@@ -224,72 +280,118 @@ func FormatDate(dateStr string) string {
 }
 
 func (t *Transaction) MarshalCSV() ([]string, error) {
+	// Make sure the derived fields are populated correctly
+	t.UpdateNameFromParties()
+	t.UpdateRecipientFromPayee()
+	t.UpdateDebitCreditAmounts()
+	t.UpdateInvestmentTypeFromLegacyField()
+
 	return []string{
+		t.BookkeepingNumber,
+		t.Status,
 		t.Date,
 		t.ValueDate,
+		t.Name,
 		t.Description,
-		t.BookkeepingNo,
-		t.Fund,
+		t.RemittanceInfo,
+		t.PartyName,
+		t.PartyIBAN,
 		t.Amount.StringFixed(2),
-		t.Currency,
 		t.CreditDebit,
+		fmt.Sprintf("%t", t.DebitFlag),
+		t.Debit.StringFixed(2),
+		t.Credit.StringFixed(2),
+		t.Currency,
+		t.AmountExclTax.StringFixed(2),
+		t.AmountTax.StringFixed(2),
+		t.TaxRate.StringFixed(2),
+		t.Recipient,
+		t.Investment,
+		t.Number,
+		t.Category,
+		t.Type,
+		t.Fund,
+		fmt.Sprintf("%d", t.NumberOfShares),
+		t.Fees.StringFixed(2),
+		t.IBAN,
 		t.EntryReference,
+		t.Reference,
 		t.AccountServicer,
 		t.BankTxCode,
-		t.Status,
-		t.Payee,
-		t.Payer,
-		t.IBAN,
-		fmt.Sprintf("%d", t.NumberOfShares),
-		t.StampDuty,
-		t.Category,
-		t.Investment,
 		t.OriginalCurrency,
 		t.OriginalAmount.StringFixed(2),
 		t.ExchangeRate.StringFixed(2),
-		t.Fee.StringFixed(2),
 	}, nil
 }
 
 func (t *Transaction) UnmarshalCSV(record []string) error {
-	t.Date = record[0]
-	t.ValueDate = record[1]
-	t.Description = record[2]
-	t.BookkeepingNo = record[3]
-	t.Fund = record[4]
+	t.BookkeepingNumber = record[0]
+	t.Status = record[1]
+	t.Date = record[2]
+	t.ValueDate = record[3]
+	t.Name = record[4]
+	t.Description = record[5]
+	t.RemittanceInfo = record[6]
+	t.PartyName = record[7]
+	t.PartyIBAN = record[8]
 	var err error
-	t.Amount, err = decimal.NewFromString(record[5])
+	t.Amount, err = decimal.NewFromString(record[9])
 	if err != nil {
 		return err
 	}
-	t.Currency = record[6]
-	t.CreditDebit = record[7]
-	t.EntryReference = record[8]
-	t.AccountServicer = record[9]
-	t.BankTxCode = record[10]
-	t.Status = record[11]
-	t.Payee = record[12]
-	t.Payer = record[13]
-	t.IBAN = record[14]
+	t.CreditDebit = record[10]
+	t.DebitFlag, err = strconv.ParseBool(record[11])
+	if err != nil {
+		return err
+	}
+	t.Debit, err = decimal.NewFromString(record[12])
+	if err != nil {
+		return err
+	}
+	t.Credit, err = decimal.NewFromString(record[13])
+	if err != nil {
+		return err
+	}
+	t.Currency = record[14]
+	t.AmountExclTax, err = decimal.NewFromString(record[15])
+	if err != nil {
+		return err
+	}
+	t.AmountTax, err = decimal.NewFromString(record[16])
+	if err != nil {
+		return err
+	}
+	t.TaxRate, err = decimal.NewFromString(record[17])
+	if err != nil {
+		return err
+	}
+	t.Recipient = record[18]
+	t.Investment = record[19]
+	t.Number = record[20]
+	t.Category = record[21]
+	t.Type = record[22]
+	t.Fund = record[23]
 	var numberOfShares int
-	numberOfShares, err = strconv.Atoi(record[15])
+	numberOfShares, err = strconv.Atoi(record[24])
 	if err != nil {
 		return err
 	}
 	t.NumberOfShares = numberOfShares
-	t.StampDuty = record[16]
-	t.Category = record[17]
-	t.Investment = record[18]
-	t.OriginalCurrency = record[19]
-	t.OriginalAmount, err = decimal.NewFromString(record[20])
+	t.Fees, err = decimal.NewFromString(record[25])
 	if err != nil {
 		return err
 	}
-	t.ExchangeRate, err = decimal.NewFromString(record[21])
+	t.IBAN = record[26]
+	t.EntryReference = record[27]
+	t.Reference = record[28]
+	t.AccountServicer = record[29]
+	t.BankTxCode = record[30]
+	t.OriginalCurrency = record[31]
+	t.OriginalAmount, err = decimal.NewFromString(record[32])
 	if err != nil {
 		return err
 	}
-	t.Fee, err = decimal.NewFromString(record[22])
+	t.ExchangeRate, err = decimal.NewFromString(record[33])
 	if err != nil {
 		return err
 	}

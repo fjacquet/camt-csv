@@ -356,9 +356,9 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			if strings.Contains(nextLine, "Frais de traitement") {
 				feeMatch := regexp.MustCompile(`Frais de traitement\s+.+?\s+(\d+\.\d+)`).FindStringSubmatch(nextLine)
 				if len(feeMatch) > 1 {
-					tx.Fee = models.ParseAmount(feeMatch[1])
+					tx.Fees = models.ParseAmount(feeMatch[1])
 					processingFeeFound = true
-					logrus.WithField("fee", tx.Fee.String()).Debug("Found processing fee")
+					logrus.WithField("fees", tx.Fees.String()).Debug("Found processing fees")
 				}
 			}
 		}

@@ -3,38 +3,64 @@ package camtparser
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/xmlpath.v2"
 )
 
 var log = logrus.New()
+var activeParser parser.Parser
+var currentParserType string = "iso20022" // Default parser type
 
 // SetLogger allows setting a custom logger
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
 		common.SetLogger(logger)
+		categorizer.SetLogger(logger)
+
+		// Initialize or update the parser with the new logger
+		if activeParser == nil {
+			activeParser = NewISO20022Adapter(logger)
+		} else {
+			activeParser.SetLogger(logger)
+		}
 	}
 }
 
 // ParseFile parses a CAMT.053 XML file and returns a slice of Transaction objects.
 // This is the main entry point for parsing CAMT.053 XML files.
 func ParseFile(xmlFile string) ([]models.Transaction, error) {
-	log.WithField("file", xmlFile).Info("Parsing CAMT.053 XML file (XPath mode)")
-	transactions, err := extractTransactionsFromXMLPath(xmlFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to extract transactions with XPath")
-		return nil, fmt.Errorf("error extracting transactions with XPath: %w", err)
+	// Check if file exists
+	if _, err := os.Stat(xmlFile); os.IsNotExist(err) {
+		return nil, fmt.Errorf("file does not exist: %s", xmlFile)
 	}
-	log.WithField("count", len(transactions)).Info("Successfully extracted transactions from CAMT.053 file (XPath mode)")
-	return transactions, nil
+
+	// If activeParser isn't initialized, create it first
+	if activeParser == nil {
+		activeParser = NewISO20022Adapter(log)
+	}
+
+	// Direct implementation for specific parser types to avoid circular dependencies
+	_, ok := activeParser.(*Adapter)
+	if ok {
+		// Use adapter-specific methods to avoid circular calls
+		if currentParserType == "xpath" {
+			return parseFileXPath(xmlFile)
+		}
+		return parseFileISO20022(xmlFile)
+	}
+
+	// For other parser implementations use interface method
+	return activeParser.ParseFile(xmlFile)
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file.
@@ -46,7 +72,12 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 // ConvertToCSV converts a CAMT.053 XML file to a CSV file.
 // This is a convenience function that combines ParseFile and WriteToCSV.
 func ConvertToCSV(xmlFile, csvFile string) error {
-	return common.GeneralizedConvertToCSV(xmlFile, csvFile, ParseFile, ValidateFormat)
+	// Initialize parser if not already initialized
+	if activeParser == nil {
+		activeParser = NewISO20022Adapter(log)
+	}
+
+	return activeParser.ConvertToCSV(xmlFile, csvFile)
 }
 
 // BatchConvert converts all XML files in a directory to CSV files.
@@ -57,84 +88,156 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		"outputDir": outputDir,
 	}).Info("Batch converting CAMT.053 XML files")
 
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		log.WithError(err).Error("Failed to create output directory")
-		return 0, fmt.Errorf("error creating output directory: %w", err)
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return 0, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Get all XML files in input directory
-	files, err := filepath.Glob(filepath.Join(inputDir, "*.xml"))
+	// Read input directory
+	files, err := os.ReadDir(inputDir)
 	if err != nil {
-		log.WithError(err).Error("Failed to read input directory")
-		return 0, fmt.Errorf("error reading input directory: %w", err)
+		return 0, fmt.Errorf("failed to read input directory: %w", err)
 	}
 
 	// Process each XML file
-	var processed int
+	count := 0
 	for _, file := range files {
-		// Create output file path
-		baseName := filepath.Base(file)
-		baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
-		outputFile := filepath.Join(outputDir, baseNameWithoutExt+".csv")
-
-		// Convert the file
-		if err := ConvertToCSV(file, outputFile); err != nil {
-			log.WithFields(logrus.Fields{
-				"file":  file,
-				"error": err,
-			}).Warning("Failed to convert file, skipping")
+		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
 			continue
 		}
-		processed++
+
+		inputFile := filepath.Join(inputDir, file.Name())
+		outputFile := filepath.Join(outputDir, strings.TrimSuffix(file.Name(), ".xml")+".csv")
+
+		// Validate that it's a CAMT.053 file
+		isValid, err := ValidateFormat(inputFile)
+		if err != nil {
+			log.WithError(err).WithField("file", inputFile).Error("Error validating file format")
+			continue
+		}
+		if !isValid {
+			log.WithField("file", inputFile).Debug("Skipping non-CAMT.053 file")
+			continue
+		}
+
+		// Convert the file
+		if err := ConvertToCSV(inputFile, outputFile); err != nil {
+			log.WithError(err).WithField("file", inputFile).Error("Failed to convert file")
+			continue
+		}
+
+		count++
 	}
 
-	log.WithField("count", processed).Info("Batch conversion completed")
-	return processed, nil
+	log.WithField("count", count).Info("Batch conversion completed")
+	return count, nil
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
-// It uses xmlpath to check for the required elements in the CAMT.053 structure.
+// It uses the active parser to validate the file structure.
 func ValidateFormat(xmlFile string) (bool, error) {
 	log.WithField("file", xmlFile).Info("Validating CAMT.053 format")
 
 	// Check if file exists
-	_, err := os.Stat(xmlFile)
+	if _, err := os.Stat(xmlFile); os.IsNotExist(err) {
+		return false, fmt.Errorf("file does not exist: %s", xmlFile)
+	}
+
+	// If activeParser isn't initialized or to prevent circular dependency
+	// do a simple check without invoking the Parser interface
+	if activeParser == nil {
+		// Open the file
+		file, err := os.Open(xmlFile)
+		if err != nil {
+			return false, err
+		}
+		defer file.Close()
+
+		// Read enough bytes to check for XML header and CAMT053 identifiers
+		buffer := make([]byte, 4096)
+		n, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return false, err
+		}
+		xmlHeader := string(buffer[:n])
+
+		// Basic checks for XML format
+		if !strings.Contains(xmlHeader, "<?xml") {
+			return false, nil
+		}
+
+		// Check for CAMT.053 specific elements (simplified for quick validation)
+		isCamt := strings.Contains(xmlHeader, "Document") && 
+				(strings.Contains(xmlHeader, "BkToCstmrStmt") || 
+				strings.Contains(xmlHeader, "camt.053"))
+
+		if isCamt {
+			log.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
+		} else {
+			log.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
+		}
+		
+		return isCamt, nil
+	}
+
+	// Direct implementation for specific parser types to avoid circular dependencies
+	_, ok := activeParser.(*Adapter)
+	if ok {
+		isValid, err := activeParser.ValidateFormat(xmlFile)
+		if err != nil {
+			return false, err
+		}
+
+		if isValid {
+			log.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
+		} else {
+			log.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
+		}
+
+		return isValid, nil
+	}
+
+	// For other parser implementations
+	isValid, err := activeParser.ValidateFormat(xmlFile)
 	if err != nil {
-		log.WithError(err).Error("XML file does not exist")
-		return false, fmt.Errorf("error checking XML file: %w", err)
+		return false, err
 	}
 
-	// Open the file
-	f, err := os.Open(xmlFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to open XML file")
-		return false, fmt.Errorf("error opening XML file: %w", err)
-	}
-	defer f.Close()
-
-	// Parse the XML
-	root, err := xmlpath.Parse(f)
-	if err != nil {
-		log.WithError(err).Debug("File is not valid XML")
-		return false, nil // File is not valid XML, but we don't return an error
+	if isValid {
+		log.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
+	} else {
+		log.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
 	}
 
-	// Check for essential CAMT.053 elements
-	// 1. Check if Document/BkToCstmrStmt exists
-	path := xmlpath.MustCompile("//BkToCstmrStmt")
-	if _, ok := path.String(root); !ok {
-		log.Debug("Missing BkToCstmrStmt element, not a CAMT.053 file")
-		return false, nil
-	}
+	return isValid, nil
+}
 
-	// 2. Check if Document/BkToCstmrStmt/Stmt/Id exists
-	path = xmlpath.MustCompile("//BkToCstmrStmt/Stmt/Id")
-	if _, ok := path.String(root); !ok {
-		log.Debug("Missing required Statement ID, not a valid CAMT.053 file")
-		return false, nil
+// SetParserType switches between different parser implementations
+// Valid types: "xpath", "iso20022"
+func SetParserType(newParserType string) {
+	lowerType := strings.ToLower(newParserType)
+	
+	// Skip if already using the requested parser type
+	if lowerType == currentParserType && activeParser != nil {
+		return
 	}
-
-	log.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
-	return true, nil
+	
+	currentParserType = lowerType // Store the new parser type
+	
+	// Create the new parser instance based on type
+	switch lowerType {
+	case "xpath":
+		// Create a new XPath parser directly 
+		adapter := NewAdapter()
+		activeParser = adapter
+	case "iso20022", "":
+		// Create a new ISO20022 parser directly
+		adapter := NewAdapter()
+		activeParser = adapter
+	default:
+		log.Warnf("Unknown parser type: %s. Using default ISO20022 parser.", newParserType)
+		adapter := NewAdapter()
+		activeParser = adapter
+		currentParserType = "iso20022"
+	}
 }

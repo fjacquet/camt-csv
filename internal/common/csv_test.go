@@ -203,8 +203,8 @@ func TestExportTransactionsToCSV(t *testing.T) {
 		},
 	}
 
-	err := WriteTransactionsToCSV(transactions, csvFile)
-	assert.NoError(t, err, "WriteTransactionsToCSV should not return an error")
+	err := ExportTransactionsToCSV(transactions, csvFile)
+	assert.NoError(t, err, "ExportTransactionsToCSV should not return an error")
 
 	// Read the output file and verify content
 	content, err := os.ReadFile(csvFile)
@@ -218,7 +218,7 @@ func TestExportTransactionsToCSV(t *testing.T) {
 	assert.Contains(t, csvStr, "Currency")
 	
 	// Check transaction data is present
-	assert.Contains(t, csvStr, "2023-01-01")
+	assert.Contains(t, csvStr, "01.01.2023")
 	assert.Contains(t, csvStr, "Test Debit")
 	assert.Contains(t, csvStr, "123.45")
 	assert.Contains(t, csvStr, "CHF")

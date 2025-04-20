@@ -141,7 +141,7 @@ func TestConvertToCSV(t *testing.T) {
 	// Check for expected CSV format
 	csvContent := string(data)
 	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
-	assert.Contains(t, csvContent, "2023-01-01,Coffee Shop Test,15.50,EUR")
+	assert.Contains(t, csvContent, "01.01.2023,Coffee Shop Test,15.50,EUR")
 }
 
 func TestWriteToCSV(t *testing.T) {
@@ -179,8 +179,8 @@ func TestWriteToCSV(t *testing.T) {
 	// Check that the CSV contains our test data
 	csvContent := string(content)
 	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
-	assert.Contains(t, csvContent, "2023-01-01,Coffee Shop Purchase")
-	assert.Contains(t, csvContent, "2023-01-02,Salary Payment")
+	assert.Contains(t, csvContent, "01.01.2023,Coffee Shop Purchase")
+	assert.Contains(t, csvContent, "02.01.2023,Salary Payment")
 	assert.Contains(t, csvContent, "100.00,EUR")
 	assert.Contains(t, csvContent, "1000.00,EUR")
 }
