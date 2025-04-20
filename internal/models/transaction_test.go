@@ -3,6 +3,7 @@ package models
 import (
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,27 +57,28 @@ func TestFormatDate(t *testing.T) {
 	}
 }
 
-func TestGetAmountAsFloat(t *testing.T) {
+func TestGetAmountAsDecimal(t *testing.T) {
 	testCases := []struct {
 		name     string
 		amount   string
-		expected float64
+		expected string
 	}{
-		{"SimpleAmount", "123.45", 123.45},
-		{"AmountWithComma", "123,45", 123.45},
-		{"NegativeAmount", "-123.45", -123.45},
-		{"WithCurrencySymbol", "€123.45", 123.45},
-		{"WithCurrencyCode", "EUR 123.45", 123.45},
-		{"WithSpaces", " 123.45 ", 123.45},
-		{"WithThousandSeparator", "1'234.56", 1234.56},
-		{"InvalidAmount", "not-a-number", 0},
+		{"SimpleAmount", "123.45", "123.45"},
+		{"AmountWithComma", "123,45", "123.45"},
+		{"NegativeAmount", "-123.45", "-123.45"},
+		{"WithCurrencySymbol", "€123.45", "123.45"},
+		{"WithCurrencyCode", "EUR 123.45", "123.45"},
+		{"WithSpaces", " 123.45 ", "123.45"},
+		{"WithThousandSeparator", "1'234.56", "1234.56"},
+		{"InvalidAmount", "not-a-number", "0"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tx := &Transaction{Amount: tc.amount}
-			result := tx.GetAmountAsFloat()
-			assert.Equal(t, tc.expected, result, "GetAmountAsFloat() with Amount=%s should return %f", tc.amount, tc.expected)
+			expected, _ := decimal.NewFromString(tc.expected)
+			tx := &Transaction{Amount: ParseAmount(tc.amount)}
+			result := tx.GetAmountAsDecimal()
+			assert.True(t, expected.Equal(result), "GetAmountAsDecimal() with Amount=%s should return %s, got %s", tc.amount, tc.expected, result.String())
 		})
 	}
 }

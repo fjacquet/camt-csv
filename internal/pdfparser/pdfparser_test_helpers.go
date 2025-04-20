@@ -72,7 +72,7 @@ func createMockTransactions() []models.Transaction {
 		{
 			Date:           "2023-01-01",
 			Description:    "Coffee Shop Purchase Card Payment REF123456",
-			Amount:         "100.00",
+			Amount:         models.ParseAmount("100.00"),
 			Currency:       "EUR",
 			CreditDebit:    "DBIT",
 			EntryReference: "REF123456",
@@ -80,7 +80,7 @@ func createMockTransactions() []models.Transaction {
 		{
 			Date:           "2023-01-02",
 			Description:    "Salary Payment Incoming Transfer SAL987654",
-			Amount:         "1000.00",
+			Amount:         models.ParseAmount("1000.00"),
 			Currency:       "EUR",
 			CreditDebit:    "CRDT",
 			EntryReference: "SAL987654",

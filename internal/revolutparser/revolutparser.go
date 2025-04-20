@@ -12,6 +12,7 @@ import (
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
+	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
 
@@ -104,11 +105,17 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 	completedDate := models.FormatDate(row.CompletedDate)
 	startedDate := models.FormatDate(row.StartedDate)
 
+	// Parse amount to decimal
+	amountDecimal, err := decimal.NewFromString(amount)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("error parsing amount to decimal: %w", err)
+	}
+
 	transaction := models.Transaction{
 		Date:           completedDate,
 		ValueDate:      startedDate,
 		Description:    row.Description,
-		Amount:         amount,
+		Amount:         amountDecimal,
 		Currency:       row.Currency,
 		CreditDebit:    creditDebit,
 		Status:         row.State,

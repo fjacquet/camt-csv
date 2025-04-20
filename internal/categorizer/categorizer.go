@@ -52,7 +52,7 @@ type Categorizer struct {
 	logger           *logrus.Logger
 }
 
-// Global singleton instance
+// Global singleton instance - simple approach for a CLI tool
 var defaultCategorizer *Categorizer
 var log = logrus.New()
 
@@ -60,10 +60,7 @@ var log = logrus.New()
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
-
-		// Also set the logger for the store package
-		store.SetLogger(logger)
-
+		
 		// Update default categorizer if it exists
 		if defaultCategorizer != nil {
 			defaultCategorizer.logger = logger
@@ -73,14 +70,17 @@ func SetLogger(logger *logrus.Logger) {
 
 // initCategorizer initializes the default categorizer instance
 func initCategorizer() {
+	// Only initialize once
 	if defaultCategorizer == nil {
+		// Create the categorizer instance with defaults
 		defaultCategorizer = &Categorizer{
-			categories:       make([]models.CategoryConfig, 0),
+			categories:       []models.CategoryConfig{},
 			creditorMappings: make(map[string]string),
 			debitorMappings:  make(map[string]string),
+			configMutex:      sync.RWMutex{},
 			isDirtyCreditors: false,
 			isDirtyDebitors:  false,
-			store:            store.NewCategoryStore(),
+			store:            store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"),
 			logger:           log,
 		}
 
@@ -108,6 +108,43 @@ func initCategorizer() {
 			defaultCategorizer.debitorMappings = debitorMappings
 		}
 	}
+}
+
+// SetTestCategoryStore allows tests to inject a test CategoryStore.
+// This should only be used in tests!
+func SetTestCategoryStore(store *store.CategoryStore) {
+	// For test environments, create a fresh test categorizer
+	defaultCategorizer = &Categorizer{
+		categories:       []models.CategoryConfig{},
+		creditorMappings: make(map[string]string),
+		debitorMappings:  make(map[string]string),
+		configMutex:      sync.RWMutex{},
+		isDirtyCreditors: false,
+		isDirtyDebitors:  false,
+		store:            store,
+		logger:           log,
+	}
+	
+	// Always set test mode in tests to prevent external API calls
+	os.Setenv("TEST_MODE", "true")
+}
+
+// CategorizeTransaction categorizes a transaction using the default categorizer
+// This is a package-level function that uses the default categorizer
+func CategorizeTransaction(transaction Transaction) (models.Category, error) {
+	initCategorizer()
+	
+	// Safety check
+	if defaultCategorizer == nil {
+		return models.Category{}, fmt.Errorf("categorizer not initialized")
+	}
+	
+	return defaultCategorizer.categorizeTransaction(transaction)
+}
+
+// Public method for the Categorizer struct
+func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Category, error) {
+	return c.categorizeTransaction(transaction)
 }
 
 //------------------------------------------------------------------------------
@@ -506,68 +543,97 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 // categorizeTransaction categorizes a transaction using the following sequence:
 // 1. Check if the creditor/debitor already exists in the mapping database
 // 2. Try to match using local keyword patterns
-// 3. Fall back to Gemini AI for classification if enabled
+// 3. Fall back to Gemini AI for classification if enabled and not in test mode
 func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
-	// First try to find an exact match in our mappings
-	if category, found := c.categorizeByCreditorMapping(transaction); found {
-		c.logger.Debugf("Transaction categorized from creditor mapping: %s -> %s",
-			transaction.PartyName, category.Name)
-		return category, nil
+	if c.logger != nil {
+		c.logger.WithFields(logrus.Fields{
+			"party":   transaction.PartyName,
+			"amount":  transaction.Amount,
+			"date":    transaction.Date,
+			"isDebit": transaction.IsDebtor,
+		}).Debug("Categorizing transaction")
 	}
 
-	if category, found := c.categorizeByDebitorMapping(transaction); found {
-		c.logger.Debugf("Transaction categorized from debitor mapping: %s -> %s",
-			transaction.PartyName, category.Name)
-		return category, nil
+	// Skip categorization for empty party names
+	if transaction.PartyName == "" {
+		return models.Category{
+			Name:        "Uncategorized",
+			Description: "No party name provided",
+		}, nil
 	}
 
-	// Next try to match by keywords
-	if category, found := c.categorizeLocallyByKeywords(transaction); found {
-		c.logger.Debugf("Transaction categorized by keywords: %s -> %s",
-			transaction.PartyName, category.Name)
-
-		// Save this mapping for future use
-		if transaction.IsDebtor {
-			c.updateDebitorCategory(transaction.PartyName, category.Name)
-		} else {
-			c.updateCreditorCategory(transaction.PartyName, category.Name)
+	// 1. Check creditor/debitor mappings first (exact matches)
+	if transaction.IsDebtor {
+		if category, found := c.categorizeByDebitorMapping(transaction); found {
+			return category, nil
 		}
+	} else {
+		if category, found := c.categorizeByCreditorMapping(transaction); found {
+			return category, nil
+		}
+	}
+
+	// 2. Try local keyword-based categorization
+	if category, found := c.categorizeLocallyByKeywords(transaction); found {
 		return category, nil
 	}
 
-	// Only try AI categorization if explicitly enabled AND no matches were found above
+	// 3. Skip API calls in test mode regardless of AI categorization setting
+	isTestMode := os.Getenv("TEST_MODE") == "true"
+	if isTestMode {
+		return models.Category{
+			Name:        "Uncategorized",
+			Description: "Test mode - AI categorization skipped",
+		}, nil
+	}
+	
+	// 4. Use AI categorization only if enabled
 	if isAICategorizeEnabled() {
-		category, err := c.categorizeWithGemini(transaction)
-		if err != nil {
-			c.logger.Warnf("AI categorization failed for transaction %s: %v, using Uncategorized instead",
-				transaction.PartyName, err)
-
-			// Just return Miscellaneous without propagating the error
+		// Check if we have an API key configured
+		apiKey := getGeminiAPIKey()
+		if apiKey == "" {
+			if c.logger != nil {
+				c.logger.Warn("AI categorization is enabled but no API key is set")
+			}
 			return models.Category{
-				Name:        "Uncategorized",
-				Description: "Uncategorized transaction",
+				Name:        "Uncategorized", 
+				Description: "Transaction could not be categorized (no API key)",
 			}, nil
 		}
 
-		// If Gemini returned a valid category, update the database for future use
-		c.logger.Infof("Transaction categorized by Gemini AI: %s -> %s",
-			transaction.PartyName, category.Name)
-
-		// Save this mapping for future use
-		if transaction.IsDebtor {
-			c.updateDebitorCategory(transaction.PartyName, category.Name)
-		} else {
-			c.updateCreditorCategory(transaction.PartyName, category.Name)
+		// Initialize Gemini client if needed
+		if c.geminiClient == nil {
+			err := c.initGeminiClient()
+			if err != nil {
+				if c.logger != nil {
+					c.logger.WithError(err).Error("Failed to initialize Gemini client")
+				}
+				return models.Category{
+					Name:        "Uncategorized",
+					Description: "Transaction could not be categorized (API initialization error)",
+				}, nil
+			}
 		}
 
+		// Attempt AI categorization
+		category, err := c.categorizeWithGemini(transaction)
+		if err != nil {
+			if c.logger != nil {
+				c.logger.WithError(err).Error("Failed to categorize with Gemini AI")
+			}
+			return models.Category{
+				Name:        "Uncategorized",
+				Description: "Transaction could not be categorized by AI",
+			}, nil
+		}
+		
 		return category, nil
 	}
 
-	// Return a generic "Uncategorized" category
-	c.logger.Debugf("No category found for transaction: %s", transaction.PartyName)
+	// Default category if all methods fail
 	return models.Category{
 		Name:        "Uncategorized",
-		Description: "Uncategorized transaction",
+		Description: "Transaction could not be categorized with available methods",
 	}, nil
 }
 
@@ -703,74 +769,79 @@ func GetDebitorCategory(debitor string) (string, bool) {
 	return defaultCategorizer.getDebitorCategory(debitor)
 }
 
-// CategorizeTransaction categorizes a transaction using the default categorizer
-// This is a package-level function that uses the default categorizer
-func CategorizeTransaction(transaction Transaction) (models.Category, error) {
-	initCategorizer()
-	return defaultCategorizer.categorizeTransaction(transaction)
-}
-
 // SaveCreditorsToYAML saves the current creditor mappings to the YAML file
 // This is a package-level function that uses the default categorizer
 func SaveCreditorsToYAML() error {
 	initCategorizer()
-
-	defaultCategorizer.configMutex.RLock()
-	isDirty := defaultCategorizer.isDirtyCreditors
-	mappings := make(map[string]string)
-	for k, v := range defaultCategorizer.creditorMappings {
-		mappings[k] = v
-	}
-	defaultCategorizer.configMutex.RUnlock()
-
-	// Skip saving if nothing has changed
-	if !isDirty {
-		log.Debug("Creditor mappings have not changed, skipping save")
-		return nil
-	}
-
-	// Save to YAML using the store
-	err := defaultCategorizer.store.SaveCreditorMappings(mappings)
-	if err == nil {
-		// Mark as no longer dirty if saved successfully
-		defaultCategorizer.configMutex.Lock()
-		defaultCategorizer.isDirtyCreditors = false
-		defaultCategorizer.configMutex.Unlock()
-	}
-
-	return err
+	return defaultCategorizer.saveCreditorsToYAML()
 }
 
 // SaveDebitorsToYAML saves the current debitor mappings to the YAML file
 // This is a package-level function that uses the default categorizer
 func SaveDebitorsToYAML() error {
 	initCategorizer()
+	return defaultCategorizer.saveDebitorsToYAML()
+}
 
-	defaultCategorizer.configMutex.RLock()
-	isDirty := defaultCategorizer.isDirtyDebitors
+// saveCreditorsToYAML saves the current creditor mappings to the YAML file
+func (c *Categorizer) saveCreditorsToYAML() error {
+	c.configMutex.RLock()
+	isDirty := c.isDirtyCreditors
 	mappings := make(map[string]string)
-	for k, v := range defaultCategorizer.debitorMappings {
+	for k, v := range c.creditorMappings {
 		mappings[k] = v
 	}
-	defaultCategorizer.configMutex.RUnlock()
+	c.configMutex.RUnlock()
 
 	// Skip saving if nothing has changed
 	if !isDirty {
-		log.Debug("Debitor mappings have not changed, skipping save")
+		c.logger.Debugf("Creditor mappings have not changed, skipping save")
 		return nil
 	}
 
 	// Save to YAML using the store
-	err := defaultCategorizer.store.SaveDebitorMappings(mappings)
+	err := c.store.SaveCreditorMappings(mappings)
 	if err == nil {
 		// Mark as no longer dirty if saved successfully
-		defaultCategorizer.configMutex.Lock()
-		defaultCategorizer.isDirtyDebitors = false
-		defaultCategorizer.configMutex.Unlock()
+		c.configMutex.Lock()
+		c.isDirtyCreditors = false
+		c.configMutex.Unlock()
 	}
 
 	return err
 }
+
+// saveDebitorsToYAML saves the current debitor mappings to the YAML file
+func (c *Categorizer) saveDebitorsToYAML() error {
+	c.configMutex.RLock()
+	isDirty := c.isDirtyDebitors
+	mappings := make(map[string]string)
+	for k, v := range c.debitorMappings {
+		mappings[k] = v
+	}
+	c.configMutex.RUnlock()
+
+	// Skip saving if nothing has changed
+	if !isDirty {
+		c.logger.Debugf("Debitor mappings have not changed, skipping save")
+		return nil
+	}
+
+	// Save to YAML using the store
+	err := c.store.SaveDebitorMappings(mappings)
+	if err == nil {
+		// Mark as no longer dirty if saved successfully
+		c.configMutex.Lock()
+		c.isDirtyDebitors = false
+		c.configMutex.Unlock()
+	}
+
+	return err
+}
+
+//------------------------------------------------------------------------------
+// HELPER FUNCTIONS
+//------------------------------------------------------------------------------
 
 // Helper function to get the Gemini API key
 func getGeminiAPIKey() string {
@@ -842,4 +913,18 @@ func getEnv(key, defaultValue string) string {
 	}
 
 	return strings.TrimSpace(value)
+}
+
+// WithStore is an option for NewCategorizer that sets a custom store
+func WithStore(store *store.CategoryStore) func(*Categorizer) {
+	return func(c *Categorizer) {
+		c.store = store
+	}
+}
+
+// WithLogger is an option for NewCategorizer that sets a custom logger
+func WithLogger(logger *logrus.Logger) func(*Categorizer) {
+	return func(c *Categorizer) {
+		c.logger = logger
+	}
 }

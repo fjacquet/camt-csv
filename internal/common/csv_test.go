@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
+	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/sirupsen/logrus"
@@ -69,31 +71,45 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.Error(t, err, "ReadCSVFile should return an error for a non-existent file")
 }
 
+// setupTestCategorizer initializes the categorizer with a test CategoryStore for use in tests.
+func setupTestCategorizer(t *testing.T) {
+	t.Helper()
+	tempDir := t.TempDir()
+	categoriesFile := filepath.Join(tempDir, "categories.yaml")
+	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
+	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
+	os.WriteFile(categoriesFile, []byte("[]"), 0644)
+	os.WriteFile(creditorsFile, []byte("{}"), 0644)
+	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
+	categorizer.SetTestCategoryStore(store)
+	t.Cleanup(func() {
+		categorizer.SetTestCategoryStore(nil)
+	})
+}
+
 func TestWriteTransactionsToCSV(t *testing.T) {
+	setupTestCategorizer(t)
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "csv-test")
 	assert.NoError(t, err, "Failed to create temp directory")
 	defer os.RemoveAll(tempDir)
 
-	// Create sample transactions
+	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:        "01.01.2023",
-			ValueDate:   "01.01.2023",
-			Description: "Test Transaction 1",
-			Amount:      "100.00",
+			Date:        "2023-01-01",
+			Description: "Transaction 1",
+			Amount:      models.ParseAmount("100.00"),
 			Currency:    "CHF",
 			CreditDebit: "DBIT",
-			Payee:       "Test Vendor",
 		},
 		{
-			Date:        "02.01.2023",
-			ValueDate:   "02.01.2023",
-			Description: "Test Transaction 2",
-			Amount:      "200.00",
-			Currency:    "EUR",
+			Date:        "2023-01-02",
+			Description: "Transaction 2",
+			Amount:      models.ParseAmount("200.00"),
+			Currency:    "CHF",
 			CreditDebit: "CRDT",
-			Payer:       "Test Customer",
 		},
 	}
 
@@ -111,8 +127,8 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "Date", "Output CSV should contain Date header")
 	assert.Contains(t, csvContent, "Amount", "Output CSV should contain Amount header")
 	assert.Contains(t, csvContent, "Currency", "Output CSV should contain Currency header")
-	assert.Contains(t, csvContent, "Test Transaction 1", "Output CSV should contain first transaction description")
-	assert.Contains(t, csvContent, "Test Transaction 2", "Output CSV should contain second transaction description")
+	assert.Contains(t, csvContent, "Transaction 1", "Output CSV should contain first transaction description")
+	assert.Contains(t, csvContent, "Transaction 2", "Output CSV should contain second transaction description")
 	
 	// Test with an invalid path
 	err = WriteTransactionsToCSV(transactions, "/invalid/path/output.csv")
@@ -138,13 +154,13 @@ Bob Johnson,42,bob@example.com,UK`
 	// Define the parser functions for testing
 	parseFunc := func(string) ([]models.Transaction, error) {
 		// Return simple test transactions
-		return []models.Transaction{
-			{
-				Date:        "01.01.2023",
-				Description: "Test Transaction",
-				Amount:      "100.00",
-			},
-		}, nil
+		transaction := models.Transaction{
+			Date:        "2023-01-01",
+			Description: "Test Transaction",
+			Amount:      models.ParseAmount("100.00"),
+			Currency:    "CHF",
+		}
+		return []models.Transaction{transaction}, nil
 	}
 	
 	validateFunc := func(string) (bool, error) {
@@ -163,6 +179,49 @@ Bob Johnson,42,bob@example.com,UK`
 	
 	err = GeneralizedConvertToCSV(inputPath, outputPath, parseFunc, invalidValidateFunc)
 	assert.Error(t, err, "GeneralizedConvertToCSV should return an error when validation fails")
+}
+
+func TestExportTransactionsToCSV(t *testing.T) {
+	tempDir := t.TempDir()
+	csvFile := filepath.Join(tempDir, "export.csv")
+
+	// Create sample transactions
+	transactions := []models.Transaction{
+		{
+			Date:        "2023-01-01",
+			Description: "Test Debit",
+			Amount:      models.ParseAmount("123.45"),
+			Currency:    "CHF",
+			CreditDebit: "DBIT",
+		},
+		{
+			Date:        "2023-01-02",
+			Description: "Test Credit",
+			Amount:      models.ParseAmount("-67.89"),
+			Currency:    "EUR",
+			CreditDebit: "CRDT",
+		},
+	}
+
+	err := WriteTransactionsToCSV(transactions, csvFile)
+	assert.NoError(t, err, "WriteTransactionsToCSV should not return an error")
+
+	// Read the output file and verify content
+	content, err := os.ReadFile(csvFile)
+	assert.NoError(t, err, "Should be able to read exported CSV file")
+	csvStr := string(content)
+
+	// Check for expected fields in the CSV
+	assert.Contains(t, csvStr, "Date")
+	assert.Contains(t, csvStr, "Description")
+	assert.Contains(t, csvStr, "Amount")
+	assert.Contains(t, csvStr, "Currency")
+	
+	// Check transaction data is present
+	assert.Contains(t, csvStr, "2023-01-01")
+	assert.Contains(t, csvStr, "Test Debit")
+	assert.Contains(t, csvStr, "123.45")
+	assert.Contains(t, csvStr, "CHF")
 }
 
 func TestSetLogger(t *testing.T) {

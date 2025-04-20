@@ -2,10 +2,11 @@
 package common
 
 import (
+	"encoding/csv"
 	"fmt"
 	"os"
+	"path/filepath"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/gocarina/gocsv"
@@ -13,6 +14,22 @@ import (
 )
 
 var log = logrus.New()
+
+// Delimiter for CSV output (default is ',')
+var Delimiter rune = ','
+
+func init() {
+	if val := os.Getenv("CSV_DELIMITER"); val != "" {
+		// Use first rune only
+		SetDelimiter([]rune(val)[0])
+	}
+}
+
+// SetDelimiter allows setting the delimiter for CSV output
+func SetDelimiter(delim rune) {
+	Delimiter = delim
+	gocsv.TagSeparator = fmt.Sprintf("%c", delim)
+}
 
 // SetLogger allows setting a configured logger
 func SetLogger(logger *logrus.Logger) {
@@ -47,98 +64,101 @@ func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
 }
 
 // WriteTransactionsToCSV is a generalized function to write transactions to CSV 
-// with categorization. All parsers can use this function.
+// All parsers can use this function.
 func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
-	log.WithField("file", csvFile).Info("Writing transactions to CSV file")
-
-	// Process and categorize transactions
-	for i := range transactions {
-		// Skip categorization if already categorized
-		if transactions[i].Category != "" {
-			continue
-		}
-
-		// Determine if transaction is for debtor or creditor based on CreditDebit
-		isDebtor := transactions[i].CreditDebit == "DBIT"
-		
-		// Use Payee if available, otherwise use Description
-		partyName := transactions[i].Payee
-		if partyName == "" {
-			partyName = transactions[i].Description
-		}
-		
-		// Create categorizer transaction
-		catTx := categorizer.Transaction{
-			PartyName: partyName,
-			IsDebtor:  isDebtor,
-			Amount:    transactions[i].Amount,
-			Date:      transactions[i].Date,
-			Info:      transactions[i].Description,
-		}
-		
-		// Get category
-		category, err := categorizer.CategorizeTransaction(catTx)
-		if err != nil {
-			log.WithError(err).WithField("party", partyName).Warning("Failed to categorize transaction")
-		} else {
-			// Store the category in the transaction
-			transactions[i].Category = category.Name
-			log.WithFields(logrus.Fields{
-				"party":    partyName,
-				"category": category.Name,
-			}).Debug("Transaction categorized")
-		}
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(csvFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("error creating directory %s: %w", dir, err)
 	}
-
-	// Create output file
+	
+	// Open or create the file
 	file, err := os.Create(csvFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to create output CSV file")
-		return fmt.Errorf("error creating output CSV file: %w", err)
+		return fmt.Errorf("error creating CSV file: %w", err)
 	}
 	defer file.Close()
-
-	// Use gocsv to marshal and write in one step
-	if err := gocsv.MarshalFile(&transactions, file); err != nil {
-		log.WithError(err).Error("Failed to write CSV")
-		return fmt.Errorf("error writing CSV: %w", err)
+	
+	// Create CSV writer
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+	
+	// Write header
+	header := []string{
+		"Date", "Description", "Amount", "Currency", "Category", 
+		"Payer", "Payee", "Status", "ValueDate", "CreditDebit", 
+		"IBAN", "EntryReference", "Reference", "BookkeepingNo", "Fund",
 	}
-
-	log.WithField("count", len(transactions)).Info("Successfully wrote transactions to CSV")
+	
+	if err := writer.Write(header); err != nil {
+		return fmt.Errorf("error writing CSV header: %w", err)
+	}
+	
+	// Process transactions
+	for _, t := range transactions {
+		// Format credit/debit indicator
+		creditDebit := "Credit"
+		if t.CreditDebit == "DBIT" {
+			creditDebit = "Debit"
+		}
+		
+		// Convert decimal.Decimal amount to string with 2 decimal places
+		amountStr := t.Amount.StringFixed(2)
+		
+		// Write the row
+		if err := writer.Write([]string{
+			t.Date,
+			t.Description,
+			amountStr,
+			t.Currency,
+			t.Category,
+			t.Payer,
+			t.Payee,
+			t.Status,
+			t.ValueDate,
+			creditDebit,
+			t.IBAN,
+			t.EntryReference,
+			t.EntryReference, // Use EntryReference as Reference
+			t.BookkeepingNo,
+			t.Fund,
+		}); err != nil {
+			return fmt.Errorf("error writing transaction record: %w", err)
+		}
+	}
+	
 	return nil
 }
 
 // GeneralizedConvertToCSV is a utility function that combines parsing and writing to CSV
-// This can be used by any parser that follows the standard interface
+// This is used by parsers implementing the standard interface
 func GeneralizedConvertToCSV(
 	inputFile string, 
-	outputFile string,
+	outputFile string, 
 	parseFunc func(string) ([]models.Transaction, error),
 	validateFunc func(string) (bool, error),
 ) error {
-	// Validate format if validateFunc is provided
+	// Validate file format if a validation function is provided
 	if validateFunc != nil {
 		valid, err := validateFunc(inputFile)
 		if err != nil {
-			return fmt.Errorf("error validating file format: %w", err)
+			return fmt.Errorf("error validating input file: %w", err)
 		}
 		if !valid {
 			return fmt.Errorf("input file is not in a valid format")
 		}
 	}
 
-	// Parse the file
+	// Parse the input file
 	transactions, err := parseFunc(inputFile)
 	if err != nil {
-		return fmt.Errorf("error parsing file: %w", err)
+		return fmt.Errorf("error parsing input file: %w", err)
 	}
-
-	// Write to CSV
-	err = WriteTransactionsToCSV(transactions, outputFile)
-	if err != nil {
-		return fmt.Errorf("error writing to CSV: %w", err)
+	
+	// Write the CSV file with the transactions
+	if err := WriteTransactionsToCSV(transactions, outputFile); err != nil {
+		return fmt.Errorf("error writing CSV file: %w", err)
 	}
-
-	log.Info("Conversion completed successfully")
+	
 	return nil
 }

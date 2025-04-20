@@ -5,6 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
+	"fjacquet/camt-csv/internal/categorizer"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/sirupsen/logrus"
 )
 
@@ -81,24 +86,31 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	}
 
 	// Check the first transaction
-	if transactions[0].Description != "RATP" {
-		t.Errorf("Expected Description to be 'RATP', got '%s'", transactions[0].Description)
-	}
-	if transactions[0].Date != "15.04.2025" {
-		t.Errorf("Expected Date to be '15.04.2025', got '%s'", transactions[0].Date)
-	}
-	if transactions[0].Amount != "4.21" {
-		t.Errorf("Expected Amount to be '4.21', got '%s'", transactions[0].Amount)
-	}
-	if transactions[0].Currency != "CHF" {
-		t.Errorf("Expected Currency to be 'CHF', got '%s'", transactions[0].Currency)
-	}
-	if transactions[0].CreditDebit != "DBIT" {
-		t.Errorf("Expected CreditDebit to be 'DBIT', got '%s'", transactions[0].CreditDebit)
-	}
+	assert.Equal(t, "15.04.2025", transactions[0].Date)
+	assert.Equal(t, "RATP", transactions[0].Description)
+	assert.Equal(t, models.ParseAmount("4.21"), transactions[0].Amount)
+	assert.Equal(t, "CHF", transactions[0].Currency)
+	assert.Equal(t, "DBIT", transactions[0].CreditDebit)
+}
+
+func setupTestCategorizer(t *testing.T) {
+	t.Helper()
+	tempDir := t.TempDir()
+	categoriesFile := filepath.Join(tempDir, "categories.yaml")
+	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
+	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
+	os.WriteFile(categoriesFile, []byte("[]"), 0644)
+	os.WriteFile(creditorsFile, []byte("{}"), 0644)
+	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
+	categorizer.SetTestCategoryStore(store)
+	t.Cleanup(func() {
+		categorizer.SetTestCategoryStore(nil)
+	})
 }
 
 func TestWriteToCSV(t *testing.T) {
+	setupTestCategorizer(t)
 	// Create test transactions
 	transactions := []struct {
 		description string
@@ -153,6 +165,7 @@ func TestWriteToCSV(t *testing.T) {
 }
 
 func TestConvertToCSV(t *testing.T) {
+	setupTestCategorizer(t)
 	// Create a temporary valid debit CSV file
 	validContent := `Bénéficiaire;Date;Montant;Monnaie
 PMT CARTE RATP;15.04.2025;-4,21;CHF

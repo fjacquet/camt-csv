@@ -13,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/gocarina/gocsv"
+	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
 
@@ -103,24 +104,28 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 	}
 	
 	// Process amount and determine credit/debit
-	var amount string
+	var amount decimal.Decimal
 	var creditDebit string
 	
 	// The Montant field is used for the amount, which can be positive or negative
 	// Negative amounts (-) are debits, positive are credits
 	if row.Betrag == "" {
 		// If amount is empty, default to 0
-		amount = "0"
+		amount = decimal.NewFromFloat(0)
 		creditDebit = "CRDT"
 	} else {
 		// Use StandardizeAmount to handle formatting (comma vs. decimal point)
-		amount = models.StandardizeAmount(row.Betrag)
+		var err error
+		amount, err = decimal.NewFromString(models.StandardizeAmount(row.Betrag))
+		if err != nil {
+			return models.Transaction{}, fmt.Errorf("error parsing amount: %w", err)
+		}
 		
 		// Determine credit/debit based on sign
 		if strings.HasPrefix(row.Betrag, "-") {
 			creditDebit = "DBIT"
 			// Remove negative sign for consistency
-			amount = strings.TrimPrefix(amount, "-")
+			amount = amount.Abs()
 		} else {
 			creditDebit = "CRDT"
 		}

@@ -2,11 +2,11 @@
 package selmaparser
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
-
+	
 	"fjacquet/camt-csv/internal/models"
+
+	"github.com/shopspring/decimal"
 )
 
 // SelmaCSVRow represents a single row in a Selma CSV file
@@ -25,8 +25,84 @@ type SelmaCSVRow struct {
 type StampDutyInfo struct {
 	Date          string
 	Fund          string
-	Amount        float64
+	Amount        decimal.Decimal
 	BookkeepingNo string
+}
+
+// FormatDate converts various date formats to the standard yyyy-mm-dd format
+func FormatDate(date string) string {
+	// Try common Swiss date format (dd.mm.yyyy)
+	if strings.Contains(date, ".") {
+		parts := strings.Split(date, ".")
+		if len(parts) == 3 {
+			// Reorder to yyyy-mm-dd
+			return parts[2] + "-" + parts[1] + "-" + parts[0]
+		}
+	}
+
+	// Already in yyyy-mm-dd format
+	if strings.Contains(date, "-") && len(date) == 10 {
+		return date
+	}
+
+	// If we can't parse it, return as is
+	return date
+}
+
+// Helper to clean amount strings
+func CleanAmount(amount string) string {
+	// Remove CHF prefix if present
+	if strings.HasPrefix(amount, "CHF") {
+		amount = strings.TrimSpace(strings.TrimPrefix(amount, "CHF"))
+	}
+
+	// Remove spaces
+	amount = strings.ReplaceAll(amount, " ", "")
+
+	// Replace comma with dot
+	amount = strings.ReplaceAll(amount, ",", ".")
+
+	return amount
+}
+
+// FormatTransaction ensures the transaction is in the standard format
+func FormatTransaction(tx *models.Transaction) {
+	// Format the date if needed
+	if tx.Date != "" {
+		tx.Date = FormatDate(tx.Date)
+	}
+
+	// Ensure ValueDate is set
+	if tx.ValueDate == "" {
+		tx.ValueDate = tx.Date
+	}
+
+	// Clean and parse amount if it's zero
+	if tx.Amount.IsZero() {
+		// This can happen if we're migrating from a string-based Amount
+		amountStr := tx.Amount.String()
+		if amountStr != "0" {
+			cleanAmount := CleanAmount(amountStr)
+			tx.Amount = models.ParseAmount(cleanAmount)
+		}
+	}
+
+	// Set direction based on signs or contents
+	if tx.CreditDebit == "" {
+		// Determine if it's a credit or debit based on amount sign or description
+		if tx.Amount.IsNegative() ||
+		   strings.Contains(strings.ToLower(tx.Description), "payment") ||
+		   strings.Contains(strings.ToLower(tx.Description), "purchase") {
+			tx.CreditDebit = "DBIT"
+		} else {
+			tx.CreditDebit = "CRDT"
+		}
+	}
+
+	// If currency is not set, default to CHF
+	if tx.Currency == "" {
+		tx.Currency = "CHF"
+	}
 }
 
 // processTransactionsInternal processes a slice of Transaction objects from Selma CSV data.
@@ -40,16 +116,15 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 		if tx.Description == "stamp_duty" {
 			date := tx.Date
 			fund := tx.Fund
-			
-			// Get the amount as a float
-			amountStr := strings.TrimPrefix(tx.Amount, "-")
-			amount, _ := strconv.ParseFloat(amountStr, 64)
-			
+
+			// Get the amount as a decimal
+			amount, _ := decimal.NewFromString(tx.Amount.String())
+
 			// Initialize the date map if it doesn't exist
 			if _, exists := stampDuties[date]; !exists {
 				stampDuties[date] = make(map[string]StampDutyInfo)
 			}
-			
+
 			// Store the stamp duty info
 			stampDuties[date][fund] = StampDutyInfo{
 				Date:          date,
@@ -66,7 +141,7 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 		if tx.Description == "stamp_duty" {
 			continue
 		}
-		
+
 		// Standardize date format to DD.MM.YYYY
 		tx.Date = models.FormatDate(tx.Date)
 		if tx.ValueDate != "" {
@@ -75,22 +150,22 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 			// If no value date, use the transaction date
 			tx.ValueDate = tx.Date
 		}
-		
+
 		// Add stamp duty amount if applicable
 		if tx.Description == "trade" && tx.Fund != "" {
 			if dayDuties, exists := stampDuties[tx.Date]; exists {
 				if dutyInfo, found := dayDuties[tx.Fund]; found {
-					tx.StampDuty = models.StandardizeAmount(fmt.Sprintf("%.2f", dutyInfo.Amount * -1))
+					tx.StampDuty = models.StandardizeAmount(dutyInfo.Amount.Neg().String())
 				}
 			}
 		}
-		
+
 		// Add investment type and category
 		tx = setInvestmentType(tx)
-		
+
 		processedTransactions = append(processedTransactions, tx)
 	}
-	
+
 	return processedTransactions
 }
 
@@ -101,7 +176,7 @@ func setInvestmentType(tx models.Transaction) models.Transaction {
 		tx.Investment = "Income"
 	case "trade":
 		// If amount is negative (starts with -), it's a buy
-		if strings.HasPrefix(tx.Amount, "-") {
+		if tx.Amount.IsNegative() {
 			tx.Investment = "Buy"
 		} else {
 			tx.Investment = "Sell"
@@ -113,10 +188,10 @@ func setInvestmentType(tx models.Transaction) models.Transaction {
 	case "withholding_tax":
 		tx.Investment = ""
 	}
-	
+
 	// Set appropriate category based on investment type
 	tx = categorizeTransaction(tx)
-	
+
 	return tx
 }
 
@@ -142,7 +217,7 @@ func categorizeTransaction(tx models.Transaction) models.Transaction {
 			tx.Category = "Revenus Financiers"
 		case "trade":
 			// This is a fallback, should be caught by Investment type above
-			if strings.HasPrefix(tx.Amount, "-") {
+			if tx.Amount.IsNegative() {
 				tx.Category = "Investissements"
 			} else {
 				tx.Category = "Revenus Financiers"
@@ -151,6 +226,6 @@ func categorizeTransaction(tx models.Transaction) models.Transaction {
 			tx.Category = "Revenus Financiers"
 		}
 	}
-	
+
 	return tx
 }

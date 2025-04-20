@@ -2,183 +2,126 @@
 package camtparser
 
 import (
+	"os"
+	"gopkg.in/xmlpath.v2"
 	"regexp"
 	"strings"
 
 	"fjacquet/camt-csv/internal/models"
 )
 
-// extractTransactions extracts all transactions from a CAMT.053 document.
-// It processes each statement and entry to create Transaction structs.
-func extractTransactions(camt053 *models.CAMT053) []models.Transaction {
-	var transactions []models.Transaction
-
-	// Process the statement in the CAMT.053 document
-	stmt := camt053.BkToCstmrStmt.Stmt
+// extractTransactionsFromXMLPath uses XPath to extract transactions from a CAMT.053 XML file.
+func extractTransactionsFromXMLPath(xmlFilePath string) ([]models.Transaction, error) {
+	amounts, _ := extractWithXPath(xmlFilePath, "//Ntry/Amt")
+	currencies, _ := extractWithXPath(xmlFilePath, "//Ntry/Amt/@Ccy")
+	cdtDbtInds, _ := extractWithXPath(xmlFilePath, "//Ntry/CdtDbtInd")
+	bookingDates, _ := extractWithXPath(xmlFilePath, "//Ntry/BookgDt/Dt")
+	valueDates, _ := extractWithXPath(xmlFilePath, "//Ntry/ValDt/Dt")
+	statuses, _ := extractWithXPath(xmlFilePath, "//Ntry/Sts")
+	refs, _ := extractWithXPath(xmlFilePath, "//Ntry/NtryDtls/TxDtls/Refs/EndToEndId")
+	altRefs, _ := extractWithXPath(xmlFilePath, "//Ntry/NtryDtls/TxDtls/Refs/TxId")
+	accSvcRefs, _ := extractWithXPath(xmlFilePath, "//Ntry/AcctSvcrRef")
+	ustrdTexts, _ := extractWithXPath(xmlFilePath, "//Ntry/NtryDtls/TxDtls/RmtInf/Ustrd")
+	payers, _ := extractWithXPath(xmlFilePath, "//Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm")
+	payees, _ := extractWithXPath(xmlFilePath, "//Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm")
+	ibans, _ := extractWithXPath(xmlFilePath, "//BkToCstmrStmt/Stmt/Acct/Id/IBAN")
+	bankTxDomains, _ := extractWithXPath(xmlFilePath, "//Ntry/BkTxCd/Domn/Cd")
+	bankTxFamilies, _ := extractWithXPath(xmlFilePath, "//Ntry/BkTxCd/Domn/Fmly/Cd")
+	bankTxSubFamilies, _ := extractWithXPath(xmlFilePath, "//Ntry/BkTxCd/Domn/Fmly/SubFmlyCd")
 	
-	// Extract account information if available
-	iban := ""
-	// Check if IBAN is present in the account information
-	if stmt.Acct.Id.IBAN != "" {
-		iban = stmt.Acct.Id.IBAN
+	// Figure out how many transactions to create
+	n := len(amounts)
+	if n == 0 {
+		return []models.Transaction{}, nil
 	}
-
-	// Process each entry (transaction) in the statement
-	for _, entry := range stmt.Ntry {
-		// Extract basic information
-		amount := entry.Amt.Text // Use Text field for the amount value
-		currency := entry.Amt.Ccy
-		cdtDbtInd := entry.CdtDbtInd
+	
+	// For simplicity, get the first IBAN if available
+	iban := ""
+	if len(ibans) > 0 {
+		iban = ibans[0]
+	}
+	
+	// Build transactions
+	transactions := make([]models.Transaction, 0, n)
+	for i := 0; i < n; i++ {
+		// Generate a better description from remittance info
+		remittanceInfo := getOrEmpty(ustrdTexts, i)
+		description := cleanDescription(remittanceInfo)
 		
-		bookingDate := entry.BookgDt.Dt
-		valueDate := entry.ValDt.Dt
-		status := entry.Sts
+		// Extract additional data from remittance info
+		bookkeepingNo := extractBookkeepingNo(remittanceInfo)
+		fund := extractFund(remittanceInfo)
 		
-		// Format bank transaction code
-		bankTxCode := formatBankTxCode(entry.BkTxCd)
+		// Determine payee
+		payee := getOrEmpty(payees, i)
+		payer := getOrEmpty(payers, i)
 		
-		// Extract reference
-		references := ""
-		for _, txDetail := range entry.NtryDtls.TxDtls {
-			if ref := extractReference(txDetail.Refs); ref != "" {
-				references = ref
-				break
-			}
-		}
-		
-		// Initialize variables for payer/payee information
-		payee := ""
-		payer := ""
-		description := ""
-		
-		// Process transaction details for better descriptions and party information
-		if len(entry.NtryDtls.TxDtls) > 0 {
-			// Use the first transaction detail for remittance information
-			txDetail := entry.NtryDtls.TxDtls[0]
-			
-			// Extract remittance information for description
-			if len(txDetail.RmtInf.Ustrd) > 0 {
-				// Join all unstructured remittance info lines
-				originalDescription := strings.Join(txDetail.RmtInf.Ustrd, " ")
-				
-				// Check if this is a card or TWINT payment to extract merchant name as payee
-				merchantName := ""
-				if strings.HasPrefix(originalDescription, "PMT CARTE ") {
-					merchantName = strings.TrimSpace(strings.TrimPrefix(originalDescription, "PMT CARTE "))
-					if merchantName != "" {
-						payee = merchantName
-					}
-				} else if strings.HasPrefix(originalDescription, "PMT TWINT ") {
-					merchantName = strings.TrimSpace(strings.TrimPrefix(originalDescription, "PMT TWINT "))
-					if merchantName != "" {
-						payee = merchantName
-					}
-				}
-				
-				// Clean the description after extracting the merchant name if applicable
-				description = cleanDescription(originalDescription)
-				
-				// Only try to extract payee from remittance info if we haven't already found a merchant name
-				if payee == "" {
-					extractedPayee := extractPayeeFromRemittanceInfo(description, cdtDbtInd)
-					if extractedPayee != "" {
-						payee = extractedPayee
-					}
-				}
-			}
-			
-			// Extract party information from RltdPties if available
-			// Check debtor name
-			debtorName := txDetail.RltdPties.Dbtr.Nm
-			if debtorName != "" {
-				payer = debtorName
-			}
-			
-			// Check creditor name - but don't override merchant name if we found one
-			creditorName := txDetail.RltdPties.Cdtr.Nm
-			if creditorName != "" && payee == "" {
-				payee = creditorName
-			}
-		}
-		
-		// If no description was found, use additional entry info
-		if description == "" && entry.AddtlNtryInf != "" {
-			description = cleanDescription(entry.AddtlNtryInf)
-		}
-		
-		// If still no payee, use fallback method
+		// If no explicit payee, try to extract from remittance info
 		if payee == "" {
-			payee = extractFallbackPayee(entry, description)
+			// For DBIT transactions, extract payee; for CRDT transactions, extract payer
+			payee = extractPayeeFromRemittanceInfo(remittanceInfo, getOrEmpty(cdtDbtInds, i))
+			
+			// If still no payee, try to extract from description
+			if payee == "" {
+				payee = extractMerchantFromDescription(description)
+			}
 		}
 		
-		// Extract bookkeeping number and fund from description if available
-		bookkeepingNo := extractBookkeepingNo(description)
-		fund := extractFund(description)
+		// Format bank transaction code if available
+		bankTxCode := formatBankTxCodeFromParts(
+			getOrEmpty(bankTxDomains, i),
+			getOrEmpty(bankTxFamilies, i),
+			getOrEmpty(bankTxSubFamilies, i),
+		)
 		
-		// Create the transaction object
+		// Get the best reference
+		reference := getOrEmpty(refs, i)
+		if reference == "" || reference == "NOTPROVIDED" {
+			reference = getOrEmpty(altRefs, i)
+		}
+		
 		tx := models.Transaction{
-			Date:             bookingDate,
-			ValueDate:        valueDate,
+			Amount:           models.ParseAmount(getOrEmpty(amounts, i)),
+			Currency:         getOrEmpty(currencies, i),
+			CreditDebit:      getOrEmpty(cdtDbtInds, i),
+			Date:             getOrEmpty(bookingDates, i),
+			ValueDate:        getOrEmpty(valueDates, i),
+			Status:           getOrEmpty(statuses, i),
 			Description:      description,
-			BookkeepingNo:    bookkeepingNo,
-			Fund:             fund,
-			Amount:           amount,
-			Currency:         currency,
-			CreditDebit:      cdtDbtInd,
-			EntryReference:   references,
-			AccountServicer:  entry.AcctSvcrRef,
-			BankTxCode:       bankTxCode,
-			Status:           status,
 			Payee:            payee,
 			Payer:            payer,
+			EntryReference:   reference,
+			AccountServicer:  getOrEmpty(accSvcRefs, i),
+			BankTxCode:       bankTxCode,
+			BookkeepingNo:    bookkeepingNo,
+			Fund:             fund,
 			IBAN:             iban,
 			Category:         "", // Will be determined later during categorization
 		}
-		
 		transactions = append(transactions, tx)
 	}
-
-	return transactions
+	return transactions, nil
 }
 
-// formatBankTxCode formats the bank transaction code in a human-readable format.
-func formatBankTxCode(bkTxCd models.BkTxCd) string {
-	// Check if domain code is available
-	domainCode := bkTxCd.Domn.Cd
-	if domainCode == "" {
+// getOrEmpty returns the value at index i if present, otherwise "".
+func getOrEmpty(slice []string, i int) string {
+	if i < len(slice) {
+		return slice[i]
+	}
+	return ""
+}
+
+// formatBankTxCodeFromParts formats the bank transaction code from its component parts.
+func formatBankTxCodeFromParts(domain, family, subfamily string) string {
+	if domain == "" {
 		return ""
 	}
 	
-	// Check if family code is available
-	familyCode := bkTxCd.Domn.Fmly.Cd
-	if familyCode == "" {
-		return domainCode
+	if family == "" {
+		return domain
 	}
 	
-	// Format as DOMAIN/FAMILY/SUBFAMILY
-	subFamilyCode := bkTxCd.Domn.Fmly.SubFmlyCd
-	return domainCode + "/" + familyCode + "/" + subFamilyCode
-}
-
-// extractReference gets the best reference from the available options.
-func extractReference(refs models.Refs) string {
-	// Use end-to-end ID as primary reference
-	if refs.EndToEndId != "" {
-		return refs.EndToEndId
-	}
-	
-	// Fall back to transaction ID
-	if refs.TxId != "" {
-		return refs.TxId
-	}
-	
-	// Fall back to instruction ID
-	if refs.InstrId != "" {
-		return refs.InstrId
-	}
-	
-	// Fall back to message ID
-	return refs.MsgId
+	return domain + "/" + family + "/" + subfamily
 }
 
 // extractPayeeFromRemittanceInfo tries to extract a payee from remittance information.
@@ -214,114 +157,6 @@ func extractPayeeFromRemittanceInfo(ustrd string, cdtDbtInd string) string {
 	}
 	
 	return ""
-}
-
-// extractFallbackPayee provides a fallback payee when none can be extracted from the transaction details.
-func extractFallbackPayee(entry models.Ntry, description string) string {
-	// Extract payee from wire transfers (VIRT BANC, VIR TWINT)
-	if strings.HasPrefix(description, "VIRT BANC ") {
-		return strings.TrimSpace(strings.TrimPrefix(description, "VIRT BANC "))
-	}
-	
-	if strings.HasPrefix(description, "VIR TWINT ") {
-		return strings.TrimSpace(strings.TrimPrefix(description, "VIR TWINT "))
-	}
-	
-	// If this is a card payment or TWINT payment, extract merchant from description
-	if strings.Contains(description, "CARTE") || strings.Contains(description, "TWINT") {
-		return description
-	}
-	
-	// Check for common patterns
-	patterns := []string{
-		"COOP-", 
-		"MIG ", 
-		"MIGROS-", 
-		"MIGROLINO", 
-		"DENNER", 
-		"ALDI", 
-		"LIDL",
-		"MANOR",
-		"MAMMUT",
-		"OCHSNER",
-		"SUSHI",
-		"PIZZERIA",
-		"CAFE",
-		"KIOSK",
-		"KEBAB",
-		"BOUCHERIE",
-		"BOULANGERIE",
-		"PISCINE",
-		"SPA",
-		"PRESSING",
-	}
-	
-	for _, pattern := range patterns {
-		if idx := strings.Index(strings.ToUpper(description), strings.ToUpper(pattern)); idx >= 0 {
-			// Extract a reasonable length substring as the merchant name
-			startIdx := idx
-			endIdx := len(description)
-			
-			// Try to find a natural endpoint (space, comma, etc.)
-			for i := idx; i < len(description) && i < idx+30; i++ {
-				if description[i] == ' ' && i > idx+10 {
-					endIdx = i
-					break
-				}
-			}
-			
-			return strings.TrimSpace(description[startIdx:endIdx])
-		}
-	}
-	
-	// If nothing matches, use the entry type to determine party type
-	bankTxCode := formatBankTxCode(entry.BkTxCd)
-	
-	if strings.Contains(bankTxCode, "CCRD") || strings.Contains(bankTxCode, "POSD") {
-		return description // For card payments, use the description as merchant
-	}
-	
-	if strings.Contains(bankTxCode, "CWDL") {
-		return "ATM Withdrawal" // For ATM withdrawals
-	}
-	
-	if strings.Contains(bankTxCode, "ICDT") || strings.Contains(bankTxCode, "DMCT") || 
-	   strings.Contains(bankTxCode, "AUTT") || strings.Contains(bankTxCode, "RCDT") {
-		// For transfers (BCV-NET, etc.)
-		if strings.Contains(strings.ToUpper(description), "BCV") {
-			parts := strings.Split(description, " ")
-			if len(parts) > 2 {
-				return strings.Join(parts[1:], " ") // For BCV-NET transfers, use the recipient
-			}
-		}
-		
-		// Look for recipient name in transfer description
-		transferPatternsRe := regexp.MustCompile(`(?i)VIRT|VIR|TRANSFERT|ORDRE|CR`)
-		if transferPatternsRe.MatchString(description) {
-			descParts := strings.Split(description, " ")
-			if len(descParts) >= 3 {
-				// Skip the first part (VIRT, VIR, etc.) and use the rest as the payee
-				return strings.Join(descParts[1:], " ")
-			}
-		}
-	}
-	
-	// Check for transaction details with party information
-	for _, txDetail := range entry.NtryDtls.TxDtls {
-		// For debit transactions, the creditor is the payee
-		creditorName := txDetail.RltdPties.Cdtr.Nm
-		if entry.CdtDbtInd == "DBIT" && creditorName != "" {
-			return creditorName
-		}
-		
-		// For credit transactions, the debtor is the payer (which we use as payee in display)
-		debtorName := txDetail.RltdPties.Dbtr.Nm
-		if entry.CdtDbtInd == "CRDT" && debtorName != "" {
-			return debtorName
-		}
-	}
-	
-	return "Unknown Payee"
 }
 
 // extractBookkeepingNo attempts to extract a bookkeeping number from remittance info.
@@ -411,3 +246,31 @@ func extractMerchantFromDescription(description string) string {
 	
 	return ""
 }
+
+// extractWithXPath extracts all string values matching an XPath expression from an XML file.
+func extractWithXPath(xmlFilePath, xpath string) ([]string, error) {
+	f, err := os.Open(xmlFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	root, err := xmlpath.Parse(f)
+	if err != nil {
+		return nil, err
+	}
+	path := xmlpath.MustCompile(xpath)
+	iter := path.Iter(root)
+	var results []string
+	for iter.Next() {
+		results = append(results, iter.Node().String())
+	}
+	return results, nil
+}
+
+// Example usage: extract all <Ntry><Amt> values from a CAMT.053 XML file
+// amounts, err := extractWithXPath("/path/to/file.xml", "//Ntry/Amt")
+// if err == nil {
+//     for _, amt := range amounts {
+//         fmt.Println("Amount:", amt)
+//     }
+// }

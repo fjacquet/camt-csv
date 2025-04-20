@@ -3,18 +3,33 @@ package selmaparser
 
 import (
 	"encoding/csv"
-	"fjacquet/camt-csv/internal/models"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/models"
 
+	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()
+
+// Delimiter for Selma CSV output (default is ',')
+var Delimiter rune = ','
+
+func init() {
+	if val := os.Getenv("CSV_DELIMITER"); val != "" {
+		SetDelimiter([]rune(val)[0])
+	}
+}
+
+// SetDelimiter allows setting the delimiter for CSV output
+func SetDelimiter(delim rune) {
+	Delimiter = delim
+}
 
 // SetLogger allows setting a configured logger for this package.
 // This function enables integration with the application's logging system.
@@ -160,12 +175,17 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 	// For Selma CSV, we keep the date as is since it's already in YYYY-MM-DD format
 	// We don't need to call models.FormatDate as that would convert to DD.MM.YYYY
 
+	amount, err := decimal.NewFromString(row.Amount)
+	if err != nil {
+		return models.Transaction{}, err
+	}
+
 	transaction := models.Transaction{
 		Date:           row.Date, // Keep original YYYY-MM-DD format
 		ValueDate:      row.Date, // Use same date for ValueDate for Selma
 		Description:    row.Description,
 		BookkeepingNo:  row.BookkeepingNo,
-		Amount:         row.Amount,
+		Amount:         amount,
 		Currency:       row.Currency,
 		NumberOfShares: shares,
 		Fund:           row.Fund,
@@ -209,98 +229,9 @@ func ProcessTransactions(transactions []models.Transaction) []models.Transaction
 	return processedTransactions
 }
 
-// WriteToCSV writes a slice of Transaction structs to a CSV file.
-//
-// Parameters:
-//   - transactions: Slice of Transaction structs to write
-//   - csvFile: Path to the output CSV file
-//
-// Returns:
-//   - error: Any error encountered during the writing process
+// WriteToCSV writes a slice of Transaction objects to a CSV file in the standard format.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Writing Selma transactions to CSV file")
-
-	// Create output file
-	file, err := os.Create(csvFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to create output CSV file")
-		return fmt.Errorf("error creating output CSV file: %w", err)
-	}
-	defer file.Close()
-
-	// Create a CSV writer
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write the exact header format from the reference file
-	header := []string{
-		"Date", 
-		"Description", 
-		"Bookkeeping No.", 
-		"Fund", 
-		"Amount", 
-		"Currency", 
-		"Number of Shares", 
-		"Stamp Duty Amount", 
-		"Investment",
-	}
-	if err := writer.Write(header); err != nil {
-		log.WithError(err).Error("Failed to write CSV header")
-		return fmt.Errorf("error writing CSV header: %w", err)
-	}
-
-	// Process each transaction
-	for _, tx := range transactions {
-		// Format the date to YYYY-MM-DD
-		date := tx.Date
-		if strings.Contains(date, ".") {
-			// If in DD.MM.YYYY format, convert to YYYY-MM-DD
-			parts := strings.Split(date, ".")
-			if len(parts) == 3 {
-				date = fmt.Sprintf("%s-%s-%s", parts[2], parts[1], parts[0])
-			}
-		}
-
-		// Format the amount with exactly 2 decimal places
-		amountFloat, _ := strconv.ParseFloat(tx.Amount, 64)
-		amountStr := fmt.Sprintf("%.2f", amountFloat)
-
-		// Format the number of shares - preserve as is for trade transactions, or empty for others
-		sharesStr := ""
-		if tx.NumberOfShares > 0 {
-			sharesStr = fmt.Sprintf("%.1f", float64(tx.NumberOfShares))
-		}
-
-		// Format the stamp duty amount, defaulting to "0.00" if empty
-		stampDutyStr := "0.00"
-		if tx.StampDuty != "" {
-			stampDutyStr = tx.StampDuty
-		}
-
-		// Write the row in the exact format needed
-		row := []string{
-			date,
-			tx.Description,
-			tx.BookkeepingNo,
-			tx.Fund,
-			amountStr,
-			tx.Currency,
-			sharesStr,
-			stampDutyStr,
-			tx.Investment,
-		}
-
-		if err := writer.Write(row); err != nil {
-			log.WithError(err).Error("Failed to write CSV row")
-			return fmt.Errorf("error writing CSV row: %w", err)
-		}
-	}
-
-	log.Info("Successfully wrote Selma transactions to CSV file")
-	return nil
+	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // ValidateFormat checks if a file is in valid Selma CSV format.

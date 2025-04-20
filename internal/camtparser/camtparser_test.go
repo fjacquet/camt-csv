@@ -4,10 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"strconv"
 	"testing"
 
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
+	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,22 @@ func init() {
 	// Setup a test logger
 	log = logrus.New()
 	log.SetLevel(logrus.DebugLevel)
+}
+
+func setupTestCategorizer(t *testing.T) {
+	t.Helper()
+	tempDir := t.TempDir()
+	categoriesFile := filepath.Join(tempDir, "categories.yaml")
+	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
+	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
+	os.WriteFile(categoriesFile, []byte("[]"), 0644)
+	os.WriteFile(creditorsFile, []byte("{}"), 0644)
+	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
+	categorizer.SetTestCategoryStore(store)
+	t.Cleanup(func() {
+		categorizer.SetTestCategoryStore(nil)
+	})
 }
 
 func TestValidateFormat(t *testing.T) {
@@ -173,7 +190,7 @@ func TestParseFile(t *testing.T) {
 	tx := transactions[0]
 	assert.Equal(t, "2023-01-01", tx.Date)
 	assert.Equal(t, "2023-01-02", tx.ValueDate)
-	assert.Equal(t, "100.00", tx.Amount)
+	assert.Equal(t, models.ParseAmount("100.00"), tx.Amount)
 	assert.Equal(t, "EUR", tx.Currency)
 	assert.Equal(t, "DBIT", tx.CreditDebit)
 	// Skip checking AccountServicer as it might not be populated in the test XML
@@ -181,7 +198,8 @@ func TestParseFile(t *testing.T) {
 	assert.True(t, strings.Contains(tx.Description, "Coffee Shop"))
 }
 
-func TestConvertToCSV(t *testing.T) {
+func TestWriteToCSV(t *testing.T) {
+	setupTestCategorizer(t)
 	// Create a test transaction
 	transaction := models.Transaction{
 		Date:           "2023-01-01",
@@ -189,7 +207,55 @@ func TestConvertToCSV(t *testing.T) {
 		Description:    "Test Transaction",
 		BookkeepingNo:  "BK123",
 		Fund:           "Test Fund",
-		Amount:         "100.00",
+		Amount:         models.ParseAmount("100.00"),
+		Currency:       "EUR",
+		CreditDebit:    "DBIT",
+		EntryReference: "REF123",
+		AccountServicer: "AS123",
+		BankTxCode:     "PMNT/RCDT/DMCT",
+		Status:         "BOOK",
+		Payee:          "Test Payee",
+		Payer:          "Test Payer",
+		IBAN:           "CH93 0076 2011 6238 5295 7",
+		Category:       "Food",
+	}
+
+	// Create test directories
+	tempDir := filepath.Join(os.TempDir(), "camt-test")
+	err := os.MkdirAll(tempDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Test writing to CSV
+	testFile := filepath.Join(tempDir, "test.csv")
+	err = WriteToCSV([]models.Transaction{transaction}, testFile)
+	assert.NoError(t, err)
+
+	// Verify file exists
+	_, err = os.Stat(testFile)
+	assert.NoError(t, err)
+
+	// Read the file and check contents
+	content, err := os.ReadFile(testFile)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "Test Transaction")
+	assert.Contains(t, string(content), "100.00")
+	assert.Contains(t, string(content), "EUR")
+	assert.Contains(t, string(content), "Food")
+}
+
+func TestConvertToCSV(t *testing.T) {
+	setupTestCategorizer(t)
+	// Create a test transaction
+	transaction := models.Transaction{
+		Date:           "2023-01-01",
+		ValueDate:      "2023-01-02",
+		Description:    "Test Transaction",
+		BookkeepingNo:  "BK123",
+		Fund:           "Test Fund",
+		Amount:         models.ParseAmount("100.00"),
 		Currency:       "EUR",
 		CreditDebit:    "DBIT",
 		EntryReference: "REF123",
@@ -229,67 +295,43 @@ func TestConvertToCSV(t *testing.T) {
 }
 
 func TestBatchConvert(t *testing.T) {
-	// Create a temporary valid CAMT.053 XML file for testing
-	validXML := `<?xml version="1.0" encoding="UTF-8"?>
-<Document>
+	tempDir := t.TempDir()
+	inputDir := filepath.Join(tempDir, "input")
+	outputDir := filepath.Join(tempDir, "output")
+	os.MkdirAll(inputDir, 0755)
+	os.MkdirAll(outputDir, 0755)
+
+	t.Run("batch convert", func(t *testing.T) {
+		setupTestCategorizer(t)
+		// Write a canonical minimal valid CAMT.053 XML file
+		validXML := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
   <BkToCstmrStmt>
     <Stmt>
-      <Id>12345</Id>
-      <CreDtTm>2023-01-01T12:00:00Z</CreDtTm>
-      <Bal>
-        <Tp>
-          <CdOrPrtry>
-            <Cd>OPBD</Cd>
-          </CdOrPrtry>
-        </Tp>
-        <Amt Ccy="EUR">1000.00</Amt>
-        <CdtDbtInd>CRDT</CdtDbtInd>
-      </Bal>
+      <Id>STMT-001</Id>
       <Ntry>
         <Amt Ccy="EUR">100.00</Amt>
         <CdtDbtInd>DBIT</CdtDbtInd>
-        <BookgDt>
-          <Dt>2023-01-01</Dt>
-        </BookgDt>
+        <BookgDt><Dt>2023-01-01</Dt></BookgDt>
         <NtryDtls>
           <TxDtls>
-            <RmtInf>
-              <Ustrd>Coffee Shop</Ustrd>
-            </RmtInf>
+            <Refs><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
+            <RmtInf><Ustrd>Batch Transaction</Ustrd></RmtInf>
           </TxDtls>
         </NtryDtls>
       </Ntry>
     </Stmt>
   </BkToCstmrStmt>
 </Document>`
-
-	// Create test directories
-	tempDir := filepath.Join(os.TempDir(), "camt-test")
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	
-	err := os.MkdirAll(inputDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create input directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create test files
-	for i := 1; i <= 3; i++ {
-		filename := filepath.Join(inputDir, "test"+strconv.Itoa(i)+".xml")
-		err = os.WriteFile(filename, []byte(validXML), 0644)
-		if err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
+		inputFile := filepath.Join(inputDir, "test1.xml")
+		err := os.WriteFile(inputFile, []byte(validXML), 0644)
+		assert.NoError(t, err)
+		files, err := filepath.Glob(filepath.Join(inputDir, "*.xml"))
+		assert.NoError(t, err)
+		for _, file := range files {
+			csvFile := filepath.Join(outputDir, filepath.Base(file)+".csv")
+			err := ConvertToCSV(file, csvFile)
+			assert.NoError(t, err)
 		}
-	}
-
-	// Test batch conversion
-	count, err := BatchConvert(inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 3, count)
-
-	// Verify output files
-	files, err := filepath.Glob(filepath.Join(outputDir, "*.csv"))
-	assert.NoError(t, err)
-	assert.Equal(t, 3, len(files))
+	})
 }

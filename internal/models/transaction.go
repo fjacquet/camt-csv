@@ -2,43 +2,47 @@
 package models
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	
+	"github.com/shopspring/decimal"
 )
 
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
-	Date             string `csv:"Date"`           // Date in DD.MM.YYYY format
-	ValueDate        string `csv:"ValueDate"`      // Value date in DD.MM.YYYY format
-	Description      string `csv:"Description"`    // Description of the transaction
-	BookkeepingNo    string `csv:"BookkeepingNo"`  // Bookkeeping number
-	Fund             string `csv:"Fund"`           // Fund name if applicable
-	Amount           string `csv:"Amount"`         // Amount as string (without currency symbol)
-	Currency         string `csv:"Currency"`       // Currency code (CHF, EUR, etc)
-	CreditDebit      string `csv:"CreditDebit"`    // Either "DBIT" (debit) or "CRDT" (credit)
-	EntryReference   string `csv:"EntryReference"` // Entry reference number
-	AccountServicer  string `csv:"AccountServicer"`// Account servicer reference
-	BankTxCode       string `csv:"BankTxCode"`     // Bank transaction code
-	Status           string `csv:"Status"`         // Status code
-	Payee            string `csv:"Payee"`          // Beneficiary/recipient name
-	Payer            string `csv:"Payer"`          // Payer name
-	IBAN             string `csv:"IBAN"`           // IBAN if available
-	NumberOfShares   int    `csv:"NumberOfShares"` // Number of shares for investment transactions
-	StampDuty        string `csv:"StampDutyAmount"`// Stamp duty
-	Category         string `csv:"Category"`       // Transaction category
-	Investment       string `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
-	OriginalCurrency string `csv:"OriginalCurrency"` // Original currency for foreign currency transactions
-	OriginalAmount   string `csv:"OriginalAmount"`   // Original amount in foreign currency
-	ExchangeRate     string `csv:"ExchangeRate"`     // Exchange rate for currency conversion
-	Fee              string `csv:"Fee"`              // Transaction fees
+	Date             string          `csv:"Date"`           // Date in DD.MM.YYYY format
+	ValueDate        string          `csv:"ValueDate"`      // Value date in DD.MM.YYYY format
+	Description      string          `csv:"Description"`    // Description of the transaction
+	BookkeepingNo    string          `csv:"BookkeepingNo"`  // Bookkeeping number
+	Fund             string          `csv:"Fund"`           // Fund name if applicable
+	Amount           decimal.Decimal `csv:"Amount"`         // Amount as decimal value
+	Currency         string          `csv:"Currency"`       // Currency code (CHF, EUR, etc)
+	CreditDebit      string          `csv:"CreditDebit"`    // Either "DBIT" (debit) or "CRDT" (credit)
+	EntryReference   string          `csv:"EntryReference"` // Entry reference number
+	AccountServicer  string          `csv:"AccountServicer"`// Account servicer reference
+	BankTxCode       string          `csv:"BankTxCode"`     // Bank transaction code
+	Status           string          `csv:"Status"`         // Status code
+	Payee            string          `csv:"Payee"`          // Beneficiary/recipient name
+	Payer            string          `csv:"Payer"`          // Payer name
+	IBAN             string          `csv:"IBAN"`           // IBAN if available
+	NumberOfShares   int             `csv:"NumberOfShares"` // Number of shares for investment transactions
+	StampDuty        string          `csv:"StampDutyAmount"`// Stamp duty
+	Category         string          `csv:"Category"`       // Transaction category
+	Investment       string          `csv:"Investment"`     // Investment type (Buy, Sell, Income, etc.)
+	OriginalCurrency string          `csv:"OriginalCurrency"` // Original currency for foreign currency transactions
+	OriginalAmount   decimal.Decimal `csv:"OriginalAmount"`   // Original amount in foreign currency
+	ExchangeRate     decimal.Decimal `csv:"ExchangeRate"`     // Exchange rate for currency conversion
+	Fee              decimal.Decimal `csv:"Fee"`              // Transaction fees
 }
 
-// GetAmountAsFloat returns the Amount as a float64
-func (t *Transaction) GetAmountAsFloat() float64 {
+// ParseAmount parses a string amount to decimal.Decimal with proper formatting
+// This is a utility function for converting string representations to the decimal type
+func ParseAmount(amountStr string) decimal.Decimal {
 	// Replace comma with dot for decimal separator
-	amount := strings.ReplaceAll(t.Amount, ",", ".")
+	amount := strings.ReplaceAll(amountStr, ",", ".")
 	// Remove any currency symbols or spaces
 	amount = strings.TrimSpace(amount)
 	amount = strings.ReplaceAll(amount, " ", "")
@@ -50,12 +54,53 @@ func (t *Transaction) GetAmountAsFloat() float64 {
 	// Remove thousand separators
 	amount = strings.ReplaceAll(amount, "'", "")
 
-	// Convert to float
-	f, err := strconv.ParseFloat(amount, 64)
+	// Convert to decimal
+	dec, err := decimal.NewFromString(amount)
 	if err != nil {
-		return 0
+		return decimal.Zero
 	}
+	return dec
+}
+
+// GetAmountAsFloat returns the Amount as a float64
+// DEPRECATED: This method is maintained for backward compatibility only.
+// Use direct decimal operations instead for financial calculations.
+func (t *Transaction) GetAmountAsFloat() float64 {
+	f, _ := t.Amount.Float64()
 	return f
+}
+
+// GetOriginalAmountAsFloat returns the OriginalAmount as a float64
+// DEPRECATED: This method is maintained for backward compatibility only.
+func (t *Transaction) GetOriginalAmountAsFloat() float64 {
+	f, _ := t.OriginalAmount.Float64()
+	return f
+}
+
+// GetAmountAsDecimal returns the Amount as a decimal.Decimal for precise calculations
+// This is the recommended way to access the Amount field for financial calculations
+func (t *Transaction) GetAmountAsDecimal() decimal.Decimal {
+	return t.Amount
+}
+
+// SetAmountFromDecimal sets the Amount field from a decimal.Decimal value
+func (t *Transaction) SetAmountFromDecimal(amount decimal.Decimal) {
+	t.Amount = amount
+}
+
+// GetOriginalAmountAsDecimal returns the OriginalAmount as a decimal.Decimal
+func (t *Transaction) GetOriginalAmountAsDecimal() decimal.Decimal {
+	return t.OriginalAmount
+}
+
+// GetExchangeRateAsDecimal returns the ExchangeRate as a decimal.Decimal
+func (t *Transaction) GetExchangeRateAsDecimal() decimal.Decimal {
+	return t.ExchangeRate
+}
+
+// GetFeeAsDecimal returns the Fee as a decimal.Decimal
+func (t *Transaction) GetFeeAsDecimal() decimal.Decimal {
+	return t.Fee
 }
 
 // IsDebit returns true if the transaction is a debit (outgoing money)
@@ -97,14 +142,14 @@ func StandardizeAmount(amountStr string) string {
 		amount = strings.TrimPrefix(amount, "-")
 	}
 	
-	// Convert to float and back to string to standardize decimal places
-	f, err := strconv.ParseFloat(amount, 64)
+	// Convert to decimal and back to string to standardize decimal places
+	dec, err := decimal.NewFromString(amount)
 	if err != nil {
 		return amountStr // Return original if parsing fails
 	}
 	
 	// Format with exactly 2 decimal places
-	formatted := strconv.FormatFloat(f, 'f', 2, 64)
+	formatted := dec.StringFixed(2)
 	
 	// Add back minus sign if it was negative
 	if isNegative {
@@ -176,4 +221,77 @@ func FormatDate(dateStr string) string {
 	// If we can't parse the date, log a warning and return the original
 	// log.WithField("date", dateStr).Warning("Unable to parse date format")
 	return dateStr
+}
+
+func (t *Transaction) MarshalCSV() ([]string, error) {
+	return []string{
+		t.Date,
+		t.ValueDate,
+		t.Description,
+		t.BookkeepingNo,
+		t.Fund,
+		t.Amount.StringFixed(2),
+		t.Currency,
+		t.CreditDebit,
+		t.EntryReference,
+		t.AccountServicer,
+		t.BankTxCode,
+		t.Status,
+		t.Payee,
+		t.Payer,
+		t.IBAN,
+		fmt.Sprintf("%d", t.NumberOfShares),
+		t.StampDuty,
+		t.Category,
+		t.Investment,
+		t.OriginalCurrency,
+		t.OriginalAmount.StringFixed(2),
+		t.ExchangeRate.StringFixed(2),
+		t.Fee.StringFixed(2),
+	}, nil
+}
+
+func (t *Transaction) UnmarshalCSV(record []string) error {
+	t.Date = record[0]
+	t.ValueDate = record[1]
+	t.Description = record[2]
+	t.BookkeepingNo = record[3]
+	t.Fund = record[4]
+	var err error
+	t.Amount, err = decimal.NewFromString(record[5])
+	if err != nil {
+		return err
+	}
+	t.Currency = record[6]
+	t.CreditDebit = record[7]
+	t.EntryReference = record[8]
+	t.AccountServicer = record[9]
+	t.BankTxCode = record[10]
+	t.Status = record[11]
+	t.Payee = record[12]
+	t.Payer = record[13]
+	t.IBAN = record[14]
+	var numberOfShares int
+	numberOfShares, err = strconv.Atoi(record[15])
+	if err != nil {
+		return err
+	}
+	t.NumberOfShares = numberOfShares
+	t.StampDuty = record[16]
+	t.Category = record[17]
+	t.Investment = record[18]
+	t.OriginalCurrency = record[19]
+	t.OriginalAmount, err = decimal.NewFromString(record[20])
+	if err != nil {
+		return err
+	}
+	t.ExchangeRate, err = decimal.NewFromString(record[21])
+	if err != nil {
+		return err
+	}
+	t.Fee, err = decimal.NewFromString(record[22])
+	if err != nil {
+		return err
+	}
+	return nil
 }

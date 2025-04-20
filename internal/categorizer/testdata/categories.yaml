@@ -1,0 +1,62 @@
+categories:
+  - name: Food
+    description: Restaurants, groceries, and other food-related expenses
+    keywords:
+      - restaurant
+      - cafe
+      - coffee
+      - grocery
+      - market
+      - supermarket
+      - food
+      - pizza
+      - burger
+      - starbucks
+
+  - name: Utilities
+    description: Utility bills such as electricity, water, and gas
+    keywords:
+      - electric
+      - power
+      - utility
+      - water
+      - gas
+      - bill
+      - internet
+      - phone
+      - telecom
+
+  - name: Shopping
+    description: General shopping and retail purchases
+    keywords:
+      - shop
+      - store
+      - retail
+      - mall
+      - amazon
+      - purchase
+      - buy
+
+  - name: Transportation
+    description: Public transport, taxis, and ride-sharing services
+    keywords:
+      - uber
+      - taxi
+      - transport
+      - train
+      - bus
+      - metro
+      - subway
+      - lyft
+
+  - name: Income
+    description: Salary, dividends, and other sources of income
+    keywords:
+      - salary
+      - income
+      - payroll
+      - dividend
+      - payment
+      - deposit
+      - wage
+      - acme

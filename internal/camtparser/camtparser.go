@@ -2,7 +2,6 @@
 package camtparser
 
 import (
-	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
+	"gopkg.in/xmlpath.v2"
 )
 
 var log = logrus.New()
@@ -27,24 +27,13 @@ func SetLogger(logger *logrus.Logger) {
 // ParseFile parses a CAMT.053 XML file and returns a slice of Transaction objects.
 // This is the main entry point for parsing CAMT.053 XML files.
 func ParseFile(xmlFile string) ([]models.Transaction, error) {
-	log.WithField("file", xmlFile).Info("Parsing CAMT.053 XML file")
-
-	xmlData, err := os.ReadFile(xmlFile)
+	log.WithField("file", xmlFile).Info("Parsing CAMT.053 XML file (XPath mode)")
+	transactions, err := extractTransactionsFromXMLPath(xmlFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to read XML file")
-		return nil, fmt.Errorf("error reading XML file: %w", err)
+		log.WithError(err).Error("Failed to extract transactions with XPath")
+		return nil, fmt.Errorf("error extracting transactions with XPath: %w", err)
 	}
-
-	var camt053 models.CAMT053
-	err = xml.Unmarshal(xmlData, &camt053)
-	if err != nil {
-		log.WithError(err).Error("Failed to unmarshal XML data")
-		return nil, fmt.Errorf("error unmarshalling XML: %w", err)
-	}
-
-	transactions := extractTransactions(&camt053)
-	log.WithField("count", len(transactions)).Info("Successfully extracted transactions from CAMT.053 file")
-
+	log.WithField("count", len(transactions)).Info("Successfully extracted transactions from CAMT.053 file (XPath mode)")
 	return transactions, nil
 }
 
@@ -105,7 +94,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
-// It tries to unmarshal the XML data and checks for the expected structure.
+// It uses xmlpath to check for the required elements in the CAMT.053 structure.
 func ValidateFormat(xmlFile string) (bool, error) {
 	log.WithField("file", xmlFile).Info("Validating CAMT.053 format")
 
@@ -116,20 +105,33 @@ func ValidateFormat(xmlFile string) (bool, error) {
 		return false, fmt.Errorf("error checking XML file: %w", err)
 	}
 
-	// Read the file
-	xmlData, err := os.ReadFile(xmlFile)
+	// Open the file
+	f, err := os.Open(xmlFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to read XML file")
-		return false, fmt.Errorf("error reading XML file: %w", err)
+		log.WithError(err).Error("Failed to open XML file")
+		return false, fmt.Errorf("error opening XML file: %w", err)
 	}
+	defer f.Close()
 
-	var camt053 models.CAMT053
-	if err := xml.Unmarshal(xmlData, &camt053); err != nil {
+	// Parse the XML
+	root, err := xmlpath.Parse(f)
+	if err != nil {
+		log.WithError(err).Debug("File is not valid XML")
 		return false, nil // File is not valid XML, but we don't return an error
 	}
 
-	// Check if the file has the required CAMT.053 elements
-	if camt053.BkToCstmrStmt.Stmt.Id == "" {
+	// Check for essential CAMT.053 elements
+	// 1. Check if Document/BkToCstmrStmt exists
+	path := xmlpath.MustCompile("//BkToCstmrStmt")
+	if _, ok := path.String(root); !ok {
+		log.Debug("Missing BkToCstmrStmt element, not a CAMT.053 file")
+		return false, nil
+	}
+
+	// 2. Check if Document/BkToCstmrStmt/Stmt/Id exists
+	path = xmlpath.MustCompile("//BkToCstmrStmt/Stmt/Id")
+	if _, ok := path.String(root); !ok {
+		log.Debug("Missing required Statement ID, not a valid CAMT.053 file")
 		return false, nil
 	}
 

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
+	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +18,22 @@ func init() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	SetLogger(logger)
+}
+
+func setupTestCategorizer(t *testing.T) {
+	t.Helper()
+	tempDir := t.TempDir()
+	categoriesFile := filepath.Join(tempDir, "categories.yaml")
+	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
+	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
+	os.WriteFile(categoriesFile, []byte("[]"), 0644)
+	os.WriteFile(creditorsFile, []byte("{}"), 0644)
+	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
+	categorizer.SetTestCategoryStore(store)
+	t.Cleanup(func() {
+		categorizer.SetTestCategoryStore(nil)
+	})
 }
 
 func TestValidateFormat(t *testing.T) {
@@ -54,9 +72,9 @@ func TestValidateFormat(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, valid)
 
-	// Test invalid file
+	// Test invalid file: now expect an error and valid==false
 	valid, err = ValidateFormat(invalidFile)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.False(t, valid)
 
 	// Test file that doesn't exist
@@ -94,63 +112,67 @@ func TestParseFile(t *testing.T) {
 	if len(transactions) > 0 {
 		assert.Equal(t, "01.01.2023", transactions[0].Date, "Date should be formatted as DD.MM.YYYY")
 		assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
-		assert.Equal(t, "-247.90", transactions[0].Amount)
+		assert.Equal(t, models.ParseAmount("-247.90"), transactions[0].Amount)
 		assert.Equal(t, "CHF", transactions[0].Currency)
 		assert.Equal(t, 2, transactions[0].NumberOfShares)
 	}
 	if len(transactions) > 1 {
 		assert.Equal(t, "02.01.2023", transactions[1].Date, "Date should be formatted as DD.MM.YYYY")
 		assert.Contains(t, transactions[1].Description, "ISHARES CORE S&P 500 UCITS ETF")
-		assert.Equal(t, "452.22", transactions[1].Amount)
+		assert.Equal(t, models.ParseAmount("452.22"), transactions[1].Amount)
 		assert.Equal(t, "CHF", transactions[1].Currency)
 		assert.Equal(t, 1, transactions[1].NumberOfShares)
 	}
 }
 
 func TestConvertToCSV(t *testing.T) {
-	// Create temp directories
-	tempDir := filepath.Join(os.TempDir(), "selma-test")
-	err := os.MkdirAll(tempDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	t.Run("convert", func(t *testing.T) {
+		setupTestCategorizer(t)
+		// Create temp directories
+		tempDir := filepath.Join(os.TempDir(), "selma-test")
+		err := os.MkdirAll(tempDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create temp directory: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
 
-	// Create a test Selma CSV file
-	selmaCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
+		// Create a test Selma CSV file
+		selmaCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
 2023-01-01,Coffee Shop,,, -100.00,CHF,
 2023-01-02,Salary,,,1000.00,CHF,`
 
-	selmaFile := filepath.Join(tempDir, "selma.csv")
-	outputFile := filepath.Join(tempDir, "output.csv")
-	
-	err = os.WriteFile(selmaFile, []byte(selmaCSV), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write test Selma file: %v", err)
-	}
+		selmaFile := filepath.Join(tempDir, "selma.csv")
+		outputFile := filepath.Join(tempDir, "output.csv")
+		
+		err = os.WriteFile(selmaFile, []byte(selmaCSV), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write test Selma file: %v", err)
+		}
 
-	// Test converting from Selma to standard CSV
-	err = ConvertToCSV(selmaFile, outputFile)
-	
-	// Check if the conversion succeeded or failed - we're looking for a consistent result either way
-	if err == nil {
-		// Verify that the output file was created
-		_, err = os.Stat(outputFile)
-		assert.NoError(t, err)
+		// Test converting from Selma to standard CSV
+		err = ConvertToCSV(selmaFile, outputFile)
 		
-		// Read the output file and check its content
-		content, err := os.ReadFile(outputFile)
-		assert.NoError(t, err)
-		
-		// The output should contain some content at minimum
-		assert.NotEmpty(t, content)
-	} else {
-		// If conversion fails, log it but don't fail the test
-		t.Logf("ConvertToCSV failed with error: %v - this may be expected in test environment", err)
-	}
+		// Check if the conversion succeeded or failed - we're looking for a consistent result either way
+		if err == nil {
+			// Verify that the output file was created
+			_, err = os.Stat(outputFile)
+			assert.NoError(t, err)
+			
+			// Read the output file and check its content
+			content, err := os.ReadFile(outputFile)
+			assert.NoError(t, err)
+			
+			// The output should contain some content at minimum
+			assert.NotEmpty(t, content)
+		} else {
+			// If conversion fails, log it but don't fail the test
+			t.Logf("ConvertToCSV failed with error: %v - this may be expected in test environment", err)
+		}
+	})
 }
 
 func TestWriteToCSV(t *testing.T) {
+	setupTestCategorizer(t)
 	// Create a temporary directory for output
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
@@ -158,18 +180,22 @@ func TestWriteToCSV(t *testing.T) {
 	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:        "2023-01-01",
-			ValueDate:   "2023-01-01",
-			Description: "Coffee Shop",
-			Amount:      "-100.00",
-			Currency:    "CHF",
+			Date:           "2023-01-15",
+			ValueDate:      "2023-01-15",
+			Description:    "Monthly dividend",
+			Amount:         models.ParseAmount("-100.00"),
+			Currency:       "CHF",
+			NumberOfShares: 0,
+			Fund:           "Global Fund",
 		},
 		{
-			Date:        "2023-01-02",
-			ValueDate:   "2023-01-02",
-			Description: "Salary",
-			Amount:      "1000.00",
-			Currency:    "CHF",
+			Date:           "2023-01-20",
+			ValueDate:      "2023-01-20",
+			Description:    "Quarterly distribution",
+			Amount:         models.ParseAmount("1000.00"),
+			Currency:       "CHF",
+			NumberOfShares: 0,
+			Fund:           "Income Fund",
 		},
 	}
 
@@ -181,11 +207,14 @@ func TestWriteToCSV(t *testing.T) {
 	content, err := os.ReadFile(outputFile)
 	assert.NoError(t, err, "Failed to read output file")
 	
-	// Check that the CSV contains the expected data
 	csvContent := string(content)
-	assert.Contains(t, csvContent, "Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares,Stamp Duty Amount,Investment")        // Header
-	assert.Contains(t, csvContent, "2023-01-01,Coffee Shop,,,-100.00,CHF,,0.00,") // First transaction
-	assert.Contains(t, csvContent, "2023-01-02,Salary,,,1000.00,CHF,,0.00,")      // Second transaction
+
+	// Check for the new simplified header format
+	assert.Contains(t, csvContent, "Date,Description,Amount,Currency,Category")
+	
+	// Check for the transactions with the new format
+	assert.Contains(t, csvContent, "2023-01-15,Monthly dividend,-100.00,CHF")
+	assert.Contains(t, csvContent, "2023-01-20,Quarterly distribution,1000.00,CHF")
 }
 
 func TestSetLogger(t *testing.T) {
