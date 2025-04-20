@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"fjacquet/camt-csv/internal/models"
 
@@ -150,17 +151,15 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	return nil
 }
 
-// ExportTransactionsToCSV writes transactions to a CSV file in a simplified format
-// that is used by the export functionality and expected by the tests.
-// This format uses YYYY-MM-DD date format and simplified column names.
+// ExportTransactionsToCSV exports a slice of transactions to a CSV file
 func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
 	if transactions == nil {
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
 	log.WithFields(logrus.Fields{
-		"file":  csvFile,
 		"count": len(transactions),
+		"file":  csvFile,
 	}).Info("Writing transactions to CSV file")
 
 	// Create the directory if it doesn't exist
@@ -170,38 +169,91 @@ func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) 
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// Create the file
 	file, err := os.Create(csvFile)
 	if err != nil {
 		log.WithError(err).Error("Failed to create CSV file")
-		return fmt.Errorf("error creating CSV file: %w", err)
+		return fmt.Errorf("error creating file: %w", err)
 	}
 	defer file.Close()
 
-	// Configure CSV writer with custom delimiter
+	// Create CSV writer
 	csvWriter := csv.NewWriter(file)
+	defer csvWriter.Flush()
+
+	// Configure CSV writer with custom delimiter
 	csvWriter.Comma = Delimiter
 
-	// Write the header
-	header := []string{"Date", "Description", "Amount", "Currency"}
+	// Define the header with all fields from the Transaction struct
+	header := []string{
+		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+		"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit",
+		"Currency", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType",
+		"Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
+		"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency",
+		"OriginalAmount", "ExchangeRate",
+	}
+	
 	if err := csvWriter.Write(header); err != nil {
 		log.WithError(err).Error("Failed to write CSV header")
 		return fmt.Errorf("error writing CSV header: %w", err)
 	}
 
-	// Write each transaction
+	// Write each transaction with all available fields
 	for _, tx := range transactions {
 		// Ensure date is in DD.MM.YYYY format
 		date := models.FormatDate(tx.Date)
+		valueDate := models.FormatDate(tx.ValueDate)
 		
-		// Format the amount with 2 decimal places
+		// Format amounts with 2 decimal places
 		amount := tx.Amount.StringFixed(2)
+		debit := tx.Debit.StringFixed(2)
+		credit := tx.Credit.StringFixed(2)
+		amountExclTax := tx.AmountExclTax.StringFixed(2)
+		amountTax := tx.AmountTax.StringFixed(2)
+		taxRate := tx.TaxRate.StringFixed(2)
+		fees := tx.Fees.StringFixed(2)
+		originalAmount := tx.OriginalAmount.StringFixed(2)
+		exchangeRate := tx.ExchangeRate.StringFixed(6)
+		
+		// Convert numeric types to strings
+		isDebit := strconv.FormatBool(tx.DebitFlag)
+		numberOfShares := strconv.Itoa(tx.NumberOfShares)
 		
 		row := []string{
+			tx.BookkeepingNumber,
+			tx.Status,
 			date,
+			valueDate,
+			tx.Name,
+			tx.PartyName,
+			tx.PartyIBAN,
 			tx.Description,
+			tx.RemittanceInfo,
 			amount,
+			tx.CreditDebit,
+			isDebit,
+			debit,
+			credit,
 			tx.Currency,
+			amountExclTax,
+			amountTax,
+			taxRate,
+			tx.Recipient,
+			tx.Investment,
+			tx.Number,
+			tx.Category,
+			tx.Type,
+			tx.Fund,
+			numberOfShares,
+			fees,
+			tx.IBAN,
+			tx.EntryReference,
+			tx.Reference,
+			tx.AccountServicer,
+			tx.BankTxCode,
+			tx.OriginalCurrency,
+			originalAmount,
+			exchangeRate,
 		}
 		
 		if err := csvWriter.Write(row); err != nil {

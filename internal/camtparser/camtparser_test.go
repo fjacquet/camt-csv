@@ -188,8 +188,8 @@ func TestParseFile(t *testing.T) {
 	
 	// Verify transaction data
 	tx := transactions[0]
-	assert.Equal(t, "2023-01-01", tx.Date)
-	assert.Equal(t, "2023-01-02", tx.ValueDate)
+	assert.Equal(t, "01.01.2023", tx.Date)
+	assert.Equal(t, "02.01.2023", tx.ValueDate)
 	assert.Equal(t, models.ParseAmount("100.00"), tx.Amount)
 	assert.Equal(t, "EUR", tx.Currency)
 	assert.Equal(t, "DBIT", tx.CreditDebit)
@@ -202,10 +202,10 @@ func TestWriteToCSV(t *testing.T) {
 	setupTestCategorizer(t)
 	// Create a test transaction
 	transaction := models.Transaction{
+		BookkeepingNumber: "BK123",
 		Date:            "2023-01-01",
 		ValueDate:       "2023-01-02",
 		Description:     "Test Transaction",
-		BookkeepingNo:   "BK123",
 		Fund:            "Test Fund",
 		Amount:          models.ParseAmount("100.00"),
 		Currency:        "EUR",
@@ -255,10 +255,10 @@ func TestConvertToCSV(t *testing.T) {
 	setupTestCategorizer(t)
 	// Create a test transaction
 	transaction := models.Transaction{
+		BookkeepingNumber: "BK123",
 		Date:            "2023-01-01",
 		ValueDate:       "2023-01-02",
 		Description:     "Test Transaction",
-		BookkeepingNo:   "BK123",
 		Fund:            "Test Fund",
 		Amount:          models.ParseAmount("100.00"),
 		Currency:        "EUR",

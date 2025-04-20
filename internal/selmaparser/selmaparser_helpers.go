@@ -26,7 +26,7 @@ type StampDutyInfo struct {
 	Date          string
 	Fund          string
 	Amount        decimal.Decimal
-	BookkeepingNo string
+	BookkeepingNumber string
 }
 
 // FormatDate converts various date formats to the standard yyyy-mm-dd format
@@ -130,7 +130,7 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 				Date:          date,
 				Fund:          fund,
 				Amount:        amount,
-				BookkeepingNo: tx.BookkeepingNo,
+				BookkeepingNumber: tx.BookkeepingNumber,
 			}
 		}
 	}

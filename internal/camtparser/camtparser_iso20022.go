@@ -2,6 +2,7 @@
 package camtparser
 
 import (
+	"encoding/csv"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -97,7 +98,7 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 	
 	// Create transaction from entry
 	tx := models.Transaction{
-		BookkeepingNo:    textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo()),
+		BookkeepingNumber: textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo()),
 		Status:           entry.Sts,
 		Date:             entry.BookgDt.Dt,
 		ValueDate:        entry.ValDt.Dt,
@@ -250,20 +251,48 @@ func (p *ISO20022Parser) ConvertToCSV(inputFile, outputFile string) error {
 	return common.WriteTransactionsToCSV(transactions, outputFile)
 }
 
-// WriteToCSV writes transactions to a CSV file
-func (p *ISO20022Parser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	p.log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Writing transactions to CSV file")
-	
-	// Create the directory if it doesn't exist
-	dir := filepath.Dir(csvFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+// WriteToCSV writes the transactions to a CSV file.
+func (c *ISO20022Parser) WriteToCSV(transactions []models.Transaction, outputFile string) error {
+	if transactions == nil || len(transactions) == 0 {
+		// Create an empty CSV file with headers
+		c.log.WithFields(logrus.Fields{
+			"file": outputFile,
+		}).Info("No transactions found, creating empty CSV file with headers")
+		
+		// Create a CSV file with headers only
+		emptyFile, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer emptyFile.Close()
+		
+		// Create a new CSV writer and write headers directly
+		csvWriter := csv.NewWriter(emptyFile)
+		defer csvWriter.Flush()
+		
+		// Get header names from the Transaction struct using reflection
+		headers := []string{
+			"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+			"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit",
+			"Currency", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType",
+			"Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
+			"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency",
+			"OriginalAmount", "ExchangeRate",
+		}
+		
+		if err := csvWriter.Write(headers); err != nil {
+			return fmt.Errorf("failed to write CSV headers: %w", err)
+		}
+		
+		return nil
 	}
-	
-	return common.WriteTransactionsToCSV(transactions, csvFile)
+
+	c.log.WithFields(logrus.Fields{
+		"count": len(transactions),
+		"file":  outputFile,
+	}).Info("Writing transactions to CSV file")
+
+	return common.ExportTransactionsToCSV(transactions, outputFile)
 }
 
 // SetLogger sets a custom logger for the parser

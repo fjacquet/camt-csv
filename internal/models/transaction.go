@@ -14,7 +14,6 @@ import (
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
 	BookkeepingNumber string          `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
-	BookkeepingNo     string          `csv:"BookkeepingNo"`     // Bookkeeping number (legacy, use BookkeepingNumber)
 	Status            string          `csv:"Status"`            // Status code
 	Date              string          `csv:"Date"`              // Date in DD.MM.YYYY format
 	ValueDate         string          `csv:"ValueDate"`         // Value date in DD.MM.YYYY format

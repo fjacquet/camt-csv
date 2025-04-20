@@ -2,13 +2,22 @@
 package camtparser
 
 import (
+	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/parsererror"
+	"bytes"
+	"encoding/csv"
+	"encoding/xml"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
+	"golang.org/x/net/html/charset"
 	"github.com/sirupsen/logrus"
 )
 
@@ -84,10 +93,70 @@ func (a *Adapter) ValidateFormat(filePath string) (bool, error) {
 	return isCamt, nil
 }
 
-// ConvertToCSV implements parser.Parser.ConvertToCSV
-// Uses the standardized implementation from DefaultParser.
-func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
-	return a.defaultParser.ConvertToCSV(inputFile, outputFile)
+// ConvertToCSV converts an XML file to a CSV file based on the chosen parser type
+func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
+	// Parse the XML file
+	transactions, err := a.ParseFile(xmlFile)
+	if err != nil {
+		return err
+	}
+	
+	// Handle nil or empty transactions list
+	if transactions == nil || len(transactions) == 0 {
+		// Create an empty CSV file with headers
+		emptyFile, err := os.Create(csvFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer emptyFile.Close()
+		
+		// Create a new CSV writer and write headers directly
+		csvWriter := csv.NewWriter(emptyFile)
+		defer csvWriter.Flush()
+		
+		// Get header names from the Transaction struct
+		headers := []string{
+			"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+			"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit",
+			"Currency", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType",
+			"Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
+			"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency",
+			"OriginalAmount", "ExchangeRate",
+		}
+		
+		if err := csvWriter.Write(headers); err != nil {
+			return fmt.Errorf("failed to write CSV headers: %w", err)
+		}
+		
+		logrus.WithFields(logrus.Fields{
+			"file": csvFile,
+		}).Info("No transactions found, created empty CSV file with headers")
+		
+		return nil
+	}
+
+	// Write the transactions to the CSV file
+	logrus.WithFields(logrus.Fields{
+		"count": len(transactions),
+		"file":  csvFile,
+	}).Info("Writing transactions to CSV file")
+
+	// Create the directory if it doesn't exist
+	dir := filepath.Dir(csvFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := common.ExportTransactionsToCSV(transactions, csvFile); err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"count": len(transactions),
+		"file":  csvFile,
+	}).Info("Successfully wrote transactions to CSV file")
+
+	return nil
 }
 
 // WriteToCSV implements parser.Parser.WriteToCSV
@@ -140,31 +209,207 @@ func NewXPathAdapter(logger *logrus.Logger) parser.Parser {
 
 // Helper functions for the actual parsing implementations
 func parseFileISO20022(filePath string) ([]models.Transaction, error) {
-	// Implementation of ISO20022 parsing logic
-	// This would contain the actual ISO20022 parsing code
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
-	// For testing purposes, return a transaction with expected values
-	// In a real implementation, this would parse the CAMT.053 XML file
-	transaction := models.Transaction{
-		Date:           "2023-01-01",
-		ValueDate:      "2023-01-02",
-		Amount:         models.ParseAmount("100.00"),
-		Currency:       "EUR",
-		CreditDebit:    "DBIT",
-		Reference:      "REF123",
-		PartyName:      "Test Counterparty",
-		Description:    "Test Transaction at Coffee Shop",
+	// Read the XML content
+	xmlData, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+
+	// Create decoder with proper namespace handling
+	decoder := xml.NewDecoder(bytes.NewReader(xmlData))
+	decoder.CharsetReader = charset.NewReaderLabel
+	
+	// Define the Document structure for CAMT.053
+	type Amount struct {
+		Value    string `xml:",chardata"`
+		Currency string `xml:"Ccy,attr"`
 	}
 	
-	// Force update of derived fields to ensure correct CSV formatting
-	transaction.UpdateDebitCreditAmounts()
+	type Date struct {
+		Date string `xml:"Dt"`
+	}
 	
-	return []models.Transaction{transaction}, nil
+	type EntryReference struct {
+		Reference string `xml:",chardata"`
+	}
+	
+	type AdditionalInfo struct {
+		Info string `xml:",chardata"`
+	}
+	
+	type CreditDebitIndicator struct {
+		Indicator string `xml:",chardata"`
+	}
+	
+	type Status struct {
+		Status string `xml:",chardata"`
+	}
+	
+	type AccountServicerRef struct {
+		Ref string `xml:",chardata"`
+	}
+	
+	type Reference struct {
+		MsgId        string `xml:"MsgId,omitempty"`
+		AcctSvcrRef  string `xml:"AcctSvcrRef,omitempty"`
+		InstrId      string `xml:"InstrId,omitempty"`
+		EndToEndId   string `xml:"EndToEndId,omitempty"`
+		TxId         string `xml:"TxId,omitempty"`
+	}
+	
+	type Unstructured struct {
+		Text string `xml:",chardata"`
+	}
+	
+	type RemittanceInfo struct {
+		Ustrd string `xml:"Ustrd"`
+	}
+	
+	type TransactionDetails struct {
+		References     Reference     `xml:"Refs"`
+		Amount         Amount        `xml:"Amt"`
+		CreditDebit    CreditDebitIndicator `xml:"CdtDbtInd"`
+		PartyName      string        `xml:"RltdPties>Dbtr>Nm,omitempty"`
+		RemittanceInfo RemittanceInfo `xml:"RmtInf"`
+	}
+	
+	type EntryDetails struct {
+		TransactionDetails TransactionDetails `xml:"TxDtls"`
+	}
+	
+	type Entry struct {
+		Amount            Amount            `xml:"Amt"`
+		CreditDebit       CreditDebitIndicator `xml:"CdtDbtInd"`
+		Status            Status            `xml:"Sts"`
+		BookingDate       Date              `xml:"BookgDt"`
+		ValueDate         Date              `xml:"ValDt"`
+		AccountServicer   AccountServicerRef `xml:"AcctSvcrRef"`
+		EntryDetails      EntryDetails      `xml:"NtryDtls"`
+		AdditionalInfo    AdditionalInfo    `xml:"AddtlNtryInf"`
+	}
+	
+	type Statement struct {
+		Entries []Entry `xml:"Ntry"`
+	}
+	
+	type Document struct {
+		XMLName      xml.Name `xml:"Document"`
+		BkToCstmrStmt struct {
+			Stmt []Statement `xml:"Stmt"`
+		} `xml:"BkToCstmrStmt"`
+	}
+
+	// Unmarshal the XML
+	var doc Document
+	err = decoder.Decode(&doc)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding XML: %w", err)
+	}
+
+	var transactions []models.Transaction
+	
+	// Process all statements and entries
+	for _, stmt := range doc.BkToCstmrStmt.Stmt {
+		for _, entry := range stmt.Entries {
+			// Convert dates to standard format
+			bookingDate := entry.BookingDate.Date
+			valueDate := entry.ValueDate.Date
+			
+			// Format the dates as DD.MM.YYYY
+			if bookingDateParsed, err := time.Parse("2006-01-02", bookingDate); err == nil {
+				bookingDate = bookingDateParsed.Format("02.01.2006")
+			}
+			
+			if valueDateParsed, err := time.Parse("2006-01-02", valueDate); err == nil {
+				valueDate = valueDateParsed.Format("02.01.2006")
+			}
+			
+			// Create transaction
+			transaction := models.Transaction{
+				Date:              bookingDate,
+				ValueDate:         valueDate,
+				Amount:            models.ParseAmount(entry.Amount.Value),
+				Currency:          entry.Amount.Currency,
+				CreditDebit:       entry.CreditDebit.Indicator,
+				AccountServicer:   entry.AccountServicer.Ref,
+				Status:            entry.Status.Status,
+			}
+			
+			// Add details from transaction details if available
+			txDetails := entry.EntryDetails.TransactionDetails
+			
+			if txDetails.PartyName != "" {
+				transaction.PartyName = txDetails.PartyName
+			}
+			
+			// Get remittance info
+			if txDetails.RemittanceInfo.Ustrd != "" {
+				transaction.RemittanceInfo = txDetails.RemittanceInfo.Ustrd
+			}
+			
+			// Get reference information
+			if txDetails.References.MsgId != "" {
+				transaction.Reference = txDetails.References.MsgId
+			} else if txDetails.References.EndToEndId != "" {
+				transaction.Reference = txDetails.References.EndToEndId
+			} else if txDetails.References.TxId != "" {
+				transaction.Reference = txDetails.References.TxId
+			} else if txDetails.References.AcctSvcrRef != "" {
+				transaction.Reference = txDetails.References.AcctSvcrRef
+			}
+			
+			// Set description from AddtlNtryInf or RemittanceInfo
+			if entry.AdditionalInfo.Info != "" {
+				transaction.Description = entry.AdditionalInfo.Info
+			} else if transaction.RemittanceInfo != "" {
+				// Use RemittanceInfo as Description if there's no AddtlNtryInf
+				transaction.Description = transaction.RemittanceInfo
+			}
+			
+			// Update derived fields
+			transaction.UpdateDebitCreditAmounts()
+			
+			// Categorize the transaction
+			catTransaction := categorizer.Transaction{
+				PartyName:   transaction.PartyName,
+				IsDebtor:    transaction.CreditDebit == "DBIT", // Use the CreditDebit field to determine if it's a debit transaction
+				Amount:      transaction.Amount.String(),
+				Date:        transaction.Date,
+				Info:        transaction.RemittanceInfo,
+				Description: transaction.Description,
+			}
+			
+			// If PartyName is empty, use Description or RemittanceInfo to help with categorization
+			if catTransaction.PartyName == "" {
+				// Try to use Description as PartyName if available
+				if transaction.Description != "" {
+					catTransaction.PartyName = transaction.Description
+				} else if transaction.RemittanceInfo != "" {
+					// Otherwise use RemittanceInfo
+					catTransaction.PartyName = transaction.RemittanceInfo
+				}
+			}
+			
+			// Clean PartyName by removing payment method prefixes before categorization
+			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
+			
+			// Apply categorization
+			category, err := categorizer.CategorizeTransaction(catTransaction)
+			if err == nil && category.Name != "" {
+				transaction.Category = category.Name
+			}
+			
+			transactions = append(transactions, transaction)
+		}
+	}
+	
+	return transactions, nil
 }
 
 func parseFileXPath(filePath string) ([]models.Transaction, error) {
@@ -182,4 +427,33 @@ func parseFileXPath(filePath string) ([]models.Transaction, error) {
 	// from the CAMT.053 XML file and convert it to a slice of Transaction objects
 	
 	return []models.Transaction{}, nil
+}
+
+// Helper function to clean payment method prefixes from party names
+func cleanPaymentMethodPrefixes(partyName string) string {
+	// If the party name consists only of one of these terms, leave it as is
+	// This ensures "PMT CARTE", "PMT TWINT", and "BCV-NET" are still categorized correctly
+	if partyName == "PMT CARTE" || partyName == "PMT TWINT" || partyName == "BCV-NET" {
+		return partyName
+	}
+	
+	// Remove these prefixes if they're part of a longer string
+	prefixes := []string{"PMT CARTE", "PMT TWINT", "BCV-NET"}
+	cleanedName := partyName
+	
+	for _, prefix := range prefixes {
+		// Check if the party name contains the prefix
+		if strings.Contains(cleanedName, prefix) {
+			// Replace the prefix with an empty string and trim spaces
+			cleanedName = strings.ReplaceAll(cleanedName, prefix, "")
+			cleanedName = strings.TrimSpace(cleanedName)
+		}
+	}
+	
+	// If we removed everything, return the original name
+	if cleanedName == "" {
+		return partyName
+	}
+	
+	return cleanedName
 }

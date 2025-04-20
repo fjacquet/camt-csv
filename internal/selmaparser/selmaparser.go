@@ -182,15 +182,15 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 	}
 
 	transaction := models.Transaction{
-		Date:           row.Date, // Keep original YYYY-MM-DD format
-		ValueDate:      row.Date, // Use same date for ValueDate for Selma
-		Description:    row.Description,
-		BookkeepingNo:  row.BookkeepingNo,
-		Amount:         amount,
-		Currency:       row.Currency,
-		NumberOfShares: shares,
-		Fund:           row.Fund,
-		CreditDebit:    determineCreditDebit(row.Description, row.Amount),
+		BookkeepingNumber: "",
+		Date:              row.Date, // Keep original YYYY-MM-DD format
+		ValueDate:         row.Date, // Use same date for ValueDate for Selma
+		Description:       row.Description,
+		Amount:            amount,
+		Currency:          row.Currency,
+		NumberOfShares:    shares,
+		Fund:              row.Fund,
+		CreditDebit:       determineCreditDebit(row.Description, row.Amount),
 	}
 
 	return transaction, nil

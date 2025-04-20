@@ -135,7 +135,7 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 	payer := row.Description
 
 	transaction := models.Transaction{
-		BookkeepingNo:    "", // Revolut doesn't provide this
+		BookkeepingNumber: "", // Revolut doesn't provide this
 		Status:           row.State,
 		Date:             completedDate,
 		ValueDate:        startedDate,
