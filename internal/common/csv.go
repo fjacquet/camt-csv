@@ -66,6 +66,11 @@ func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
 // WriteTransactionsToCSV is a generalized function to write transactions to CSV 
 // All parsers can use this function.
 func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
+	// Check for CSV_DELIMITER again to ensure it's applied
+	if val := os.Getenv("CSV_DELIMITER"); val != "" {
+		SetDelimiter([]rune(val)[0])
+	}
+
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -81,6 +86,7 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	
 	// Create CSV writer
 	writer := csv.NewWriter(file)
+	writer.Comma = Delimiter  // Set the configured delimiter
 	defer writer.Flush()
 	
 	// Write header

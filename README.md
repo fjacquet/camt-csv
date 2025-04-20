@@ -49,8 +49,16 @@ A sample configuration file `.env.sample` is provided as a template.
 | GEMINI_REQUESTS_PER_MINUTE | Rate limit for Gemini API calls | `10` | Any positive integer |
 | USE_AI_CATEGORIZATION | Enable/disable AI-based categorization | `false` | `true`, `false` |
 | LOG_LEVEL | Controls the verbosity of logging | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic` |
-| LOG_FORMAT | Format of the log output | `text` | `text`, `json` |
-| DATA_DIR | Directory for configuration files | `.` | Any valid directory path |
+| LOG_FORMAT | Format of log output | `text` | `text`, `json` |
+| DATA_DIR | Optional directory path for data storage | - | Any valid directory path |
+| CSV_DELIMITER | Delimiter character for exported CSV files | `,` | Any single character (e.g., `;`) |
+
+You can copy the `.env.sample` file to `.env` and customize it for your needs:
+
+```bash
+cp .env.sample .env
+# Then edit .env with your preferred settings
+```
 
 For example:
 
@@ -62,6 +70,8 @@ GEMINI_REQUESTS_PER_MINUTE=10
 USE_AI_CATEGORIZATION=true
 LOG_LEVEL=info
 LOG_FORMAT=text
+DATA_DIR=/path/to/data
+CSV_DELIMITER=;
 ```
 
 ## Usage
