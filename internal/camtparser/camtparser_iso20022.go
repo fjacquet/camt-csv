@@ -170,9 +170,28 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			Description: transactions[i].Description,
 		}
 
+		p.log.Infof("About to categorize transaction with party: '%s', isDebtor: %v, description: '%s'", 
+			catTx.PartyName, catTx.IsDebtor, catTx.Description)
+		
 		// Try to categorize using the categorizer
 		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
 			transactions[i].Category = category.Name
+			
+			// If this was a successful categorization, save it to the database
+			// for future use to avoid needing to re-categorize
+			if category.Name != "" && category.Name != "Uncategorized" {
+				partyName := catTx.PartyName
+				if isDebtor {
+					p.log.Infof("Auto-learning debitor mapping: '%s' → '%s'", 
+						partyName, category.Name)
+					categorizer.UpdateDebitorCategory(partyName, category.Name)
+				} else {
+					p.log.Infof("Auto-learning creditor mapping: '%s' → '%s'", 
+						partyName, category.Name)
+					categorizer.UpdateCreditorCategory(partyName, category.Name)
+				}
+			}
+			
 			p.log.WithFields(logrus.Fields{
 				"category": category.Name,
 				"amount":   transactions[i].Amount.String(),

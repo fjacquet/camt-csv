@@ -5,14 +5,13 @@ import (
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
-	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/debitparser"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/pdfparser"
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -24,8 +23,8 @@ type CommonFlags struct {
 }
 
 var (
-	// Log is the shared logger instance for commands
-	Log = logrus.New()
+	// Log is the shared logger instance for commands - but don't initialize until Init()
+	Log = logging.GetLogger()
 	
 	// Cmd is the root command
 	Cmd = &cobra.Command{
@@ -39,16 +38,15 @@ It also provides transaction categorization based on the party's name.`,
 			Log.Info("Use --help to see available commands")
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Initialize and configure logging
-			config.LoadEnv()
-			Log = config.ConfigureLogging()
-			
 			// Set the configured logger for all parsers
+			// This will propagate our centralized logging configuration to each package
 			camtparser.SetLogger(Log)
 			pdfparser.SetLogger(Log)
 			selmaparser.SetLogger(Log)
 			revolutparser.SetLogger(Log)
 			debitparser.SetLogger(Log)
+			categorizer.SetLogger(Log)
+			common.SetLogger(Log)
 			
 			// Ensure CSV delimiter is updated after env variables are loaded
 			if delim := os.Getenv("CSV_DELIMITER"); delim != "" {

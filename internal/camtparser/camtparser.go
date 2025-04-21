@@ -10,13 +10,15 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+// Use the centralized logger
+var log = logging.GetLogger()
 var activeParser parser.Parser
 var currentParserType string = "iso20022" // Default parser type
 

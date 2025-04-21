@@ -144,7 +144,8 @@ func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) 
 func (a *Adapter) SetLogger(logger *logrus.Logger) {
 	a.defaultParser.Logger = logger
 	a.defaultParser.SetLogger(logger)
-	SetLogger(logger)
+	// Remove the circular dependency - don't call back to the package-level function
+	// SetLogger(logger)  
 }
 
 // NewISO20022Adapter creates a new adapter that specifically uses the ISO20022 parser.

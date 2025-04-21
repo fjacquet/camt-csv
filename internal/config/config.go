@@ -13,10 +13,11 @@ import (
 
 var (
 	once sync.Once
-	log  = logrus.New()
+	// Global logger instance that should be used across the application
+	Logger = logrus.New()
 )
 
-// ConfigureLogging sets up logging based on environment variables
+// ConfigureLogging sets up logging based on environment variables and returns the configured logger
 func ConfigureLogging() *logrus.Logger {
 	// Configure log level
 	logLevelStr := os.Getenv("LOG_LEVEL")
@@ -27,23 +28,23 @@ func ConfigureLogging() *logrus.Logger {
 	// Parse the log level
 	logLevel, err := logrus.ParseLevel(strings.ToLower(logLevelStr))
 	if err != nil {
-		log.Warnf("Invalid log level '%s', using 'info'", logLevelStr)
+		Logger.Warnf("Invalid log level '%s', using 'info'", logLevelStr)
 		logLevel = logrus.InfoLevel
 	}
-	log.SetLevel(logLevel)
+	Logger.SetLevel(logLevel)
 
 	// Configure log format
 	logFormat := os.Getenv("LOG_FORMAT")
 	if strings.ToLower(logFormat) == "json" {
-		log.SetFormatter(&logrus.JSONFormatter{})
+		Logger.SetFormatter(&logrus.JSONFormatter{})
 	} else {
 		// Default to text formatter
-		log.SetFormatter(&logrus.TextFormatter{
+		Logger.SetFormatter(&logrus.TextFormatter{
 			FullTimestamp: true,
 		})
 	}
 
-	return log
+	return Logger
 }
 
 // LoadEnv loads environment variables from .env file if it exists
@@ -55,7 +56,7 @@ func LoadEnv() {
 			// Try to find .env in parent directory (project root)
 			envFile = filepath.Join("..", ".env")
 			if _, err := os.Stat(envFile); os.IsNotExist(err) {
-				log.Info("No .env file found, using environment variables")
+				Logger.Info("No .env file found, using environment variables")
 				return
 			}
 		}
@@ -63,10 +64,10 @@ func LoadEnv() {
 		// Load .env file
 		err := godotenv.Load(envFile)
 		if err != nil {
-			log.Warnf("Error loading .env file: %v", err)
+			Logger.Warnf("Error loading .env file: %v", err)
 			return
 		}
-		log.Infof("Loaded environment variables from %s", envFile)
+		Logger.Infof("Loaded environment variables from %s", envFile)
 		
 		// Configure logging after loading environment variables
 		ConfigureLogging()
@@ -86,7 +87,7 @@ func GetEnv(key, fallback string) string {
 func MustGetEnv(key string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
-		log.Fatalf("Required environment variable %s is not set", key)
+		Logger.Fatalf("Required environment variable %s is not set", key)
 	}
 	return value
 }

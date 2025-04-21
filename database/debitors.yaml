@@ -18,6 +18,7 @@ apple.com/bill, itunes.com ie - biens numériques: Divertissement
 asloca: Services
 asloca montreux: Voyages
 au grotto: Res
+avenir assurance malad: Assurances
 avenir assurance maladie sa: Assurance Maladie
 avenir assurances maladie sa: Assurance Maladie
 awp p + c s.a., saint-ouen (paris): Assurances
@@ -29,6 +30,7 @@ back pain solutions sarl: Pension
 badehotel bristol ag, leukerbad ch: Séjours
 bank frick + co. ag: Services
 bazar suisse: Shopping
+bcv-net: Virements
 berghotel wildstrubel: Restaurants
 boreal coffee shop: Alimentation
 boucherie la: Alimentation
@@ -56,6 +58,8 @@ cff gare montreux, montreux ch: Transports Publics
 cff vevey wc: Transports Publics
 christ-3875, montreux ch: Shopping
 codeium: Services
+comm.adm.valeurs: Frais Bancaires
+comm.adm.valeurs e5429.32.53: Frais Bancaires
 commune de montreux: Enfants
 confiserie zurcher: Assurances
 confiserie zurcher sa, montreux ch: Alimentation
@@ -67,9 +71,11 @@ coop pronto montreux: Alimentation
 coop-4225 montreux: Alimentation
 coop-4225 montreux, montreux ch: Alimentation
 coop-5240 zh: Alimentation
+coop-5240 zh pfingstwe: Alimentation
 coop-5553 rennaz: Alimentation
 coop-5553 rennaz, rennaz ch: Alimentation
 coop-6130 ge: Alimentation
+coop-6130 ge gare corn: Alimentation
 coop-6134 leukerbad: Alimentation
 coop-6134 leukerbad, leukerbad ch: Shopping
 croix-roug* donation, paris fr: Dons
@@ -95,6 +101,7 @@ elvetino: Restaurants
 etabl. ass. contre l'incendie et les elements naturels canton vd (eca): Assurances
 etablissement cantonal d assurance: Assurance Maladie
 exchange to eur: Frais Bancaires
+express: Virements
 federation suisse des sourds: Dons
 filae: Abonnements
 florence jacquet: Virements
@@ -150,6 +157,7 @@ livique-5110 villeneuv: Mobilier
 llb leukerbad, leukerbad ch: Voyages
 mammut: Shopping
 manor ag - 225: Shopping
+manor ag - 225 (vevn): Shopping
 manor ag, vevey ch: Shopping
 martinez: Virements
 maru: Restaurants
@@ -162,11 +170,14 @@ microsoft#g071184374, msbill.info ch: Abonnements
 microsoft#g075196914, msbill.info ch: Abonnements
 microsoft#g079431732, msbill.info ch: Abonnements
 mig migrolino: Alimentation
+mig migrolino martigny: Alimentation
+mig migrolino montreux: Alimentation
 migrolino: Alimentation
 migros: Alimentation
 migros mm leukerbad: Alimentation
 migros montreux forum: Alimentation
 mistral: Services
+mobility genossenschaf: Voiture
 mobility genossenschaft: Voiture
 moebel pfister ag: Mobilier
 mosca vins sa, montreux ch: Alimentation
@@ -184,19 +195,22 @@ notion labs, inc., notion.so us: Abonnements
 notion labs, inc., notion.so us usd - services it, programmation: Services
 obsidian: Shopping
 ochsner sport: Shopping
+ochsner sport 0653: Shopping
 openai: Pension
 openai *chatgpt subscr, openai.com us: Abonnements
 openai *chatgpt subscr, openai.com us usd - logiciels informatiques: Abonnements
+ordre lsv +: Virements
 pamela pitteloud: Virements
 parking-relais lausa: Voiture
 patrick dobler: Virements
-patrick marki: Non Classé
+patrick marki: r
 paybyphone suisse ag: Transports Publics
 paycard c/o retail marketing switzerland ag: Frais Bancaires
 payot libraire sa: Shopping
 payot libraire sa, montreux ch: Shopping
 payot sa: Shopping
 payward ltd.: Virements
+pensionskasse des bund: Pension
 pensionskasse des bundes publica: Logement
 pentogravo sarl: Voiture
 pepe sarl, morges ch: Non Classé
@@ -239,6 +253,7 @@ rhb webshop: Shopping
 romande energie sa: Utilités
 royalty entertainmen: Divers
 sbb cff ffs: Transports Publics
+sbb contact center swi: Transports Publics
 sbb contact center swiss pass: Transports Publics
 sc, swisscaution sa: Assurances
 schweiz. rettungsflugwacht (rega): Dons
@@ -277,6 +292,7 @@ unilabs riviera: Assurances
 université de lausanne parking: Éducation
 unknown payee: Frais Bancaires
 vaudoise generale: Assurances
+vaudoise vie compagnie: Assurances
 vaudoise vie compagnie d assurances sa: Assurances
 vaudoise vie compagnie d'assurances sa: Assurances
 vedia sa: Logement

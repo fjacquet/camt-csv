@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -54,13 +55,13 @@ type Categorizer struct {
 
 // Global singleton instance - simple approach for a CLI tool
 var defaultCategorizer *Categorizer
-var log = logrus.New()
+var log = config.Logger
 
 // SetLogger allows setting a custom logger
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
-		
+
 		// Update default categorizer if it exists
 		if defaultCategorizer != nil {
 			defaultCategorizer.logger = logger
@@ -124,7 +125,7 @@ func SetTestCategoryStore(store *store.CategoryStore) {
 		store:            store,
 		logger:           log,
 	}
-	
+
 	// Always set test mode in tests to prevent external API calls
 	os.Setenv("TEST_MODE", "true")
 }
@@ -133,13 +134,43 @@ func SetTestCategoryStore(store *store.CategoryStore) {
 // This is a package-level function that uses the default categorizer
 func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	initCategorizer()
-	
+
 	// Safety check
 	if defaultCategorizer == nil {
 		return models.Category{}, fmt.Errorf("categorizer not initialized")
 	}
+
+	// Get the actual categorization
+	category, err := defaultCategorizer.categorizeTransaction(transaction)
 	
-	return defaultCategorizer.categorizeTransaction(transaction)
+	// If we successfully found a category via AI, let's immediately save it to the database
+	// so we don't need to recategorize similar transactions in the future
+	if err == nil && category.Name != "" && category.Name != "Uncategorized" {
+		// Auto-learn this categorization by saving it to the appropriate database
+		if transaction.IsDebtor {
+			defaultCategorizer.logger.Debugf("Auto-learning debitor mapping: '%s' → '%s'", 
+				transaction.PartyName, category.Name)
+			defaultCategorizer.updateDebitorCategory(transaction.PartyName, category.Name)
+			// Force immediate save to disk
+			if err := defaultCategorizer.saveDebitorsToYAML(); err != nil {
+				defaultCategorizer.logger.Warnf("Failed to save debitor mapping: %v", err)
+			} else {
+				defaultCategorizer.logger.Debugf("Successfully saved new debitor mapping to disk")
+			}
+		} else {
+			defaultCategorizer.logger.Debugf("Auto-learning creditor mapping: '%s' → '%s'", 
+				transaction.PartyName, category.Name)
+			defaultCategorizer.updateCreditorCategory(transaction.PartyName, category.Name)
+			// Force immediate save to disk
+			if err := defaultCategorizer.saveCreditorsToYAML(); err != nil {
+				defaultCategorizer.logger.Warnf("Failed to save creditor mapping: %v", err)
+			} else {
+				defaultCategorizer.logger.Debugf("Successfully saved new creditor mapping to disk")
+			}
+		}
+	}
+
+	return category, err
 }
 
 // Public method for the Categorizer struct
@@ -184,8 +215,10 @@ func (c *Categorizer) initGeminiClient() error {
 
 // Function to create a prompt for AI categorization
 func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
+	c.logger.Info("======== CREATING CATEGORIZATION PROMPT - IMPROVED FUNCTION CALLED ========")
+	
 	// Create a prompt for the Gemini API
-	prompt := "Categorize the following transaction:\n"
+	prompt := "Categorize the following financial transaction into EXACTLY ONE of the allowed categories.\n\n"
 	prompt += fmt.Sprintf("Description: %s\n", transaction.Description)
 	prompt += fmt.Sprintf("Party: %s\n", transaction.PartyName)
 	prompt += fmt.Sprintf("Amount: %s\n", transaction.Amount)
@@ -196,20 +229,29 @@ func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string
 		return "Credit (income)"
 	}())
 
-	prompt += "\nYou MUST choose ONE category from the following list:\n"
+	prompt += "\nYou MUST choose ONE category from the following list EXACTLY as written:\n"
 
 	// Get the list of categories
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-
+	
+	// Extract valid category names for easier validation later
+	validCategories := make([]string, 0, len(c.categories))
+	c.logger.Infof("Number of categories loaded: %d", len(c.categories))
+	
 	for _, category := range c.categories {
 		prompt += fmt.Sprintf("- %s\n", category.Name)
+		validCategories = append(validCategories, category.Name)
 	}
+	
+	// Add merchant categories from hard-coded map as additional options
+	prompt += "\nThese are the ONLY valid responses. Do not make up new categories or modify these names.\n"
+	prompt += "Do NOT return 'categories', 'category', 'unknown', or any other text not in the above list.\n"
+	prompt += "If you cannot categorize the transaction, use 'Uncategorized'.\n\n"
+	prompt += "Respond with ONLY the category name that best matches this transaction. Do not include any explanations, punctuation, or other text.\n"
+	prompt += "For example, if it's a restaurant expense, just respond with 'Restaurants' (assuming it's in the list)."
 
-	prompt += `
-Respond with ONLY the category name that best matches this transaction. Do not add any explanations or other text.
-For example, if it's a restaurant expense, just respond with "Food & Dining".`
-
+	c.logger.Infof("Prompt: %s", prompt)
 	return prompt
 }
 
@@ -278,51 +320,66 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 func (c *Categorizer) extractCategoryFromResponse(response string) string {
 	// Clean up the response
 	response = strings.TrimSpace(response)
-
+	
 	// Some models return the category name wrapped in quotes or other formatting
 	response = strings.Trim(response, `"'`)
-
+	
 	// If there's a colon, it might be "Category: Food & Dining" format
 	if strings.Contains(response, ":") {
 		parts := strings.SplitN(response, ":", 2)
-		return strings.TrimSpace(parts[1])
+		response = strings.TrimSpace(parts[1])
 	}
-
+	
 	// If there are multiple lines, take the first one
 	if strings.Contains(response, "\n") {
 		lines := strings.Split(response, "\n")
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
 			if trimmed != "" {
-				return trimmed
+				response = trimmed
+				break
 			}
 		}
 	}
-
+	
+	// Explicitly reject problematic responses
+	loweredResponse := strings.ToLower(response)
+	if loweredResponse == "categories" || loweredResponse == "category" || 
+	   loweredResponse == "unknown" || loweredResponse == "none" {
+		c.logger.Warnf("Rejecting invalid category: '%s'", response)
+		return ""
+	}
+	
 	// Check if it matches any of our known categories
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-
-	bestMatch := ""
-
+	
+	// First try exact case-insensitive match (preferred)
 	for _, category := range c.categories {
 		if strings.EqualFold(category.Name, response) {
-			return category.Name
+			c.logger.Debugf("Found exact match for '%s': '%s'", response, category.Name)
+			return category.Name  // Return with correct casing from database
 		}
-
-		// Handle partial matches
+	}
+	
+	// If no exact match, try partial match as fallback
+	bestMatch := ""
+	for _, category := range c.categories {
 		if strings.Contains(strings.ToLower(response), strings.ToLower(category.Name)) {
 			if len(category.Name) > len(bestMatch) {
 				bestMatch = category.Name
 			}
 		}
 	}
-
+	
 	if bestMatch != "" {
+		c.logger.Debugf("Found partial match for '%s': '%s'", response, bestMatch)
 		return bestMatch
 	}
-
-	return response
+	
+	// Return empty string if no match found
+	c.logger.Warnf("No category match found for '%s'", response)
+	return ""
 }
 
 //------------------------------------------------------------------------------
@@ -386,19 +443,19 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 	// These are ordered from most specific to most general
 	merchantCategories := map[string]string{
 		// Transfers & Banking - add additional keywords to detect transfers
-		"VIRT BANC":   "Virements",
-		"VIR TWINT":   "Virements",
-		"VIRT":        "Virements",
-		"TRANSFERT":   "Virements",
-		"ORDRE LSV":   "Virements",
-		"TWINT":       "Virements",   // CR TWINT
-		"CR TWINT":    "Virements", 
-		"BCV-NET":     "Virements",
-		"TRANSFER":    "Virements",
-		"IMPOTS":      "Virements",
-		"FLORENCE":    "Virements",   // Common family transfers
-		"JACQUET":     "Virements",   // Common family transfers
-		
+		"VIRT BANC": "Virements",
+		"VIR TWINT": "Virements",
+		"VIRT":      "Virements",
+		"TRANSFERT": "Virements",
+		"ORDRE LSV": "Virements",
+		"TWINT":     "Virements", // CR TWINT
+		"CR TWINT":  "Virements",
+		"BCV-NET":   "Virements",
+		"TRANSFER":  "Virements",
+		"IMPOTS":    "Virements",
+		"FLORENCE":  "Virements", // Common family transfers
+		"JACQUET":   "Virements", // Common family transfers
+
 		// Supermarkets
 		"COOP":       "Alimentation",
 		"MIGROS":     "Alimentation",
@@ -409,93 +466,93 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 		"MIGROLINO":  "Alimentation",
 		"KIOSK":      "Alimentation",
 		"MINERALOEL": "Alimentation",
-		
+
 		// Restaurants & Food
-		"PIZZERIA":   "Restaurants",
-		"CAFE":       "Restaurants",
-		"RESTAURANT": "Restaurants",
-		"SUSHI":      "Restaurants",
-		"KEBAB":      "Restaurants",
-		"BOUCHERIE": "Alimentation",
+		"PIZZERIA":    "Restaurants",
+		"CAFE":        "Restaurants",
+		"RESTAURANT":  "Restaurants",
+		"SUSHI":       "Restaurants",
+		"KEBAB":       "Restaurants",
+		"BOUCHERIE":   "Alimentation",
 		"BOULANGERIE": "Alimentation",
-		"RAMEN":      "Restaurants",
-		"KAMUY":      "Restaurants",
-		"MINESTRONE": "Restaurants",
-		
+		"RAMEN":       "Restaurants",
+		"KAMUY":       "Restaurants",
+		"MINESTRONE":  "Restaurants",
+
 		// Leisure
-		"PISCINE":    "Loisirs",
-		"SPA":        "Loisirs",
-		"CINEMA":     "Loisirs",
-		"PILATUS":    "Loisirs",
-		"TOTEM":      "Sport",
-		"ESCALADE":   "Sport",
-		
+		"PISCINE":  "Loisirs",
+		"SPA":      "Loisirs",
+		"CINEMA":   "Loisirs",
+		"PILATUS":  "Loisirs",
+		"TOTEM":    "Sport",
+		"ESCALADE": "Sport",
+
 		// Shops
-		"OCHSNER":    "Shopping",
-		"SPORT":      "Shopping",
-		"MAMMUT":     "Shopping",
-		"MULLER":     "Shopping", 
-		"BAZAR":      "Shopping",
+		"OCHSNER":       "Shopping",
+		"SPORT":         "Shopping",
+		"MAMMUT":        "Shopping",
+		"MULLER":        "Shopping",
+		"BAZAR":         "Shopping",
 		"INTERDISCOUNT": "Shopping",
-		"IKEA":       "Mobilier",
-		"PAYOT":      "Shopping",
-		"CALIDA":     "Shopping",
-		"DIGITAL":    "Shopping",
-		"RHB":        "Shopping",
-		"WEBSHOP":    "Shopping",
-		"POST":       "Shopping",
-		
+		"IKEA":          "Mobilier",
+		"PAYOT":         "Shopping",
+		"CALIDA":        "Shopping",
+		"DIGITAL":       "Shopping",
+		"RHB":           "Shopping",
+		"WEBSHOP":       "Shopping",
+		"POST":          "Shopping",
+
 		// Services
-		"PRESSING":   "Services",
+		"PRESSING":     "Services",
 		"777-PRESSING": "Services",
-		"5ASEC":      "Services",
-		
+		"5ASEC":        "Services",
+
 		// Cash withdrawals
 		"RETRAIT":    "Retraits",
 		"ATM":        "Retraits",
 		"WITHDRAWAL": "Retraits",
-		
+
 		// Utilities and telecom
 		"ROMANDE ENERGIE": "Utilités",
-		"WINGO":      "Services",
-		
+		"WINGO":           "Services",
+
 		// Transportation
 		"SBB":        "Transports Publics",
 		"CFF":        "Transports Publics",
 		"MOBILITY":   "Voiture",
 		"PAYBYPHONE": "Transports Publics",
-		
+
 		// Insurance
-		"ASSURANCE":  "Assurances",
-		"VAUDOISE":   "Assurances",
-		"GENERALI":   "Assurances",
-		"AVENIR":     "Assurance Maladie",
-		
+		"ASSURANCE": "Assurances",
+		"VAUDOISE":  "Assurances",
+		"GENERALI":  "Assurances",
+		"AVENIR":    "Assurance Maladie",
+
 		// Financial
-		"SELMA_FEE":  "Frais Bancaires",
-		"CEMBRAPAY":  "Services",
-		"VISECA":     "Abonnements",
-		
+		"SELMA_FEE": "Frais Bancaires",
+		"CEMBRAPAY": "Services",
+		"VISECA":    "Abonnements",
+
 		// Housing
-		"PUBLICA":    "Logement",
-		"ASLOCA":     "Logement",
-		
+		"PUBLICA": "Logement",
+		"ASLOCA":  "Logement",
+
 		// Companies
-		"DELL":       "Virements",
+		"DELL": "Virements",
 	}
 
 	// Match bank transaction codes to categories
 	txCodeCategories := map[string]string{
-		"CWDL":       "Retraits",        // Cash withdrawals
-		"POSD":       "Shopping",        // Point of sale debit
-		"CCRD":       "Shopping",        // Credit card payment
-		"ICDT":       "Virements",       // Internal credit transfer
-		"DMCT":       "Virements",       // Direct debit
-		"RDDT":       "Virements",       // Direct debit
-		"AUTT":       "Virements",       // Automatic transfer
-		"RCDT":       "Virements",       // Received credit transfer
-		"PMNT":       "Virements",       // Payment
-		"RMDR":       "Services",        // Reminders
+		"CWDL": "Retraits",  // Cash withdrawals
+		"POSD": "Shopping",  // Point of sale debit
+		"CCRD": "Shopping",  // Credit card payment
+		"ICDT": "Virements", // Internal credit transfer
+		"DMCT": "Virements", // Direct debit
+		"RDDT": "Virements", // Direct debit
+		"AUTT": "Virements", // Automatic transfer
+		"RCDT": "Virements", // Received credit transfer
+		"PMNT": "Virements", // Payment
+		"RMDR": "Services",  // Reminders
 	}
 
 	// First try to match merchant name
@@ -524,10 +581,10 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 		// Special case for Unknown Payee for card payments - don't default to Salaire
 		if strings.Contains(partyName, "UNKNOWN PAYEE") || partyName == "UNKNOWN PAYEE" {
 			// If it looks like a card payment or cash withdrawal
-			if strings.Contains(description, "PMT CARTE") || 
-			   strings.Contains(description, "PMT TWINT") ||
-			   strings.Contains(description, "RETRAIT") ||
-			   strings.Contains(description, "WITHDRAWAL") {
+			if strings.Contains(description, "PMT CARTE") ||
+				strings.Contains(description, "PMT TWINT") ||
+				strings.Contains(description, "RETRAIT") ||
+				strings.Contains(description, "WITHDRAWAL") {
 				return models.Category{
 					Name:        "Shopping",
 					Description: categoryDescriptionFromName("Shopping"),
@@ -550,7 +607,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			"party":   transaction.PartyName,
 			"amount":  transaction.Amount,
 			"date":    transaction.Date,
-			"isDebit": transaction.IsDebtor,
+			"isDebtor": transaction.IsDebtor,
 		}).Debug("Categorizing transaction")
 	}
 
@@ -586,7 +643,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			Description: "Test mode - AI categorization skipped",
 		}, nil
 	}
-	
+
 	// 4. Use AI categorization only if enabled
 	if isAICategorizeEnabled() {
 		// Check if we have an API key configured
@@ -596,7 +653,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 				c.logger.Warn("AI categorization is enabled but no API key is set")
 			}
 			return models.Category{
-				Name:        "Uncategorized", 
+				Name:        "Uncategorized",
 				Description: "Transaction could not be categorized (no API key)",
 			}, nil
 		}
@@ -627,6 +684,34 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			}, nil
 		}
 		
+		// Automatically save successful AI categorizations to database
+		// This ensures that future classifications of the same transaction are faster
+		if category.Name != "" && category.Name != "Uncategorized" {
+			if transaction.IsDebtor {
+				c.logger.Debugf("Auto-learning debitor mapping for '%s' → '%s'", 
+					transaction.PartyName, category.Name)
+				c.updateDebitorCategory(transaction.PartyName, category.Name)
+				
+				// Force save to disk immediately
+				if err := c.saveDebitorsToYAML(); err != nil {
+					c.logger.Warnf("Failed to save debitor mapping: %v", err)
+				} else {
+					c.logger.Debugf("Successfully saved debitor mapping to YAML")
+				}
+			} else {
+				c.logger.Debugf("Auto-learning creditor mapping for '%s' → '%s'", 
+					transaction.PartyName, category.Name)
+				c.updateCreditorCategory(transaction.PartyName, category.Name)
+				
+				// Force save to disk immediately
+				if err := c.saveCreditorsToYAML(); err != nil {
+					c.logger.Warnf("Failed to save creditor mapping: %v", err)
+				} else {
+					c.logger.Debugf("Successfully saved creditor mapping to YAML")
+				}
+			}
+		}
+
 		return category, nil
 	}
 
@@ -661,8 +746,12 @@ func (c *Categorizer) updateCreditorCategory(creditor, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 
-	c.creditorMappings[creditorLower] = categoryName
-	c.isDirtyCreditors = true
+	// Only mark as dirty if the mapping actually changes
+	if existingCategory, exists := c.creditorMappings[creditorLower]; !exists || existingCategory != categoryName {
+		c.creditorMappings[creditorLower] = categoryName
+		c.isDirtyCreditors = true
+		c.logger.Debugf("Creditor mapping changed, marked as dirty: %s -> %s", creditorLower, categoryName)
+	}
 }
 
 // updateDebitorCategory adds or updates a debitor-to-category mapping
@@ -673,8 +762,12 @@ func (c *Categorizer) updateDebitorCategory(debitor, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 
-	c.debitorMappings[debitorLower] = categoryName
-	c.isDirtyDebitors = true
+	// Only mark as dirty if the mapping actually changes
+	if existingCategory, exists := c.debitorMappings[debitorLower]; !exists || existingCategory != categoryName {
+		c.debitorMappings[debitorLower] = categoryName
+		c.isDirtyDebitors = true
+		c.logger.Debugf("Debitor mapping changed, marked as dirty: %s -> %s", debitorLower, categoryName)
+	}
 }
 
 // getCreditorCategory retrieves the category for a given creditor if it exists
@@ -786,57 +879,55 @@ func SaveDebitorsToYAML() error {
 // saveCreditorsToYAML saves the current creditor mappings to the YAML file
 func (c *Categorizer) saveCreditorsToYAML() error {
 	c.configMutex.RLock()
-	isDirty := c.isDirtyCreditors
 	mappings := make(map[string]string)
 	for k, v := range c.creditorMappings {
 		mappings[k] = v
 	}
 	c.configMutex.RUnlock()
 
-	// Skip saving if nothing has changed
-	if !isDirty {
-		c.logger.Debugf("Creditor mappings have not changed, skipping save")
-		return nil
+	// Always save the mappings when explicitly requested (added for automated learning)
+	c.logger.Debug("Saving creditor mappings to YAML file")
+	
+	if c.store == nil {
+		return fmt.Errorf("store is not initialized")
 	}
 
-	// Save to YAML using the store
-	err := c.store.SaveCreditorMappings(mappings)
-	if err == nil {
-		// Mark as no longer dirty if saved successfully
-		c.configMutex.Lock()
-		c.isDirtyCreditors = false
-		c.configMutex.Unlock()
+	if err := c.store.SaveCreditorMappings(mappings); err != nil {
+		return fmt.Errorf("error saving creditor mappings: %w", err)
 	}
 
-	return err
+	c.configMutex.Lock()
+	c.isDirtyCreditors = false
+	c.configMutex.Unlock()
+
+	return nil
 }
 
 // saveDebitorsToYAML saves the current debitor mappings to the YAML file
 func (c *Categorizer) saveDebitorsToYAML() error {
 	c.configMutex.RLock()
-	isDirty := c.isDirtyDebitors
 	mappings := make(map[string]string)
 	for k, v := range c.debitorMappings {
 		mappings[k] = v
 	}
 	c.configMutex.RUnlock()
 
-	// Skip saving if nothing has changed
-	if !isDirty {
-		c.logger.Debugf("Debitor mappings have not changed, skipping save")
-		return nil
+	// Always save the mappings when explicitly requested (added for automated learning)
+	c.logger.Debug("Saving debitor mappings to YAML file")
+	
+	if c.store == nil {
+		return fmt.Errorf("store is not initialized")
 	}
 
-	// Save to YAML using the store
-	err := c.store.SaveDebitorMappings(mappings)
-	if err == nil {
-		// Mark as no longer dirty if saved successfully
-		c.configMutex.Lock()
-		c.isDirtyDebitors = false
-		c.configMutex.Unlock()
+	if err := c.store.SaveDebitorMappings(mappings); err != nil {
+		return fmt.Errorf("error saving debitor mappings: %w", err)
 	}
 
-	return err
+	c.configMutex.Lock()
+	c.isDirtyDebitors = false
+	c.configMutex.Unlock()
+
+	return nil
 }
 
 //------------------------------------------------------------------------------

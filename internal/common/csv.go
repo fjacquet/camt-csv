@@ -7,13 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/gocarina/gocsv"
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+var log = logging.GetLogger()
 
 // Delimiter for CSV output (default is ',')
 var Delimiter rune = ','
@@ -35,6 +36,9 @@ func SetDelimiter(delim rune) {
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
+	} else {
+		// If nil is passed, use our centralized logger
+		log = logging.GetLogger()
 	}
 }
 
@@ -65,7 +69,7 @@ func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
 
 // WriteTransactionsToCSV writes transactions to a CSV file in a standardized format.
 // All parsers should use this function to ensure consistent CSV output.
-// 
+//
 // Parameters:
 // - transactions: slice of Transaction objects to write
 // - csvFile: path to the output CSV file
@@ -111,14 +115,14 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 		transactions[i].UpdateNameFromParties()
 		transactions[i].UpdateRecipientFromPayee()
 		transactions[i].UpdateDebitCreditAmounts()
-		
+
 		// Set DebitFlag based on transactions[i].CreditDebit or amount sign
 		if transactions[i].CreditDebit == "DBIT" || transactions[i].Amount.IsNegative() {
 			transactions[i].DebitFlag = true
 		} else {
 			transactions[i].DebitFlag = false
 		}
-		
+
 		// Ensure all decimal values have 2 decimal places
 		// This is needed for proper CSV formatting that passes tests
 		transactions[i].Amount = models.ParseAmount(transactions[i].Amount.StringFixed(2))
@@ -157,8 +161,8 @@ func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) 
 	}
 
 	log.WithFields(logrus.Fields{
-		"count": len(transactions),
-		"file":  csvFile,
+		"count":     len(transactions),
+		"file":      csvFile,
 		"delimiter": string(Delimiter),
 	}).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
 
@@ -169,8 +173,8 @@ func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) 
 // GeneralizedConvertToCSV is a utility function that combines parsing and writing to CSV
 // This is used by parsers implementing the standard interface
 func GeneralizedConvertToCSV(
-	inputFile string, 
-	outputFile string, 
+	inputFile string,
+	outputFile string,
 	parseFunc func(string) ([]models.Transaction, error),
 	validateFunc func(string) (bool, error),
 ) error {
