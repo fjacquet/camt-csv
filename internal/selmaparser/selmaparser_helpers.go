@@ -114,7 +114,8 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 	// First pass: identify stamp duties and build the lookup map
 	for _, tx := range transactions {
 		if tx.Description == "stamp_duty" {
-			date := tx.Date
+			// Normalize date key to match processed transactions
+			date := models.FormatDate(tx.Date)
 			fund := tx.Fund
 
 			// Get the amount as a decimal
@@ -155,7 +156,8 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 		if tx.Description == "trade" && tx.Fund != "" {
 			if dayDuties, exists := stampDuties[tx.Date]; exists {
 				if dutyInfo, found := dayDuties[tx.Fund]; found {
-					tx.StampDuty = models.StandardizeAmount(dutyInfo.Amount.Neg().String())
+					// Associate stamp duty as a fee (decimal)
+					tx.Fees = dutyInfo.Amount
 				}
 			}
 		}

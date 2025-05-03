@@ -38,7 +38,7 @@ type Transaction struct {
 	Type              string          `csv:"Type"`              // Transaction type
 	Fund              string          `csv:"Fund"`              // Fund name if applicable
 	NumberOfShares    int             `csv:"NumberOfShares"`    // Number of shares for investment transactions
-	Fees              decimal.Decimal `csv:"Fees"`              // Transaction fees
+	Fees              decimal.Decimal `csv:"Fees"`              // Transaction fees (includes stamp duty)
 	IBAN              string          `csv:"IBAN"`              // IBAN if available
 	EntryReference    string          `csv:"EntryReference"`    // Entry reference number
 	Reference         string          `csv:"Reference"`         // Reference number
@@ -51,7 +51,6 @@ type Transaction struct {
 	// Fields not exported to CSV but used internally
 	Payee             string          `csv:"-"`                 // Beneficiary/recipient name (kept for backwards compatibility)
 	Payer             string          `csv:"-"`                 // Payer name (kept for backwards compatibility)
-	StampDuty         string          `csv:"-"`                 // Stamp duty amount (kept for backwards compatibility)
 }
 
 // ParseAmount parses a string amount to decimal.Decimal with proper formatting
@@ -376,6 +375,7 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 		return err
 	}
 	t.NumberOfShares = numberOfShares
+	// Fees includes stamp duty
 	t.Fees, err = decimal.NewFromString(record[25])
 	if err != nil {
 		return err

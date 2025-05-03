@@ -13,7 +13,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
-	"path/filepath"
 )
 
 var log = logrus.New()
@@ -233,74 +232,8 @@ func ProcessTransactions(transactions []models.Transaction) []models.Transaction
 // WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
 // that is specifically used by the Selma parser tests.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	if transactions == nil {
-		return fmt.Errorf("cannot write nil transactions to CSV")
-	}
-
-	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Writing transactions to CSV file")
-
-	// Create the directory if it doesn't exist
-	dir := filepath.Dir(csvFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.WithError(err).Error("Failed to create directory")
-		return fmt.Errorf("error creating directory: %w", err)
-	}
-
-	// Create the file
-	file, err := os.Create(csvFile)
-	if err != nil {
-		log.WithError(err).Error("Failed to create CSV file")
-		return fmt.Errorf("error creating CSV file: %w", err)
-	}
-	defer file.Close()
-
-	// Configure CSV writer with custom delimiter
-	csvWriter := csv.NewWriter(file)
-	csvWriter.Comma = common.Delimiter
-
-	// Write the header
-	header := []string{"Date", "Description", "Amount", "Currency", "Category"}
-	if err := csvWriter.Write(header); err != nil {
-		log.WithError(err).Error("Failed to write CSV header")
-		return fmt.Errorf("error writing CSV header: %w", err)
-	}
-
-	// Write each transaction
-	for _, tx := range transactions {
-		// Convert date from YYYY-MM-DD to DD.MM.YYYY format
-		date := models.FormatDate(tx.Date)
-		// Format the amount with 2 decimal places
-		amount := tx.Amount.StringFixed(2)
-		
-		row := []string{
-			date,
-			tx.Description,
-			amount,
-			tx.Currency,
-			"", // Empty category
-		}
-		
-		if err := csvWriter.Write(row); err != nil {
-			log.WithError(err).Error("Failed to write CSV row")
-			return fmt.Errorf("error writing CSV row: %w", err)
-		}
-	}
-
-	csvWriter.Flush()
-	if err := csvWriter.Error(); err != nil {
-		log.WithError(err).Error("Error flushing CSV writer")
-		return fmt.Errorf("error flushing CSV writer: %w", err)
-	}
-
-	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Successfully wrote transactions to CSV file")
-
-	return nil
+	// Delegate to standardized CSV writer in common
+	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // ValidateFormat checks if a file is in valid Selma CSV format.
