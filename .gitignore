@@ -34,5 +34,3 @@ work
 /camt-csv
 temp
 internal/pdfparser/debug_pdf_extract.txt
-debug_pdf_content.txt
-debug_pdf_extract.txt

@@ -12,6 +12,7 @@ import (
 
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
@@ -64,48 +65,103 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 
 	// Convert RevolutCSVRow objects to Transaction objects
 	var transactions []models.Transaction
-	for _, row := range revolutRows {
+	for i := range revolutRows {
 		// Skip empty rows
-		if row.CompletedDate == "" || row.Description == "" {
+		if revolutRows[i].CompletedDate == "" || revolutRows[i].Description == "" {
 			continue
 		}
 
 		// Only include completed transactions
-		if row.State != "COMPLETED" {
+		if revolutRows[i].State != "COMPLETED" {
 			continue
 		}
 
+		// Process description for special transfers
+		if revolutRows[i].Type == "TRANSFER" {
+			if strings.Contains(revolutRows[i].Description, "To CHF Vacances") {
+				if revolutRows[i].Product == "CURRENT" {
+					revolutRows[i].Description = "Transfert to CHF Vacances"
+				} else if revolutRows[i].Product == "SAVINGS" {
+					revolutRows[i].Description = "Transferred To CHF Vacances"
+				}
+			}
+			// Add other transfer type handling here if needed
+		}
+
 		// Convert Revolut row to Transaction
-		tx, err := convertRevolutRowToTransaction(row)
+		tx, err := convertRevolutRowToTransaction(revolutRows[i])
 		if err != nil {
-			log.WithError(err).WithField("row", row).Warn("Failed to convert row to transaction")
+			log.WithError(err).WithField("row", revolutRows[i]).Warn("Failed to convert row to transaction")
 			continue
+		}
+
+		// Categorize the transaction
+		category, err := categorizer.CategorizeTransaction(categorizer.Transaction{
+			PartyName:   tx.Description,
+			Description: tx.Description,
+			Amount:      tx.Amount.StringFixed(2),
+			IsDebtor:    tx.CreditDebit == "DBIT",
+			Date:        tx.Date,
+		})
+		if err != nil {
+			log.WithError(err).Warn("Failed to categorize transaction")
+		} else {
+			tx.Category = category.Name
 		}
 
 		transactions = append(transactions, tx)
 	}
 
-	log.WithField("count", len(transactions)).Info("Successfully parsed Revolut CSV file")
-	return transactions, nil
+	// Post-process transactions to apply specific description transformations
+	processedTransactions := postProcessTransactions(transactions)
+
+	log.WithField("count", len(processedTransactions)).Info("Successfully parsed Revolut CSV file")
+	return processedTransactions, nil
+}
+
+// postProcessTransactions applies additional processing to transactions after they've been created
+// specifically for handling special cases like transfer descriptions
+func postProcessTransactions(transactions []models.Transaction) []models.Transaction {
+	for i := range transactions {
+		// Handle descriptions for transfers to CHF Vacances
+		if transactions[i].Type == "TRANSFER" && transactions[i].Description == "To CHF Vacances" {
+			if transactions[i].CreditDebit == "DBIT" {
+				transactions[i].Description = "Transfert to CHF Vacances"
+				transactions[i].Name = "Transfert to CHF Vacances"
+				transactions[i].PartyName = "Transfert to CHF Vacances"
+				transactions[i].Recipient = "Transfert to CHF Vacances"
+			} else {
+				transactions[i].Description = "Transferred To CHF Vacances"
+				transactions[i].Name = "Transferred To CHF Vacances"
+				transactions[i].PartyName = "Transferred To CHF Vacances"
+				transactions[i].Recipient = "Transferred To CHF Vacances"
+			}
+		}
+	}
+	return transactions
 }
 
 // convertRevolutRowToTransaction converts a RevolutCSVRow to a Transaction
 func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, error) {
-	// Determine credit/debit based on amount sign
-	creditDebit := "CRDT" // Default to credit
-	amount := row.Amount
+	var creditDebit string
+	var isDebit bool
 
-	if strings.HasPrefix(amount, "-") {
+	// Now that descriptions are modified at the row level in ParseFile,
+	// we only need to determine credit/debit status here
+	if strings.HasPrefix(row.Amount, "-") {
+		isDebit = true
 		creditDebit = "DBIT"
-		// Remove the negative sign for consistency
-		amount = strings.TrimPrefix(amount, "-")
+	} else {
+		isDebit = false
+		creditDebit = "CRDT"
 	}
 
 	// Format dates to DD.MM.YYYY format for consistency
 	completedDate := models.FormatDate(row.CompletedDate)
 	startedDate := models.FormatDate(row.StartedDate)
 
-	// Parse amount to decimal
+	// Parse amount to decimal (remove negative sign for internal calculations)
+	amount := strings.TrimPrefix(row.Amount, "-")
 	amountDecimal, err := decimal.NewFromString(amount)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("error parsing amount to decimal: %w", err)
@@ -129,8 +185,7 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 		creditAmount = amountDecimal
 	}
 
-	// Set name based on transaction type
-	name := "Revolut"
+	// Set payee/payer based on description
 	payee := row.Description
 	payer := row.Description
 
@@ -139,10 +194,12 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 		Status:           row.State,
 		Date:             completedDate,
 		ValueDate:        startedDate,
-		Name:             name,
+		Name:             row.Description,
+		PartyName:        row.Description,
 		Description:      row.Description,
 		Amount:           amountDecimal,
 		CreditDebit:      creditDebit,
+		DebitFlag:        isDebit,  // Set the DebitFlag (maps to IsDebit in CSV)
 		Debit:            debitAmount,
 		Credit:           creditAmount,
 		Currency:         row.Currency,
