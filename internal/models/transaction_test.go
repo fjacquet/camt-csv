@@ -158,3 +158,23 @@ func TestStandardizeAmount(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateInvestmentTypeFromLegacyField(t *testing.T) {
+    t.Run("CopyFromType", func(t *testing.T) {
+        tx := &Transaction{Type: "Buy"}
+        tx.UpdateInvestmentTypeFromLegacyField()
+        assert.Equal(t, "Buy", tx.Investment)
+    })
+
+    t.Run("DoNotOverride", func(t *testing.T) {
+        tx := &Transaction{Investment: "Sell", Type: "Buy"}
+        tx.UpdateInvestmentTypeFromLegacyField()
+        assert.Equal(t, "Sell", tx.Investment)
+    })
+
+    t.Run("EmptyFields", func(t *testing.T) {
+        tx := &Transaction{}
+        tx.UpdateInvestmentTypeFromLegacyField()
+        assert.Equal(t, "", tx.Investment)
+    })
+}

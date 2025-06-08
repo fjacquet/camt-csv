@@ -150,10 +150,12 @@ func (t *Transaction) UpdateRecipientFromPayee() {
 }
 
 // UpdateInvestmentTypeFromInvestment ensures the InvestmentType field is set
+// UpdateInvestmentTypeFromLegacyField populates Investment when legacy parsers stored
+// this information in the Type field. If Investment is empty and Type is set, copy it.
 func (t *Transaction) UpdateInvestmentTypeFromLegacyField() {
-	if t.Investment == "" {
-		t.Investment = t.GetPartyName()
-	}
+        if t.Investment == "" && t.Type != "" {
+                t.Investment = t.Type
+        }
 }
 
 // UpdateDebitCreditAmounts populates the Debit and Credit fields based on the main Amount
