@@ -3,6 +3,7 @@
 777-pressing 5asec: Services
 777-pressing 5asec montr, romanel-sur-l ch: Services
 adm westside lv, bern ch: Restaurants
+al cilento: Restaurants
 al volo pizzeria: Restaurants
 amag automobil- und motoren ag: Voiture
 amavita montreux 100: Santé
@@ -19,7 +20,7 @@ apple.com/bill, itunes.com ie: Abonnements
 apple.com/bill, itunes.com ie - biens numériques: Divertissement
 asloca: Logement
 asloca montreux: Logement
-au grotto: Res
+au grotto: Restaurants
 avenir assurance malad: Assurances
 avenir assurance maladie sa: Assurance Maladie
 avenir assurances maladie sa: Assurance Maladie
@@ -30,11 +31,13 @@ aws emea, aws.amazon.co lu: Services
 aws emea, aws.amazon.co lu chf - services commerciaux: Services
 back pain solutions sarl: Pension
 badehotel bristol ag, leukerbad ch: Séjours
+balance migration to another region or legal entity: Transferts
 bank frick + co. ag: Services
 bazar suisse: Shopping
 bcv-net: Virements
 berger paints: Shopping
 berghotel wildstrubel: Restaurants
+billetterie mdc: Divertissement
 bistrot saint d 4044671, 75paris 7 fr: Restaurants
 boreal coffee shop: Alimentation
 boucherie la: Alimentation
@@ -61,6 +64,7 @@ cembra money bank sa: Services
 cembrapay sa: Services
 centre hospitalier universitaire vaudois / chuv: Santé
 cff gare montreux, montreux ch: Transports Publics
+cff genève cornavin: Transports Publics
 cff montreux wc: Utilités
 cff vevey wc: Utilités
 christ-3875, montreux ch: Shopping
@@ -94,6 +98,7 @@ croix-rouge vaudoise: Dons
 daniel  et lana vergeres: Voyages
 david fortsch: Pension
 david staeheli: Virements
+decathlon: Sport
 dell sa: Salaire
 der touristik suisse sa: Voyages
 dertour suisse ag: Voyages
@@ -105,8 +110,10 @@ disney plus, 800-022-1476 nl: Divertissement
 dynapresse marketing sa: Abonnements
 easypark: Voiture
 eca vd: Assurances
+echo fourviere: Non Classé
 eco it: Loisirs
 editions plus s.a r.l.: Abonnements
+editions plus s.a.r.l: Abonnements
 editions plus s.à r.l.: Abonnements
 elvetino: Restaurants
 etabl. ass. contre l'incendie et les elements naturels canton vd (eca): Assurances
@@ -115,6 +122,7 @@ exchange to ada: Investissements
 exchange to chf: Frais Bancaires
 exchange to eur: Frais Bancaires
 express: Virements
+expresso n1: Restaurants
 federation suisse des sourds: Dons
 filae: Abonnements
 firecrawl.dev, www.firecrawl us: Services
@@ -122,6 +130,7 @@ fitnesspark bernaqua west, bern ch: Loisirs
 flonplex sa: Divers
 florence jacquet: Virements
 fnac - montreux: Shopping
+fnac montreux: Shopping
 fondation prev. ep3 bcv: Cadeaux
 frederic jacquet: Virements
 fun planet rennaz: Loisirs
@@ -155,16 +164,20 @@ k-kiosk: Shopping
 keyfinder: Services
 kiddy dome swiss ag, rohrbach ch: Enfants
 kuoni voyages: Voyages
+l acquolina: Restaurants
+la brasserie des: Restaurants
 la molisana: Restaurants
 la rotisserie 2, zurich ch: Restaurants
 la rouvenaz, montreux ch: Restaurants
 la societe de theatre: Loisirs
+la table de montreux: Restaurants
 la table de montreux, montreux ch: Restaurants
 le kamuy ramen isaka: Restaurants
 le minestrone: Alimentation
 le minestrone, montreux ch: Alimentation
 le minestrone, montreux ch - restaurants, bistros: Alimentation
 le nouvelliste: Abonnements
+le palais saint jean: Restaurants
 le piaf - deli cafébar luzern: Restaurants
 le royal opera, paris fr: Restaurants
 le snack: Restaurants
@@ -172,6 +185,7 @@ le temps, geneve - services publicitaires: Abonnements
 le temps, geneve 2 ch: Abonnements
 lego store: Shopping
 lemonway: Shopping
+les bateaux lyonnais: Loisirs
 let s go fitness montreux sa: Sport
 lhc gourmet sa, prilly ch: Restaurants
 ligue vaudoise contre le cancer: Assurances
@@ -179,6 +193,8 @@ livique-5110 villene: Mobilier
 livique-5110 villeneuv: Mobilier
 llb leukerbad, leukerbad ch: Voyages
 location safe saf 5516.14.96: Services
+lyon cc part dieu un.: Shopping
+ma jong: Loisirs
 mammut: Shopping
 manor ag - 225: Shopping
 manor ag - 225 (vevn): Shopping
@@ -191,6 +207,7 @@ media markt aigle, aigle ch: Restaurants
 media markt aigle, aigle ch - ventes électroniques: Shopping
 medium: Services
 merz back.-conf. verkaufs, chur ch: Restaurants
+micromania: Divertissement
 microsoft#g071184374, msbill.info ch: Abonnements
 microsoft#g075196914, msbill.info ch: Abonnements
 microsoft#g079431732, msbill.info ch: Abonnements
@@ -213,12 +230,14 @@ mosca vins sa, montreux ch - bières, vins, spiritueux: Alimentation
 motel de la gruyère: Restaurants
 muller handels ag schw: Shopping
 muller handels ag schweiz, montreux ch: Shopping
+museum of cinema miniature: Loisirs
 mutuel assurance maladie sa: Assurance Maladie
 mutuel assurances maladie sa: Assurance Maladie
 my leukerbad: Voyages
 my leukerbad ag: Voyages
 my leukerbad ag spor: Voyages
 müller handels ag sc: Shopping
+nd fourviere: Non Classé
 nicole sanchez: Shopping
 notion labs, inc., notion.so us: Abonnements
 notion labs, inc., notion.so us usd - services it, programmation: Services
@@ -232,9 +251,11 @@ ordre lsv +: Virements
 paddle.net* feedly, london gb: Abonnements
 paddle.net* n8n cloud1, lisboa pt: Abonnements
 pamela pitteloud: Virements
+parking de la paix: Voiture
 parking-relais lausa: Voiture
 patrick dobler: Virements
 patrick marki: r
+paul: Divers
 paybyphone suisse ag: Transports Publics
 paycard c/o retail marketing switzerland ag: Frais Bancaires
 payot libraire sa: Shopping
@@ -251,6 +272,7 @@ piscine de la: Sport
 piscine de la malada: Sport
 piscine et spa: Sport
 piscine et spa de zi: Sport
+piscine patinoir: Loisirs
 piz piz, davos ch: Restaurants
 pizzeria al: Restaurants
 pizzeria al volo: Restaurants
@@ -262,6 +284,8 @@ polizia cantonale: Taxes
 post online: Shopping
 premium plan fee: Frais Bancaires
 pressing 5asec: Services
+public transport: Shopping
+qoqa: Divers
 quartier 5 restaurant: Restaurants
 radisson blu boulogne fo, boulogne-bill fr: Séjours
 radisson blu hotel lucern, luzern ch: Séjours
@@ -270,12 +294,15 @@ rathausstrasse: Voiture
 ratp: Transports Publics
 rega: Dons
 relay: Shopping
+relay genève aig g: Shopping
 rest walliserkanne, zermatt ch: Restaurants
 rest walliserkanne, zermatt ch - restaurants, bistros: Restaurants
+restaurant cecile: Restaurants
 restaurant dolce, montreux ch: Restaurants
 restaurant dolce, montreux ch - restaurants, bistros: Restaurants
 restaurant huit, montreux ch: Restaurants
 restaurant i'ltoya, chavannes re ch: Restaurants
+restaurant iles: Restaurants
 restaurant la detente, corminboeuf ch: Restaurants
 restaurant la rouvenaz sa, montreux ch: Restaurants
 restaurant le milan, lausanne ch: Restaurants
@@ -288,9 +315,12 @@ retrait bcv montreux 1: Divers
 retrait bcv montreux forum: Divers
 retrait br montreux gare: Divers
 retrait rb brig sbb: Divers
+retrait rb simplon dorf: Retraits
 retrait ubs montreux: Divers
 retraites populaires: Logement
+revolut ltd: Non Classé
 rhb webshop: Shopping
+roblox: Divertissement
 romande energie sa: Utilités
 royalty entertainmen: Divers
 sbb cff ffs: Transports Publics
@@ -305,14 +335,19 @@ securite riviera: Assurances
 selecta: Alimentation
 selma_fee: Frais Bancaires
 serafe ag: Taxes
+serper: Non Classé
 service automobiles et navigation: Taxes
 smeetz sa: Services
 sncf-voyageurs, mitry mory fr: Restaurants
 sns*paul ullrich ag, bern ch: Restaurants
 societe de tir: Loisirs
 spielkiste verkehrshau: Transports Publics
+spl: Non Classé
 stamp_duty: Frais Bancaires
+starbucks: Restaurants
 suisse rando: Dons
+sumup  *restaurant d: Restaurants
+sunday l osteria lyo: Restaurants
 sunrise communications ag: Services
 sunrise gmbh: Services
 sushi shop geneve: Restaurants
@@ -326,10 +361,14 @@ swisscom (schweiz) ag: Utilités
 swisscom grossunterneh: Abonnements
 swisspass c/o mf group ag: Transports Publics
 switchplus: Loisirs
+taxi franck: Transport Privé
 the grill, le grand-saco ch: Restaurants
 the grill, le grand-saco ch - restaurants, bistros: Restaurants
 thermalbad brigerbad: Loisirs
+to chf: Virements
 to chf vacances: Virements
+to investment account: Investissements
+toilette gare lyon: Transports Publics
 tom's saloon, leukerbad ch: Restaurants
 totem escalade sa: Sport
 trade: Frais Bancaires
@@ -350,6 +389,7 @@ viseca payment services: Virements
 viseca payment services sa: Virements
 vorwerk ch: Shopping
 vzug: Shopping
+westfield la part-dieu: Shopping
 wikimedia ch: Dons
 windsurf, codeium.com us: Services
 windsurf, windsurf.com us: Services
