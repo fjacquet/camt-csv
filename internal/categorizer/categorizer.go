@@ -30,8 +30,8 @@ import (
 
 // Transaction represents a financial transaction to be categorized
 type Transaction struct {
-	PartyName   string // Name of the relevant party (creditor or debitor)
-	IsDebtor    bool   // true if the party is a debitor (sender), false if creditor (recipient)
+	PartyName   string // Name of the relevant party (creditor or debtor)
+	IsDebtor    bool   // true if the party is a debtor (sender), false if creditor (recipient)
 	Amount      string
 	Date        string
 	Info        string
