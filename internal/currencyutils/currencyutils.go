@@ -29,13 +29,13 @@ func ParseAmount(amountStr string) (decimal.Decimal, error) {
 
 	// Standardize the amount string (remove currency symbols, extra spaces, etc.)
 	standardized := StandardizeAmount(amountStr)
-	
+
 	// Parse the standardized string
 	amount, err := decimal.NewFromString(standardized)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to parse amount '%s': %w", amountStr, err)
 	}
-	
+
 	return amount, nil
 }
 
@@ -45,7 +45,7 @@ func StandardizeAmount(amountStr string) string {
 	// Remove all currency symbols and extra whitespace
 	re := regexp.MustCompile(`[€$£¥₣₤₧₹₺₽₩฿₫₲₴₸₼₪CHF\s]`)
 	amountStr = re.ReplaceAllString(amountStr, "")
-	
+
 	// Handle European format (1.234,56) -> (1234.56)
 	if strings.Contains(amountStr, ",") && strings.Contains(amountStr, ".") {
 		if strings.LastIndex(amountStr, ".") < strings.LastIndex(amountStr, ",") {
@@ -65,19 +65,20 @@ func StandardizeAmount(amountStr string) string {
 			amountStr = strings.ReplaceAll(amountStr, ",", "")
 		}
 	}
-	
+
 	// Remove apostrophes used as thousand separators (1'234.56)
 	amountStr = strings.ReplaceAll(amountStr, "'", "")
-	
+
 	return amountStr
 }
 
-// FormatAmount formats a decimal amount to a consistent display format with the specified currency
-// Returns strings like "CHF 1,234.56" or "€1,234.56"
+// FormatAmount formats a decimal amount to a consistent display format with the specified currency.
+// The amount is formatted with two decimal places without inserting thousands separators.
+// Returns strings like "CHF 1234.56" or "€1234.56"
 func FormatAmount(amount decimal.Decimal, currency string) string {
-	// Format the amount with 2 decimal places and comma as thousands separator
+	// Format the amount with 2 decimal places without thousands separators
 	formattedAmount := amount.StringFixed(2)
-	
+
 	// Add currency symbol or code
 	if currency != "" {
 		switch strings.ToUpper(currency) {
@@ -95,7 +96,7 @@ func FormatAmount(amount decimal.Decimal, currency string) string {
 			return currency + " " + formattedAmount
 		}
 	}
-	
+
 	return formattedAmount
 }
 
@@ -126,7 +127,7 @@ func AmountExcludingTax(totalAmount decimal.Decimal, taxRatePercent decimal.Deci
 	if taxRatePercent.Equal(decimal.NewFromInt(100)) {
 		return decimal.Zero
 	}
-	
+
 	divisor := decimal.NewFromInt(100).Add(taxRatePercent)
 	return totalAmount.Mul(decimal.NewFromInt(100)).Div(divisor).Round(2)
 }
