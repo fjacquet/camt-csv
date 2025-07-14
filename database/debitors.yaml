@@ -81,6 +81,7 @@ coop mineraloel ag: Alimentation
 coop pronto: Alimentation
 coop pronto lausanne g: Alimentation
 coop pronto montreux: Alimentation
+coop station renens: Alimentation
 coop-4225 montreux: Alimentation
 coop-4225 montreux, montreux ch: Alimentation
 coop-5240 zh: Alimentation
@@ -88,6 +89,7 @@ coop-5240 zh pfingstwe: Alimentation
 coop-5553 rennaz: Alimentation
 coop-5553 rennaz, rennaz ch: Alimentation
 coop-6130 ge: Alimentation
+coop-6130 ge gare co: Alimentation
 coop-6130 ge gare corn: Alimentation
 coop-6134 leukerbad: Alimentation
 coop-6134 leukerbad, leukerbad ch: Shopping
@@ -103,6 +105,7 @@ dell sa: Salaire
 der touristik suisse sa: Voyages
 dertour suisse ag: Voyages
 descript, descript.com us: Shopping
+dhl express (schweiz): Services
 dhl express schweiz, basel ch: Services
 digitec galaxus: Shopping
 digitec galaxus (online), zurich ch: Restaurants
@@ -116,12 +119,14 @@ editions plus s.a r.l.: Abonnements
 editions plus s.a.r.l: Abonnements
 editions plus s.à r.l.: Abonnements
 elvetino: Restaurants
+elvetino ag: Non Classé
 etabl. ass. contre l'incendie et les elements naturels canton vd (eca): Assurances
 etablissement cantonal d assurance: Assurance Maladie
 exchange to ada: Investissements
 exchange to chf: Frais Bancaires
 exchange to eur: Frais Bancaires
 express: Virements
+express jacquet frederic yvan: Virements
 expresso n1: Restaurants
 federation suisse des sourds: Dons
 filae: Abonnements
@@ -136,6 +141,7 @@ frederic jacquet: Virements
 fun planet rennaz: Loisirs
 fun planet rennaz, rennaz ch: Restaurants
 fun planet rennaz, rennaz ch - salles de jeux et de billards: Loisirs
+fédération suisse des: Non Classé
 gate gourmet he: Alimentation
 gate gourmet helvetia: Assurances
 generali personenversicherungen ag: Assurances
@@ -217,7 +223,9 @@ mig migrolino: Alimentation
 mig migrolino martigny: Alimentation
 mig migrolino montreux: Alimentation
 migrolino: Alimentation
+migrolino montreux: Alimentation
 migros: Alimentation
+migros m flon europe: Alimentation
 migros mm leukerbad: Alimentation
 migros montreux forum: Alimentation
 mistral: Services
@@ -297,6 +305,7 @@ relay: Shopping
 relay genève aig g: Shopping
 rest walliserkanne, zermatt ch: Restaurants
 rest walliserkanne, zermatt ch - restaurants, bistros: Restaurants
+rest. piazza san mar: Restaurants
 restaurant cecile: Restaurants
 restaurant dolce, montreux ch: Restaurants
 restaurant dolce, montreux ch - restaurants, bistros: Restaurants
@@ -318,6 +327,7 @@ retrait rb brig sbb: Divers
 retrait rb simplon dorf: Retraits
 retrait ubs montreux: Divers
 retraites populaires: Logement
+revolut bank uab: Virements
 revolut ltd: Non Classé
 rhb webshop: Shopping
 roblox: Divertissement
@@ -338,11 +348,14 @@ serafe ag: Taxes
 serper: Non Classé
 service automobiles et navigation: Taxes
 smeetz sa: Services
+snack pontrouge: Restaurants
 sncf-voyageurs, mitry mory fr: Restaurants
 sns*paul ullrich ag, bern ch: Restaurants
 societe de tir: Loisirs
+souscr.    460782: Abonnements
 spielkiste verkehrshau: Transports Publics
 spl: Non Classé
+sports 2000: Shopping
 stamp_duty: Frais Bancaires
 starbucks: Restaurants
 suisse rando: Dons
@@ -362,6 +375,7 @@ swisscom grossunterneh: Abonnements
 swisspass c/o mf group ag: Transports Publics
 switchplus: Loisirs
 taxi franck: Transport Privé
+the grill: Restaurants
 the grill, le grand-saco ch: Restaurants
 the grill, le grand-saco ch - restaurants, bistros: Restaurants
 thermalbad brigerbad: Loisirs
@@ -385,6 +399,7 @@ verkehrshaus der schweiz: Loisirs
 victorinox https://www: Shopping
 vir twint david staeheli: Virements
 vir twint patrick marki: Virements
+virement compte: Virements
 viseca payment services: Virements
 viseca payment services sa: Virements
 vorwerk ch: Shopping
