@@ -21,7 +21,7 @@ var (
 	DateLayoutUS        = "01/02/2006"
 	DateLayoutFull      = "2006-01-02 15:04:05"
 	DateLayoutWithMonth = "2-Jan-2006"
-	
+
 	// List of standard formats to try when parsing dates
 	CommonFormats = []string{
 		DateLayoutISO,
@@ -50,14 +50,14 @@ func SetLogger(logger *logrus.Logger) {
 func ParseDate(dateStr string) (time.Time, string, error) {
 	// Clean up the date string
 	dateStr = CleanDateString(dateStr)
-	
+
 	// Try each format until one works
 	for _, format := range CommonFormats {
 		if t, err := time.Parse(format, dateStr); err == nil {
 			return t, format, nil
 		}
 	}
-	
+
 	return time.Time{}, "", fmt.Errorf("unable to parse date: %s", dateStr)
 }
 
@@ -79,11 +79,11 @@ func ToISODate(date time.Time) string {
 func CleanDateString(dateStr string) string {
 	// Trim whitespace
 	dateStr = strings.TrimSpace(dateStr)
-	
+
 	// Replace multiple spaces with a single space
 	re := regexp.MustCompile(`\s+`)
 	dateStr = re.ReplaceAllString(dateStr, " ")
-	
+
 	return dateStr
 }
 
@@ -152,14 +152,15 @@ func ExtractYear(dateStr string) int {
 }
 
 // CompareDates compares two dates and returns:
-//   -1 if date1 is before date2
-//    0 if date1 is equal to date2
-//    1 if date1 is after date2
+//
+//	-1 if date1 is before date2
+//	 0 if date1 is equal to date2
+//	 1 if date1 is after date2
 func CompareDates(date1, date2 time.Time) int {
 	// Normalize dates to remove time component
 	date1 = time.Date(date1.Year(), date1.Month(), date1.Day(), 0, 0, 0, 0, time.UTC)
 	date2 = time.Date(date2.Year(), date2.Month(), date2.Day(), 0, 0, 0, 0, time.UTC)
-	
+
 	if date1.Before(date2) {
 		return -1
 	} else if date1.After(date2) {

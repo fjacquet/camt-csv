@@ -201,7 +201,7 @@ func determineCreditDebit(transactionType, amount string) string {
 	// For Selma, "trade" with negative amount typically means outgoing money (DBIT)
 	if transactionType == "trade" && strings.HasPrefix(amount, "-") {
 		return "DBIT"
-	} 
+	}
 
 	// If we can't determine from type, try to use the amount sign
 	if strings.HasPrefix(amount, "-") {

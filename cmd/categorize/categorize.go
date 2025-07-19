@@ -29,10 +29,10 @@ func init() {
 
 func categorizeFunc(cmd *cobra.Command, args []string) {
 	root.Log.Info("Categorize command called")
-	
+
 	// Ensure the environment variables are loaded
 	config.LoadEnv()
-	
+
 	if root.PartyName != "" {
 		// Create a transaction object to categorize
 		transaction := categorizer.Transaction{
@@ -42,14 +42,14 @@ func categorizeFunc(cmd *cobra.Command, args []string) {
 			Date:      root.Date,
 			Info:      root.Info,
 		}
-		
+
 		// Categorize the transaction
 		category, err := categorizer.CategorizeTransaction(transaction)
 		if err != nil {
 			root.Log.Errorf("Error categorizing transaction: %v", err)
 		} else {
 			root.Log.Infof("Category: %s", category.Name)
-			
+
 			// The mappings are automatically updated through CategorizeTransaction
 			root.Log.Infof("Transaction categorized as: %s", category.Name)
 		}

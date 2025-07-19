@@ -51,12 +51,12 @@ func ReadFile(filePath string) ([]byte, error) {
 	if !FileExists(filePath) {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
-	
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
-	
+
 	return data, nil
 }
 
@@ -68,12 +68,12 @@ func WriteFile(filePath string, data []byte, perm os.FileMode) error {
 	if err := EnsureDirectoryExists(dir); err != nil {
 		return err
 	}
-	
+
 	// Write to file
 	if err := os.WriteFile(filePath, data, perm); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -82,12 +82,12 @@ func OpenFile(filePath string) (*os.File, error) {
 	if !FileExists(filePath) {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
-	
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	
+
 	return file, nil
 }
 
@@ -98,12 +98,12 @@ func CreateFile(filePath string) (*os.File, error) {
 	if err := EnsureDirectoryExists(dir); err != nil {
 		return nil, err
 	}
-	
+
 	file, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
-	
+
 	return file, nil
 }
 
@@ -112,9 +112,9 @@ func ListFilesWithExtension(dirPath, extension string) ([]string, error) {
 	if !DirectoryExists(dirPath) {
 		return nil, fmt.Errorf("directory does not exist: %s", dirPath)
 	}
-	
+
 	var files []string
-	
+
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -124,10 +124,10 @@ func ListFilesWithExtension(dirPath, extension string) ([]string, error) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list files: %w", err)
 	}
-	
+
 	return files, nil
 }

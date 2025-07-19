@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
-	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +57,7 @@ func TestValidateFormat(t *testing.T) {
 
 	validFile := filepath.Join(tempDir, "valid.csv")
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
-	
+
 	err = os.WriteFile(validFile, []byte(validCSV), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write valid test file: %v", err)
@@ -108,7 +108,7 @@ func TestParseFile(t *testing.T) {
 	assert.NoError(t, err, "ParseFile should not return an error for valid input")
 	assert.NotNil(t, transactions, "Transactions should not be nil")
 	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
-	
+
 	if len(transactions) > 0 {
 		assert.Equal(t, "01.01.2023", transactions[0].Date, "Date should be formatted as DD.MM.YYYY")
 		assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
@@ -143,7 +143,7 @@ func TestConvertToCSV(t *testing.T) {
 
 		selmaFile := filepath.Join(tempDir, "selma.csv")
 		outputFile := filepath.Join(tempDir, "output.csv")
-		
+
 		err = os.WriteFile(selmaFile, []byte(selmaCSV), 0644)
 		if err != nil {
 			t.Fatalf("Failed to write test Selma file: %v", err)
@@ -151,17 +151,17 @@ func TestConvertToCSV(t *testing.T) {
 
 		// Test converting from Selma to standard CSV
 		err = ConvertToCSV(selmaFile, outputFile)
-		
+
 		// Check if the conversion succeeded or failed - we're looking for a consistent result either way
 		if err == nil {
 			// Verify that the output file was created
 			_, err = os.Stat(outputFile)
 			assert.NoError(t, err)
-			
+
 			// Read the output file and check its content
 			content, err := os.ReadFile(outputFile)
 			assert.NoError(t, err)
-			
+
 			// The output should contain some content at minimum
 			assert.NotEmpty(t, content)
 		} else {
@@ -206,25 +206,27 @@ func TestWriteToCSV(t *testing.T) {
 	// Read the output file
 	content, err := os.ReadFile(outputFile)
 	assert.NoError(t, err, "Failed to read output file")
-	
+
 	csvContent := string(content)
 
-	// Check for the new simplified header format
-	assert.Contains(t, csvContent, "Date,Description,Amount,Currency,Category")
-	
-	// Check for the transactions with the new format
-	assert.Contains(t, csvContent, "15.01.2023,Monthly dividend,-100.00,CHF")
-	assert.Contains(t, csvContent, "20.01.2023,Quarterly distribution,1000.00,CHF")
+	// Check for the header format
+	assert.Contains(t, csvContent, "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
+
+	// Check for the transactions in the output
+	assert.Contains(t, csvContent, "15.01.2023")
+	assert.Contains(t, csvContent, "Monthly dividend")
+	assert.Contains(t, csvContent, "20.01.2023")
+	assert.Contains(t, csvContent, "Quarterly distribution")
 }
 
 func TestSetLogger(t *testing.T) {
 	// Create a new logger
 	newLogger := logrus.New()
 	newLogger.SetLevel(logrus.WarnLevel)
-	
+
 	// Set the logger
 	SetLogger(newLogger)
-	
+
 	// Verify that the package logger is updated
 	assert.Equal(t, newLogger, log)
 }

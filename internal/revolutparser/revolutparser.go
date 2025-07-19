@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
@@ -191,41 +191,41 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 
 	transaction := models.Transaction{
 		BookkeepingNumber: "", // Revolut doesn't provide this
-		Status:           row.State,
-		Date:             completedDate,
-		ValueDate:        startedDate,
-		Name:             row.Description,
-		PartyName:        row.Description,
-		Description:      row.Description,
-		Amount:           amountDecimal,
-		CreditDebit:      creditDebit,
-		DebitFlag:        isDebit,  // Set the DebitFlag (maps to IsDebit in CSV)
-		Debit:            debitAmount,
-		Credit:           creditAmount,
-		Currency:         row.Currency,
-		AmountExclTax:    amountDecimal, // Default to full amount
-		AmountTax:        decimal.Zero,  // Revolut doesn't provide tax details
-		TaxRate:          decimal.Zero,
-		Recipient:        payee,
-		Investment:       row.Type,      // Use transaction type as investment type
-		Number:           "",            // Not provided by Revolut
-		Category:         "",            // Will be categorized later
-		Type:             row.Type,
-		Fund:             "",            // Not provided by Revolut
-		NumberOfShares:   0,             // Revolut transactions don't have shares
-		Fees:             feeDecimal,
-		IBAN:             "",            // Not provided by Revolut
-		EntryReference:   "",
-		Reference:        "",
-		AccountServicer:  "",
-		BankTxCode:       "",
-		OriginalCurrency: "",            // Not handling foreign currencies for now
-		OriginalAmount:   decimal.Zero,
-		ExchangeRate:     decimal.Zero,
-		
+		Status:            row.State,
+		Date:              completedDate,
+		ValueDate:         startedDate,
+		Name:              row.Description,
+		PartyName:         row.Description,
+		Description:       row.Description,
+		Amount:            amountDecimal,
+		CreditDebit:       creditDebit,
+		DebitFlag:         isDebit, // Set the DebitFlag (maps to IsDebit in CSV)
+		Debit:             debitAmount,
+		Credit:            creditAmount,
+		Currency:          row.Currency,
+		AmountExclTax:     amountDecimal, // Default to full amount
+		AmountTax:         decimal.Zero,  // Revolut doesn't provide tax details
+		TaxRate:           decimal.Zero,
+		Recipient:         payee,
+		Investment:        row.Type, // Use transaction type as investment type
+		Number:            "",       // Not provided by Revolut
+		Category:          "",       // Will be categorized later
+		Type:              row.Type,
+		Fund:              "", // Not provided by Revolut
+		NumberOfShares:    0,  // Revolut transactions don't have shares
+		Fees:              feeDecimal,
+		IBAN:              "", // Not provided by Revolut
+		EntryReference:    "",
+		Reference:         "",
+		AccountServicer:   "",
+		BankTxCode:        "",
+		OriginalCurrency:  "", // Not handling foreign currencies for now
+		OriginalAmount:    decimal.Zero,
+		ExchangeRate:      decimal.Zero,
+
 		// Keep these for backward compatibility
-		Payee:            payee,
-		Payer:            payer,
+		Payee: payee,
+		Payer: payer,
 	}
 
 	return transaction, nil
@@ -273,17 +273,17 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	for _, tx := range transactions {
 		// Ensure date is in DD.MM.YYYY format
 		date := models.FormatDate(tx.Date)
-		
+
 		// Format the amount with 2 decimal places
 		amount := tx.Amount.StringFixed(2)
-		
+
 		row := []string{
 			date,
 			tx.Description,
 			amount,
 			tx.Currency,
 		}
-		
+
 		if err := csvWriter.Write(row); err != nil {
 			log.WithError(err).Error("Failed to write CSV row")
 			return fmt.Errorf("error writing CSV row: %w", err)

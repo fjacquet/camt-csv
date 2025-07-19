@@ -75,18 +75,18 @@ func CleanText(text string) string {
 	// Replace multiple spaces, tabs, and newlines with a single space
 	text = strings.ReplaceAll(text, "\n", " ")
 	text = strings.ReplaceAll(text, "\t", " ")
-	
+
 	// Remove leading/trailing spaces
 	text = strings.TrimSpace(text)
-	
+
 	// Replace multiple consecutive spaces with a single space
 	for strings.Contains(text, "  ") {
 		text = strings.ReplaceAll(text, "  ", " ")
 	}
-	
+
 	// Remove excessive whitespace
 	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
-	
+
 	// Remove common prefixes and noise
 	prefixes := []string{
 		"Remittance Info: ",
@@ -96,19 +96,19 @@ func CleanText(text string) string {
 		"Details: ",
 		"End-to-End: ",
 	}
-	
+
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(text, prefix) {
 			text = text[len(prefix):]
 		}
 	}
-	
+
 	// Remove IBAN patterns
 	text = regexp.MustCompile(`\b[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}\b`).ReplaceAllString(text, "IBAN")
-	
+
 	// Remove excessive separators
 	text = regexp.MustCompile(`[,;.]+\s*`).ReplaceAllString(text, " ")
-	
+
 	// Trim whitespace from result
 	return strings.TrimSpace(text)
 }

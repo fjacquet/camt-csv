@@ -25,7 +25,7 @@ type CommonFlags struct {
 var (
 	// Log is the shared logger instance for commands - but don't initialize until Init()
 	Log = logging.GetLogger()
-	
+
 	// Cmd is the root command
 	Cmd = &cobra.Command{
 		Use:   "camt-csv",
@@ -47,7 +47,7 @@ It also provides transaction categorization based on the party's name.`,
 			debitparser.SetLogger(Log)
 			categorizer.SetLogger(Log)
 			common.SetLogger(Log)
-			
+
 			// Ensure CSV delimiter is updated after env variables are loaded
 			if delim := os.Getenv("CSV_DELIMITER"); delim != "" {
 				Log.WithField("delimiter", delim).Debug("Setting CSV delimiter from environment")
@@ -62,7 +62,7 @@ It also provides transaction categorization based on the party's name.`,
 			if err != nil {
 				Log.Warnf("Failed to save creditor mappings: %v", err)
 			}
-			
+
 			err = categorizer.SaveDebitorsToYAML()
 			if err != nil {
 				Log.Warnf("Failed to save debitor mappings: %v", err)
@@ -72,11 +72,11 @@ It also provides transaction categorization based on the party's name.`,
 
 	// Common flags accessible to all commands
 	SharedFlags = CommonFlags{}
-	
+
 	// Specific batch command flags
 	InputDir  string
 	OutputDir string
-	
+
 	// Specific categorize command flags
 	PartyName string
 	IsDebtor  bool

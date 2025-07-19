@@ -14,14 +14,14 @@ func ExtractBookkeepingNumber(info string) string {
 		`No booking:[\s]*([\d-]+)`,
 		`Reference:[\s]*([\d-]+)`,
 	}
-	
+
 	for _, pattern := range patterns {
 		matches := regexp.MustCompile(pattern).FindStringSubmatch(info)
 		if len(matches) > 1 {
 			return matches[1]
 		}
 	}
-	
+
 	return ""
 }
 
@@ -31,14 +31,14 @@ func ExtractFund(info string) string {
 		`Fund:[\s]*([^,;]+)`,
 		`Investment Fund:[\s]*([^,;]+)`,
 	}
-	
+
 	for _, pattern := range patterns {
 		matches := regexp.MustCompile(pattern).FindStringSubmatch(info)
 		if len(matches) > 1 {
 			return matches[1]
 		}
 	}
-	
+
 	return ""
 }
 
@@ -52,7 +52,7 @@ func ExtractPayee(ustrd string) string {
 		`To:\s*([^,;]+)`,
 		`Payment to:\s*([^,;]+)`,
 	}
-	
+
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		matches := re.FindStringSubmatch(ustrd)
@@ -60,7 +60,7 @@ func ExtractPayee(ustrd string) string {
 			return strings.TrimSpace(matches[1])
 		}
 	}
-	
+
 	return ""
 }
 
@@ -68,18 +68,18 @@ func ExtractPayee(ustrd string) string {
 // especially for card and TWINT payments where the description contains the merchant name
 func ExtractMerchant(description string) string {
 	description = strings.ToLower(description)
-	
+
 	// Common patterns in card and TWINT payments
-	if strings.Contains(description, "card purchase") || 
-	   strings.Contains(description, "twint") {
-		
+	if strings.Contains(description, "card purchase") ||
+		strings.Contains(description, "twint") {
+
 		// Extract merchant name after "at" or similar terms
 		patterns := []string{
 			`(?i)at\s+(.+?)(?:\s+on|$)`,
 			`(?i)chez\s+(.+?)(?:\s+le|$)`,
 			`(?i)auprès de\s+(.+?)(?:\s+le|$)`,
 		}
-		
+
 		for _, pattern := range patterns {
 			re := regexp.MustCompile(pattern)
 			matches := re.FindStringSubmatch(description)
@@ -88,7 +88,7 @@ func ExtractMerchant(description string) string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -116,7 +116,7 @@ func FormatBankTxCode(domain, family, subfamily string) string {
 	if domain == "" {
 		return ""
 	}
-	
+
 	code := domain
 	if family != "" {
 		code += "." + family
@@ -124,6 +124,6 @@ func FormatBankTxCode(domain, family, subfamily string) string {
 			code += "." + subfamily
 		}
 	}
-	
+
 	return code
 }

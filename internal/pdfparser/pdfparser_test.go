@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
-	"fjacquet/camt-csv/internal/categorizer"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +39,7 @@ func TestValidateFormat(t *testing.T) {
 	// Setup mock PDF extraction
 	cleanup := mockPDFExtraction()
 	defer cleanup()
-	
+
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
 	err := os.MkdirAll(tempDir, 0755)
@@ -51,7 +51,7 @@ func TestValidateFormat(t *testing.T) {
 	// Create a mock PDF file (just a text file with .pdf extension for testing)
 	validFile := filepath.Join(tempDir, "valid.pdf")
 	invalidFile := filepath.Join(tempDir, "invalid.txt")
-	
+
 	// Create a valid PDF-like file and an invalid file
 	err = os.WriteFile(validFile, []byte("%PDF-1.5\nSome PDF content"), 0644)
 	if err != nil {
@@ -82,11 +82,11 @@ func TestParseFile(t *testing.T) {
 	// Setup mock PDF extraction
 	cleanup := mockPDFExtraction()
 	defer cleanup()
-	
+
 	// Set test environment variable to enable mock transactions
 	os.Setenv("TEST_ENV", "1")
 	defer os.Unsetenv("TEST_ENV")
-	
+
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
 	err := os.MkdirAll(tempDir, 0755)
@@ -112,10 +112,10 @@ func TestParseFile(t *testing.T) {
 func TestConvertToCSV(t *testing.T) {
 	// Initialize the test environment
 	setupTestCategorizer(t)
-	
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
-	
+
 	// Create transactions to test with
 	transactions := []models.Transaction{
 		{
@@ -126,18 +126,18 @@ func TestConvertToCSV(t *testing.T) {
 			CreditDebit: "DBIT",
 		},
 	}
-	
+
 	// Create the output path
 	outputFile := filepath.Join(tempDir, "test_output.csv")
-	
+
 	// Skip the normal PDF parsing by testing just the WriteToCSV function directly
 	err := WriteToCSV(transactions, outputFile)
 	assert.NoError(t, err)
-	
+
 	// Verify the output file exists and has the right content
 	data, err := os.ReadFile(outputFile)
 	assert.NoError(t, err)
-	
+
 	// Check for expected CSV format
 	csvContent := string(data)
 	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
@@ -147,35 +147,35 @@ func TestConvertToCSV(t *testing.T) {
 func TestWriteToCSV(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
-	
+
 	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:          "2023-01-01",
-			Description:   "Coffee Shop Purchase Card Payment REF123456",
-			Amount:        models.ParseAmount("100.00"),
-			Currency:      "EUR",
+			Date:           "2023-01-01",
+			Description:    "Coffee Shop Purchase Card Payment REF123456",
+			Amount:         models.ParseAmount("100.00"),
+			Currency:       "EUR",
 			EntryReference: "REF123456",
-			CreditDebit:   "DBIT",
+			CreditDebit:    "DBIT",
 		},
 		{
-			Date:          "2023-01-02",
-			Description:   "Salary Payment Incoming Transfer SAL987654",
-			Amount:        models.ParseAmount("1000.00"),
-			Currency:      "EUR",
+			Date:           "2023-01-02",
+			Description:    "Salary Payment Incoming Transfer SAL987654",
+			Amount:         models.ParseAmount("1000.00"),
+			Currency:       "EUR",
 			EntryReference: "SAL987654",
-			CreditDebit:   "CRDT",
+			CreditDebit:    "CRDT",
 		},
 	}
-	
+
 	// Write to CSV
 	err := WriteToCSV(transactions, outputFile)
 	assert.NoError(t, err, "Failed to write to CSV")
-	
+
 	// Read the file content
 	content, err := os.ReadFile(outputFile)
 	assert.NoError(t, err, "Failed to read CSV file")
-	
+
 	// Check that the CSV contains our test data
 	csvContent := string(content)
 	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
@@ -189,10 +189,10 @@ func TestSetLogger(t *testing.T) {
 	// Create a new logger
 	newLogger := logrus.New()
 	newLogger.SetLevel(logrus.WarnLevel)
-	
+
 	// Set the logger
 	SetLogger(newLogger)
-	
+
 	// Verify that the package logger is updated
 	assert.Equal(t, newLogger, log)
 }

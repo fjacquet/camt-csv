@@ -1,8 +1,8 @@
-## Mailtag Project Documentation
+# Mailtag Project Documentation
 
 This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, architecture, core functionalities, adherence to functional programming principles, testing strategy, and dependency management.
 
-### 1. Project Overview
+## 1. Project Overview
 
 The `camt-csv` project is a command-line interface (CLI) application designed to convert various financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV, Debit CSV) into a standardized CSV format. A key feature is its intelligent transaction categorization, which employs a hybrid approach combining local keyword matching with AI-based classification using the Gemini model.
 
@@ -23,7 +23,7 @@ The project follows a clean separation of concerns:
 * **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debitors).
 * **`samples/`**: Provides example input files for various formats.
 
-```
+```bash
 camt-csv/
 ├── cmd/               # CLI command definitions
 ├── internal/          # Application-specific packages (pure core & infrastructure)

@@ -35,13 +35,13 @@ func ParseFile(pdfFile string) ([]models.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !isValid {
 		return nil, fmt.Errorf("invalid PDF format")
 	}
-	
+
 	log.WithField("file", pdfFile).Info("Parsing PDF file")
-	
+
 	// Extract text from PDF
 	text, err := extractTextFromPDF(pdfFile)
 	if err != nil {
@@ -59,20 +59,20 @@ func ParseFile(pdfFile string) ([]models.Transaction, error) {
 			log.WithField("file", debugFile).Debug("Wrote raw PDF text to debug file")
 		}
 	}
-	
+
 	// Preprocess the text to clean it up and identify transaction blocks
 	processedText := preProcessText(text)
-	
+
 	// Split text into lines for processing
 	lines := strings.Split(processedText, "\n")
-	
+
 	// Parse the lines to extract transactions
 	transactions, err := parseTransactions(lines)
 	if err != nil {
 		log.WithError(err).Error("Failed to parse transactions from PDF text")
 		return nil, fmt.Errorf("error parsing transactions: %w", err)
 	}
-	
+
 	return transactions, nil
 }
 
@@ -80,8 +80,8 @@ func ParseFile(pdfFile string) ([]models.Transaction, error) {
 // that is specifically used by the PDF parser tests.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
+		"file":      csvFile,
+		"count":     len(transactions),
 		"delimiter": string(common.Delimiter),
 	}).Info("Writing transactions to CSV file using common implementation")
 
@@ -97,7 +97,7 @@ func ConvertToCSV(inputFile, outputFile string) error {
 
 // ValidateFormat checks if a file is a valid PDF.
 // It verifies that the file exists and has the correct format headers.
-// 
+//
 // Parameters:
 //   - pdfFile: Path to the PDF file to validate
 //
@@ -106,20 +106,20 @@ func ConvertToCSV(inputFile, outputFile string) error {
 //   - error: Any error encountered during validation
 func ValidateFormat(pdfFile string) (bool, error) {
 	log.WithField("file", pdfFile).Info("Validating PDF format")
-	
+
 	// Check if file exists
 	_, err := os.Stat(pdfFile)
 	if err != nil {
 		log.WithError(err).Error("PDF file does not exist")
 		return false, fmt.Errorf("error checking PDF file: %w", err)
 	}
-	
+
 	// Try to extract text as a validation check
 	_, err = extractTextFromPDF(pdfFile)
 	if err != nil {
 		log.WithError(err).Error("PDF validation failed")
 		return false, nil
 	}
-	
+
 	return true, nil
 }

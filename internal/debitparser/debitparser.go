@@ -81,17 +81,17 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 		if row.Datum == "" {
 			continue
 		}
-		
+
 		// Convert Debit row to Transaction
 		tx, err := convertDebitRowToTransaction(row)
 		if err != nil {
 			log.WithError(err).Warning("Failed to convert row to transaction, skipping")
 			continue
 		}
-		
+
 		transactions = append(transactions, tx)
 	}
-	
+
 	log.WithField("count", len(transactions)).Info("Successfully parsed Visa Debit CSV file")
 	return transactions, nil
 }
@@ -102,11 +102,11 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 	if row.Datum == "" {
 		return models.Transaction{}, fmt.Errorf("date is empty")
 	}
-	
+
 	// Process amount and determine credit/debit
 	var amount decimal.Decimal
 	var creditDebit string
-	
+
 	// The Montant field is used for the amount, which can be positive or negative
 	// Negative amounts (-) are debits, positive are credits
 	if row.Betrag == "" {
@@ -120,7 +120,7 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 		if err != nil {
 			return models.Transaction{}, fmt.Errorf("error parsing amount: %w", err)
 		}
-		
+
 		// Determine credit/debit based on sign
 		if strings.HasPrefix(row.Betrag, "-") {
 			creditDebit = "DBIT"
@@ -130,16 +130,16 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 			creditDebit = "CRDT"
 		}
 	}
-	
+
 	// Format date to standard DD.MM.YYYY format
 	formattedDate := models.FormatDate(row.Datum)
-	
+
 	// Extract just the business name from the description (after "PMT CARTE " prefix)
 	description := row.Beneficiaire
 	if strings.HasPrefix(description, "PMT CARTE ") {
 		description = strings.TrimPrefix(description, "PMT CARTE ")
 	}
-	
+
 	// Create and return the transaction
 	transaction := models.Transaction{
 		Date:           formattedDate,
@@ -151,7 +151,7 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 		EntryReference: row.Referenznummer,
 		Status:         row.StatusKontofuhrung,
 	}
-	
+
 	return transaction, nil
 }
 
@@ -165,7 +165,7 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	if len(transactions) == 0 {
 		return fmt.Errorf("no transactions to write")
 	}
-	
+
 	// Use the common CSV writer
 	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
@@ -183,29 +183,29 @@ func ValidateFormat(filePath string) (bool, error) {
 
 	reader := csv.NewReader(file)
 	reader.Comma = ';' // CSV uses semicolon as delimiter
-	
+
 	// Read header
 	header, err := reader.Read()
 	if err != nil {
 		log.WithError(err).Error("Failed to read CSV header")
 		return false, fmt.Errorf("error reading CSV header: %w", err)
 	}
-	
+
 	// Check if required columns exist
 	requiredColumns := []string{"Bénéficiaire", "Date", "Montant", "Monnaie"}
 	columnMap := make(map[string]bool)
-	
+
 	for _, col := range header {
 		columnMap[col] = true
 	}
-	
+
 	for _, required := range requiredColumns {
 		if !columnMap[required] {
 			log.WithField("column", required).Info("Required column not found")
 			return false, nil
 		}
 	}
-	
+
 	// Read at least one record to validate format
 	_, err = reader.Read()
 	if err == io.EOF {
@@ -216,7 +216,7 @@ func ValidateFormat(filePath string) (bool, error) {
 		log.WithError(err).Error("Error reading CSV record during validation")
 		return false, fmt.Errorf("error reading CSV record during validation: %w", err)
 	}
-	
+
 	return true, nil
 }
 
@@ -266,7 +266,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		}
 
 		inputFile := fmt.Sprintf("%s/%s", inputDir, entry.Name())
-		
+
 		// Validate if file is in Visa Debit CSV format
 		valid, err := ValidateFormat(inputFile)
 		if err != nil {

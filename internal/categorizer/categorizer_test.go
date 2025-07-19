@@ -1,8 +1,8 @@
 package categorizer
 
 import (
-	"testing"
 	"os"
+	"testing"
 
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/store"
@@ -15,14 +15,14 @@ func TestCategorizeTransaction(t *testing.T) {
 	// Set test mode to disable API calls
 	os.Setenv("TEST_MODE", "true")
 	defer os.Unsetenv("TEST_MODE")
-	
+
 	// Create a mock store for testing
 	mockStore := &store.CategoryStore{
 		CategoriesFile: "testdata/categories.yaml",
 		CreditorsFile:  "testdata/creditors.yaml",
 		DebitorsFile:   "testdata/debitors.yaml",
 	}
-	
+
 	// Set up the test categorizer
 	SetTestCategoryStore(mockStore)
 
@@ -60,7 +60,7 @@ func TestCategorizeTransaction(t *testing.T) {
 				PartyName: "Unknown Merchant",
 				IsDebtor:  false,
 				Amount:    "10.00 EUR",
-				Date:      "2023-01-05", 
+				Date:      "2023-01-05",
 				Info:      "Unknown purchase",
 			},
 			expectError: false,
@@ -101,7 +101,7 @@ func TestCategorizeTransactionNoAPIKey(t *testing.T) {
 	// Force test mode to prevent any API calls
 	os.Setenv("TEST_MODE", "true")
 	defer os.Unsetenv("TEST_MODE")
-	
+
 	// Create a test transaction
 	transaction := Transaction{
 		PartyName: "New Merchant",
@@ -110,19 +110,19 @@ func TestCategorizeTransactionNoAPIKey(t *testing.T) {
 		Date:      "2023-01-20",
 		Info:      "Test transaction",
 	}
-	
+
 	// Use the global categorizer
 	category, err := CategorizeTransaction(transaction)
-	
+
 	// Validation
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	// Should fall back to "Uncategorized" category in test mode
 	if category.Name != "Uncategorized" {
 		t.Errorf("Expected 'Uncategorized' category but got '%s'", category.Name)
 	}
-	
+
 	t.Logf("Category: %s, Description: %s", category.Name, category.Description)
 }

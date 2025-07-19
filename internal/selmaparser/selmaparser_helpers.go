@@ -3,7 +3,7 @@ package selmaparser
 
 import (
 	"strings"
-	
+
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/shopspring/decimal"
@@ -12,20 +12,20 @@ import (
 // SelmaCSVRow represents a single row in a Selma CSV file
 // It uses struct tags for gocsv unmarshaling
 type SelmaCSVRow struct {
-	Date            string `csv:"Date"`
-	Description     string `csv:"Description"`
-	BookkeepingNo   string `csv:"Bookkeeping No."`
-	Fund            string `csv:"Fund"`
-	Amount          string `csv:"Amount"`
-	Currency        string `csv:"Currency"`
-	NumberOfShares  string `csv:"Number of Shares"`
+	Date           string `csv:"Date"`
+	Description    string `csv:"Description"`
+	BookkeepingNo  string `csv:"Bookkeeping No."`
+	Fund           string `csv:"Fund"`
+	Amount         string `csv:"Amount"`
+	Currency       string `csv:"Currency"`
+	NumberOfShares string `csv:"Number of Shares"`
 }
 
 // StampDutyInfo holds information about a stamp duty transaction
 type StampDutyInfo struct {
-	Date          string
-	Fund          string
-	Amount        decimal.Decimal
+	Date              string
+	Fund              string
+	Amount            decimal.Decimal
 	BookkeepingNumber string
 }
 
@@ -91,8 +91,8 @@ func FormatTransaction(tx *models.Transaction) {
 	if tx.CreditDebit == "" {
 		// Determine if it's a credit or debit based on amount sign or description
 		if tx.Amount.IsNegative() ||
-		   strings.Contains(strings.ToLower(tx.Description), "payment") ||
-		   strings.Contains(strings.ToLower(tx.Description), "purchase") {
+			strings.Contains(strings.ToLower(tx.Description), "payment") ||
+			strings.Contains(strings.ToLower(tx.Description), "purchase") {
 			tx.CreditDebit = "DBIT"
 		} else {
 			tx.CreditDebit = "CRDT"
@@ -128,9 +128,9 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 
 			// Store the stamp duty info
 			stampDuties[date][fund] = StampDutyInfo{
-				Date:          date,
-				Fund:          fund,
-				Amount:        amount,
+				Date:              date,
+				Fund:              fund,
+				Amount:            amount,
 				BookkeepingNumber: tx.BookkeepingNumber,
 			}
 		}

@@ -74,12 +74,12 @@ func (p *ISO20022Parser) extractTransactions(document models.ISO20022Document) (
 		for _, entry := range stmt.Ntry {
 			// Convert entry to transaction model
 			transaction := p.entryToTransaction(&entry)
-			
+
 			// Set IBAN if not already set in the entry
 			if transaction.IBAN == "" {
 				transaction.IBAN = iban
 			}
-			
+
 			transactions = append(transactions, transaction)
 		}
 	}
@@ -94,45 +94,45 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 		p.log.WithError(err).WithField("value", entry.Amt.Value).Warn("Failed to parse amount, using zero")
 		amount = decimal.Zero
 	}
-	
+
 	// Create transaction from entry
 	tx := models.Transaction{
 		BookkeepingNumber: textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo()),
-		Status:           entry.Sts,
-		Date:             entry.BookgDt.Dt,
-		ValueDate:        entry.ValDt.Dt,
-		Name:             "", // Will be set based on credit/debit direction
-		Description:      entry.BuildDescription(),
-		Amount:           amount,
-		CreditDebit:      entry.GetCreditDebit(),
-		Debit:            decimal.Zero, // Will be set below
-		Credit:           decimal.Zero, // Will be set below
-		Currency:         entry.Amt.Ccy,
-		AmountExclTax:    amount, // Default to full amount
-		AmountTax:        decimal.Zero,
-		TaxRate:          decimal.Zero,
-		Recipient:        entry.GetPayee(),
-		Investment:       "", // Will be determined later if applicable
-		Number:           "", // Not typically provided in CAMT.053
-		Category:         "", // Will be determined later
-		Type:             "", // Will be determined later
-		Fund:             textutils.ExtractFund(entry.GetRemittanceInfo()),
-		NumberOfShares:   0,
-		Fees:             decimal.Zero,
-		IBAN:             entry.GetIBAN(),
-		EntryReference:   entry.GetReference(),
-		Reference:        entry.GetReference(), // Using EntryReference as Reference for now
-		AccountServicer:  entry.AcctSvcrRef,
-		BankTxCode:       entry.GetBankTxCode(),
-		OriginalCurrency: "",
-		OriginalAmount:   decimal.Zero,
-		ExchangeRate:     decimal.Zero,
-        
+		Status:            entry.Sts,
+		Date:              entry.BookgDt.Dt,
+		ValueDate:         entry.ValDt.Dt,
+		Name:              "", // Will be set based on credit/debit direction
+		Description:       entry.BuildDescription(),
+		Amount:            amount,
+		CreditDebit:       entry.GetCreditDebit(),
+		Debit:             decimal.Zero, // Will be set below
+		Credit:            decimal.Zero, // Will be set below
+		Currency:          entry.Amt.Ccy,
+		AmountExclTax:     amount, // Default to full amount
+		AmountTax:         decimal.Zero,
+		TaxRate:           decimal.Zero,
+		Recipient:         entry.GetPayee(),
+		Investment:        "", // Will be determined later if applicable
+		Number:            "", // Not typically provided in CAMT.053
+		Category:          "", // Will be determined later
+		Type:              "", // Will be determined later
+		Fund:              textutils.ExtractFund(entry.GetRemittanceInfo()),
+		NumberOfShares:    0,
+		Fees:              decimal.Zero,
+		IBAN:              entry.GetIBAN(),
+		EntryReference:    entry.GetReference(),
+		Reference:         entry.GetReference(), // Using EntryReference as Reference for now
+		AccountServicer:   entry.AcctSvcrRef,
+		BankTxCode:        entry.GetBankTxCode(),
+		OriginalCurrency:  "",
+		OriginalAmount:    decimal.Zero,
+		ExchangeRate:      decimal.Zero,
+
 		// Keep these for backward compatibility
-		Payer:            entry.GetPayer(),
-		Payee:            entry.GetPayee(),
+		Payer: entry.GetPayer(),
+		Payee: entry.GetPayee(),
 	}
-	
+
 	// Set Debit/Credit amounts based on CreditDebit indicator
 	if tx.CreditDebit == "DBIT" {
 		tx.Debit = amount
@@ -141,13 +141,13 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 		tx.Credit = amount
 		tx.Name = tx.Payer // For credits, the name is the payer/sender
 	}
-	
+
 	// Special case for DELL salary
 	if strings.Contains(tx.Description, "VIRT BANC") && strings.Contains(tx.Description, "DELL SA") {
 		tx.Category = "Salaire"
 		p.log.WithField("description", tx.Description).Debug("Categorized as salary payment from DELL SA")
 	}
-	
+
 	return tx
 }
 
@@ -170,28 +170,28 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			Description: transactions[i].Description,
 		}
 
-		p.log.Infof("About to categorize transaction with party: '%s', isDebtor: %v, description: '%s'", 
+		p.log.Infof("About to categorize transaction with party: '%s', isDebtor: %v, description: '%s'",
 			catTx.PartyName, catTx.IsDebtor, catTx.Description)
-		
+
 		// Try to categorize using the categorizer
 		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
 			transactions[i].Category = category.Name
-			
+
 			// If this was a successful categorization, save it to the database
 			// for future use to avoid needing to re-categorize
 			if category.Name != "" && category.Name != "Uncategorized" {
 				partyName := catTx.PartyName
 				if isDebtor {
-					p.log.Infof("Auto-learning debitor mapping: '%s' → '%s'", 
+					p.log.Infof("Auto-learning debitor mapping: '%s' → '%s'",
 						partyName, category.Name)
 					categorizer.UpdateDebitorCategory(partyName, category.Name)
 				} else {
-					p.log.Infof("Auto-learning creditor mapping: '%s' → '%s'", 
+					p.log.Infof("Auto-learning creditor mapping: '%s' → '%s'",
 						partyName, category.Name)
 					categorizer.UpdateCreditorCategory(partyName, category.Name)
 				}
 			}
-			
+
 			p.log.WithFields(logrus.Fields{
 				"category": category.Name,
 				"amount":   transactions[i].Amount.String(),
@@ -217,7 +217,11 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error opening file: %w", err)
 	}
-	defer xmlFile.Close()
+	defer func() {
+		if err := xmlFile.Close(); err != nil {
+			p.log.Warnf("Failed to close XML file: %v", err)
+		}
+	}()
 
 	// Read the file content
 	xmlBytes, err := os.ReadFile(filePath)
@@ -269,14 +273,14 @@ func (p *ISO20022Parser) ConvertToCSV(inputFile, outputFile string) error {
 	return common.WriteTransactionsToCSV(transactions, outputFile)
 }
 
-// CreateEmptyCSVFile creates an empty CSV file with transaction headers 
+// CreateEmptyCSVFile creates an empty CSV file with transaction headers
 // using the currently set CSV delimiter
 func (c *ISO20022Parser) CreateEmptyCSVFile(outputFile string) error {
 	c.log.WithFields(logrus.Fields{
-		"file": outputFile,
+		"file":      outputFile,
 		"delimiter": string(common.Delimiter),
 	}).Info("No transactions found, creating empty CSV file with headers")
-	
+
 	// Create an empty transaction slice and use common package for consistency
 	emptyTransactions := []models.Transaction{}
 	return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
@@ -284,7 +288,7 @@ func (c *ISO20022Parser) CreateEmptyCSVFile(outputFile string) error {
 
 // WriteToCSV writes the transactions to a CSV file.
 func (c *ISO20022Parser) WriteToCSV(transactions []models.Transaction, outputFile string) error {
-	if transactions == nil || len(transactions) == 0 {
+	if len(transactions) == 0 {
 		// Create an empty CSV file with headers
 		return c.CreateEmptyCSVFile(outputFile)
 	}

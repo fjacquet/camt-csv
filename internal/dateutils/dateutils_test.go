@@ -12,17 +12,17 @@ func TestSetLogger(t *testing.T) {
 	// Create a custom logger
 	customLogger := logrus.New()
 	customLogger.SetLevel(logrus.DebugLevel)
-	
+
 	// Save the original logger to restore after test
 	originalLogger := log
 	defer func() {
 		log = originalLogger
 	}()
-	
+
 	// Test with valid logger
 	SetLogger(customLogger)
 	assert.Equal(t, customLogger, log)
-	
+
 	// Test with nil logger (should not change the current logger)
 	currentLogger := log
 	SetLogger(nil)
@@ -48,11 +48,11 @@ func TestParseDate(t *testing.T) {
 		{"Empty string", "", false, 0, 0, 0, ""},
 		{"Invalid format", "not a date", false, 0, 0, 0, ""},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			date, format, err := ParseDate(tc.dateStr)
-			
+
 			if tc.expectedOk {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedY, date.Year())
@@ -69,7 +69,7 @@ func TestParseDate(t *testing.T) {
 func TestFormatDate(t *testing.T) {
 	// Create a fixed test date (January 15, 2023)
 	testDate := time.Date(2023, time.January, 15, 10, 30, 0, 0, time.UTC)
-	
+
 	tests := []struct {
 		name     string
 		layout   string
@@ -82,7 +82,7 @@ func TestFormatDate(t *testing.T) {
 		{"Full layout", DateLayoutFull, "2023-01-15 10:30:00"},
 		{"Custom layout", "Mon, 02 Jan 2006", "Sun, 15 Jan 2023"},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := FormatDate(testDate, tc.layout)
@@ -113,7 +113,7 @@ func TestToISODate(t *testing.T) {
 			"2050-12-31",
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := ToISODate(tc.date)
@@ -134,7 +134,7 @@ func TestCleanDateString(t *testing.T) {
 		{"Empty string", "", ""},
 		{"Only whitespace", "   ", ""},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := CleanDateString(tc.input)
@@ -170,7 +170,7 @@ func TestIsWeekend(t *testing.T) {
 			true,
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsWeekend(tc.date)
@@ -206,7 +206,7 @@ func TestIsBusinessDay(t *testing.T) {
 			false,
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsBusinessDay(tc.date)
@@ -237,7 +237,7 @@ func TestStartOfMonth(t *testing.T) {
 			time.Date(2023, time.March, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := StartOfMonth(tc.date)
@@ -273,7 +273,7 @@ func TestEndOfMonth(t *testing.T) {
 			time.Date(2023, time.April, 30, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := EndOfMonth(tc.date)
@@ -309,7 +309,7 @@ func TestNextBusinessDay(t *testing.T) {
 			time.Date(2023, time.January, 23, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := NextBusinessDay(tc.date)
@@ -345,7 +345,7 @@ func TestPreviousBusinessDay(t *testing.T) {
 			time.Date(2023, time.January, 13, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := PreviousBusinessDay(tc.date)
@@ -356,7 +356,7 @@ func TestPreviousBusinessDay(t *testing.T) {
 
 func TestExtractYear(t *testing.T) {
 	currentYear := time.Now().Year()
-	
+
 	tests := []struct {
 		name     string
 		dateStr  string
@@ -368,7 +368,7 @@ func TestExtractYear(t *testing.T) {
 		{"Invalid date", "not a date", currentYear},
 		{"Empty string", "", currentYear},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := ExtractYear(tc.dateStr)
@@ -383,7 +383,7 @@ func TestCompareDates(t *testing.T) {
 	date3 := time.Date(2023, time.January, 16, 10, 30, 0, 0, time.UTC)
 	date4 := time.Date(2023, time.February, 15, 10, 30, 0, 0, time.UTC)
 	date5 := time.Date(2022, time.January, 15, 10, 30, 0, 0, time.UTC)
-	
+
 	tests := []struct {
 		name     string
 		date1    time.Time
@@ -397,7 +397,7 @@ func TestCompareDates(t *testing.T) {
 		{"Previous year", date5, date1, -1},
 		{"Equal dates", date1, date1, 0},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := CompareDates(tc.date1, tc.date2)

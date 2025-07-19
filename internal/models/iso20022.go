@@ -8,7 +8,7 @@ import (
 
 // ISO20022Document represents the root structure of a CAMT.053 XML document
 type ISO20022Document struct {
-	XMLName     xml.Name `xml:"Document"`
+	XMLName       xml.Name `xml:"Document"`
 	BkToCstmrStmt struct {
 		Stmt []Statement `xml:"Stmt"`
 	} `xml:"BkToCstmrStmt"`
@@ -16,12 +16,12 @@ type ISO20022Document struct {
 
 // Statement represents a bank statement in the CAMT.053 format
 type Statement struct {
-	ID        string    `xml:"Id"`
-	CreDtTm   string    `xml:"CreDtTm"`
-	FrToDt    *Period   `xml:"FrToDt"`
-	Acct      Account   `xml:"Acct"`
-	Bal       []Balance `xml:"Bal"`
-	Ntry      []Entry   `xml:"Ntry"`
+	ID      string    `xml:"Id"`
+	CreDtTm string    `xml:"CreDtTm"`
+	FrToDt  *Period   `xml:"FrToDt"`
+	Acct    Account   `xml:"Acct"`
+	Bal     []Balance `xml:"Bal"`
+	Ntry    []Entry   `xml:"Ntry"`
 }
 
 // Period represents a time period in the CAMT.053 format
@@ -58,7 +58,7 @@ type Balance struct {
 			Cd string `xml:"Cd"`
 		} `xml:"CdOrPrtry"`
 	} `xml:"Tp"`
-	Amt      Amount `xml:"Amt"`
+	Amt       Amount `xml:"Amt"`
 	CdtDbtInd string `xml:"CdtDbtInd"`
 	Dt        struct {
 		Dt string `xml:"Dt"`
@@ -67,22 +67,22 @@ type Balance struct {
 
 // Amount represents a monetary amount with currency
 type Amount struct {
-	Value   string `xml:",chardata"`
-	Ccy     string `xml:"Ccy,attr"`
+	Value string `xml:",chardata"`
+	Ccy   string `xml:"Ccy,attr"`
 }
 
 // Entry represents a transaction entry in the CAMT.053 format
 type Entry struct {
-	NtryRef    string    `xml:"NtryRef"`
-	Amt        Amount    `xml:"Amt"`
-	CdtDbtInd  string    `xml:"CdtDbtInd"` // CRDT or DBIT
-	Sts        string    `xml:"Sts"`       // Status (BOOK, etc.)
-	BookgDt    EntryDate `xml:"BookgDt"`   // Booking date
-	ValDt      EntryDate `xml:"ValDt"`     // Value date
-	AcctSvcrRef string   `xml:"AcctSvcrRef"` // Bank reference
-	BkTxCd     BankTxCode `xml:"BkTxCd"`   // Bank transaction code
-	NtryDtls   EntryDetails `xml:"NtryDtls"` // Transaction details
-	AddtlNtryInf string    `xml:"AddtlNtryInf"` // Additional entry information
+	NtryRef      string       `xml:"NtryRef"`
+	Amt          Amount       `xml:"Amt"`
+	CdtDbtInd    string       `xml:"CdtDbtInd"`    // CRDT or DBIT
+	Sts          string       `xml:"Sts"`          // Status (BOOK, etc.)
+	BookgDt      EntryDate    `xml:"BookgDt"`      // Booking date
+	ValDt        EntryDate    `xml:"ValDt"`        // Value date
+	AcctSvcrRef  string       `xml:"AcctSvcrRef"`  // Bank reference
+	BkTxCd       BankTxCode   `xml:"BkTxCd"`       // Bank transaction code
+	NtryDtls     EntryDetails `xml:"NtryDtls"`     // Transaction details
+	AddtlNtryInf string       `xml:"AddtlNtryInf"` // Additional entry information
 }
 
 // EntryDate represents a date in ISO20022 format
@@ -112,15 +112,15 @@ type EntryDetails struct {
 
 // TransactionDetails represents detailed transaction information in the CAMT.053 format
 type TransactionDetails struct {
-	Refs       References `xml:"Refs"`
-	Amt        Amount     `xml:"Amt"`
-	CdtDbtInd  string     `xml:"CdtDbtInd"`
-	AmtDtls    struct {
+	Refs      References `xml:"Refs"`
+	Amt       Amount     `xml:"Amt"`
+	CdtDbtInd string     `xml:"CdtDbtInd"`
+	AmtDtls   struct {
 		InstdAmt struct {
 			Amt Amount `xml:"Amt"`
 		} `xml:"InstdAmt"`
 	} `xml:"AmtDtls"`
-	RmtInf     struct {
+	RmtInf struct {
 		Ustrd []string `xml:"Ustrd"`
 		Strd  []struct {
 			CdtrRefInf struct {
@@ -128,9 +128,9 @@ type TransactionDetails struct {
 			} `xml:"CdtrRefInf"`
 		} `xml:"Strd"`
 	} `xml:"RmtInf"`
-	RltdPties  RelatedParties `xml:"RltdPties"`
-	RltdAgts   RelatedAgents  `xml:"RltdAgts"`
-	Purp       struct {
+	RltdPties RelatedParties `xml:"RltdPties"`
+	RltdAgts  RelatedAgents  `xml:"RltdAgts"`
+	Purp      struct {
 		Cd string `xml:"Cd"`
 	} `xml:"Purp"`
 	AddtlTxInf string `xml:"AddtlTxInf"`
@@ -148,7 +148,7 @@ type References struct {
 // RelatedParties represents parties involved in the transaction in the CAMT.053 format
 type RelatedParties struct {
 	Dbtr struct {
-		Nm     string `xml:"Nm"`
+		Nm      string `xml:"Nm"`
 		PstlAdr struct {
 			AdrLine []string `xml:"AdrLine"`
 			StrtNm  string   `xml:"StrtNm"`
@@ -170,7 +170,7 @@ type RelatedParties struct {
 		Nm string `xml:"Nm"`
 	} `xml:"UltmtDbtr"`
 	Cdtr struct {
-		Nm     string `xml:"Nm"`
+		Nm      string `xml:"Nm"`
 		PstlAdr struct {
 			AdrLine []string `xml:"AdrLine"`
 			StrtNm  string   `xml:"StrtNm"`
@@ -197,8 +197,8 @@ type RelatedParties struct {
 type RelatedAgents struct {
 	DbtrAgt struct {
 		FinInstnID struct {
-			BIC  string `xml:"BIC"`
-			Nm   string `xml:"Nm"`
+			BIC     string `xml:"BIC"`
+			Nm      string `xml:"Nm"`
 			PstlAdr struct {
 				AdrLine []string `xml:"AdrLine"`
 			} `xml:"PstlAdr"`
@@ -212,8 +212,8 @@ type RelatedAgents struct {
 	} `xml:"DbtrAgt"`
 	CdtrAgt struct {
 		FinInstnID struct {
-			BIC  string `xml:"BIC"`
-			Nm   string `xml:"Nm"`
+			BIC     string `xml:"BIC"`
+			Nm      string `xml:"Nm"`
 			PstlAdr struct {
 				AdrLine []string `xml:"AdrLine"`
 			} `xml:"PstlAdr"`
@@ -325,12 +325,12 @@ func (e *Entry) GetReference() string {
 	if e.NtryRef != "" {
 		return e.NtryRef
 	}
-	
+
 	// Then try references from transaction details
 	txDetails := e.GetFirstTxDetails()
 	if txDetails != nil {
 		refs := txDetails.Refs
-		
+
 		// Try different reference types in order of preference
 		if refs.EndToEndID != "" {
 			return refs.EndToEndID
@@ -347,7 +347,7 @@ func (e *Entry) GetReference() string {
 		if refs.InstrID != "" {
 			return refs.InstrID
 		}
-		
+
 		// Check for structured reference in remittance info
 		for _, strd := range txDetails.RmtInf.Strd {
 			if strd.CdtrRefInf.Ref != "" {
@@ -355,7 +355,7 @@ func (e *Entry) GetReference() string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -365,7 +365,7 @@ func (e *Entry) GetIBAN() string {
 	if txDetails == nil {
 		return ""
 	}
-	
+
 	if e.CdtDbtInd == "DBIT" {
 		// For debit transactions, get creditor IBAN
 		if txDetails.RltdPties.CdtrAcct.ID.IBAN != "" {
@@ -377,51 +377,51 @@ func (e *Entry) GetIBAN() string {
 			return txDetails.RltdPties.DbtrAcct.ID.IBAN
 		}
 	}
-	
+
 	return ""
 }
 
 // BuildDescription builds a detailed description from the transaction data
 func (e *Entry) BuildDescription() string {
 	var parts []string
-	
+
 	// Add entry information if available
 	if e.AddtlNtryInf != "" {
 		parts = append(parts, e.AddtlNtryInf)
 	}
-	
+
 	txDetails := e.GetFirstTxDetails()
 	if txDetails != nil {
 		// Add transaction additional info
 		if txDetails.AddtlTxInf != "" {
 			parts = append(parts, txDetails.AddtlTxInf)
 		}
-		
+
 		// Add remittance information
 		for _, ustrd := range txDetails.RmtInf.Ustrd {
 			if ustrd != "" {
 				parts = append(parts, ustrd)
 			}
 		}
-		
+
 		// Add purpose code if available
 		if txDetails.Purp.Cd != "" {
 			parts = append(parts, "Purpose: "+txDetails.Purp.Cd)
 		}
 	}
-	
+
 	// Join all parts together
 	description := strings.Join(parts, " - ")
-	
+
 	// Clean up the description
 	description = strings.ReplaceAll(description, "\n", " ")
 	description = strings.ReplaceAll(description, "\r", "")
 	description = strings.TrimSpace(description)
-	
+
 	// Handle empty description
 	if description == "" {
 		description = "Transaction " + e.GetReference()
 	}
-	
+
 	return description
 }

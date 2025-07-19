@@ -12,7 +12,7 @@ import (
 var (
 	// Logger is the global logger instance for the application
 	Logger *logrus.Logger
-	
+
 	// Ensure initialization happens only once
 	once sync.Once
 )
@@ -21,7 +21,7 @@ var (
 func Initialize() *logrus.Logger {
 	once.Do(func() {
 		Logger = logrus.New()
-		
+
 		// Configure log level
 		logLevelStr := os.Getenv("LOG_LEVEL")
 		if logLevelStr == "" {
@@ -125,58 +125,58 @@ func SetupPackageLogger(pkgLogger *logrus.Logger) *logrus.Logger {
 	if pkgLogger == nil {
 		pkgLogger = logrus.New()
 	}
-	
+
 	// Apply the same configuration as the global logger
 	globalLogger := GetLogger()
-	
+
 	// Copy configuration from the global logger
 	pkgLogger.SetLevel(globalLogger.GetLevel())
 	pkgLogger.SetFormatter(globalLogger.Formatter)
 	pkgLogger.SetOutput(globalLogger.Out)
-	
+
 	return pkgLogger
 }
 
 // SetAllLogLevels forces a specific log level across all loggers in the system
 // This should be called early in application startup after environment variables are loaded
 func SetAllLogLevels(level logrus.Level) {
-    // Initialize our central logger with this level
-    once.Do(func() {
-        if Logger == nil {
-            Logger = logrus.New()
-        }
-        
-        Logger.SetLevel(level)
-        
-        // Use text formatter by default unless JSON is explicitly configured
-        logFormat := os.Getenv("LOG_FORMAT")
-        if strings.ToLower(logFormat) == "json" {
-            Logger.SetFormatter(&logrus.JSONFormatter{})
-        } else {
-            Logger.SetFormatter(&logrus.TextFormatter{
-                FullTimestamp: true,
-            })
-        }
-    })
-    
-    // If loggers are already initialized, this ensures they still get the correct level
-    if Logger != nil {
-        Logger.SetLevel(level)
-    }
+	// Initialize our central logger with this level
+	once.Do(func() {
+		if Logger == nil {
+			Logger = logrus.New()
+		}
+
+		Logger.SetLevel(level)
+
+		// Use text formatter by default unless JSON is explicitly configured
+		logFormat := os.Getenv("LOG_FORMAT")
+		if strings.ToLower(logFormat) == "json" {
+			Logger.SetFormatter(&logrus.JSONFormatter{})
+		} else {
+			Logger.SetFormatter(&logrus.TextFormatter{
+				FullTimestamp: true,
+			})
+		}
+	})
+
+	// If loggers are already initialized, this ensures they still get the correct level
+	if Logger != nil {
+		Logger.SetLevel(level)
+	}
 }
 
 // ParseLogLevelFromEnv reads LOG_LEVEL from environment and returns the appropriate logrus level
 // It defaults to InfoLevel if not specified or invalid
 func ParseLogLevelFromEnv() logrus.Level {
-    logLevelStr := os.Getenv("LOG_LEVEL")
-    if logLevelStr == "" {
-        return logrus.InfoLevel
-    }
-    
-    level, err := logrus.ParseLevel(strings.ToLower(logLevelStr))
-    if err != nil {
-        return logrus.InfoLevel
-    }
-    
-    return level
+	logLevelStr := os.Getenv("LOG_LEVEL")
+	if logLevelStr == "" {
+		return logrus.InfoLevel
+	}
+
+	level, err := logrus.ParseLevel(strings.ToLower(logLevelStr))
+	if err != nil {
+		return logrus.InfoLevel
+	}
+
+	return level
 }

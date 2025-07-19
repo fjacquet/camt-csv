@@ -142,13 +142,13 @@ func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 
 	// Get the actual categorization
 	category, err := defaultCategorizer.categorizeTransaction(transaction)
-	
+
 	// If we successfully found a category via AI, let's immediately save it to the database
 	// so we don't need to recategorize similar transactions in the future
 	if err == nil && category.Name != "" && category.Name != "Uncategorized" {
 		// Auto-learn this categorization by saving it to the appropriate database
 		if transaction.IsDebtor {
-			defaultCategorizer.logger.Debugf("Auto-learning debitor mapping: '%s' → '%s'", 
+			defaultCategorizer.logger.Debugf("Auto-learning debitor mapping: '%s' → '%s'",
 				transaction.PartyName, category.Name)
 			defaultCategorizer.updateDebitorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
@@ -158,7 +158,7 @@ func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 				defaultCategorizer.logger.Debugf("Successfully saved new debitor mapping to disk")
 			}
 		} else {
-			defaultCategorizer.logger.Debugf("Auto-learning creditor mapping: '%s' → '%s'", 
+			defaultCategorizer.logger.Debugf("Auto-learning creditor mapping: '%s' → '%s'",
 				transaction.PartyName, category.Name)
 			defaultCategorizer.updateCreditorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
@@ -216,7 +216,7 @@ func (c *Categorizer) initGeminiClient() error {
 // Function to create a prompt for AI categorization
 func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
 	c.logger.Info("======== CREATING CATEGORIZATION PROMPT - IMPROVED FUNCTION CALLED ========")
-	
+
 	// Create a prompt for the Gemini API
 	prompt := "Categorize the following financial transaction into EXACTLY ONE of the allowed categories.\n\n"
 	prompt += fmt.Sprintf("Description: %s\n", transaction.Description)
@@ -234,16 +234,16 @@ func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string
 	// Get the list of categories
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
+
 	// Extract valid category names for easier validation later
 	validCategories := make([]string, 0, len(c.categories))
 	c.logger.Infof("Number of categories loaded: %d", len(c.categories))
-	
+
 	for _, category := range c.categories {
 		prompt += fmt.Sprintf("- %s\n", category.Name)
 		validCategories = append(validCategories, category.Name)
 	}
-	
+
 	// Add merchant categories from hard-coded map as additional options
 	prompt += "\nThese are the ONLY valid responses. Do not make up new categories or modify these names.\n"
 	prompt += "Do NOT return 'categories', 'category', 'unknown', or any other text not in the above list.\n"
@@ -320,16 +320,16 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 func (c *Categorizer) extractCategoryFromResponse(response string) string {
 	// Clean up the response
 	response = strings.TrimSpace(response)
-	
+
 	// Some models return the category name wrapped in quotes or other formatting
 	response = strings.Trim(response, `"'`)
-	
+
 	// If there's a colon, it might be "Category: Food & Dining" format
 	if strings.Contains(response, ":") {
 		parts := strings.SplitN(response, ":", 2)
 		response = strings.TrimSpace(parts[1])
 	}
-	
+
 	// If there are multiple lines, take the first one
 	if strings.Contains(response, "\n") {
 		lines := strings.Split(response, "\n")
@@ -341,27 +341,27 @@ func (c *Categorizer) extractCategoryFromResponse(response string) string {
 			}
 		}
 	}
-	
+
 	// Explicitly reject problematic responses
 	loweredResponse := strings.ToLower(response)
-	if loweredResponse == "categories" || loweredResponse == "category" || 
-	   loweredResponse == "unknown" || loweredResponse == "none" {
+	if loweredResponse == "categories" || loweredResponse == "category" ||
+		loweredResponse == "unknown" || loweredResponse == "none" {
 		c.logger.Warnf("Rejecting invalid category: '%s'", response)
 		return ""
 	}
-	
+
 	// Check if it matches any of our known categories
 	c.configMutex.RLock()
 	defer c.configMutex.RUnlock()
-	
+
 	// First try exact case-insensitive match (preferred)
 	for _, category := range c.categories {
 		if strings.EqualFold(category.Name, response) {
 			c.logger.Debugf("Found exact match for '%s': '%s'", response, category.Name)
-			return category.Name  // Return with correct casing from database
+			return category.Name // Return with correct casing from database
 		}
 	}
-	
+
 	// If no exact match, try partial match as fallback
 	bestMatch := ""
 	for _, category := range c.categories {
@@ -371,12 +371,12 @@ func (c *Categorizer) extractCategoryFromResponse(response string) string {
 			}
 		}
 	}
-	
+
 	if bestMatch != "" {
 		c.logger.Debugf("Found partial match for '%s': '%s'", response, bestMatch)
 		return bestMatch
 	}
-	
+
 	// Return empty string if no match found
 	c.logger.Warnf("No category match found for '%s'", response)
 	return ""
@@ -604,9 +604,9 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
 	if c.logger != nil {
 		c.logger.WithFields(logrus.Fields{
-			"party":   transaction.PartyName,
-			"amount":  transaction.Amount,
-			"date":    transaction.Date,
+			"party":    transaction.PartyName,
+			"amount":   transaction.Amount,
+			"date":     transaction.Date,
 			"isDebtor": transaction.IsDebtor,
 		}).Debug("Categorizing transaction")
 	}
@@ -683,15 +683,15 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 				Description: "Transaction could not be categorized by AI",
 			}, nil
 		}
-		
+
 		// Automatically save successful AI categorizations to database
 		// This ensures that future classifications of the same transaction are faster
 		if category.Name != "" && category.Name != "Uncategorized" {
 			if transaction.IsDebtor {
-				c.logger.Debugf("Auto-learning debitor mapping for '%s' → '%s'", 
+				c.logger.Debugf("Auto-learning debitor mapping for '%s' → '%s'",
 					transaction.PartyName, category.Name)
 				c.updateDebitorCategory(transaction.PartyName, category.Name)
-				
+
 				// Force save to disk immediately
 				if err := c.saveDebitorsToYAML(); err != nil {
 					c.logger.Warnf("Failed to save debitor mapping: %v", err)
@@ -699,10 +699,10 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 					c.logger.Debugf("Successfully saved debitor mapping to YAML")
 				}
 			} else {
-				c.logger.Debugf("Auto-learning creditor mapping for '%s' → '%s'", 
+				c.logger.Debugf("Auto-learning creditor mapping for '%s' → '%s'",
 					transaction.PartyName, category.Name)
 				c.updateCreditorCategory(transaction.PartyName, category.Name)
-				
+
 				// Force save to disk immediately
 				if err := c.saveCreditorsToYAML(); err != nil {
 					c.logger.Warnf("Failed to save creditor mapping: %v", err)
@@ -887,7 +887,7 @@ func (c *Categorizer) saveCreditorsToYAML() error {
 
 	// Always save the mappings when explicitly requested (added for automated learning)
 	c.logger.Debug("Saving creditor mappings to YAML file")
-	
+
 	if c.store == nil {
 		return fmt.Errorf("store is not initialized")
 	}
@@ -914,7 +914,7 @@ func (c *Categorizer) saveDebitorsToYAML() error {
 
 	// Always save the mappings when explicitly requested (added for automated learning)
 	c.logger.Debug("Saving debitor mappings to YAML file")
-	
+
 	if c.store == nil {
 		return fmt.Errorf("store is not initialized")
 	}

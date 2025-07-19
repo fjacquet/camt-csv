@@ -68,7 +68,7 @@ func LoadEnv() {
 			return
 		}
 		Logger.Infof("Loaded environment variables from %s", envFile)
-		
+
 		// Configure logging after loading environment variables
 		ConfigureLogging()
 	})

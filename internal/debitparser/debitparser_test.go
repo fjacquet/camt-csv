@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
-	"fjacquet/camt-csv/internal/categorizer"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSetLogger(t *testing.T) {

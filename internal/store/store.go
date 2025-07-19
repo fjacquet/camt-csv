@@ -265,7 +265,7 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 	if err != nil && err != os.ErrNotExist {
 		return fmt.Errorf("error resolving creditor mappings file: %w", err)
 	}
-	
+
 	// If file not found, use the database directory by default
 	if err == os.ErrNotExist {
 		if !filepath.IsAbs(filename) {
@@ -307,7 +307,7 @@ func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
 	if err != nil && err != os.ErrNotExist {
 		return fmt.Errorf("error resolving debitor mappings file: %w", err)
 	}
-	
+
 	// If file not found, use the database directory by default
 	if err == os.ErrNotExist {
 		if !filepath.IsAbs(filename) {

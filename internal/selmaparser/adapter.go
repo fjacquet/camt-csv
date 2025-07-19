@@ -10,16 +10,16 @@ import (
 type Parser interface {
 	// ParseFile parses a Selma CSV file and returns a slice of Transaction objects
 	ParseFile(filePath string) ([]models.Transaction, error)
-	
+
 	// ValidateFormat checks if a file is a valid Selma CSV file
 	ValidateFormat(filePath string) (bool, error)
-	
+
 	// ConvertToCSV converts a Selma CSV file to the standard format
 	ConvertToCSV(inputFile, outputFile string) error
-	
+
 	// WriteToCSV writes transactions to a CSV file
 	WriteToCSV(transactions []models.Transaction, csvFile string) error
-	
+
 	// SetLogger sets a custom logger for the parser
 	SetLogger(logger *logrus.Logger)
 }

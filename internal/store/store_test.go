@@ -33,19 +33,19 @@ func TestNewCategoryStore(t *testing.T) {
 
 func TestFindConfigFile(t *testing.T) {
 	dir := t.TempDir()
-	
+
 	// Create a test file
 	testFile := filepath.Join(dir, "test.yaml")
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
 	assert.NoError(t, err)
-	
+
 	store := NewCategoryStore("", "", "")
-	
+
 	// Test with absolute path that exists
 	file, err := store.FindConfigFile(testFile)
 	assert.NoError(t, err)
 	assert.Equal(t, testFile, file)
-	
+
 	// Test with file that doesn't exist
 	_, err = store.FindConfigFile(filepath.Join(dir, "nonexistent.yaml"))
 	assert.Error(t, err)
@@ -92,31 +92,31 @@ func TestLoadCategories_Malformed(t *testing.T) {
 func TestLoadAndSaveCreditorMappings(t *testing.T) {
 	tempDir := t.TempDir()
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
-	
+
 	// Create initial mappings
 	initialMappings := map[string]string{"Alice": "ALICE_CORP", "Bob": "BOB_INC"}
 	data, err := yaml.Marshal(initialMappings)
 	assert.NoError(t, err)
 	err = os.WriteFile(creditorsFile, data, 0644)
 	assert.NoError(t, err)
-	
+
 	// Load the mappings
 	store := NewCategoryStore(
 		filepath.Join(tempDir, "categories.yaml"),
 		creditorsFile,
 		filepath.Join(tempDir, "debitors.yaml"),
 	)
-	
+
 	mappings, err := store.LoadCreditorMappings()
 	assert.NoError(t, err)
 	assert.Equal(t, "ALICE_CORP", mappings["Alice"])
 	assert.Equal(t, "BOB_INC", mappings["Bob"])
-	
+
 	// Add a new mapping and save
 	mappings["Charlie"] = "CHARLIE_LLC"
 	err = store.SaveCreditorMappings(mappings)
 	assert.NoError(t, err)
-	
+
 	// Reload and verify
 	newMappings, err := store.LoadCreditorMappings()
 	assert.NoError(t, err)
@@ -126,31 +126,31 @@ func TestLoadAndSaveCreditorMappings(t *testing.T) {
 func TestLoadAndSaveDebitorMappings(t *testing.T) {
 	tempDir := t.TempDir()
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	
+
 	// Create initial mappings
 	initialMappings := map[string]string{"Company X": "INCOME_SALARY", "Company Y": "INCOME_BONUS"}
 	data, err := yaml.Marshal(initialMappings)
 	assert.NoError(t, err)
 	err = os.WriteFile(debitorsFile, data, 0644)
 	assert.NoError(t, err)
-	
+
 	// Load the mappings
 	store := NewCategoryStore(
 		filepath.Join(tempDir, "categories.yaml"),
 		filepath.Join(tempDir, "creditors.yaml"),
 		debitorsFile,
 	)
-	
+
 	mappings, err := store.LoadDebitorMappings()
 	assert.NoError(t, err)
 	assert.Equal(t, "INCOME_SALARY", mappings["Company X"])
 	assert.Equal(t, "INCOME_BONUS", mappings["Company Y"])
-	
+
 	// Add a new mapping and save
 	mappings["Company Z"] = "INCOME_FREELANCE"
 	err = store.SaveDebitorMappings(mappings)
 	assert.NoError(t, err)
-	
+
 	// Reload and verify
 	newMappings, err := store.LoadDebitorMappings()
 	assert.NoError(t, err)

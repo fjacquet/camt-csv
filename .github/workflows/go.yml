@@ -1,28 +1,89 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+# This workflow will build and test a golang project with enhanced CI features
+# Includes caching, linting, test coverage, race detection, and security scanning
 
-name: Go
+name: Go CI
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  # Allows manual trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
-
-  build:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.24.2'
-
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: go test -v ./...
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.2'
+          check-latest: true
+          cache: true
+      
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v5
+        with:
+          version: latest
+          args: --timeout=5m
+  
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.24.2', '1.23']
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: true
+      
+      - name: Build
+        run: go build -v ./...
+      
+      - name: Test
+        run: go test -v -race ./...
+      
+      - name: Test with Coverage
+        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+      
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: fjacquet/camt-csv
+          file: coverage.txt
+  
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.2'
+          check-latest: true
+          cache: true
+      
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+      
+      - name: Run gosec
+        run: gosec -fmt=sarif -out=security.sarif ./...
+      
+      - name: Upload Security Analysis Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: security.sarif
+          category: gosec

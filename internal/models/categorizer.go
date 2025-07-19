@@ -44,8 +44,8 @@ type TransactionParty struct {
 // CategorizerTransaction represents a financial transaction to be categorized
 // This is separate from the main Transaction struct to avoid circular dependencies
 type CategorizerTransaction struct {
-	Party    TransactionParty
-	Amount   string
-	Date     string
-	Info     string
+	Party  TransactionParty
+	Amount string
+	Date   string
+	Info   string
 }

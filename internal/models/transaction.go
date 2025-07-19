@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
+
 	"github.com/shopspring/decimal"
 )
 
@@ -47,10 +47,10 @@ type Transaction struct {
 	OriginalCurrency  string          `csv:"OriginalCurrency"`  // Original currency for foreign currency transactions
 	OriginalAmount    decimal.Decimal `csv:"OriginalAmount"`    // Original amount in foreign currency
 	ExchangeRate      decimal.Decimal `csv:"ExchangeRate"`      // Exchange rate for currency conversion
-	
+
 	// Fields not exported to CSV but used internally
-	Payee             string          `csv:"-"`                 // Beneficiary/recipient name (kept for backwards compatibility)
-	Payer             string          `csv:"-"`                 // Payer name (kept for backwards compatibility)
+	Payee string `csv:"-"` // Beneficiary/recipient name (kept for backwards compatibility)
+	Payer string `csv:"-"` // Payer name (kept for backwards compatibility)
 }
 
 // ParseAmount parses a string amount to decimal.Decimal with proper formatting
@@ -153,9 +153,9 @@ func (t *Transaction) UpdateRecipientFromPayee() {
 // UpdateInvestmentTypeFromLegacyField populates Investment when legacy parsers stored
 // this information in the Type field. If Investment is empty and Type is set, copy it.
 func (t *Transaction) UpdateInvestmentTypeFromLegacyField() {
-        if t.Investment == "" && t.Type != "" {
-                t.Investment = t.Type
-        }
+	if t.Investment == "" && t.Type != "" {
+		t.Investment = t.Type
+	}
 }
 
 // UpdateDebitCreditAmounts populates the Debit and Credit fields based on the main Amount
@@ -188,30 +188,30 @@ func StandardizeAmount(amountStr string) string {
 	amount = strings.ReplaceAll(amount, "USD", "")
 	amount = strings.ReplaceAll(amount, "$", "")
 	amount = strings.ReplaceAll(amount, "€", "")
-	
+
 	// Replace comma with dot for decimal separator
 	amount = strings.ReplaceAll(amount, ",", ".")
-	
+
 	// Remove minus sign if present (we'll handle the sign separately)
 	isNegative := strings.HasPrefix(amount, "-")
 	if isNegative {
 		amount = strings.TrimPrefix(amount, "-")
 	}
-	
+
 	// Convert to decimal and back to string to standardize decimal places
 	dec, err := decimal.NewFromString(amount)
 	if err != nil {
 		return amountStr // Return original if parsing fails
 	}
-	
+
 	// Format with exactly 2 decimal places
 	formatted := dec.StringFixed(2)
-	
+
 	// Add back minus sign if it was negative
 	if isNegative {
 		return "-" + formatted
 	}
-	
+
 	return formatted
 }
 
@@ -222,58 +222,58 @@ func FormatDate(dateStr string) string {
 	if dateStr == "" {
 		return ""
 	}
-	
+
 	// Clean the input string
 	cleanDate := strings.TrimSpace(dateStr)
-	
+
 	// If it's already in the target format (DD.MM.YYYY), return as is
 	if matched, _ := regexp.MatchString(`^\d{2}\.\d{2}\.\d{4}$`, cleanDate); matched {
 		return cleanDate
 	}
-	
+
 	// Try various date formats commonly found in financial data
 	formats := []string{
-		"2006-01-02",                 // YYYY-MM-DD (ISO)
-		"2006-01-02 15:04:05",        // YYYY-MM-DD HH:MM:SS
-		"2006-01-02T15:04:05Z",       // ISO 8601
-		"2006-01-02T15:04:05-07:00",  // ISO 8601 with timezone
-		"02/01/2006",                 // DD/MM/YYYY
-		"01/02/2006",                 // MM/DD/YYYY (US format)
-		"02-01-2006",                 // DD-MM-YYYY
-		"01-02-2006",                 // MM-DD-YYYY
-		"2.1.2006",                   // D.M.YYYY
-		"02.01.2006",                 // DD.MM.YYYY
-		"January 2, 2006",            // Month D, YYYY
-		"2 January 2006",             // D Month YYYY
-		"02 Jan 2006",                // DD MMM YYYY
-		"Jan 02, 2006",               // MMM DD, YYYY
-		"January 2006",               // Month YYYY (for monthly statements)
-		"Jan 2006",                   // MMM YYYY (abbreviated month)
-		"01/2006",                    // MM/YYYY
-		"2006/01",                    // YYYY/MM
+		"2006-01-02",                // YYYY-MM-DD (ISO)
+		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
+		"2006-01-02T15:04:05Z",      // ISO 8601
+		"2006-01-02T15:04:05-07:00", // ISO 8601 with timezone
+		"02/01/2006",                // DD/MM/YYYY
+		"01/02/2006",                // MM/DD/YYYY (US format)
+		"02-01-2006",                // DD-MM-YYYY
+		"01-02-2006",                // MM-DD-YYYY
+		"2.1.2006",                  // D.M.YYYY
+		"02.01.2006",                // DD.MM.YYYY
+		"January 2, 2006",           // Month D, YYYY
+		"2 January 2006",            // D Month YYYY
+		"02 Jan 2006",               // DD MMM YYYY
+		"Jan 02, 2006",              // MMM DD, YYYY
+		"January 2006",              // Month YYYY (for monthly statements)
+		"Jan 2006",                  // MMM YYYY (abbreviated month)
+		"01/2006",                   // MM/YYYY
+		"2006/01",                   // YYYY/MM
 	}
-	
+
 	// European day-first preference (important for ambiguous formats)
 	// This list matches the same formats but with European day-first parsing
 	europeanFormats := []string{
-		"02/01/2006",                 // DD/MM/YYYY (European)
-		"02-01-2006",                 // DD-MM-YYYY (European)
+		"02/01/2006", // DD/MM/YYYY (European)
+		"02-01-2006", // DD-MM-YYYY (European)
 	}
-	
+
 	// First try European formats (as they're more common in Swiss financial data)
 	for _, format := range europeanFormats {
 		if t, err := time.Parse(format, cleanDate); err == nil {
 			return t.Format("02.01.2006") // Return as DD.MM.YYYY
 		}
 	}
-	
+
 	// Then try all other formats
 	for _, format := range formats {
 		if t, err := time.Parse(format, cleanDate); err == nil {
 			return t.Format("02.01.2006") // Return as DD.MM.YYYY
 		}
 	}
-	
+
 	// If we can't parse the date, log a warning and return the original
 	// log.WithField("date", dateStr).Warning("Unable to parse date format")
 	return dateStr

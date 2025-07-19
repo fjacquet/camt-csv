@@ -27,7 +27,7 @@ func ProcessFile(p parser.Parser, input, output string, validate bool, log *logr
 	if err := p.ConvertToCSV(input, output); err != nil {
 		return fmt.Errorf("error converting file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -38,11 +38,11 @@ func SaveCategoryMappings(log *logrus.Logger) {
 	if err := categorizer.SaveCreditorsToYAML(); err != nil {
 		log.Warnf("Failed to save creditor mappings: %v", err)
 	}
-	
+
 	// Save debitor mappings if needed
 	if err := categorizer.SaveDebitorsToYAML(); err != nil {
 		log.Warnf("Failed to save debitor mappings: %v", err)
 	}
-	
+
 	log.Debug("Category mapping save complete")
 }

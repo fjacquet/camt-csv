@@ -149,7 +149,11 @@ func ValidateFormat(xmlFile string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Warnf("Failed to close file: %v", err)
+			}
+		}()
 
 		// Read enough bytes to check for XML header and CAMT053 identifiers
 		buffer := make([]byte, 4096)
@@ -165,8 +169,8 @@ func ValidateFormat(xmlFile string) (bool, error) {
 		}
 
 		// Check for CAMT.053 specific elements (simplified for quick validation)
-		isCamt := strings.Contains(xmlHeader, "Document") && 
-				(strings.Contains(xmlHeader, "BkToCstmrStmt") || 
+		isCamt := strings.Contains(xmlHeader, "Document") &&
+			(strings.Contains(xmlHeader, "BkToCstmrStmt") ||
 				strings.Contains(xmlHeader, "camt.053"))
 
 		if isCamt {
@@ -174,7 +178,7 @@ func ValidateFormat(xmlFile string) (bool, error) {
 		} else {
 			log.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
 		}
-		
+
 		return isCamt, nil
 	}
 
@@ -214,19 +218,19 @@ func ValidateFormat(xmlFile string) (bool, error) {
 // Valid types: "iso20022"
 func SetParserType(newParserType string) {
 	lowerType := strings.ToLower(newParserType)
-	
+
 	// Skip if already using the requested parser type
 	if currentParserType == "iso20022" && activeParser != nil {
 		return
 	}
-	
+
 	// Always use ISO20022 parser now that XPath is removed
 	currentParserType = "iso20022"
-	
+
 	// Create the ISO20022 parser
 	adapter := NewAdapter()
 	activeParser = adapter
-	
+
 	if lowerType != "iso20022" && lowerType != "" {
 		log.Warnf("Parser type '%s' is not supported. Only ISO20022 parser is available.", newParserType)
 	}

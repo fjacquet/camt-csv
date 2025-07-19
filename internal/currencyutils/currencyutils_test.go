@@ -12,17 +12,17 @@ func TestSetLogger(t *testing.T) {
 	// Create a custom logger
 	customLogger := logrus.New()
 	customLogger.SetLevel(logrus.DebugLevel)
-	
+
 	// Save the original logger to restore after test
 	originalLogger := log
 	defer func() {
 		log = originalLogger
 	}()
-	
+
 	// Test with valid logger
 	SetLogger(customLogger)
 	assert.Equal(t, customLogger, log)
-	
+
 	// Test with nil logger (should not change the current logger)
 	currentLogger := log
 	SetLogger(nil)
@@ -55,15 +55,15 @@ func TestParseAmount(t *testing.T) {
 		{"Malformed decimal", "123.45.67", decimal.Zero, true, false, ""},
 		{"Non-numeric", "abc", decimal.Zero, true, false, ""},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.skip {
 				t.Skip(tc.skipReason)
 			}
-			
+
 			result, err := ParseAmount(tc.amountStr)
-			
+
 			if tc.hasError {
 				assert.Error(t, err)
 			} else {
@@ -98,13 +98,13 @@ func TestStandardizeAmount(t *testing.T) {
 		{"Comma as thousands separator", "1,234", "1234", true, "Current implementation does not remove comma thousand separators correctly"},
 		{"Euro symbol and European format", "€1.234,56", "1234.56", false, ""},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.skip {
 				t.Skip(tc.skipReason)
 			}
-			
+
 			result := StandardizeAmount(tc.input)
 			assert.Equal(t, tc.expected, result)
 		})
@@ -129,7 +129,7 @@ func TestFormatAmount(t *testing.T) {
 		{"Zero amount", decimal.Zero, "USD", "$0.00"},
 		{"Small amount", decimal.NewFromFloat(0.01), "CHF", "CHF 0.01"},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := FormatAmount(tc.amount, tc.currency)
@@ -150,7 +150,7 @@ func TestIsNegative(t *testing.T) {
 		{"Very small negative", decimal.NewFromFloat(-0.01), true},
 		{"Very small positive", decimal.NewFromFloat(0.01), false},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsNegative(tc.amount)
@@ -171,7 +171,7 @@ func TestIsPositive(t *testing.T) {
 		{"Very small negative", decimal.NewFromFloat(-0.01), false},
 		{"Very small positive", decimal.NewFromFloat(0.01), true},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsPositive(tc.amount)
@@ -193,7 +193,7 @@ func TestIsZero(t *testing.T) {
 		{"Very small positive", decimal.NewFromFloat(0.01), false},
 		{"Amount with trailing zeros", decimal.NewFromFloat(0.00), true},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := IsZero(tc.amount)
@@ -204,10 +204,10 @@ func TestIsZero(t *testing.T) {
 
 func TestCalculateTaxAmount(t *testing.T) {
 	tests := []struct {
-		name         string
-		amount       decimal.Decimal
-		taxRate      decimal.Decimal
-		expectedTax  decimal.Decimal
+		name        string
+		amount      decimal.Decimal
+		taxRate     decimal.Decimal
+		expectedTax decimal.Decimal
 	}{
 		{"Standard VAT", decimal.NewFromInt(100), decimal.NewFromFloat(7.7), decimal.NewFromFloat(7.7)},
 		{"Higher VAT rate", decimal.NewFromInt(100), decimal.NewFromFloat(19), decimal.NewFromFloat(19)},
@@ -216,7 +216,7 @@ func TestCalculateTaxAmount(t *testing.T) {
 		{"Negative amount", decimal.NewFromFloat(-100), decimal.NewFromFloat(7.7), decimal.NewFromFloat(-7.7)},
 		{"Non-integer values", decimal.NewFromFloat(123.45), decimal.NewFromFloat(8.5), decimal.NewFromFloat(10.49325)},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := CalculateTaxAmount(tc.amount, tc.taxRate)
@@ -227,10 +227,10 @@ func TestCalculateTaxAmount(t *testing.T) {
 
 func TestAmountExcludingTax(t *testing.T) {
 	tests := []struct {
-		name           string
-		totalAmount    decimal.Decimal
-		taxRate        decimal.Decimal
-		expectedNet    decimal.Decimal
+		name        string
+		totalAmount decimal.Decimal
+		taxRate     decimal.Decimal
+		expectedNet decimal.Decimal
 	}{
 		{"Standard VAT", decimal.NewFromFloat(107.7), decimal.NewFromFloat(7.7), decimal.NewFromInt(100)},
 		{"Higher VAT rate", decimal.NewFromFloat(119), decimal.NewFromFloat(19), decimal.NewFromInt(100)},
@@ -239,7 +239,7 @@ func TestAmountExcludingTax(t *testing.T) {
 		{"100% tax rate", decimal.NewFromInt(100), decimal.NewFromInt(100), decimal.Zero},
 		{"Negative total", decimal.NewFromFloat(-107.7), decimal.NewFromFloat(7.7), decimal.NewFromFloat(-100)},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := AmountExcludingTax(tc.totalAmount, tc.taxRate)
@@ -250,10 +250,10 @@ func TestAmountExcludingTax(t *testing.T) {
 
 func TestAmountIncludingTax(t *testing.T) {
 	tests := []struct {
-		name            string
-		netAmount       decimal.Decimal
-		taxRate         decimal.Decimal
-		expectedTotal   decimal.Decimal
+		name          string
+		netAmount     decimal.Decimal
+		taxRate       decimal.Decimal
+		expectedTotal decimal.Decimal
 	}{
 		{"Standard VAT", decimal.NewFromInt(100), decimal.NewFromFloat(7.7), decimal.NewFromFloat(107.7)},
 		{"Higher VAT rate", decimal.NewFromInt(100), decimal.NewFromFloat(19), decimal.NewFromFloat(119)},
@@ -262,7 +262,7 @@ func TestAmountIncludingTax(t *testing.T) {
 		{"Negative net", decimal.NewFromFloat(-100), decimal.NewFromFloat(7.7), decimal.NewFromFloat(-107.7)},
 		{"Non-integer values", decimal.NewFromFloat(123.45), decimal.NewFromFloat(8.5), decimal.NewFromFloat(133.94325)},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := AmountIncludingTax(tc.netAmount, tc.taxRate)

@@ -5,26 +5,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
-	"fjacquet/camt-csv/internal/categorizer"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestCSVRow represents a test CSV row for gocsv unmarshaling
 type TestCSVRow struct {
-	Name     string `csv:"Name"`
-	Age      string `csv:"Age"`
-	Email    string `csv:"Email"`
-	Country  string `csv:"Country"`
-}
-
-func init() {
-	// Setup a test logger
-	log = logrus.New()
-	log.SetLevel(logrus.DebugLevel)
+	Name    string `csv:"Name"`
+	Age     string `csv:"Age"`
+	Email   string `csv:"Email"`
+	Country string `csv:"Country"`
 }
 
 func TestReadCSVFile(t *testing.T) {
@@ -121,7 +115,7 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	// Read the generated file to verify
 	content, err := os.ReadFile(outputPath)
 	assert.NoError(t, err, "Failed to read output CSV file")
-	
+
 	// Check if the file contains the essential headers and transaction data
 	csvContent := string(content)
 	assert.Contains(t, csvContent, "Date", "Output CSV should contain Date header")
@@ -129,7 +123,7 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "Currency", "Output CSV should contain Currency header")
 	assert.Contains(t, csvContent, "Transaction 1", "Output CSV should contain first transaction description")
 	assert.Contains(t, csvContent, "Transaction 2", "Output CSV should contain second transaction description")
-	
+
 	// Test with an invalid path
 	err = WriteTransactionsToCSV(transactions, "/invalid/path/output.csv")
 	assert.Error(t, err, "WriteTransactionsToCSV should return an error for an invalid path")
@@ -162,7 +156,7 @@ Bob Johnson,42,bob@example.com,UK`
 		}
 		return []models.Transaction{transaction}, nil
 	}
-	
+
 	validateFunc := func(string) (bool, error) {
 		return true, nil
 	}
@@ -176,7 +170,7 @@ Bob Johnson,42,bob@example.com,UK`
 	invalidValidateFunc := func(string) (bool, error) {
 		return false, nil
 	}
-	
+
 	err = GeneralizedConvertToCSV(inputPath, outputPath, parseFunc, invalidValidateFunc)
 	assert.Error(t, err, "GeneralizedConvertToCSV should return an error when validation fails")
 }
@@ -216,7 +210,7 @@ func TestExportTransactionsToCSV(t *testing.T) {
 	assert.Contains(t, csvStr, "Description")
 	assert.Contains(t, csvStr, "Amount")
 	assert.Contains(t, csvStr, "Currency")
-	
+
 	// Check transaction data is present
 	assert.Contains(t, csvStr, "01.01.2023")
 	assert.Contains(t, csvStr, "Test Debit")
@@ -228,13 +222,13 @@ func TestSetLogger(t *testing.T) {
 	// Create a custom logger
 	customLogger := logrus.New()
 	customLogger.SetLevel(logrus.WarnLevel)
-	
+
 	// Set the custom logger
 	SetLogger(customLogger)
-	
+
 	// Verify that the logger was set
 	assert.Equal(t, logrus.WarnLevel, log.GetLevel(), "Logger should be set to the custom logger")
-	
+
 	// Test with nil logger (should not change the current logger)
 	originalLogger := log
 	SetLogger(nil)

@@ -23,16 +23,16 @@ import (
 func init() {
 	// 1. Load environment variables silently first (no logging yet)
 	loadEnvSilently()
-	
+
 	// 2. Configure global log level directly - this affects ALL new loggers
 	logLevel := configureLogLevelDirectly()
-	
+
 	// 3. Force this level on ALL existing and future loggers
 	logging.SetAllLogLevels(logLevel)
-	
+
 	// 4. Now that logging is properly configured, initialize root command
 	root.Init()
-	
+
 	// 5. Add all subcommands
 	root.Cmd.AddCommand(camt.Cmd)
 	root.Cmd.AddCommand(batch.Cmd)
@@ -54,7 +54,7 @@ func loadEnvSilently() {
 			return
 		}
 	}
-	
+
 	// Load .env file silently without logging
 	_ = godotenv.Load(envFile)
 }
@@ -67,18 +67,18 @@ func configureLogLevelDirectly() logrus.Level {
 	if logLevelStr == "" {
 		logLevelStr = "info" // Default log level
 	}
-	
+
 	// Parse the log level
 	logLevel, err := logrus.ParseLevel(strings.ToLower(logLevelStr))
 	if err != nil {
 		// Don't log here, just use default info level if we can't parse
 		logLevel = logrus.InfoLevel
 	}
-	
+
 	// This is critical: set the global logrus level BEFORE any logging happens
 	// This affects ALL existing and future loggers
 	logrus.SetLevel(logLevel)
-	
+
 	return logLevel
 }
 

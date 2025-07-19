@@ -65,7 +65,11 @@ func (a *Adapter) ValidateFormat(filePath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logrus.Warnf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Read enough bytes to check for XML header and CAMT053 identifiers
 	buffer := make([]byte, 4096)
@@ -96,8 +100,8 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 		return err
 	}
 
-	// Handle nil or empty transactions list
-	if transactions == nil || len(transactions) == 0 {
+	// Handle empty transactions list
+	if len(transactions) == 0 {
 		// Create an empty transaction slice and use common package for consistency
 		// This ensures the delimiter setting is properly respected
 		logrus.WithFields(logrus.Fields{
@@ -171,7 +175,11 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			logrus.Warnf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Read the XML content
 	xmlData, err := io.ReadAll(file)
@@ -243,12 +251,12 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 			Name    string  `xml:"Nm"`
 			Account Account `xml:"Acct,omitempty"`
 		} `xml:"Cdtr"`
-		DebtorAccount  Account `xml:"DbtrAcct,omitempty"`
+		DebtorAccount   Account `xml:"DbtrAcct,omitempty"`
 		CreditorAccount Account `xml:"CdtrAcct,omitempty"`
 	}
 
 	type RelatedAccounts struct {
-		DebtorAccount  Account `xml:"DbtrAcct,omitempty"`
+		DebtorAccount   Account `xml:"DbtrAcct,omitempty"`
 		CreditorAccount Account `xml:"CdtrAcct,omitempty"`
 	}
 
@@ -358,7 +366,7 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 				if transaction.PartyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
 					transaction.PartyName = txDetails.RelatedParties.Debtor.Name
 				}
-				
+
 				// Check for IBAN in related parties and accounts
 				// Try multiple possible paths for finding the IBAN
 				if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
@@ -379,7 +387,7 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 				} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
 					transaction.PartyIBAN = txDetails.RelatedParties.Creditor.Account.ID
 				}
-				
+
 				// Set transaction Type based on description prefix
 				transactionType := setTransactionTypeFromDescription(transaction.Description)
 				if transactionType != "" {
@@ -456,12 +464,12 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 
 // isIBANFormat checks if a string appears to be in IBAN format
 func isIBANFormat(s string) bool {
-	// Basic check: IBANs typically start with a country code (2 letters) followed by 
+	// Basic check: IBANs typically start with a country code (2 letters) followed by
 	// checksum digits and the account number
 	if len(s) < 15 || len(s) > 34 {
 		return false
 	}
-	
+
 	// Check if the first two characters are letters (country code)
 	if len(s) >= 2 && !('A' <= s[0] && s[0] <= 'Z') && !('a' <= s[0] && s[0] <= 'z') {
 		return false
@@ -469,7 +477,7 @@ func isIBANFormat(s string) bool {
 	if len(s) >= 2 && !('A' <= s[1] && s[1] <= 'Z') && !('a' <= s[1] && s[1] <= 'z') {
 		return false
 	}
-	
+
 	// Check if the rest is alphanumeric
 	for i := 2; i < len(s); i++ {
 		c := s[i]
@@ -477,7 +485,7 @@ func isIBANFormat(s string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 

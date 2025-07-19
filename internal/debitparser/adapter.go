@@ -14,13 +14,13 @@ type Adapter struct {
 // NewAdapter creates a new adapter for the debitparser.
 func NewAdapter() parser.Parser {
 	adapter := &Adapter{}
-	
+
 	// Set up the default parser with this adapter as implementation
 	adapter.defaultParser = parser.DefaultParser{
 		Logger: logrus.New(),
 		Impl:   adapter,
 	}
-	
+
 	return adapter
 }
 

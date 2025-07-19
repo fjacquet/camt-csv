@@ -27,7 +27,7 @@ func convertFunc(cmd *cobra.Command, args []string) {
 		root.Log.Fatalf("Error processing CAMT file: %v", err)
 	}
 	root.Log.Info("Conversion completed successfully")
-	
+
 	// Save any updated mappings to the database
 	common.SaveCategoryMappings(root.Log)
 }

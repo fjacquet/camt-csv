@@ -14,7 +14,7 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
-	
+
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
@@ -458,17 +458,17 @@ func extractAmount(text string) (string, decimal.Decimal, bool) {
 	// Match patterns like "123.45 USD" or "USD 123.45"
 	amountPattern := regexp.MustCompile(`[+-]?\s*(\d+'?)+[,\.]?\d*\s*(CHF|EUR|USD|\$|€)?`)
 	amountMatch := amountPattern.FindString(text)
-	
+
 	if amountMatch != "" {
 		amountStr := amountMatch
 		// Default to debit unless explicitly marked as credit or has a plus sign
-		isCredit := strings.Contains(strings.ToLower(text), "credit") || 
-				   strings.Contains(strings.ToLower(text), "incoming") || 
-				   strings.Contains(text, "+")
+		isCredit := strings.Contains(strings.ToLower(text), "credit") ||
+			strings.Contains(strings.ToLower(text), "incoming") ||
+			strings.Contains(text, "+")
 		decimalAmount := models.ParseAmount(amountStr)
 		return amountStr, decimalAmount, isCredit
 	}
-	
+
 	return "", decimal.Zero, false
 }
 
@@ -797,7 +797,7 @@ func parseDecimalOrZero(value string) decimal.Decimal {
 	if value == "" {
 		return decimal.Zero
 	}
-	
+
 	dec, err := decimal.NewFromString(value)
 	if err != nil {
 		return decimal.Zero
