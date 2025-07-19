@@ -11,7 +11,7 @@ import (
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0600)
 	assert.NoError(t, err)
 }
 
@@ -36,7 +36,7 @@ func TestFindConfigFile(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(dir, "test.yaml")
-	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	err := os.WriteFile(testFile, []byte("test content"), 0600)
 	assert.NoError(t, err)
 
 	store := NewCategoryStore("", "", "")
@@ -97,7 +97,7 @@ func TestLoadAndSaveCreditorMappings(t *testing.T) {
 	initialMappings := map[string]string{"Alice": "ALICE_CORP", "Bob": "BOB_INC"}
 	data, err := yaml.Marshal(initialMappings)
 	assert.NoError(t, err)
-	err = os.WriteFile(creditorsFile, data, 0644)
+	err = os.WriteFile(creditorsFile, data, 0600)
 	assert.NoError(t, err)
 
 	// Load the mappings
@@ -131,7 +131,7 @@ func TestLoadAndSaveDebitorMappings(t *testing.T) {
 	initialMappings := map[string]string{"Company X": "INCOME_SALARY", "Company Y": "INCOME_BONUS"}
 	data, err := yaml.Marshal(initialMappings)
 	assert.NoError(t, err)
-	err = os.WriteFile(debitorsFile, data, 0644)
+	err = os.WriteFile(debitorsFile, data, 0600)
 	assert.NoError(t, err)
 
 	// Load the mappings

@@ -35,7 +35,7 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 
 	tempDir := t.TempDir()
 	validFile := filepath.Join(tempDir, "valid.csv")
-	if err := os.WriteFile(validFile, []byte(validContent), 0644); err != nil {
+	if err := os.WriteFile(validFile, []byte(validContent), 0600); err != nil {
 		t.Fatalf("Failed to write valid file: %v", err)
 	}
 
@@ -44,7 +44,7 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 Value1;Value2`
 
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
-	if err := os.WriteFile(invalidFile, []byte(invalidContent), 0644); err != nil {
+	if err := os.WriteFile(invalidFile, []byte(invalidContent), 0600); err != nil {
 		t.Fatalf("Failed to write invalid file: %v", err)
 	}
 
@@ -76,7 +76,7 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 
 	tempDir := t.TempDir()
 	validFile := filepath.Join(tempDir, "valid.csv")
-	if err := os.WriteFile(validFile, []byte(validContent), 0644); err != nil {
+	if err := os.WriteFile(validFile, []byte(validContent), 0600); err != nil {
 		t.Fatalf("Failed to write valid file: %v", err)
 	}
 
@@ -105,13 +105,13 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
 		t.Fatalf("Failed to write categories file: %v", err)
 	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write creditors file: %v", err)
 	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
@@ -185,7 +185,7 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.csv")
-	if err := os.WriteFile(inputFile, []byte(validContent), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(validContent), 0600); err != nil {
 		t.Fatalf("Failed to write input file: %v", err)
 	}
 

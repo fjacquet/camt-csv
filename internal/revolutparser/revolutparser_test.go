@@ -30,7 +30,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 TRANSFER,Current,2025-01-08 19:39:37,2025-01-08 19:39:37,To CHF Vacances,-4.30,0.00,CHF,COMPLETED,49.62
 CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00,CHF,COMPLETED,40.48`
 
-	err := os.WriteFile(testFile, []byte(csvContent), 0644)
+	err := os.WriteFile(testFile, []byte(csvContent), 0600)
 	assert.NoError(t, err, "Failed to create test file")
 
 	// Test parsing
@@ -108,20 +108,20 @@ func TestValidateFormat(t *testing.T) {
 	validFile := filepath.Join(tempDir, "valid.csv")
 	validContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 TRANSFER,Current,2025-01-02 08:07:09,2025-01-02 08:07:09,To CHF Vacances,-2.50,0.00,CHF,COMPLETED,111.42`
-	err := os.WriteFile(validFile, []byte(validContent), 0644)
+	err := os.WriteFile(validFile, []byte(validContent), 0600)
 	assert.NoError(t, err, "Failed to create valid test file")
 
 	// Invalid CSV (missing required columns)
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
 	invalidContent := `Date,Description,Balance
 2025-01-02,Some description,111.42`
-	err = os.WriteFile(invalidFile, []byte(invalidContent), 0644)
+	err = os.WriteFile(invalidFile, []byte(invalidContent), 0600)
 	assert.NoError(t, err, "Failed to create invalid test file")
 
 	// Empty CSV (header only)
 	emptyFile := filepath.Join(tempDir, "empty.csv")
 	emptyContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance`
-	err = os.WriteFile(emptyFile, []byte(emptyContent), 0644)
+	err = os.WriteFile(emptyFile, []byte(emptyContent), 0600)
 	assert.NoError(t, err, "Failed to create empty test file")
 
 	// Test validation
@@ -149,7 +149,7 @@ func TestConvertToCSV(t *testing.T) {
 TRANSFER,Current,2025-01-01 08:07:09,2025-01-02 08:07:09,To CHF Vacances,-2.50,0.00,CHF,COMPLETED,111.42
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
 
-	err := os.WriteFile(inputFile, []byte(csvContent), 0644)
+	err := os.WriteFile(inputFile, []byte(csvContent), 0600)
 	assert.NoError(t, err, "Failed to create test input file")
 
 	// Test convert to CSV

@@ -25,13 +25,13 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
 		t.Fatalf("Failed to write categories file: %v", err)
 	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write creditors file: %v", err)
 	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
@@ -48,7 +48,7 @@ func TestValidateFormat(t *testing.T) {
 
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -63,11 +63,11 @@ func TestValidateFormat(t *testing.T) {
 	invalidFile := filepath.Join(tempDir, "invalid.txt")
 
 	// Create a valid PDF-like file and an invalid file
-	err = os.WriteFile(validFile, []byte("%PDF-1.5\nSome PDF content"), 0644)
+	err = os.WriteFile(validFile, []byte("%PDF-1.5\nSome PDF content"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write valid test file: %v", err)
 	}
-	err = os.WriteFile(invalidFile, []byte("This is not a PDF file"), 0644)
+	err = os.WriteFile(invalidFile, []byte("This is not a PDF file"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestParseFile(t *testing.T) {
 
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestParseFile(t *testing.T) {
 
 	// Create a mock PDF file with transaction-like content
 	mockPDFFile := filepath.Join(tempDir, "statement.pdf")
-	err = os.WriteFile(mockPDFFile, []byte("%PDF-1.5\nBank Statement"), 0644)
+	err = os.WriteFile(mockPDFFile, []byte("%PDF-1.5\nBank Statement"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write mock PDF file: %v", err)
 	}

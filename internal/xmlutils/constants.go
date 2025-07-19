@@ -112,9 +112,9 @@ const (
 	XPathAddTxInfo      = "//Ntry/NtryDtls/TxDtls/AddtlTxInf"
 
 	// Party information
-	XPathDebtorName        = "//Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm"        // #nosec G101 -- XPath expression, not credentials
+	XPathDebtorName        = "//Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm"              // #nosec G101 -- XPath expression, not credentials
 	XPathDebtorAgentName   = "//Ntry/NtryDtls/TxDtls/RltdAgts/DbtrAgt/FinInstnId/Nm" // #nosec G101 -- XPath expression, not credentials
-	XPathCreditorName      = "//Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm"      // #nosec G101 -- XPath expression, not credentials
+	XPathCreditorName      = "//Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm"              // #nosec G101 -- XPath expression, not credentials
 	XPathCreditorAgentName = "//Ntry/NtryDtls/TxDtls/RltdAgts/CdtrAgt/FinInstnId/Nm" // #nosec G101 -- XPath expression, not credentials
 	XPathUltimateDebtor    = "//Ntry/NtryDtls/TxDtls/RltdPties/UltmtDbtr/Nm"
 	XPathUltimateCreditor  = "//Ntry/NtryDtls/TxDtls/RltdPties/UltmtCdtr/Nm" // #nosec G101 -- XPath expression, not credentials

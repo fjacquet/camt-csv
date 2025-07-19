@@ -26,13 +26,13 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
 		t.Fatalf("Failed to write categories file: %v", err)
 	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write creditors file: %v", err)
 	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
@@ -45,7 +45,7 @@ func setupTestCategorizer(t *testing.T) {
 func TestValidateFormat(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "selma-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -68,11 +68,11 @@ func TestValidateFormat(t *testing.T) {
 	validFile := filepath.Join(tempDir, "valid.csv")
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
 
-	err = os.WriteFile(validFile, []byte(validCSV), 0644)
+	err = os.WriteFile(validFile, []byte(validCSV), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write valid test file: %v", err)
 	}
-	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0644)
+	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestValidateFormat(t *testing.T) {
 func TestParseFile(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "selma-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestParseFile(t *testing.T) {
 2023-01-02,ISHARES CORE S&P 500 UCITS ETF,22310435156,IE00B5BMR087,452.22,CHF,1`
 
 	testFile := filepath.Join(tempDir, "transactions.csv")
-	err = os.WriteFile(testFile, []byte(testCSV), 0644)
+	err = os.WriteFile(testFile, []byte(testCSV), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestConvertToCSV(t *testing.T) {
 		setupTestCategorizer(t)
 		// Create temp directories
 		tempDir := filepath.Join(os.TempDir(), "selma-test")
-		err := os.MkdirAll(tempDir, 0755)
+		err := os.MkdirAll(tempDir, 0750)
 		if err != nil {
 			t.Fatalf("Failed to create temp directory: %v", err)
 		}
@@ -162,7 +162,7 @@ func TestConvertToCSV(t *testing.T) {
 		selmaFile := filepath.Join(tempDir, "selma.csv")
 		outputFile := filepath.Join(tempDir, "output.csv")
 
-		err = os.WriteFile(selmaFile, []byte(selmaCSV), 0644)
+		err = os.WriteFile(selmaFile, []byte(selmaCSV), 0600)
 		if err != nil {
 			t.Fatalf("Failed to write test Selma file: %v", err)
 		}

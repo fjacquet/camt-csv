@@ -39,7 +39,7 @@ Jane Smith,25,jane@example.com,Canada
 Bob Johnson,42,bob@example.com,UK`
 
 	testCSVPath := filepath.Join(tempDir, "test.csv")
-	err = os.WriteFile(testCSVPath, []byte(csvContent), 0644)
+	err = os.WriteFile(testCSVPath, []byte(csvContent), 0600)
 	assert.NoError(t, err, "Failed to write test CSV file")
 
 	// Test reading the CSV file
@@ -76,13 +76,13 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
 		t.Fatalf("Failed to write categories file: %v", err)
 	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write creditors file: %v", err)
 	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
@@ -160,7 +160,7 @@ Jane Smith,25,jane@example.com,Canada
 Bob Johnson,42,bob@example.com,UK`
 
 	inputPath := filepath.Join(tempDir, "input.csv")
-	err = os.WriteFile(inputPath, []byte(csvContent), 0644)
+	err = os.WriteFile(inputPath, []byte(csvContent), 0600)
 	assert.NoError(t, err, "Failed to write test CSV file")
 
 	// Define the parser functions for testing

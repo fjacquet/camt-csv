@@ -19,15 +19,15 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	err := os.WriteFile(categoriesFile, []byte("[]"), 0644)
+	err := os.WriteFile(categoriesFile, []byte("[]"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write categories file: %v", err)
 	}
-	err = os.WriteFile(creditorsFile, []byte("{}"), 0644)
+	err = os.WriteFile(creditorsFile, []byte("{}"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write creditors file: %v", err)
 	}
-	err = os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	err = os.WriteFile(debitorsFile, []byte("{}"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestValidateFormat(t *testing.T) {
 
 	// Create test directories
 	tempDir := filepath.Join(os.TempDir(), "camt-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -96,11 +96,11 @@ func TestValidateFormat(t *testing.T) {
 	// Create test files
 	validFile := filepath.Join(tempDir, "valid.xml")
 	invalidFile := filepath.Join(tempDir, "invalid.xml")
-	err = os.WriteFile(validFile, []byte(validXML), 0644)
+	err = os.WriteFile(validFile, []byte(validXML), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write valid test file: %v", err)
 	}
-	err = os.WriteFile(invalidFile, []byte(invalidXML), 0644)
+	err = os.WriteFile(invalidFile, []byte(invalidXML), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestParseFile(t *testing.T) {
 
 	// Create test directories
 	tempDir := filepath.Join(os.TempDir(), "camt-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestParseFile(t *testing.T) {
 
 	// Create test file
 	testFile := filepath.Join(tempDir, "test.xml")
-	err = os.WriteFile(testFile, []byte(validXML), 0644)
+	err = os.WriteFile(testFile, []byte(validXML), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestWriteToCSV(t *testing.T) {
 
 	// Create test directories
 	tempDir := filepath.Join(os.TempDir(), "camt-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestConvertToCSV(t *testing.T) {
 
 	// Create test directories
 	tempDir := filepath.Join(os.TempDir(), "camt-test")
-	err := os.MkdirAll(tempDir, 0755)
+	err := os.MkdirAll(tempDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -328,11 +328,11 @@ func TestBatchConvert(t *testing.T) {
 	tempDir := t.TempDir()
 	inputDir := filepath.Join(tempDir, "input")
 	outputDir := filepath.Join(tempDir, "output")
-	err := os.MkdirAll(inputDir, 0755)
+	err := os.MkdirAll(inputDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create input directory: %v", err)
 	}
-	err = os.MkdirAll(outputDir, 0755)
+	err = os.MkdirAll(outputDir, 0750)
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestBatchConvert(t *testing.T) {
   </BkToCstmrStmt>
 </Document>`
 		inputFile := filepath.Join(inputDir, "test1.xml")
-		err := os.WriteFile(inputFile, []byte(validXML), 0644)
+		err := os.WriteFile(inputFile, []byte(validXML), 0600)
 		assert.NoError(t, err)
 		files, err := filepath.Glob(filepath.Join(inputDir, "*.xml"))
 		assert.NoError(t, err)
