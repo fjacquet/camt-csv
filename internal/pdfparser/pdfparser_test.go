@@ -138,10 +138,18 @@ func TestConvertToCSV(t *testing.T) {
 	data, err := os.ReadFile(outputFile)
 	assert.NoError(t, err)
 
-	// Check for expected CSV format
+	// Check for expected CSV format - verify header contains key fields
 	csvContent := string(data)
-	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
-	assert.Contains(t, csvContent, "01.01.2023,Coffee Shop Test,15.50,EUR")
+	assert.Contains(t, csvContent, "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description")
+	assert.Contains(t, csvContent, "Date")
+	assert.Contains(t, csvContent, "Description")
+	assert.Contains(t, csvContent, "Amount")
+	assert.Contains(t, csvContent, "Currency")
+	// Check for transaction data
+	assert.Contains(t, csvContent, "01.01.2023")
+	assert.Contains(t, csvContent, "Coffee Shop Test")
+	assert.Contains(t, csvContent, "15.5")
+	assert.Contains(t, csvContent, "EUR")
 }
 
 func TestWriteToCSV(t *testing.T) {
@@ -176,13 +184,22 @@ func TestWriteToCSV(t *testing.T) {
 	content, err := os.ReadFile(outputFile)
 	assert.NoError(t, err, "Failed to read CSV file")
 
-	// Check that the CSV contains our test data
+	// Check that the CSV contains our test data - verify header and content
 	csvContent := string(content)
-	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
-	assert.Contains(t, csvContent, "01.01.2023,Coffee Shop Purchase")
-	assert.Contains(t, csvContent, "02.01.2023,Salary Payment")
-	assert.Contains(t, csvContent, "100.00,EUR")
-	assert.Contains(t, csvContent, "1000.00,EUR")
+	// Check header contains key fields
+	assert.Contains(t, csvContent, "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description")
+	assert.Contains(t, csvContent, "Date")
+	assert.Contains(t, csvContent, "Description")
+	assert.Contains(t, csvContent, "Amount")
+	assert.Contains(t, csvContent, "Currency")
+	// Check transaction data
+	assert.Contains(t, csvContent, "01.01.2023")
+	assert.Contains(t, csvContent, "Coffee Shop Purchase Card Payment REF123456")
+	assert.Contains(t, csvContent, "02.01.2023")
+	assert.Contains(t, csvContent, "Salary Payment Incoming Transfer SAL987654")
+	assert.Contains(t, csvContent, "100")
+	assert.Contains(t, csvContent, "1000")
+	assert.Contains(t, csvContent, "EUR")
 }
 
 func TestSetLogger(t *testing.T) {

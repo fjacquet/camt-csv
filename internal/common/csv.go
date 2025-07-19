@@ -34,12 +34,10 @@ func SetDelimiter(delim rune) {
 
 // SetLogger allows setting a configured logger
 func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	} else {
-		// If nil is passed, use our centralized logger
-		log = logging.GetLogger()
+	if logger == nil {
+		return // Don't change the logger if nil is passed
 	}
+	log = logger
 }
 
 // ReadCSVFile reads CSV data into a slice of structs using gocsv
