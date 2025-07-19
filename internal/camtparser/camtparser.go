@@ -87,7 +87,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 	}).Info("Batch converting CAMT.053 XML files")
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		return 0, fmt.Errorf("failed to create output directory: %w", err)
 	}
 

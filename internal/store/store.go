@@ -278,7 +278,7 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 
 	// Create parent directory if it doesn't exist
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
@@ -287,7 +287,7 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error marshaling creditor mappings: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("error writing creditor mappings: %w", err)
 	}
 
@@ -320,7 +320,7 @@ func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
 
 	// Create parent directory if it doesn't exist
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
@@ -329,7 +329,7 @@ func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error marshaling debitor mappings: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("error writing debitor mappings: %w", err)
 	}
 

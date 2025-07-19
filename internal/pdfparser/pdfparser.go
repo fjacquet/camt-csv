@@ -52,7 +52,7 @@ func ParseFile(pdfFile string) ([]models.Transaction, error) {
 	// Write raw PDF text to debug file if in debug mode
 	if log.GetLevel() >= logrus.DebugLevel {
 		debugFile := "debug_pdf_extract.txt"
-		err = os.WriteFile(debugFile, []byte(text), 0644)
+		err = os.WriteFile(debugFile, []byte(text), 0600)
 		if err != nil {
 			log.WithError(err).Warning("Failed to write debug file")
 		} else {

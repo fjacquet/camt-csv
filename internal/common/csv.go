@@ -90,7 +90,7 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		log.WithError(err).Error("Failed to create directory")
 		return fmt.Errorf("error creating directory: %w", err)
 	}

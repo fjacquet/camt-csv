@@ -265,7 +265,7 @@ func (p *ISO20022Parser) ConvertToCSV(inputFile, outputFile string) error {
 
 	// Create output directory if it doesn't exist
 	outputDir := filepath.Dir(outputFile)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		return fmt.Errorf("error creating output directory: %w", err)
 	}
 

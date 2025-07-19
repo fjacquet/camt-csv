@@ -250,7 +250,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 
 	// Create output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			log.WithError(err).Error("Failed to create output directory")
 			return 0, fmt.Errorf("error creating output directory: %w", err)
 		}
