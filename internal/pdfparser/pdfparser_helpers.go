@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -43,7 +42,9 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	}
 
 	// Remove the temporary file
-	os.Remove(tempFile)
+	if err := os.Remove(tempFile); err != nil {
+		log.WithError(err).Warn("Failed to remove temporary file")
+	}
 
 	return string(output), nil
 }
@@ -122,7 +123,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			inTransaction = true
 			currentTx = models.Transaction{}
 			description.Reset()
-			merchant = ""
+			// merchant would be empty string here, but we don't need to assign it
 
 			// Extract date
 			fields := strings.Fields(trimmedLine)
@@ -654,22 +655,6 @@ func containsAmount(line string) bool {
 	return amountPattern.MatchString(line)
 }
 
-// convertToFullYear converts a DD.MM.YY date to DD.MM.YYYY format
-func convertToFullYear(year string) string {
-	// Convert YY to YYYY
-	twoDigitYear, err := strconv.Atoi(year)
-	if err != nil {
-		return year
-	}
-
-	// Assume 20YY for years below 50, 19YY for years 50 and above
-	if twoDigitYear < 50 {
-		return fmt.Sprintf("20%02d", twoDigitYear)
-	} else {
-		return fmt.Sprintf("19%02d", twoDigitYear)
-	}
-}
-
 // deduplicateTransactions removes duplicate transactions based on date, description, and amount
 func deduplicateTransactions(transactions []models.Transaction) []models.Transaction {
 	if len(transactions) <= 1 {
@@ -747,60 +732,10 @@ func formatDate(date string) string {
 	return t.Format("02.01.2006")
 }
 
-// max returns the larger of x or y
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 // min returns the smaller of x or y
 func min(x, y int) int {
 	if x < y {
 		return x
 	}
 	return y
-}
-
-// startsWithDate checks if a string starts with a date pattern
-func startsWithDate(s string) bool {
-	datePattern := regexp.MustCompile(`^\d{2}\.\d{2}\.\d{2,4}`)
-	return datePattern.MatchString(s)
-}
-
-// Helper function to check if a string is a currency code (3 uppercase letters)
-func isCurrencyCode(s string) bool {
-	if len(s) != 3 {
-		return false
-	}
-	for _, c := range s {
-		if !unicode.IsUpper(c) {
-			return false
-		}
-	}
-	return true
-}
-
-// Helper function to check if a string is numeric (can contain decimal point and commas)
-func isNumeric(s string) bool {
-	// Remove thousands separators
-	s = strings.ReplaceAll(s, "'", "")
-
-	// Try to parse as float
-	_, err := strconv.ParseFloat(s, 64)
-	return err == nil
-}
-
-// Helper function to convert strings to decimal.Decimal safely
-func parseDecimalOrZero(value string) decimal.Decimal {
-	if value == "" {
-		return decimal.Zero
-	}
-
-	dec, err := decimal.NewFromString(value)
-	if err != nil {
-		return decimal.Zero
-	}
-	return dec
 }

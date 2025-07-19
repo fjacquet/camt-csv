@@ -254,18 +254,28 @@ func init() {
 	camtCmd.Flags().StringVarP(&xmlFile, "xml", "x", "", "Input XML file (required)")
 	camtCmd.Flags().StringVarP(&csvFile, "csv", "c", "", "Output CSV file (required)")
 	camtCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate XML format before conversion")
-	camtCmd.MarkFlagRequired("xml")
-	camtCmd.MarkFlagRequired("csv")
+	if err := camtCmd.MarkFlagRequired("xml"); err != nil {
+		panic(err)
+	}
+	if err := camtCmd.MarkFlagRequired("csv"); err != nil {
+		panic(err)
+	}
 
 	// Define flags for batch command
 	batchCmd.Flags().StringVarP(&inputDir, "input", "i", "", "Input directory containing XML files (required)")
 	batchCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory for CSV files (required)")
-	batchCmd.MarkFlagRequired("input")
-	batchCmd.MarkFlagRequired("output")
+	if err := batchCmd.MarkFlagRequired("input"); err != nil {
+		panic(err)
+	}
+	if err := batchCmd.MarkFlagRequired("output"); err != nil {
+		panic(err)
+	}
 
 	// Define flags for validate command
 	validateCmd.Flags().StringVarP(&xmlFile, "xml", "x", "", "XML file to validate (required)")
-	validateCmd.MarkFlagRequired("xml")
+	if err := validateCmd.MarkFlagRequired("xml"); err != nil {
+		panic(err)
+	}
 
 	// Define flags for categorize command
 	categorizeCmd.Flags().StringVarP(&partyName, "party", "p", "", "Name of the party (required)")
@@ -273,21 +283,31 @@ func init() {
 	categorizeCmd.Flags().StringVarP(&amount, "amount", "a", "", "Transaction amount")
 	categorizeCmd.Flags().StringVar(&date, "date", "", "Transaction date")
 	categorizeCmd.Flags().StringVar(&info, "info", "", "Additional transaction information")
-	categorizeCmd.MarkFlagRequired("party")
+	if err := categorizeCmd.MarkFlagRequired("party"); err != nil {
+		panic(err)
+	}
 
 	// Define flags for pdf command
 	pdfCmd.Flags().StringVarP(&pdfFile, "pdf", "p", "", "Input PDF file (required)")
 	pdfCmd.Flags().StringVarP(&csvFile, "csv", "c", "", "Output CSV file (required)")
 	pdfCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate PDF format before conversion")
-	pdfCmd.MarkFlagRequired("pdf")
-	pdfCmd.MarkFlagRequired("csv")
+	if err := pdfCmd.MarkFlagRequired("pdf"); err != nil {
+		panic(err)
+	}
+	if err := pdfCmd.MarkFlagRequired("csv"); err != nil {
+		panic(err)
+	}
 
 	// Define flags for debit command
 	debitCmd.Flags().StringVarP(&debitFile, "in", "i", "", "Input Visa Debit CSV file (required)")
 	debitCmd.Flags().StringVarP(&csvFile, "out", "o", "", "Output CSV file (required)")
 	debitCmd.Flags().BoolVarP(&validate, "validate", "v", false, "Validate Debit CSV format before conversion")
-	debitCmd.MarkFlagRequired("in")
-	debitCmd.MarkFlagRequired("out")
+	if err := debitCmd.MarkFlagRequired("in"); err != nil {
+		panic(err)
+	}
+	if err := debitCmd.MarkFlagRequired("out"); err != nil {
+		panic(err)
+	}
 }
 
 func main() {

@@ -127,7 +127,10 @@ func SetTestCategoryStore(store *store.CategoryStore) {
 	}
 
 	// Always set test mode in tests to prevent external API calls
-	os.Setenv("TEST_MODE", "true")
+	if err := os.Setenv("TEST_MODE", "true"); err != nil {
+		// Log error but continue - this is not critical
+		log.WithError(err).Warn("Failed to set TEST_MODE environment variable")
+	}
 }
 
 // CategorizeTransaction categorizes a transaction using the default categorizer

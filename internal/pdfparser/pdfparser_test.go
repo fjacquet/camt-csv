@@ -25,9 +25,15 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	os.WriteFile(categoriesFile, []byte("[]"), 0644)
-	os.WriteFile(creditorsFile, []byte("{}"), 0644)
-	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+		t.Fatalf("Failed to write categories file: %v", err)
+	}
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write creditors file: %v", err)
+	}
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write debitors file: %v", err)
+	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
 	categorizer.SetTestCategoryStore(store)
 	t.Cleanup(func() {
@@ -46,7 +52,11 @@ func TestValidateFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a mock PDF file (just a text file with .pdf extension for testing)
 	validFile := filepath.Join(tempDir, "valid.pdf")
@@ -84,8 +94,14 @@ func TestParseFile(t *testing.T) {
 	defer cleanup()
 
 	// Set test environment variable to enable mock transactions
-	os.Setenv("TEST_ENV", "1")
-	defer os.Unsetenv("TEST_ENV")
+	if err := os.Setenv("TEST_ENV", "1"); err != nil {
+		t.Fatalf("Failed to set TEST_ENV: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("TEST_ENV"); err != nil {
+			t.Logf("Failed to unset TEST_ENV: %v", err)
+		}
+	}()
 
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
@@ -93,7 +109,11 @@ func TestParseFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a mock PDF file with transaction-like content
 	mockPDFFile := filepath.Join(tempDir, "statement.pdf")

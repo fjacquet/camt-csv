@@ -26,9 +26,15 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	os.WriteFile(categoriesFile, []byte("[]"), 0644)
-	os.WriteFile(creditorsFile, []byte("{}"), 0644)
-	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+		t.Fatalf("Failed to write categories file: %v", err)
+	}
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write creditors file: %v", err)
+	}
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write debitors file: %v", err)
+	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
 	categorizer.SetTestCategoryStore(store)
 	t.Cleanup(func() {
@@ -43,7 +49,11 @@ func TestValidateFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a valid Selma CSV file with the correct headers and data format (old format)
 	validCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
@@ -90,7 +100,11 @@ func TestParseFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a test CSV file that matches the SelmaCSVRow structure (old format)
 	testCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
@@ -134,7 +148,11 @@ func TestConvertToCSV(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create temp directory: %v", err)
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 		// Create a test Selma CSV file
 		selmaCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares

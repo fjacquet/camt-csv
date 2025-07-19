@@ -9,13 +9,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
-
-// SetLogger sets a custom logger for this package
+// SetLogger sets a custom logger for this package (no-op since this package doesn't use logging)
 func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
+	// No-op: this package doesn't actually use logging
 }
 
 // FileExists checks if a file exists and is not a directory

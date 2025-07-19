@@ -256,7 +256,11 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 		log.WithError(err).Error("Failed to create CSV file")
 		return fmt.Errorf("error creating CSV file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	// Configure CSV writer with custom delimiter
 	csvWriter := csv.NewWriter(file)
@@ -350,7 +354,11 @@ func ValidateFormat(filePath string) (bool, error) {
 		log.WithError(err).Error("Failed to open file for validation")
 		return false, fmt.Errorf("error opening file for validation: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	reader := csv.NewReader(file)
 

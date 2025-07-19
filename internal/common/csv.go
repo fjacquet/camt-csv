@@ -52,7 +52,11 @@ func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
 		log.WithError(err).Error("Failed to open CSV file")
 		return nil, fmt.Errorf("error opening CSV file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	// Parse the CSV into structs
 	var rows []TCSVRow
@@ -97,7 +101,11 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 		log.WithError(err).Error("Failed to create CSV file")
 		return fmt.Errorf("error creating CSV file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	// Update date formats and ensure derived fields are correctly set
 	for i := range transactions {

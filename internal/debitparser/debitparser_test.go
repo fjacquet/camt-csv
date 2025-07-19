@@ -35,14 +35,18 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 
 	tempDir := t.TempDir()
 	validFile := filepath.Join(tempDir, "valid.csv")
-	os.WriteFile(validFile, []byte(validContent), 0644)
+	if err := os.WriteFile(validFile, []byte(validContent), 0644); err != nil {
+		t.Fatalf("Failed to write valid file: %v", err)
+	}
 
 	// Create a temporary invalid CSV file
 	invalidContent := `SomeHeader1;SomeHeader2
 Value1;Value2`
 
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
-	os.WriteFile(invalidFile, []byte(invalidContent), 0644)
+	if err := os.WriteFile(invalidFile, []byte(invalidContent), 0644); err != nil {
+		t.Fatalf("Failed to write invalid file: %v", err)
+	}
 
 	// Test validation on valid file
 	valid, err := ValidateFormat(validFile)
@@ -72,7 +76,9 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 
 	tempDir := t.TempDir()
 	validFile := filepath.Join(tempDir, "valid.csv")
-	os.WriteFile(validFile, []byte(validContent), 0644)
+	if err := os.WriteFile(validFile, []byte(validContent), 0644); err != nil {
+		t.Fatalf("Failed to write valid file: %v", err)
+	}
 
 	// Parse the file
 	transactions, err := ParseFile(validFile)
@@ -99,9 +105,15 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	os.WriteFile(categoriesFile, []byte("[]"), 0644)
-	os.WriteFile(creditorsFile, []byte("{}"), 0644)
-	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+		t.Fatalf("Failed to write categories file: %v", err)
+	}
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write creditors file: %v", err)
+	}
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write debitors file: %v", err)
+	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
 	categorizer.SetTestCategoryStore(store)
 	t.Cleanup(func() {
@@ -173,7 +185,9 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.csv")
-	os.WriteFile(inputFile, []byte(validContent), 0644)
+	if err := os.WriteFile(inputFile, []byte(validContent), 0644); err != nil {
+		t.Fatalf("Failed to write input file: %v", err)
+	}
 
 	outputFile := filepath.Join(tempDir, "output.csv")
 

@@ -20,8 +20,12 @@ func init() {
 	// Batch command specific flags
 	Cmd.Flags().StringVarP(&root.InputDir, "input-dir", "d", "", "Input directory containing files")
 	Cmd.Flags().StringVarP(&root.OutputDir, "output-dir", "r", "", "Output directory for CSV files")
-	Cmd.MarkFlagRequired("input-dir")
-	Cmd.MarkFlagRequired("output-dir")
+	if err := Cmd.MarkFlagRequired("input-dir"); err != nil {
+		panic(err)
+	}
+	if err := Cmd.MarkFlagRequired("output-dir"); err != nil {
+		panic(err)
+	}
 }
 
 func batchFunc(cmd *cobra.Command, args []string) {

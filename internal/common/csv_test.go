@@ -25,7 +25,11 @@ func TestReadCSVFile(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "csv-test")
 	assert.NoError(t, err, "Failed to create temp directory")
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a test CSV file
 	csvContent := `Name,Age,Email,Country
@@ -72,9 +76,15 @@ func setupTestCategorizer(t *testing.T) {
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
 	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	os.WriteFile(categoriesFile, []byte("[]"), 0644)
-	os.WriteFile(creditorsFile, []byte("{}"), 0644)
-	os.WriteFile(debitorsFile, []byte("{}"), 0644)
+	if err := os.WriteFile(categoriesFile, []byte("[]"), 0644); err != nil {
+		t.Fatalf("Failed to write categories file: %v", err)
+	}
+	if err := os.WriteFile(creditorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write creditors file: %v", err)
+	}
+	if err := os.WriteFile(debitorsFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write debitors file: %v", err)
+	}
 	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
 	categorizer.SetTestCategoryStore(store)
 	t.Cleanup(func() {
@@ -87,7 +97,11 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "csv-test")
 	assert.NoError(t, err, "Failed to create temp directory")
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create test transactions
 	transactions := []models.Transaction{
@@ -133,7 +147,11 @@ func TestGeneralizedConvertToCSV(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "csv-test")
 	assert.NoError(t, err, "Failed to create temp directory")
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a test CSV file
 	csvContent := `Name,Age,Email,Country

@@ -201,10 +201,6 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 		Date string `xml:"Dt"`
 	}
 
-	type EntryReference struct {
-		Reference string `xml:",chardata"`
-	}
-
 	type AdditionalInfo struct {
 		Info string `xml:",chardata"`
 	}
@@ -227,10 +223,6 @@ func parseFileISO20022(filePath string) ([]models.Transaction, error) {
 		InstrId     string `xml:"InstrId,omitempty"`
 		EndToEndId  string `xml:"EndToEndId,omitempty"`
 		TxId        string `xml:"TxId,omitempty"`
-	}
-
-	type Unstructured struct {
-		Text string `xml:",chardata"`
 	}
 
 	type RemittanceInfo struct {

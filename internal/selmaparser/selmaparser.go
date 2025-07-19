@@ -83,7 +83,11 @@ func ReadSelmaCSV(filePath string) ([]models.Transaction, error) {
 		log.WithError(err).Error("Failed to open Selma CSV file")
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1 // allow variable number of fields
@@ -254,7 +258,11 @@ func ValidateFormat(filePath string) (bool, error) {
 		log.WithError(err).Error("Error opening file for validation")
 		return false, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	// Create a CSV reader
 	reader := csv.NewReader(file)

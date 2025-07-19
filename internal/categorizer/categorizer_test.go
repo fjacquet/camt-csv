@@ -13,8 +13,14 @@ func TestCategorizeTransaction(t *testing.T) {
 	config.LoadEnv()
 
 	// Set test mode to disable API calls
-	os.Setenv("TEST_MODE", "true")
-	defer os.Unsetenv("TEST_MODE")
+	if err := os.Setenv("TEST_MODE", "true"); err != nil {
+		t.Fatalf("Failed to set TEST_MODE: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("TEST_MODE"); err != nil {
+			t.Logf("Failed to unset TEST_MODE: %v", err)
+		}
+	}()
 
 	// Create a mock store for testing
 	mockStore := &store.CategoryStore{
@@ -99,8 +105,14 @@ func TestCategorizeTransaction(t *testing.T) {
 // Simplified test for categorization with no API key
 func TestCategorizeTransactionNoAPIKey(t *testing.T) {
 	// Force test mode to prevent any API calls
-	os.Setenv("TEST_MODE", "true")
-	defer os.Unsetenv("TEST_MODE")
+	if err := os.Setenv("TEST_MODE", "true"); err != nil {
+		t.Fatalf("Failed to set TEST_MODE: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("TEST_MODE"); err != nil {
+			t.Logf("Failed to unset TEST_MODE: %v", err)
+		}
+	}()
 
 	// Create a test transaction
 	transaction := Transaction{

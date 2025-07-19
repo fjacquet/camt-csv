@@ -179,7 +179,11 @@ func ValidateFormat(filePath string) (bool, error) {
 		log.WithError(err).Error("Failed to open file for validation")
 		return false, fmt.Errorf("error opening file for validation: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	reader := csv.NewReader(file)
 	reader.Comma = ';' // CSV uses semicolon as delimiter
