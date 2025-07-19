@@ -412,7 +412,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 	}).Info("Batch converting Revolut CSV files")
 
 	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		log.WithError(err).Error("Failed to create output directory")
 		return 0, fmt.Errorf("error creating output directory: %w", err)
 	}
