@@ -1,0 +1,37 @@
+{
+  "severity": "medium",
+  "confidence": "medium",
+  "exclude": {
+    "G101": [
+      "internal/xmlutils/constants.go"
+    ],
+    "G204": [
+      "internal/pdfparser/pdfparser_helpers.go"
+    ]
+  },
+  "exclude-rules": [
+    {
+      "rule": "G304",
+      "reason": "File operations are expected and safe in a file parser application"
+    }
+  ],
+  "exclude-generated": true,
+  "exclude-dirs": [
+    "vendor",
+    ".git"
+  ],
+  "nosec": true,
+  "fmt": "json",
+  "out": "gosec-report.json",
+  "stdout": true,
+  "verbose": "text",
+  "rules": {
+    "G101": {
+      "pattern": "(?i)(?:password|passwd|pwd|secret|token|key|api[_-]?key)",
+      "ignore_entropy": false,
+      "entropy_threshold": 80.0,
+      "per_char_threshold": 3.0,
+      "truncate": 32
+    }
+  }
+}

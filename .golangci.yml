@@ -5,10 +5,29 @@ linters:
     - errcheck
     - ineffassign
     - unused
+    - gosec
   disable:
     - staticcheck
     - govet
     - misspell
+  settings:
+    gosec:
+      # Whitelist specific security issues that are false positives
+      excludes:
+        - G101 # Hardcoded credentials (false positive for XPath constants)
+        - G204 # Subprocess launched with variable (expected for pdftotext)
+        - G304 # File inclusion via variable (expected for file parsers)
+      # Additional configuration
+      severity: "medium"
+      confidence: "medium"
+      config:
+        G101:
+          # Only flag actual credential patterns, not XPath expressions
+          pattern: "(?i)(?:password|passwd|pwd|secret|token|key|api[_-]?key)"
+        ignore_entropy: false
+        entropy_threshold: 80.0
+
+
 formatters:
   enable:
     - gofmt

@@ -95,7 +95,7 @@ const (
 	// Basic entry data
 	XPathAmount         = "//Ntry/Amt"
 	XPathCurrency       = "//Ntry/Amt/@Ccy"
-	XPathCreditDebitInd = "//Ntry/CdtDbtInd"
+	XPathCreditDebitInd = "//Ntry/CdtDbtInd" // #nosec G101 -- XPath expression, not credentials
 	XPathBookingDate    = "//Ntry/BookgDt/Dt"
 	XPathValueDate      = "//Ntry/ValDt/Dt"
 	XPathStatus         = "//Ntry/Sts"
@@ -112,12 +112,12 @@ const (
 	XPathAddTxInfo      = "//Ntry/NtryDtls/TxDtls/AddtlTxInf"
 
 	// Party information
-	XPathDebtorName        = "//Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm"
-	XPathDebtorAgentName   = "//Ntry/NtryDtls/TxDtls/RltdAgts/DbtrAgt/FinInstnId/Nm"
-	XPathCreditorName      = "//Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm"
-	XPathCreditorAgentName = "//Ntry/NtryDtls/TxDtls/RltdAgts/CdtrAgt/FinInstnId/Nm"
+	XPathDebtorName        = "//Ntry/NtryDtls/TxDtls/RltdPties/Dbtr/Nm"        // #nosec G101 -- XPath expression, not credentials
+	XPathDebtorAgentName   = "//Ntry/NtryDtls/TxDtls/RltdAgts/DbtrAgt/FinInstnId/Nm" // #nosec G101 -- XPath expression, not credentials
+	XPathCreditorName      = "//Ntry/NtryDtls/TxDtls/RltdPties/Cdtr/Nm"      // #nosec G101 -- XPath expression, not credentials
+	XPathCreditorAgentName = "//Ntry/NtryDtls/TxDtls/RltdAgts/CdtrAgt/FinInstnId/Nm" // #nosec G101 -- XPath expression, not credentials
 	XPathUltimateDebtor    = "//Ntry/NtryDtls/TxDtls/RltdPties/UltmtDbtr/Nm"
-	XPathUltimateCreditor  = "//Ntry/NtryDtls/TxDtls/RltdPties/UltmtCdtr/Nm"
+	XPathUltimateCreditor  = "//Ntry/NtryDtls/TxDtls/RltdPties/UltmtCdtr/Nm" // #nosec G101 -- XPath expression, not credentials
 
 	// Account information
 	XPathIBAN = "//BkToCstmrStmt/Stmt/Acct/Id/IBAN"

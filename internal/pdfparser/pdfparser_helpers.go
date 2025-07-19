@@ -27,7 +27,7 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 
 	// Use pdftotext command-line tool to extract text
 	// Add the -raw option to preserve the original text layout
-	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFile)
+	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFile) // #nosec G204 -- Expected subprocess for PDF text extraction
 	err := cmd.Run()
 	if err != nil {
 		logrus.WithError(err).Error("Failed to run pdftotext command")
