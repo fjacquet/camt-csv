@@ -149,10 +149,10 @@ func TestConvertToCSV(t *testing.T) {
 			t.Fatalf("Failed to create temp directory: %v", err)
 		}
 		defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temp dir: %v", err)
-		}
-	}()
+			if err := os.RemoveAll(tempDir); err != nil {
+				t.Logf("Failed to remove temp dir: %v", err)
+			}
+		}()
 
 		// Create a test Selma CSV file
 		selmaCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
