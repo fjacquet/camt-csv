@@ -65,7 +65,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: fjacquet/camt-csv
-          file: coverage.txt
   
   security:
     name: Security Scan
