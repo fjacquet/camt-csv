@@ -12,5 +12,4 @@ linters:
 formatters:
   enable:
     - gofmt
-  disable:
-    - goimports
+
