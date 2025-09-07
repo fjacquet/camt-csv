@@ -7,17 +7,16 @@ package categorizer
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
-
-	"os"
-
-	"strconv"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/sirupsen/logrus"
@@ -55,7 +54,18 @@ type Categorizer struct {
 
 // Global singleton instance - simple approach for a CLI tool
 var defaultCategorizer *Categorizer
-var log = config.Logger
+var log = logging.GetLogger()
+
+// Configuration interface for dependency injection
+type Config interface {
+	GetAIEnabled() bool
+	GetAIAPIKey() string
+	GetAIModel() string
+	GetAIRequestsPerMinute() int
+	GetAITimeoutSeconds() int
+	GetAIFallbackCategory() string
+	GetCategorizationConfidenceThreshold() float64
+}
 
 // SetLogger allows setting a custom logger
 func SetLogger(logger *logrus.Logger) {
@@ -939,19 +949,32 @@ func (c *Categorizer) saveDebitorsToYAML() error {
 
 // Helper function to get the Gemini API key
 func getGeminiAPIKey() string {
+	// Try to get from centralized config first
+	if cfg := config.GetGlobalConfig(); cfg != nil {
+		return cfg.AI.APIKey
+	}
+	// Fallback to environment variable for backward compatibility
 	return strings.TrimSpace(getEnv("GEMINI_API_KEY", ""))
 }
 
 // Helper function to get the Gemini model name
 func getGeminiModelName() string {
-	// Default to gemini-2.0-flash if not specified
-	return strings.TrimSpace(getEnv("GEMINI_MODEL", "gemini-2.0-flash"))
+	// Try to get from centralized config first
+	if cfg := config.GetGlobalConfig(); cfg != nil {
+		return cfg.AI.Model
+	}
+	// Fallback to environment variable for backward compatibility
+	return strings.TrimSpace(getEnv("GEMINI_MODEL", "gemini-2.5-flash"))
 }
 
 // Helper function to get the Gemini API rate limit (requests per minute)
 func getGeminiRateLimit() int {
-	// Default to 10 requests per minute if not specified
-	limitStr := getEnv("GEMINI_REQUESTS_PER_MINUTE", "10")
+	// Try to get from centralized config first
+	if cfg := config.GetGlobalConfig(); cfg != nil {
+		return cfg.AI.RequestsPerMinute
+	}
+	// Fallback to environment variable for backward compatibility
+	limitStr := getEnv("GEMINI_REQUESTS_PER_MINUTE", "50")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		return 10 // Default to 10 if parsing fails or value is invalid
@@ -961,6 +984,11 @@ func getGeminiRateLimit() int {
 
 // Helper function to check if AI categorization is enabled
 func isAICategorizeEnabled() bool {
+	// Try to get from centralized config first
+	if cfg := config.GetGlobalConfig(); cfg != nil {
+		return cfg.AI.Enabled
+	}
+	// Fallback to environment variable for backward compatibility
 	value := strings.ToLower(getEnv("USE_AI_CATEGORIZATION", "false"))
 	return value == "true" || value == "1" || value == "yes"
 }

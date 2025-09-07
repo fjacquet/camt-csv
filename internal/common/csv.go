@@ -16,10 +16,11 @@ import (
 
 var log = logging.GetLogger()
 
-// Delimiter for CSV output (default is ',')
+// Global CSV delimiter - can be configured via centralized config or environment variable
 var Delimiter rune = ','
 
 func init() {
+	// Fallback to environment variable for backward compatibility
 	if val := os.Getenv("CSV_DELIMITER"); val != "" {
 		// Use first rune only
 		SetDelimiter([]rune(val)[0])

@@ -5,14 +5,17 @@ import (
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/pdfparser"
+	"fjacquet/camt-csv/internal/revolutinvestmentparser"
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
-	"os"
+	"log"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // CommonFlags represents the flags that are common to multiple commands
@@ -23,8 +26,11 @@ type CommonFlags struct {
 }
 
 var (
-	// Log is the shared logger instance for commands - but don't initialize until Init()
+	// Log is the shared logger instance for commands - will be updated with config
 	Log = logging.GetLogger()
+	
+	// Global configuration instance
+	AppConfig *config.Config
 
 	// Cmd is the root command
 	Cmd = &cobra.Command{
@@ -38,22 +44,24 @@ It also provides transaction categorization based on the party's name.`,
 			Log.Info("Use --help to see available commands")
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Initialize configuration first
+			initializeConfiguration()
+			
 			// Set the configured logger for all parsers
 			// This will propagate our centralized logging configuration to each package
 			camtparser.SetLogger(Log)
 			pdfparser.SetLogger(Log)
 			selmaparser.SetLogger(Log)
 			revolutparser.SetLogger(Log)
+			revolutinvestmentparser.SetLogger(Log)
 			debitparser.SetLogger(Log)
 			categorizer.SetLogger(Log)
 			common.SetLogger(Log)
 
-			// Ensure CSV delimiter is updated after env variables are loaded
-			if delim := os.Getenv("CSV_DELIMITER"); delim != "" {
-				Log.WithField("delimiter", delim).Debug("Setting CSV delimiter from environment")
-				commonDelim := []rune(delim)[0]
-				common.SetDelimiter(commonDelim)
-			}
+			// Set CSV delimiter from configuration
+			commonDelim := []rune(AppConfig.CSV.Delimiter)[0]
+			common.SetDelimiter(commonDelim)
+			Log.WithField("delimiter", AppConfig.CSV.Delimiter).Debug("Setting CSV delimiter from configuration")
 		},
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -85,10 +93,38 @@ It also provides transaction categorization based on the party's name.`,
 	Info      string
 )
 
+// initializeConfiguration loads the configuration using Viper and sets up logging
+func initializeConfiguration() {
+	var err error
+	AppConfig, err = config.InitializeConfig()
+	if err != nil {
+		log.Fatalf("Failed to initialize configuration: %v", err)
+	}
+
+	// Configure logging based on the loaded configuration
+	Log = config.ConfigureLoggingFromConfig(AppConfig)
+	
+	// Set the configured logger as the global logger
+	logging.SetLogger(Log)
+}
+
 // Init initializes the root command and all flags
 func Init() {
 	// Add persistent flags to root command for common options
 	Cmd.PersistentFlags().StringVarP(&SharedFlags.Input, "input", "i", "", "Input file")
 	Cmd.PersistentFlags().StringVarP(&SharedFlags.Output, "output", "o", "", "Output file")
 	Cmd.PersistentFlags().BoolVarP(&SharedFlags.Validate, "validate", "v", false, "Validate file format before conversion")
+
+	// Add configuration-related flags
+	Cmd.PersistentFlags().String("config", "", "Config file (default is $HOME/.camt-csv/config.yaml)")
+	Cmd.PersistentFlags().String("log-level", "", "Log level (debug, info, warn, error)")
+	Cmd.PersistentFlags().String("log-format", "", "Log format (text, json)")
+	Cmd.PersistentFlags().String("csv-delimiter", "", "CSV delimiter character")
+	Cmd.PersistentFlags().Bool("ai-enabled", false, "Enable AI categorization")
+
+	// Bind flags to viper
+	viper.BindPFlag("log.level", Cmd.PersistentFlags().Lookup("log-level"))
+	viper.BindPFlag("log.format", Cmd.PersistentFlags().Lookup("log-format"))
+	viper.BindPFlag("csv.delimiter", Cmd.PersistentFlags().Lookup("csv-delimiter"))
+	viper.BindPFlag("ai.enabled", Cmd.PersistentFlags().Lookup("ai-enabled"))
 }

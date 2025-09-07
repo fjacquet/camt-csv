@@ -1,4 +1,5 @@
 // Package config provides functionality for loading and accessing environment variables.
+// This file maintains backward compatibility while the new Viper-based system is being adopted.
 package config
 
 import (
@@ -15,6 +16,9 @@ var (
 	once sync.Once
 	// Global logger instance that should be used across the application
 	Logger = logrus.New()
+	// Global config instance for new Viper-based configuration
+	globalConfig *Config
+	configOnce   sync.Once
 )
 
 // ConfigureLogging sets up logging based on environment variables and returns the configured logger
@@ -92,7 +96,71 @@ func MustGetEnv(key string) string {
 	return value
 }
 
-// GetGeminiAPIKey retrieves the Gemini API key from environment variables
+// GetGeminiAPIKey returns the Gemini API key from environment variables
 func GetGeminiAPIKey() string {
 	return GetEnv("GEMINI_API_KEY", "")
+}
+
+// GetGlobalConfig returns the global configuration instance, initializing it if necessary
+func GetGlobalConfig() *Config {
+	configOnce.Do(func() {
+		var err error
+		globalConfig, err = InitializeConfig()
+		if err != nil {
+			Logger.Fatalf("Failed to initialize configuration: %v", err)
+		}
+		// Update global logger with new configuration
+		Logger = ConfigureLoggingFromConfig(globalConfig)
+	})
+	return globalConfig
+}
+
+// InitializeGlobalConfig explicitly initializes the global configuration
+// This is useful for testing or when you want to ensure config is loaded early
+func InitializeGlobalConfig() error {
+	var err error
+	globalConfig, err = InitializeConfig()
+	if err != nil {
+		return err
+	}
+	Logger = ConfigureLoggingFromConfig(globalConfig)
+	return nil
+}
+
+// Legacy compatibility functions - these will be deprecated in future versions
+
+// GetCSVDelimiter returns the CSV delimiter from configuration
+func GetCSVDelimiter() string {
+	config := GetGlobalConfig()
+	return config.CSV.Delimiter
+}
+
+// GetLogLevel returns the log level from configuration
+func GetLogLevel() string {
+	config := GetGlobalConfig()
+	return config.Log.Level
+}
+
+// GetLogFormat returns the log format from configuration
+func GetLogFormat() string {
+	config := GetGlobalConfig()
+	return config.Log.Format
+}
+
+// IsAIEnabled returns whether AI categorization is enabled
+func IsAIEnabled() bool {
+	config := GetGlobalConfig()
+	return config.AI.Enabled
+}
+
+// GetAIModel returns the AI model name
+func GetAIModel() string {
+	config := GetGlobalConfig()
+	return config.AI.Model
+}
+
+// GetAIRequestsPerMinute returns the AI requests per minute limit
+func GetAIRequestsPerMinute() int {
+	config := GetGlobalConfig()
+	return config.AI.RequestsPerMinute
 }

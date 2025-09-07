@@ -59,6 +59,11 @@ func GetLogger() *logrus.Logger {
 	return Logger
 }
 
+// SetLogger sets the global logger instance
+func SetLogger(logger *logrus.Logger) {
+	Logger = logger
+}
+
 // Debug logs a message at the debug level
 func Debug(args ...interface{}) {
 	GetLogger().Debug(args...)
