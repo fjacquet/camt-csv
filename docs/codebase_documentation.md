@@ -8,10 +8,10 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 
 **Key Features:**
 
-* **Multi-format Conversion:** Supports CAMT.053 XML, PDF (including Viseca credit card statements), Revolut CSV, Selma CSV, and generic Debit CSV.
+* **Multi-format Conversion:** Supports CAMT.053 XML, PDF (including Viseca credit card statements), Revolut CSV, Revolut Investment CSV, Selma CSV, and generic Debit CSV.
 * **Transaction Categorization:** Hybrid approach using local YAML-based keyword matching and AI (Gemini) as a fallback.
-* **CLI Interface:** Modular command structure for various operations (convert, batch, categorize).
-* **Configurable:** Utilizes environment variables and `.env` files for API keys, logging levels, and other settings.
+* **CLI Interface:** Modular command structure for various operations (convert, batch, categorize, revolut-investment).
+* **Hierarchical Configuration:** Viper-based configuration system supporting config files, environment variables, and CLI flags with full backward compatibility.
 * **Extensible Parser Architecture:** Standardized interface for easy addition of new data sources.
 
 **High-Level Architecture:**

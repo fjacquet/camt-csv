@@ -18,10 +18,11 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ### Key Features
 
-- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV, Selma investment CSV, and generic debit CSV
+- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
 - **Intelligent Categorization**: Hybrid approach using local keyword matching and AI fallback
+- **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
 - **Batch Processing**: Process multiple files at once
-- **Configurable Output**: Customizable CSV delimiters and formats
+- **Investment Support**: Dedicated parser for Revolut investment transactions
 - **Extensible Architecture**: Easy to add new file formats
 
 ## Installation

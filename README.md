@@ -9,10 +9,11 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ## ✨ Key Features
 
-- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut, Selma, and generic CSV
+- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut, Revolut Investment, Selma, and generic CSV
 - **Smart Categorization**: Hybrid approach using local rules + AI fallback
+- **Hierarchical Configuration**: Viper-based config system with files, environment variables, and CLI flags
 - **Batch Processing**: Handle multiple files at once
-- **Configurable**: Custom delimiters, logging, and AI settings
+- **Investment Support**: Dedicated parser for Revolut investment transactions
 - **Fast & Reliable**: Local processing with optional cloud AI
 
 ## 🚀 Quick Start
@@ -42,17 +43,42 @@ go build
 # Convert Revolut export
 ./camt-csv revolut -i revolut.csv -o processed.csv
 
+# Convert Revolut investment transactions
+./camt-csv revolut-investment -i investments.csv -o processed.csv
+
 # Batch process multiple files
 ./camt-csv batch -i input_dir/ -o output_dir/
 ```
 
-### Configuration (Optional)
+### Configuration
+
+CAMT-CSV supports hierarchical configuration with multiple options:
 
 ```bash
-# Copy sample config and customize
-cp .env.sample .env
-nano .env  # Add your Gemini API key for AI categorization
+# Option 1: Configuration file (recommended)
+mkdir -p ~/.camt-csv
+cat > ~/.camt-csv/config.yaml << EOF
+log:
+  level: "info"
+  format: "text"
+csv:
+  delimiter: ","
+  include_headers: true
+ai:
+  enabled: true
+  model: "gemini-2.0-flash"
+EOF
+
+# Option 2: Environment variables (backward compatible)
+export GEMINI_API_KEY=your_api_key_here
+export CAMT_LOG_LEVEL=debug
+export CAMT_AI_ENABLED=true
+
+# Option 3: CLI flags (temporary overrides)
+./camt-csv --log-level debug --ai-enabled camt -i file.xml -o output.csv
 ```
+
+See [Configuration Migration Guide](docs/configuration-migration-guide.md) for complete details.
 
 ## 📚 Documentation
 
@@ -67,6 +93,7 @@ nano .env  # Add your Gemini API key for AI categorization
 | **CAMT.053 XML** | ISO 20022 bank statements | `camt` |
 | **PDF** | Bank statements (including Viseca) | `pdf` |
 | **Revolut CSV** | Revolut app exports | `revolut` |
+| **Revolut Investment** | Revolut investment transactions | `revolut-investment` |
 | **Selma CSV** | Investment platform data | `selma` |
 | **Generic CSV** | Debit transaction files | `debit` |
 
