@@ -12,6 +12,7 @@ import (
 	"fjacquet/camt-csv/cmd/debit"
 	"fjacquet/camt-csv/cmd/pdf"
 	"fjacquet/camt-csv/cmd/revolut"
+	"fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
 	"fjacquet/camt-csv/internal/logging"
@@ -41,6 +42,7 @@ func init() {
 	root.Cmd.AddCommand(selma.Cmd)
 	root.Cmd.AddCommand(revolut.Cmd)
 	root.Cmd.AddCommand(debit.Cmd)
+	root.Cmd.AddCommand(revolutinvestment.Cmd)
 }
 
 // loadEnvSilently loads environment variables without logging anything
