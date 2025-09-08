@@ -119,16 +119,16 @@ func TestFormatDate(t *testing.T) {
 func TestWriteToCSV(t *testing.T) {
 	transactions := []models.Transaction{
 		{
-			Date:         "30.05.2025",
-			Description:  "Test transaction",
-			Amount:       models.ParseAmount("100"),
-			Currency:     "EUR",
-			CreditDebit:  "CRDT",
-			DebitFlag:    false,
-			PartyName:    "Test Party",
-			Name:         "Test Party",
-			Investment:   "TEST",
-			Type:         "BUY",
+			Date:           "30.05.2025",
+			Description:    "Test transaction",
+			Amount:         models.ParseAmount("100"),
+			Currency:       "EUR",
+			CreditDebit:    "CRDT",
+			DebitFlag:      false,
+			PartyName:      "Test Party",
+			Name:           "Test Party",
+			Investment:     "TEST",
+			Type:           "BUY",
 			NumberOfShares: 10,
 		},
 	}

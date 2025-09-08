@@ -46,7 +46,6 @@ It also provides transaction categorization based on the party's name.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Initialize configuration first
 			initializeConfiguration()
-			
 			// Set the configured logger for all parsers
 			// This will propagate our centralized logging configuration to each package
 			camtparser.SetLogger(Log)
@@ -103,7 +102,7 @@ func initializeConfiguration() {
 
 	// Configure logging based on the loaded configuration
 	Log = config.ConfigureLoggingFromConfig(AppConfig)
-	
+
 	// Set the configured logger as the global logger
 	logging.SetLogger(Log)
 }

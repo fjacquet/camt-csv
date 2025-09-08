@@ -225,7 +225,6 @@ type GeminiAPIError struct {
 	Status  string `json:"status"`
 }
 
-
 // Function to create a prompt for AI categorization
 func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
 	c.logger.Info("======== CREATING CATEGORIZATION PROMPT - IMPROVED FUNCTION CALLED ========")

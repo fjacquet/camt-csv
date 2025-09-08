@@ -45,15 +45,15 @@ func TestInitializeConfig_EnvironmentVariables(t *testing.T) {
 
 	// Set test environment variables
 	testEnvVars := map[string]string{
-		"CAMT_LOG_LEVEL":                    "debug",
-		"CAMT_LOG_FORMAT":                   "json",
-		"CAMT_CSV_DELIMITER":                ";",
-		"CAMT_AI_ENABLED":                   "true",
-		"CAMT_AI_MODEL":                     "gemini-1.5-pro",
-		"CAMT_AI_REQUESTS_PER_MINUTE":       "15",
-		"CAMT_CATEGORIZATION_AUTO_LEARN":    "false",
+		"CAMT_LOG_LEVEL":                      "debug",
+		"CAMT_LOG_FORMAT":                     "json",
+		"CAMT_CSV_DELIMITER":                  ";",
+		"CAMT_AI_ENABLED":                     "true",
+		"CAMT_AI_MODEL":                       "gemini-1.5-pro",
+		"CAMT_AI_REQUESTS_PER_MINUTE":         "15",
+		"CAMT_CATEGORIZATION_AUTO_LEARN":      "false",
 		"CAMT_PARSERS_CAMT_STRICT_VALIDATION": "false",
-		"GEMINI_API_KEY":                    "test-api-key",
+		"GEMINI_API_KEY":                      "test-api-key",
 	}
 
 	for key, value := range testEnvVars {
@@ -82,7 +82,7 @@ func TestInitializeConfig_ConfigFile(t *testing.T) {
 	// Create temporary config file
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "camt-csv.yaml")
-	
+
 	configContent := `
 log:
   level: "warn"
@@ -99,7 +99,7 @@ categorization:
   confidence_threshold: 0.9
 `
 
-	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	err := os.WriteFile(configFile, []byte(configContent), 0600)
 	require.NoError(t, err)
 
 	// Change to temp directory so config file is found
@@ -109,7 +109,7 @@ categorization:
 		err := os.Chdir(originalDir)
 		require.NoError(t, err)
 	}()
-	
+
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
@@ -135,7 +135,7 @@ func TestInitializeConfig_HierarchicalPrecedence(t *testing.T) {
 	// Create temporary config file
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "camt-csv.yaml")
-	
+
 	configContent := `
 log:
   level: "warn"
@@ -145,7 +145,7 @@ ai:
   requests_per_minute: 20
 `
 
-	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	err := os.WriteFile(configFile, []byte(configContent), 0600)
 	require.NoError(t, err)
 
 	// Set environment variables that should override config file
@@ -160,7 +160,7 @@ ai:
 		err := os.Chdir(originalDir)
 		require.NoError(t, err)
 	}()
-	
+
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
@@ -168,17 +168,17 @@ ai:
 	require.NoError(t, err)
 
 	// Test precedence: env vars should override config file
-	assert.Equal(t, "error", config.Log.Level)        // env var wins
-	assert.Equal(t, "|", config.CSV.Delimiter)        // config file value
-	assert.Equal(t, 25, config.AI.RequestsPerMinute)  // env var wins
-	assert.Equal(t, "env-api-key", config.AI.APIKey)  // env var (API key)
+	assert.Equal(t, "error", config.Log.Level)       // env var wins
+	assert.Equal(t, "|", config.CSV.Delimiter)       // config file value
+	assert.Equal(t, 25, config.AI.RequestsPerMinute) // env var wins
+	assert.Equal(t, "env-api-key", config.AI.APIKey) // env var (API key)
 }
 
 func TestValidateConfig_InvalidValues(t *testing.T) {
 	tests := []struct {
-		name        string
+		name         string
 		modifyConfig func(*Config)
-		expectError string
+		expectError  string
 	}{
 		{
 			name: "invalid log level",
