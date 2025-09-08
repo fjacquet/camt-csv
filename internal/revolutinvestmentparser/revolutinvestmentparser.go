@@ -44,7 +44,11 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warnf("Failed to close file: %v", closeErr)
+		}
+	}()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
@@ -274,7 +278,11 @@ func ValidateFormat(filePath string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warnf("Failed to close file: %v", closeErr)
+		}
+	}()
 
 	reader := csv.NewReader(file)
 	records, err := reader.Read()
@@ -308,7 +316,11 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Warnf("Failed to close file: %v", closeErr)
+		}
+	}()
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()

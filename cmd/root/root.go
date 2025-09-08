@@ -28,7 +28,7 @@ type CommonFlags struct {
 var (
 	// Log is the shared logger instance for commands - will be updated with config
 	Log = logging.GetLogger()
-	
+
 	// Global configuration instance
 	AppConfig *config.Config
 
@@ -123,8 +123,16 @@ func Init() {
 	Cmd.PersistentFlags().Bool("ai-enabled", false, "Enable AI categorization")
 
 	// Bind flags to viper
-	viper.BindPFlag("log.level", Cmd.PersistentFlags().Lookup("log-level"))
-	viper.BindPFlag("log.format", Cmd.PersistentFlags().Lookup("log-format"))
-	viper.BindPFlag("csv.delimiter", Cmd.PersistentFlags().Lookup("csv-delimiter"))
-	viper.BindPFlag("ai.enabled", Cmd.PersistentFlags().Lookup("ai-enabled"))
+	if err := viper.BindPFlag("log.level", Cmd.PersistentFlags().Lookup("log-level")); err != nil {
+		log.Printf("Warning: failed to bind log-level flag: %v", err)
+	}
+	if err := viper.BindPFlag("log.format", Cmd.PersistentFlags().Lookup("log-format")); err != nil {
+		log.Printf("Warning: failed to bind log-format flag: %v", err)
+	}
+	if err := viper.BindPFlag("csv.delimiter", Cmd.PersistentFlags().Lookup("csv-delimiter")); err != nil {
+		log.Printf("Warning: failed to bind csv-delimiter flag: %v", err)
+	}
+	if err := viper.BindPFlag("ai.enabled", Cmd.PersistentFlags().Lookup("ai-enabled")); err != nil {
+		log.Printf("Warning: failed to bind ai-enabled flag: %v", err)
+	}
 }

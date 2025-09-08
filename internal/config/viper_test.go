@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -353,6 +354,9 @@ func clearTestEnvVars(t *testing.T) {
 	}
 
 	for _, envVar := range envVars {
-		os.Unsetenv(envVar)
+		if err := os.Unsetenv(envVar); err != nil {
+			// Log warning but continue - this is test cleanup
+			fmt.Printf("Warning: failed to unset environment variable %s: %v\n", envVar, err)
+		}
 	}
 }

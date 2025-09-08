@@ -84,7 +84,9 @@ func InitializeConfig() (*Config, error) {
 	}
 
 	// 5. Handle special case for API key (always from env, not prefixed)
-	v.BindEnv("ai.api_key", "GEMINI_API_KEY")
+	if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
+		fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
+	}
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
