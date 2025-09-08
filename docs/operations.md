@@ -90,6 +90,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t camt-csv:latest .
 ### 1. Version Management
 
 **Semantic Versioning**: Follow semver (MAJOR.MINOR.PATCH)
+
 - **MAJOR**: Breaking changes to CLI interface or file formats
 - **MINOR**: New features, new parser support
 - **PATCH**: Bug fixes, performance improvements
@@ -264,6 +265,7 @@ ai:
 ### 2. Secret Management
 
 **Environment Variables**:
+
 ```bash
 # Production secrets
 export GEMINI_API_KEY="$(cat /etc/secrets/gemini-api-key)"
@@ -271,6 +273,7 @@ export LOG_LEVEL="warn"
 ```
 
 **Kubernetes Secrets**:
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -282,6 +285,7 @@ data:
 ```
 
 **Docker Secrets**:
+
 ```bash
 # Create secret
 echo "your-api-key" | docker secret create gemini_api_key -
@@ -298,6 +302,7 @@ docker service create \
 ### 1. Logging Strategy
 
 **Structured Logging**:
+
 ```go
 log.WithFields(logrus.Fields{
     "file":         filePath,
@@ -308,6 +313,7 @@ log.WithFields(logrus.Fields{
 ```
 
 **Log Aggregation**:
+
 ```yaml
 # docker-compose.yml with ELK stack
 version: '3.8'
@@ -332,6 +338,7 @@ services:
 ### 2. Metrics Collection
 
 **Application Metrics**:
+
 ```go
 // Add to main application
 import "github.com/prometheus/client_golang/prometheus"
@@ -356,6 +363,7 @@ var (
 ```
 
 **System Metrics**:
+
 ```yaml
 # prometheus.yml
 global:
@@ -397,6 +405,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 ### 1. Resource Management
 
 **Memory Optimization**:
+
 ```go
 // Stream processing for large files
 func processLargeFile(filePath string) error {
@@ -434,6 +443,7 @@ func processLargeFile(filePath string) error {
 ```
 
 **CPU Optimization**:
+
 ```go
 // Parallel processing
 func processTransactions(transactions []models.Transaction) []models.Transaction {
@@ -486,6 +496,7 @@ func (c *CategoryCache) Get(key string) (*models.Category, bool) {
 ### 1. Common Issues
 
 **File Processing Errors**:
+
 ```bash
 # Check file format
 camt-csv validate --input suspicious_file.xml
@@ -498,6 +509,7 @@ camt-csv convert --input samples/minimal.xml --output test.csv
 ```
 
 **Memory Issues**:
+
 ```bash
 # Monitor memory usage
 top -p $(pgrep camt-csv)
@@ -507,6 +519,7 @@ camt-csv convert --streaming --input large_file.xml --output output.csv
 ```
 
 **AI Service Issues**:
+
 ```bash
 # Test AI connectivity
 curl -H "Authorization: Bearer $GEMINI_API_KEY" \
@@ -532,6 +545,7 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 ### 3. Log Analysis
 
 **Error Patterns**:
+
 ```bash
 # Find parsing errors
 grep "parse error" /var/log/camt-csv.log | tail -20
@@ -549,6 +563,7 @@ grep "processing_duration" /var/log/camt-csv.log | \
 ### 1. Data Backup
 
 **Configuration Backup**:
+
 ```bash
 # Backup user configuration
 tar -czf camt-csv-config-$(date +%Y%m%d).tar.gz \
@@ -557,6 +572,7 @@ tar -czf camt-csv-config-$(date +%Y%m%d).tar.gz \
 ```
 
 **Database Backup**:
+
 ```bash
 # Backup category mappings
 cp -r database/ backup/database-$(date +%Y%m%d)/
@@ -565,6 +581,7 @@ cp -r database/ backup/database-$(date +%Y%m%d)/
 ### 2. Disaster Recovery
 
 **Recovery Procedures**:
+
 ```bash
 # Restore from backup
 tar -xzf camt-csv-config-20241219.tar.gz -C ~/
@@ -581,6 +598,7 @@ camt-csv convert --input samples/test.xml --output test.csv --dry-run
 ### 1. Secure Deployment
 
 **File Permissions**:
+
 ```bash
 # Secure configuration files
 chmod 600 ~/.camt-csv/config.yaml
@@ -591,6 +609,7 @@ chmod 755 /usr/local/bin/camt-csv
 ```
 
 **Network Security**:
+
 ```yaml
 # Kubernetes NetworkPolicy
 apiVersion: networking.k8s.io/v1
@@ -613,6 +632,7 @@ spec:
 ### 2. Security Monitoring
 
 **Audit Logging**:
+
 ```go
 log.WithFields(logrus.Fields{
     "user":      os.Getenv("USER"),
@@ -623,6 +643,7 @@ log.WithFields(logrus.Fields{
 ```
 
 **Vulnerability Scanning**:
+
 ```bash
 # Scan dependencies
 go list -json -m all | nancy sleuth

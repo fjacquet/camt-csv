@@ -62,11 +62,13 @@ CAMT-CSV uses environment variables for configuration. You can set these in your
 ### Setting Up Configuration
 
 1. Copy the sample configuration file:
+
    ```bash
    cp .env.sample .env
    ```
 
 2. Edit `.env` with your preferred settings:
+
    ```bash
    nano .env  # or your preferred editor
    ```
@@ -102,6 +104,7 @@ CSV_DELIMITER=;
 ### Command Structure
 
 All CAMT-CSV commands follow this pattern:
+
 ```bash
 ./camt-csv [command] -i [input_file] -o [output_file]
 ```
@@ -121,16 +124,19 @@ All CAMT-CSV commands follow this pattern:
 ### Quick Start Examples
 
 1. **Convert a CAMT.053 XML file:**
+
    ```bash
    ./camt-csv camt -i bank_statement.xml -o transactions.csv
    ```
 
 2. **Process a PDF bank statement:**
+
    ```bash
    ./camt-csv pdf -i statement.pdf -o transactions.csv
    ```
 
 3. **Convert Revolut export:**
+
    ```bash
    ./camt-csv revolut -i revolut_export.csv -o processed.csv
    ```
@@ -146,6 +152,7 @@ Process multiple files in a directory:
 ```
 
 **Features:**
+
 - Automatically detects file types
 - Processes all supported formats
 - Maintains original filenames with `.csv` extension
@@ -183,10 +190,13 @@ categories:
 
 1. Get a Google AI API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Set your API key:
+
    ```bash
    export GEMINI_API_KEY=your_api_key_here
    ```
+
 3. Enable AI categorization:
+
    ```bash
    export USE_AI_CATEGORIZATION=true
    ```
@@ -196,6 +206,7 @@ categories:
 #### Change CSV Delimiter
 
 For European Excel compatibility:
+
 ```bash
 export CSV_DELIMITER=";"
 ./camt-csv camt -i input.xml -o output.csv
@@ -204,6 +215,7 @@ export CSV_DELIMITER=";"
 #### Custom Data Directory
 
 Store configuration files in a custom location:
+
 ```bash
 export DATA_DIR="/path/to/custom/data"
 ./camt-csv camt -i input.xml -o output.csv
@@ -215,12 +227,14 @@ export DATA_DIR="/path/to/custom/data"
 
 **Description**: ISO 20022 standard bank statement format
 **Features**:
+
 - Complete transaction details
 - Multi-currency support
 - Reference numbers and codes
 - Party information (payer/payee)
 
 **Example Usage**:
+
 ```bash
 ./camt-csv camt -i bank_statement.xml -o transactions.csv
 ```
@@ -229,12 +243,14 @@ export DATA_DIR="/path/to/custom/data"
 
 **Description**: Extracts transactions from PDF bank statements
 **Supported Types**:
+
 - Viseca credit card statements (specialized parsing)
 - Generic bank statement PDFs
 
 **Requirements**: `pdftotext` must be installed
 
 **Example Usage**:
+
 ```bash
 ./camt-csv pdf -i statement.pdf -o transactions.csv
 ```
@@ -243,12 +259,14 @@ export DATA_DIR="/path/to/custom/data"
 
 **Description**: Processes Revolut app CSV exports
 **Features**:
+
 - Transaction state handling
 - Fee processing
 - Currency conversion tracking
 - Category mapping
 
 **Example Usage**:
+
 ```bash
 ./camt-csv revolut -i revolut_export.csv -o processed.csv
 ```
@@ -257,12 +275,14 @@ export DATA_DIR="/path/to/custom/data"
 
 **Description**: Processes Selma investment platform exports
 **Features**:
+
 - Investment transaction categorization
 - Stamp duty association
 - Dividend and income tracking
 - Trade transaction processing
 
 **Example Usage**:
+
 ```bash
 ./camt-csv selma -i selma_transactions.csv -o processed.csv
 ```
@@ -271,11 +291,13 @@ export DATA_DIR="/path/to/custom/data"
 
 **Description**: Processes generic CSV files with debit transactions
 **Features**:
+
 - Flexible column mapping
 - Date format detection
 - Amount standardization
 
 **Example Usage**:
+
 ```bash
 ./camt-csv debit -i debit_transactions.csv -o processed.csv
 ```
@@ -284,7 +306,7 @@ export DATA_DIR="/path/to/custom/data"
 
 ### How Categorization Works
 
-1. **Direct Mapping Check**: 
+1. **Direct Mapping Check**:
    - Checks `database/creditors.yaml` and `database/debitors.yaml`
    - Exact, case-insensitive matches
    - Fastest method for known transactions
@@ -302,12 +324,15 @@ export DATA_DIR="/path/to/custom/data"
 ### Managing Categories
 
 #### View Current Categories
+
 ```bash
 cat database/categories.yaml
 ```
 
 #### Add New Category
+
 Edit `database/categories.yaml`:
+
 ```yaml
 categories:
   - name: "New Category"
@@ -317,6 +342,7 @@ categories:
 ```
 
 #### View Learned Mappings
+
 ```bash
 cat database/creditors.yaml  # For money received
 cat database/debitors.yaml   # For money spent
@@ -335,8 +361,10 @@ cat database/debitors.yaml   # For money spent
 ### Common Issues
 
 #### 1. "pdftotext not found"
+
 **Problem**: PDF processing fails
 **Solution**: Install Poppler Utils:
+
 ```bash
 # macOS
 brew install poppler
@@ -346,22 +374,28 @@ sudo apt-get install poppler-utils
 ```
 
 #### 2. "Invalid file format"
+
 **Problem**: File not recognized
 **Solutions**:
+
 - Verify file format matches command (XML for `camt`, PDF for `pdf`, etc.)
 - Check file isn't corrupted
 - Try with a sample file first
 
 #### 3. "API quota exceeded"
+
 **Problem**: Too many AI categorization requests
 **Solutions**:
+
 - Reduce `GEMINI_REQUESTS_PER_MINUTE`
 - Add more keywords to `categories.yaml`
 - Process files in smaller batches
 
 #### 4. "Permission denied"
+
 **Problem**: Cannot write output file
 **Solutions**:
+
 - Check output directory exists and is writable
 - Verify file isn't open in another application
 - Use absolute paths if relative paths fail
@@ -369,6 +403,7 @@ sudo apt-get install poppler-utils
 ### Debug Mode
 
 Enable detailed logging for troubleshooting:
+
 ```bash
 export LOG_LEVEL=debug
 ./camt-csv camt -i input.xml -o output.csv
@@ -423,11 +458,13 @@ cat database/creditors.yaml
 ### Example 4: Custom Categories
 
 1. **Edit categories file**:
+
    ```bash
    nano database/categories.yaml
    ```
 
 2. **Add custom category**:
+
    ```yaml
    categories:
      - name: "Online Shopping"
@@ -439,6 +476,7 @@ cat database/creditors.yaml
    ```
 
 3. **Process transactions**:
+
    ```bash
    ./camt-csv camt -i statement.xml -o categorized.csv
    ```
