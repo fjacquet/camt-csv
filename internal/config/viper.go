@@ -17,10 +17,10 @@ type Config struct {
 	} `mapstructure:"log" yaml:"log"`
 
 	CSV struct {
-		Delimiter    string `mapstructure:"delimiter" yaml:"delimiter"`
-		DateFormat   string `mapstructure:"date_format" yaml:"date_format"`
-		IncludeHeaders bool `mapstructure:"include_headers" yaml:"include_headers"`
-		QuoteAll     bool   `mapstructure:"quote_all" yaml:"quote_all"`
+		Delimiter      string `mapstructure:"delimiter" yaml:"delimiter"`
+		DateFormat     string `mapstructure:"date_format" yaml:"date_format"`
+		IncludeHeaders bool   `mapstructure:"include_headers" yaml:"include_headers"`
+		QuoteAll       bool   `mapstructure:"quote_all" yaml:"quote_all"`
 	} `mapstructure:"csv" yaml:"csv"`
 
 	AI struct {
@@ -38,9 +38,9 @@ type Config struct {
 	} `mapstructure:"data" yaml:"data"`
 
 	Categorization struct {
-		AutoLearn            bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
-		ConfidenceThreshold  float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
-		CaseSensitive        bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
+		AutoLearn           bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
+		ConfidenceThreshold float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
+		CaseSensitive       bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
 	} `mapstructure:"categorization" yaml:"categorization"`
 
 	Parsers struct {

@@ -18,11 +18,11 @@ import (
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
-	"github.com/sirupsen/logrus"
-	"net/http"
 	"bytes"
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"io"
+	"net/http"
 )
 
 //------------------------------------------------------------------------------
@@ -49,8 +49,8 @@ type Categorizer struct {
 	isDirtyCreditors bool // Track if creditorMappings has been modified and needs to be saved
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
 	// Simplified: using direct HTTP calls to Gemini API
-	store            *store.CategoryStore
-	logger           *logrus.Logger
+	store  *store.CategoryStore
+	logger *logrus.Logger
 }
 
 // Global singleton instance - simple approach for a CLI tool
@@ -225,17 +225,6 @@ type GeminiAPIError struct {
 	Status  string `json:"status"`
 }
 
-// initAI initializes AI categorization (simplified)
-func (c *Categorizer) initAI() error {
-	apiKey := getGeminiAPIKey()
-	if apiKey == "" {
-		c.logger.Warn("AI categorization disabled: GEMINI_API_KEY not set")
-		return nil
-	}
-
-	c.logger.Info("AI categorization enabled with Gemini via HTTP API")
-	return nil
-}
 
 // Function to create a prompt for AI categorization
 func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
@@ -305,7 +294,6 @@ func (c *Categorizer) callGeminiAPI(prompt string) (*GeminiResponse, error) {
 	// Make HTTP request
 	modelName := getGeminiModelName()
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", modelName, apiKey)
-	
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
