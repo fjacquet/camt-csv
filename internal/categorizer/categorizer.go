@@ -18,9 +18,11 @@ import (
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
-	"github.com/google/generative-ai-go/genai"
+	"bytes"
+	"encoding/json"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/api/option"
+	"io"
+	"net/http"
 )
 
 //------------------------------------------------------------------------------
@@ -46,10 +48,9 @@ type Categorizer struct {
 	configMutex      sync.RWMutex
 	isDirtyCreditors bool // Track if creditorMappings has been modified and needs to be saved
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
-	geminiClient     *genai.Client
-	geminiModel      *genai.GenerativeModel
-	store            *store.CategoryStore
-	logger           *logrus.Logger
+	// Simplified: using direct HTTP calls to Gemini API
+	store  *store.CategoryStore
+	logger *logrus.Logger
 }
 
 // Global singleton instance - simple approach for a CLI tool
@@ -195,36 +196,35 @@ func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Cat
 // GEMINI AI INTEGRATION
 //------------------------------------------------------------------------------
 
-// initGeminiClient initializes the Gemini API client
-func (c *Categorizer) initGeminiClient() error {
-	apiKey := getGeminiAPIKey()
-	if apiKey == "" {
-		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
-	}
-
-	// Create a new GenAI client
-	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		return fmt.Errorf("failed to create GenAI client: %w", err)
-	}
-	c.geminiClient = client
-
-	// Get model name from environment
-	modelName := getGeminiModelName()
-	c.logger.Infof("Initializing Gemini with model: %s", modelName)
-
-	// Create a generative model using configured model
-	c.geminiModel = c.geminiClient.GenerativeModel(modelName)
-	if c.geminiModel == nil {
-		return fmt.Errorf("failed to create Gemini model")
-	}
-
-	// NOTE: We're not setting any safety settings as they are not compatible
-	// across different Gemini model versions
-
-	return nil
+// GeminiRequest represents the API request structure
+type GeminiRequest struct {
+	Contents []GeminiContent `json:"contents"`
 }
+
+type GeminiContent struct {
+	Parts []GeminiPart `json:"parts"`
+}
+
+type GeminiPart struct {
+	Text string `json:"text"`
+}
+
+// GeminiResponse represents the API response structure
+type GeminiResponse struct {
+	Candidates []GeminiCandidate `json:"candidates"`
+	Error      *GeminiAPIError   `json:"error,omitempty"`
+}
+
+type GeminiCandidate struct {
+	Content GeminiContent `json:"content"`
+}
+
+type GeminiAPIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+}
+
 
 // Function to create a prompt for AI categorization
 func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string {
@@ -268,13 +268,82 @@ func (c *Categorizer) createCategorizationPrompt(transaction Transaction) string
 	return prompt
 }
 
+// callGeminiAPI makes a direct HTTP call to Gemini API
+func (c *Categorizer) callGeminiAPI(prompt string) (*GeminiResponse, error) {
+	apiKey := getGeminiAPIKey()
+	if apiKey == "" {
+		return nil, fmt.Errorf("GEMINI_API_KEY not set")
+	}
+
+	// Prepare request
+	request := GeminiRequest{
+		Contents: []GeminiContent{
+			{
+				Parts: []GeminiPart{
+					{Text: prompt},
+				},
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Make HTTP request
+	modelName := getGeminiModelName()
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", modelName, apiKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Warnf("Failed to close response body: %v", closeErr)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var geminiResp GeminiResponse
+	if err := json.Unmarshal(body, &geminiResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if geminiResp.Error != nil {
+		return nil, fmt.Errorf("API error %d: %s", geminiResp.Error.Code, geminiResp.Error.Message)
+	}
+
+	return &geminiResp, nil
+}
+
 // categorizeWithGemini attempts to categorize a transaction using the Gemini API
 func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
-	if c.geminiClient == nil || c.geminiModel == nil {
-		// Initialize Gemini client if not already initialized
-		if err := c.initGeminiClient(); err != nil {
-			return models.Category{}, err
-		}
+	apiKey := getGeminiAPIKey()
+	if apiKey == "" {
+		return models.Category{
+			Name:        "Uncategorized",
+			Description: "AI categorization not available",
+		}, nil
 	}
 
 	// Create a prompt for AI categorization
@@ -284,17 +353,9 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	// Wait if needed to respect the rate limit before making a Gemini API call
 	waitForRateLimit(c.logger)
 
-	// Generate a response from Gemini
-	// Create a context with a timeout (5 seconds)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := c.geminiModel.GenerateContent(ctx, genai.Text(prompt))
+	// Make HTTP request to Gemini API
+	resp, err := c.callGeminiAPI(prompt)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			c.logger.Warnf("Gemini API timed out after 5 seconds for transaction: %s", transaction.PartyName)
-			return models.Category{}, fmt.Errorf("gemini API timed out after 5 seconds")
-		}
 		c.logger.Warnf("Gemini API error for transaction %s: %v", transaction.PartyName, err)
 		return models.Category{}, fmt.Errorf("gemini API error: %w", err)
 	}
@@ -302,7 +363,7 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	// Extract the category from the response
 	var categoryName string
 	if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
-		responseText := fmt.Sprintf("%v", resp.Candidates[0].Content.Parts[0])
+		responseText := resp.Candidates[0].Content.Parts[0].Text
 		categoryName = c.extractCategoryFromResponse(responseText)
 		c.logger.Infof("Gemini response for '%s': '%s' extracted as '%s'",
 			transaction.PartyName, responseText, categoryName)
@@ -663,26 +724,12 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 		apiKey := getGeminiAPIKey()
 		if apiKey == "" {
 			if c.logger != nil {
-				c.logger.Warn("AI categorization is enabled but no API key is set")
+				c.logger.Debug("AI categorization disabled: GEMINI_API_KEY not set")
 			}
 			return models.Category{
 				Name:        "Uncategorized",
-				Description: "Transaction could not be categorized (no API key)",
+				Description: "AI categorization not available",
 			}, nil
-		}
-
-		// Initialize Gemini client if needed
-		if c.geminiClient == nil {
-			err := c.initGeminiClient()
-			if err != nil {
-				if c.logger != nil {
-					c.logger.WithError(err).Error("Failed to initialize Gemini client")
-				}
-				return models.Category{
-					Name:        "Uncategorized",
-					Description: "Transaction could not be categorized (API initialization error)",
-				}, nil
-			}
 		}
 
 		// Attempt AI categorization

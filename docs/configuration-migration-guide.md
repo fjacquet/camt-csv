@@ -182,7 +182,7 @@ This is normal and expected. The system will use defaults and environment variab
 
 The system will report validation errors with specific details:
 
-```
+```bash
 Failed to initialize configuration: invalid configuration: invalid log level: invalid_level
 ```
 

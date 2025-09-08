@@ -28,7 +28,7 @@ func TestParseFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.csv")
 
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	require.NoError(t, err)
 
 	transactions, err := ParseFile(tmpFile)
@@ -65,7 +65,7 @@ func TestValidateFormat(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.csv")
 
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	require.NoError(t, err)
 
 	valid, err := ValidateFormat(tmpFile)
@@ -77,7 +77,7 @@ func TestValidateFormat(t *testing.T) {
 		topup,Current,29.05.2025,30.05.2025,Top-up,,0,EUR,COMPLETED,€1000`
 
 	invalidFile := filepath.Join(tmpDir, "invalid.csv")
-	err = os.WriteFile(invalidFile, []byte(invalidContent), 0644)
+	err = os.WriteFile(invalidFile, []byte(invalidContent), 0600)
 	require.NoError(t, err)
 
 	valid, err = ValidateFormat(invalidFile)
@@ -154,7 +154,7 @@ func TestConvertToCSV(t *testing.T) {
 	inputFile := filepath.Join(tmpDir, "input.csv")
 	outputFile := filepath.Join(tmpDir, "output.csv")
 
-	err := os.WriteFile(inputFile, []byte(content), 0644)
+	err := os.WriteFile(inputFile, []byte(content), 0600)
 	require.NoError(t, err)
 
 	err = ConvertToCSV(inputFile, outputFile)

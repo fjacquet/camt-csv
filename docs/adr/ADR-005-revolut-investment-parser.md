@@ -6,8 +6,8 @@ Accepted
 
 ## Context
 
-The CAMT-CSV project currently supports parsing various financial statement formats, including standard Revolut transaction CSV files. 
-However, Revolut also provides investment transaction data in a different CSV format that is not supported by the existing parser. 
+The CAMT-CSV project currently supports parsing various financial statement formats, including standard Revolut transaction CSV files.
+However, Revolut also provides investment transaction data in a different CSV format that is not supported by the existing parser.
 Users who invest through Revolut cannot process their investment transactions with the current implementation.
 
 The existing Revolut parser expects a format with headers like: Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance.
