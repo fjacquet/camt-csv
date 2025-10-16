@@ -2,16 +2,15 @@
 package root
 
 import (
-	"fjacquet/camt-csv/internal/camtparser"
+	"fjacquet/camt-csv/cmd/analyze"
+	"fjacquet/camt-csv/cmd/implement"
+	"fjacquet/camt-csv/cmd/review"
+	"fjacquet/camt-csv/cmd/tasks"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
-	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/logging"
-	"fjacquet/camt-csv/internal/pdfparser"
-	"fjacquet/camt-csv/internal/revolutinvestmentparser"
-	"fjacquet/camt-csv/internal/revolutparser"
-	"fjacquet/camt-csv/internal/selmaparser"
+	"fjacquet/camt-csv/internal/store"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -48,29 +47,23 @@ It also provides transaction categorization based on the party's name.`,
 			initializeConfiguration()
 			// Set the configured logger for all parsers
 			// This will propagate our centralized logging configuration to each package
-			camtparser.SetLogger(Log)
-			pdfparser.SetLogger(Log)
-			selmaparser.SetLogger(Log)
-			revolutparser.SetLogger(Log)
-			revolutinvestmentparser.SetLogger(Log)
-			debitparser.SetLogger(Log)
-			categorizer.SetLogger(Log)
 			common.SetLogger(Log)
 
 			// Set CSV delimiter from configuration
 			commonDelim := []rune(AppConfig.CSV.Delimiter)[0]
 			common.SetDelimiter(commonDelim)
-			Log.WithField("delimiter", AppConfig.CSV.Delimiter).Debug("Setting CSV delimiter from configuration")
+			Log.WithField(logging.FieldDelimiter, AppConfig.CSV.Delimiter).Debug("Setting CSV delimiter from configuration")
 		},
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			// Save the creditor and debitor mappings back to disk after any command runs
-			err := categorizer.SaveCreditorsToYAML()
+			categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), Log)
+			err := categorizerInstance.SaveCreditorsToYAML()
 			if err != nil {
 				Log.Warnf("Failed to save creditor mappings: %v", err)
 			}
 
-			err = categorizer.SaveDebitorsToYAML()
+			err = categorizerInstance.SaveDebitorsToYAML()
 			if err != nil {
 				Log.Warnf("Failed to save debitor mappings: %v", err)
 			}
@@ -120,6 +113,11 @@ func Init() {
 	Cmd.PersistentFlags().String("log-format", "", "Log format (text, json)")
 	Cmd.PersistentFlags().String("csv-delimiter", "", "CSV delimiter character")
 	Cmd.PersistentFlags().Bool("ai-enabled", false, "Enable AI categorization")
+
+	Cmd.AddCommand(review.GetReviewCommand())
+	Cmd.AddCommand(analyze.AnalyzeCmd)
+	Cmd.AddCommand(implement.ImplementCmd)
+	Cmd.AddCommand(tasks.TasksCmd)
 
 	// Bind flags to viper
 	if err := viper.BindPFlag("log.level", Cmd.PersistentFlags().Lookup("log-level")); err != nil {

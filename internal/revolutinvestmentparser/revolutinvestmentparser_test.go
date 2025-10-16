@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/models"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,16 @@ func TestParseFile(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	require.NoError(t, err)
 
-	transactions, err := ParseFile(tmpFile)
+	file, err := os.Open(tmpFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", tmpFile, err)
+		}
+	}()
+
+	adapter := NewAdapter()
+	transactions, err := adapter.Parse(file)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 3)
 
@@ -57,32 +67,27 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, 39, txn2.NumberOfShares)
 }
 
-func TestValidateFormat(t *testing.T) {
-	// Create a temporary CSV file with correct format
-	content := `Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate
-2025-05-30T10:31:02.786456Z,,CASH TOP-UP,,,€454,EUR,1.0722`
-
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "test.csv")
-
-	err := os.WriteFile(tmpFile, []byte(content), 0600)
-	require.NoError(t, err)
-
-	valid, err := ValidateFormat(tmpFile)
-	require.NoError(t, err)
-	assert.True(t, valid)
-
+func TestParseFile_InvalidFormat(t *testing.T) {
 	// Test with incorrect format
 	invalidContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 		topup,Current,29.05.2025,30.05.2025,Top-up,,0,EUR,COMPLETED,€1000`
 
+	tmpDir := t.TempDir()
 	invalidFile := filepath.Join(tmpDir, "invalid.csv")
-	err = os.WriteFile(invalidFile, []byte(invalidContent), 0600)
+	err := os.WriteFile(invalidFile, []byte(invalidContent), 0600)
 	require.NoError(t, err)
 
-	valid, err = ValidateFormat(invalidFile)
+	file, err := os.Open(invalidFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", invalidFile, err)
+		}
+	}()
+
+	adapter := NewAdapter()
+	_, err = adapter.Parse(file)
 	require.Error(t, err)
-	assert.False(t, valid)
 }
 
 func TestConvertRowToTransaction(t *testing.T) {

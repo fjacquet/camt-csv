@@ -1,10 +1,10 @@
-// Package revolut handles Revolut CSV file processing commands
+// Package revolut handles Revolut statement conversion commands
 package revolut
 
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/revolutparser"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/spf13/cobra"
 )
@@ -12,19 +12,20 @@ import (
 // Cmd represents the revolut command
 var Cmd = &cobra.Command{
 	Use:   "revolut",
-	Short: "Process Revolut CSV files",
-	Long:  `Process Revolut CSV files to convert to standard format and categorize transactions.`,
+	Short: "Convert Revolut CSV to CSV",
+	Long:  `Convert Revolut CSV statements to CSV format.`,
 	Run:   revolutFunc,
 }
 
 func revolutFunc(cmd *cobra.Command, args []string) {
-	root.Log.Info("Revolut CSV process command called")
-	root.Log.Infof("Input Revolut CSV file: %s", root.SharedFlags.Input)
-	root.Log.Infof("Output CSV file: %s", root.SharedFlags.Output)
+	root.Log.Info("Revolut convert command called")
+	root.Log.Infof("Input file: %s", root.SharedFlags.Input)
+	root.Log.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p := revolutparser.NewAdapter()
-	if err := common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log); err != nil {
-		root.Log.Fatalf("Error processing Revolut CSV file: %v", err)
+	p, err := parser.GetParser(parser.Revolut)
+	if err != nil {
+		root.Log.Fatalf("Error getting Revolut parser: %v", err)
 	}
-	root.Log.Info("Revolut CSV conversion completed successfully!")
+	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
+	root.Log.Info("Revolut to CSV conversion completed successfully!")
 }

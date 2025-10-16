@@ -12,7 +12,7 @@ import (
 	"fjacquet/camt-csv/cmd/debit"
 	"fjacquet/camt-csv/cmd/pdf"
 	"fjacquet/camt-csv/cmd/revolut"
-	"fjacquet/camt-csv/cmd/revolut-investment"
+	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
 	"fjacquet/camt-csv/internal/logging"

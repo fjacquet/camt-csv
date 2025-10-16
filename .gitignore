@@ -38,3 +38,7 @@ internal/pdfparser/debug_pdf_extract.txt
 security.sarif
 coverage.txt
 .DS_Store
+*.swp
+Thumbs.db
+.vscode/
+.idea/

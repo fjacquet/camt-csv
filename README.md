@@ -9,12 +9,15 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ## ✨ Key Features
 
-- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut, Revolut Investment, Selma, and generic CSV
-- **Smart Categorization**: Hybrid approach using local rules + AI fallback
-- **Hierarchical Configuration**: Viper-based config system with files, environment variables, and CLI flags
-- **Batch Processing**: Handle multiple files at once
-- **Investment Support**: Dedicated parser for Revolut investment transactions
-- **Fast & Reliable**: Local processing with optional cloud AI
+- **Multi-format Support**: A flexible parser factory allows for easy extension to support new financial statement formats.
+- **Smart Categorization**: Hybrid approach using local rules + AI fallback with a testable `AIClient` interface.
+- **Hierarchical Configuration**: Viper-based config system with files, environment variables, and CLI flags.
+- **Batch Processing**: Handle multiple files at once.
+- **Codebase Compliance Review**: Automated checks against project constitution, identifying non-compliant areas and proposing corrective actions.
+- **Fast & Reliable**: Local processing with optional cloud AI.
+- **Speckit Workflow**: A suite of commands (`spec`, `plan`, `tasks`, `analyze`, `implement`) to streamline the software development lifecycle.
+- **Standardized Logging**: Consistent and structured logging for easier debugging and monitoring.
+- **Custom Errors**: Granular error types for robust error handling.
 
 ## 🚀 Quick Start
 
@@ -34,20 +37,25 @@ go build
 ### Basic Usage
 
 ```bash
-# Convert CAMT.053 XML to CSV
-./camt-csv camt -i statement.xml -o transactions.csv
+# Convert a file using a specific parser
+./camt-csv <parser-type> -i input.file -o output.csv
 
-# Process PDF bank statement
-./camt-csv pdf -i statement.pdf -o transactions.csv
+# Example: Convert a CAMT.053 file
+./camt-csv camt -i statement.xml -o processed.csv
 
-# Convert Revolut export
-./camt-csv revolut -i revolut.csv -o processed.csv
-
-# Convert Revolut investment transactions
+# Example: Convert Revolut investment transactions
 ./camt-csv revolut-investment -i investments.csv -o processed.csv
 
 # Batch process multiple files
 ./camt-csv batch -i input_dir/ -o output_dir/
+
+# Perform codebase compliance review
+./camt-csv review /path/to/your/project/src/file.go /path/to/your/project/src/module/ \
+  --constitution-files .camt-csv/constitution.yaml \
+  --principles "GO-001,GO-002" \
+  --output-format json \
+  --output-file compliance_report.json \
+  --git-ref main
 ```
 
 ### Configuration
@@ -57,7 +65,7 @@ CAMT-CSV supports hierarchical configuration with multiple options:
 ```bash
 # Option 1: Configuration file (recommended)
 mkdir -p ~/.camt-csv
-cat > ~/.camt-csv/config.yaml << EOF
+cat > ~/.camt-csv/camt-csv.yaml << EOF
 log:
   level: "info"
   format: "text"
@@ -88,14 +96,16 @@ See [Configuration Migration Guide](docs/configuration-migration-guide.md) for c
 
 ## 🏗️ Supported Formats
 
-| Format | Description | Command |
-|--------|-------------|----------|
-| **CAMT.053 XML** | ISO 20022 bank statements | `camt` |
-| **PDF** | Bank statements (including Viseca) | `pdf` |
-| **Revolut CSV** | Revolut app exports | `revolut` |
-| **Revolut Investment** | Revolut investment transactions | `revolut-investment` |
-| **Selma CSV** | Investment platform data | `selma` |
-| **Generic CSV** | Debit transaction files | `debit` |
+The application uses a parser factory to support multiple file formats. The following parsers are currently available:
+
+| Parser Type | Description |
+|---|---|
+| `camt` | ISO 20022 bank statements |
+| `pdf` | PDF bank statements (including Viseca) |
+| `revolut` | Revolut app exports |
+| `revolut-investment` | Revolut investment transactions |
+| `selma` | Investment platform data |
+| `debit` | Generic CSV debit transaction files |
 
 ## 🤖 Smart Categorization
 

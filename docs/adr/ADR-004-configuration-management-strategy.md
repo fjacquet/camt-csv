@@ -20,14 +20,14 @@ The CAMT-CSV application requires flexible configuration to support:
 We will implement a hierarchical configuration system using **Viper** with the following precedence order (highest to lowest):
 
 1. **Command-line flags** (highest priority)
-2. **Environment variables**
-3. **Configuration file** (`~/.camt-csv/config.yaml` or `./camt-csv.yaml`)
-4. **Default values** (lowest priority)
+2.  **Environment variables**
+3.  **Configuration file** (`~/.camt-csv/camt-csv.yaml` or `./camt-csv.yaml`)
+4.  **Default values** (lowest priority)
 
 ### Configuration Structure
 
 ```yaml
-# ~/.camt-csv/config.yaml
+# ~/.camt-csv/camt-csv.yaml
 log:
   level: "info"           # trace, debug, info, warn, error
   format: "text"          # text, json
@@ -42,9 +42,6 @@ ai:
   requests_per_minute: 10
   fallback_category: "Uncategorized"
 
-data:
-  directory: ""           # Custom data directory (empty = default)
-  
 categorization:
   auto_learn: true        # Save AI results to local mappings
   confidence_threshold: 0.8

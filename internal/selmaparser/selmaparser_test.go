@@ -6,19 +6,13 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	// Initialize logger for tests
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	SetLogger(logger)
-}
 
 func setupTestCategorizer(t *testing.T) {
 	t.Helper()
@@ -42,7 +36,7 @@ func setupTestCategorizer(t *testing.T) {
 	})
 }
 
-func TestValidateFormat(t *testing.T) {
+func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "selma-test")
 	err := os.MkdirAll(tempDir, 0750)
@@ -55,42 +49,29 @@ func TestValidateFormat(t *testing.T) {
 		}
 	}()
 
-	// Create a valid Selma CSV file with the correct headers and data format (old format)
-	validCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
-2023-01-01,VANGUARD FTSE ALL WORLD,22310435155,IE00BK5BQT80,-247.90,CHF,2
-2023-01-02,ISHARES CORE S&P 500 UCITS ETF,22310435156,IE00B5BMR087,452.22,CHF,1`
-
 	// Create an invalid CSV file (missing required headers)
 	invalidCSV := `foo,bar,baz
 1,2,3
 4,5,6`
 
-	validFile := filepath.Join(tempDir, "valid.csv")
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
 
-	err = os.WriteFile(validFile, []byte(validCSV), 0600)
-	if err != nil {
-		t.Fatalf("Failed to write valid test file: %v", err)
-	}
 	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
 
-	// Test valid file
-	valid, err := ValidateFormat(validFile)
-	assert.NoError(t, err)
-	assert.True(t, valid)
+	file, err := os.Open(invalidFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", invalidFile, err)
+		}
+	}()
 
-	// Test invalid file: now expect an error and valid==false
-	valid, err = ValidateFormat(invalidFile)
-	assert.Error(t, err)
-	assert.False(t, valid)
-
-	// Test file that doesn't exist
-	valid, err = ValidateFormat(filepath.Join(tempDir, "nonexistent.csv"))
-	assert.Error(t, err)
-	assert.False(t, valid)
+	adapter := NewAdapter()
+	_, err = adapter.Parse(file)
+	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
 func TestParseFile(t *testing.T) {
@@ -117,8 +98,17 @@ func TestParseFile(t *testing.T) {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
+	file, err := os.Open(testFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", testFile, err)
+		}
+	}()
+
 	// Test parsing the file
-	transactions, err := ParseFile(testFile)
+	adapter := NewAdapter()
+	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "ParseFile should not return an error for valid input")
 	assert.NotNil(t, transactions, "Transactions should not be nil")
 	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
@@ -142,6 +132,8 @@ func TestParseFile(t *testing.T) {
 func TestConvertToCSV(t *testing.T) {
 	t.Run("convert", func(t *testing.T) {
 		setupTestCategorizer(t)
+		// Set CSV delimiter to comma for this test
+		common.SetDelimiter(',')
 		// Create temp directories
 		tempDir := filepath.Join(os.TempDir(), "selma-test")
 		err := os.MkdirAll(tempDir, 0750)
@@ -182,6 +174,12 @@ func TestConvertToCSV(t *testing.T) {
 
 			// The output should contain some content at minimum
 			assert.NotEmpty(t, content)
+			// Check for the new simplified header format
+			assert.Contains(t, string(content), "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
+			// Check for transaction data - updated to match actual parser output
+			assert.Contains(t, string(content), "02.01.2023")
+			assert.Contains(t, string(content), "Salary")
+			assert.Contains(t, string(content), "1000")
 		} else {
 			// If conversion fails, log it but don't fail the test
 			t.Logf("ConvertToCSV failed with error: %v - this may be expected in test environment", err)
@@ -191,6 +189,8 @@ func TestConvertToCSV(t *testing.T) {
 
 func TestWriteToCSV(t *testing.T) {
 	setupTestCategorizer(t)
+	// Set CSV delimiter to comma for this test
+	common.SetDelimiter(',')
 	// Create a temporary directory for output
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
@@ -230,21 +230,13 @@ func TestWriteToCSV(t *testing.T) {
 	// Check for the header format
 	assert.Contains(t, csvContent, "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
 
-	// Check for the transactions in the output
+	// Check for the transactions in the output - updated to match actual parser output
 	assert.Contains(t, csvContent, "15.01.2023")
 	assert.Contains(t, csvContent, "Monthly dividend")
+	assert.Contains(t, csvContent, "Global Fund")
+	assert.Contains(t, csvContent, "-100")
 	assert.Contains(t, csvContent, "20.01.2023")
 	assert.Contains(t, csvContent, "Quarterly distribution")
-}
-
-func TestSetLogger(t *testing.T) {
-	// Create a new logger
-	newLogger := logrus.New()
-	newLogger.SetLevel(logrus.WarnLevel)
-
-	// Set the logger
-	SetLogger(newLogger)
-
-	// Verify that the package logger is updated
-	assert.Equal(t, newLogger, log)
+	assert.Contains(t, csvContent, "Income Fund")
+	assert.Contains(t, csvContent, "1000")
 }

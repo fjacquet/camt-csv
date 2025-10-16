@@ -1,700 +1,639 @@
+---
 # Catégories pour la classification des transactions
 # Ce fichier contient la liste des catégories utilisées par le classifieur
 # Pour ajouter une nouvelle catégorie, ajoutez-la simplement à cette liste
 # Pour modifier ou supprimer une catégorie, modifiez-la ou supprimez-la de cette liste
-
 categories:
   # Catégories par ordre alphabétique
-  - name: "Abonnements"
+  - name: Abonnements
     keywords:
-      - "abonnement"
-      - "service"
-      - "mensuel"
-      - "annuel"
-      - "souscription"
-      - "membership"
-      - "cotisation"
-      - "cloud"
-      - "stockage"
-      - "streaming"
-      - "digital"
-  
- 
-  - name: "Alimentation"
+      - abonnement
+      - service
+      - mensuel
+      - annuel
+      - souscription
+      - membership
+      - cotisation
+      - cloud
+      - stockage
+      - streaming
+      - digital
+  - name: Alimentation
     keywords:
-      - "restaurant"
-      - "mcdonalds"
-      - "burger"
-      - "pizza"
-      - "repas"
-      - "café"
-      - "cafe"
-      - "boulangerie"
-      - "nourriture"
-      - "bistro"
-      - "traiteur"
-      - "cantine"
-      - "fast-food"
-      - "gastro"
-  
-  - name: "Restaurants"
+      - restaurant
+      - mcdonalds
+      - burger
+      - pizza
+      - repas
+      - café
+      - cafe
+      - boulangerie
+      - nourriture
+      - bistro
+      - traiteur
+      - cantine
+      - fast-food
+      - gastro
+  - name: Restaurants
     keywords:
-      - "restaurant"
-      - "mcdonalds"
-      - "burger"
-      - "pizza"
-      - "repas"
-      - "café"
-      - "cafe"
-      - "boulangerie"
-      - "nourriture"
-      - "bistro"
-      - "traiteur"
-      - "cantine"
-      - "fast-food"
-      - "gastro"
-  
-  - name: "Animaux"
+      - restaurant
+      - mcdonalds
+      - burger
+      - pizza
+      - repas
+      - café
+      - cafe
+      - boulangerie
+      - nourriture
+      - bistro
+      - traiteur
+      - cantine
+      - fast-food
+      - gastro
+  - name: Animaux
     keywords:
-      - "vétérinaire"
-      - "animalerie"
-      - "nourriture animale"
-      - "toilettage"
-      - "animaux"
-      - "chien"
-      - "chat"
-      - "pension"
-  
-  - name: "Assurance Maladie"
+      - vétérinaire
+      - animalerie
+      - nourriture animale
+      - toilettage
+      - animaux
+      - chien
+      - chat
+      - pension
+  - name: Assurance Maladie
     keywords:
-      - "assurance maladie"
-      - "caisse maladie"
-      - "lamal"
-      - "complémentaire"
-      - "css"
-      - "assura"
-      - "helsana"
-      - "concordia"
-      - "sanitas"
-      - "swica"
-      - "groupe mutuel"
-      - "visana"
-      - "assurance soins"
-  
-  - name: "Assurances"
+      - assurance maladie
+      - caisse maladie
+      - lamal
+      - complémentaire
+      - css
+      - assura
+      - helsana
+      - concordia
+      - sanitas
+      - swica
+      - groupe mutuel
+      - visana
+      - assurance soins
+  - name: Assurances
     keywords:
-      - "assurance"
-      - "prime"
-      - "police"
-      - "rc"
-      - "ménage"
-      - "responsabilité civile"
-      - "habitation"
-      - "véhicule"
-      - "vie"
-      - "accident"
-      - "prévoyance"
-      - "zurich"
-      - "axa"
-      - "baloise"
-      - "vaudoise"
-      - "mobilière"
-      - "helvetia"
-  
-  - name: "Cadeaux"
+      - assurance
+      - prime
+      - police
+      - rc
+      - ménage
+      - responsabilité civile
+      - habitation
+      - véhicule
+      - vie
+      - accident
+      - prévoyance
+      - zurich
+      - axa
+      - baloise
+      - vaudoise
+      - mobilière
+      - helvetia
+  - name: Cadeaux
     keywords:
-      - "cadeau"
-      - "présent"
-      - "don"
-      - "charité"
-      - "fondation"
-      - "collecte"
-      - "bienfaisance"
-      - "humanitaire"
-      - "croix-rouge"
-      - "solidarité"
-      - "association"
-      - "soutien"
-  
-  - name: "Dons"
+      - cadeau
+      - présent
+      - don
+      - charité
+      - fondation
+      - collecte
+      - bienfaisance
+      - humanitaire
+      - croix-rouge
+      - solidarité
+      - association
+      - soutien
+  - name: Dons
     keywords:
-      - "cadeau"
-      - "présent"
-      - "don"
-      - "charité"
-      - "fondation"
-      - "collecte"
-      - "bienfaisance"
-      - "humanitaire"
-      - "croix-rouge"
-      - "solidarité"
-      - "association"
-      - "soutien"
-  
-  - name: "Courses"
+      - cadeau
+      - présent
+      - don
+      - charité
+      - fondation
+      - collecte
+      - bienfaisance
+      - humanitaire
+      - croix-rouge
+      - solidarité
+      - association
+      - soutien
+  - name: Courses
     keywords:
-      - "supermarché"
-      - "epicerie"
-      - "coop"
-      - "migros"
-      - "aldi"
-      - "lidl"
-      - "carrefour"
-      - "marché"
-      - "denner"
-      - "alimentaire"
-      - "volg"
-      - "manor food"
-  
-  - name: "Divers"
+      - supermarché
+      - epicerie
+      - coop
+      - migros
+      - aldi
+      - lidl
+      - carrefour
+      - marché
+      - denner
+      - alimentaire
+      - volg
+      - manor food
+  - name: Divers
+    keywords: [inconnu, autre, divers, non classé, inclassable]
+  - name: Non Classé
+    keywords: [inconnu, autre, divers, non classé, inclassable]
+  - name: Éducation
     keywords:
-      - "inconnu"
-      - "autre"
-      - "divers"
-      - "non classé"
-      - "inclassable"
-  
-  - name: "Non Classé"
+      - école
+      - université
+      - écolage
+      - formation
+      - cours
+      - éducation
+      - livre
+      - apprentissage
+      - étude
+      - frais de scolarité
+      - formation continue
+      - séminaire
+  - name: Formation
     keywords:
-      - "inconnu"
-      - "autre"
-      - "divers"
-      - "non classé"
-      - "inclassable"
-  
-  - name: "Éducation"
+      - école
+      - université
+      - écolage
+      - formation
+      - cours
+      - éducation
+      - livre
+      - apprentissage
+      - étude
+      - frais de scolarité
+      - formation continue
+      - séminaire
+  - name: Épargne
     keywords:
-      - "école"
-      - "université"
-      - "écolage"
-      - "formation"
-      - "cours"
-      - "éducation"
-      - "livre"
-      - "apprentissage"
-      - "étude"
-      - "frais de scolarité"
-      - "formation continue"
-      - "séminaire"
-  
-  - name: "Formation"
+      - épargne
+      - économie
+      - compte épargne
+      - versement épargne
+      - réserve
+      - bas de laine
+      - livret
+      - 3ème pilier
+  - name: Famille
     keywords:
-      - "école"
-      - "université"
-      - "écolage"
-      - "formation"
-      - "cours"
-      - "éducation"
-      - "livre"
-      - "apprentissage"
-      - "étude"
-      - "frais de scolarité"
-      - "formation continue"
-      - "séminaire"
-  
-  - name: "Épargne"
+      - crèche
+      - garde d'enfant
+      - garderie
+      - jeux
+      - jouets
+      - activités enfants
+      - babysitter
+      - nourrice
+      - école privée
+      - reme
+  - name: Enfants
     keywords:
-      - "épargne"
-      - "économie"
-      - "compte épargne"
-      - "versement épargne"
-      - "réserve"
-      - "bas de laine"
-      - "livret"
-      - "3ème pilier"
-  
-  - name: "Famille"
+      - crèche
+      - garde d'enfant
+      - garderie
+      - jeux
+      - jouets
+      - activités enfants
+      - babysitter
+      - nourrice
+      - école privée
+  - name: Frais Bancaires
     keywords:
-      - "crèche"
-      - "garde d'enfant"
-      - "garderie"
-      - "jeux"
-      - "jouets"
-      - "activités enfants"
-      - "babysitter"
-      - "nourrice"
-      - "école privée"
-      - "reme"
-  
-  - name: "Enfants"
+      - frais
+      - commission
+      - pénalité
+      - intérêt débiteur
+      - carte
+      - frais de gestion
+      - frais de tenue
+      - découvert
+      - frais de dossier
+  - name: Impôts
     keywords:
-      - "crèche"
-      - "garde d'enfant"
-      - "garderie"
-      - "jeux"
-      - "jouets"
-      - "activités enfants"
-      - "babysitter"
-      - "nourrice"
-      - "école privée"
-  
-  - name: "Frais Bancaires"
+      - impôt
+      - taxe
+      - fiscal
+      - acompte
+      - icc
+      - ifd
+      - déclaration
+      - administration fiscale
+      - prélèvement
+  - name: Taxes
     keywords:
-      - "frais"
-      - "commission"
-      - "pénalité"
-      - "intérêt débiteur"
-      - "carte"
-      - "frais de gestion"
-      - "frais de tenue"
-      - "découvert"
-      - "frais de dossier"
-  
-  - name: "Impôts"
+      - impôt
+      - taxe
+      - fiscal
+      - acompte
+      - icc
+      - ifd
+      - déclaration
+      - administration fiscale
+      - prélèvement
+  - name: Investissements
     keywords:
-      - "impôt"
-      - "taxe"
-      - "fiscal"
-      - "acompte"
-      - "icc"
-      - "ifd"
-      - "déclaration"
-      - "administration fiscale"
-      - "prélèvement"
-  
-  - name: "Taxes"
+      - investissement
+      - action
+      - obligation
+      - fonds
+      - etf
+      - placement
+      - bourse
+      - titre
+      - portefeuille
+      - crypto
+      - dépôt
+  - name: Logement
     keywords:
-      - "impôt"
-      - "taxe"
-      - "fiscal"
-      - "acompte"
-      - "icc"
-      - "ifd"
-      - "déclaration"
-      - "administration fiscale"
-      - "prélèvement"
-  
-  - name: "Investissements"
+      - loyer
+      - hypothèque
+      - bail
+      - charge
+      - régie
+      - gérance
+      - ppl
+      - propriétaire
+      - appartement
+      - location
+  - name: Loisirs
     keywords:
-      - "investissement"
-      - "action"
-      - "obligation"
-      - "fonds"
-      - "etf"
-      - "placement"
-      - "bourse"
-      - "titre"
-      - "portefeuille"
-      - "crypto"
-      - "dépôt"
-  
-  - name: "Logement"
+      - cinéma
+      - film
+      - netflix
+      - spotify
+      - apple music
+      - théâtre
+      - concert
+      - événement
+      - spectacle
+      - streaming
+      - musée
+      - exposition
+      - sorties
+      - loisirs
+  - name: Divertissement
     keywords:
-      - "loyer"
-      - "hypothèque"
-      - "bail"
-      - "charge"
-      - "régie"
-      - "gérance"
-      - "ppl"
-      - "propriétaire"
-      - "appartement"
-      - "location"
-  
-  - name: "Loisirs"
+      - cinéma
+      - film
+      - netflix
+      - spotify
+      - apple music
+      - théâtre
+      - concert
+      - événement
+      - spectacle
+      - streaming
+      - musée
+      - exposition
+      - sorties
+      - loisirs
+  - name: Mobilier
     keywords:
-      - "cinéma"
-      - "film"
-      - "netflix"
-      - "spotify"
-      - "apple music"
-      - "théâtre"
-      - "concert"
-      - "événement"
-      - "spectacle"
-      - "streaming"
-      - "musée"
-      - "exposition"
-      - "sorties"
-      - "loisirs"
-  
-  - name: "Divertissement"
+      - ikea
+      - meubles
+      - electroménager
+      - rénovation
+      - décoration
+      - bricolage
+      - maison
+      - cuisine
+      - mobilier
+      - conforama
+      - article de ménage
+  - name: Équipement Maison
     keywords:
-      - "cinéma"
-      - "film"
-      - "netflix"
-      - "spotify"
-      - "apple music"
-      - "théâtre"
-      - "concert"
-      - "événement"
-      - "spectacle"
-      - "streaming"
-      - "musée"
-      - "exposition"
-      - "sorties"
-      - "loisirs"
-  
-  - name: "Mobilier"
+      - ikea
+      - meubles
+      - electroménager
+      - rénovation
+      - décoration
+      - bricolage
+      - maison
+      - cuisine
+      - mobilier
+      - conforama
+      - article de ménage
+  - name: Pension
     keywords:
-      - "ikea"
-      - "meubles"
-      - "electroménager"
-      - "rénovation"
-      - "décoration"
-      - "bricolage"
-      - "maison"
-      - "cuisine"
-      - "mobilier"
-      - "conforama"
-      - "article de ménage"
-  
-  - name: "Équipement Maison"
+      - avs
+      - ai
+      - lpp
+      - pension
+      - retraite
+      - rente
+      - allocation
+      - prévoyance
+      - caisse de pension
+      - prestations
+      - indemnité
+      - subside
+  - name: Allocations
     keywords:
-      - "ikea"
-      - "meubles"
-      - "electroménager"
-      - "rénovation"
-      - "décoration"
-      - "bricolage"
-      - "maison"
-      - "cuisine"
-      - "mobilier"
-      - "conforama"
-      - "article de ménage"
-  
-  - name: "Pension"
+      - avs
+      - ai
+      - lpp
+      - pension
+      - retraite
+      - rente
+      - allocation
+      - prévoyance
+      - caisse de pension
+      - prestations
+      - indemnité
+      - subside
+  - name: Prêts
     keywords:
-      - "avs"
-      - "ai"
-      - "lpp"
-      - "pension"
-      - "retraite"
-      - "rente"
-      - "allocation"
-      - "prévoyance"
-      - "caisse de pension"
-      - "prestations"
-      - "indemnité"
-      - "subside"
-  
-  - name: "Allocations"
+      - prêt
+      - hypothèque
+      - crédit
+      - amortissement
+      - intérêt
+      - remboursement
+      - financement
+      - échéance
+      - mensualité
+      - leasing
+  - name: Hypothèques
     keywords:
-      - "avs"
-      - "ai"
-      - "lpp"
-      - "pension"
-      - "retraite"
-      - "rente"
-      - "allocation"
-      - "prévoyance"
-      - "caisse de pension"
-      - "prestations"
-      - "indemnité"
-      - "subside"
-  
-  - name: "Prêts"
+      - prêt
+      - hypothèque
+      - crédit
+      - amortissement
+      - intérêt
+      - remboursement
+      - financement
+      - échéance
+      - mensualité
+      - leasing
+  - name: Revenus Financiers
     keywords:
-      - "prêt"
-      - "hypothèque"
-      - "crédit"
-      - "amortissement"
-      - "intérêt"
-      - "remboursement"
-      - "financement"
-      - "échéance"
-      - "mensualité"
-      - "leasing"
-  
-  - name: "Hypothèques"
+      - intérêt
+      - dividende
+      - rendement
+      - coupon
+      - plus-value
+      - revenu financier
+      - bénéfice
+  - name: Revenus Locatifs
     keywords:
-      - "prêt"
-      - "hypothèque"
-      - "crédit"
-      - "amortissement"
-      - "intérêt"
-      - "remboursement"
-      - "financement"
-      - "échéance"
-      - "mensualité"
-      - "leasing"
-  
-  - name: "Revenus Financiers"
+      - loyer reçu
+      - location
+      - bail
+      - locataire
+      - bien immobilier
+      - revenu locatif
+      - gérance
+  - name: Salaire
     keywords:
-      - "intérêt"
-      - "dividende"
-      - "rendement"
-      - "coupon"
-      - "plus-value"
-      - "revenu financier"
-      - "bénéfice"
-  
-  - name: "Revenus Locatifs"
+      - salaire
+      - revenu
+      - paye
+      - traitement
+      - honoraire
+      - rémunération
+      - employeur
+      - mensualité
+      - versement
+      - 13ème salaire
+      - prime
+      - commission
+  - name: Revenus Professionnels
     keywords:
-      - "loyer reçu"
-      - "location"
-      - "bail"
-      - "locataire"
-      - "bien immobilier"
-      - "revenu locatif"
-      - "gérance"
-  
-  - name: "Salaire"
+      - salaire
+      - revenu
+      - paye
+      - traitement
+      - honoraire
+      - rémunération
+      - employeur
+      - mensualité
+      - versement
+      - 13ème salaire
+      - prime
+      - commission
+  - name: Santé
     keywords:
-      - "salaire"
-      - "revenu"
-      - "paye"
-      - "traitement"
-      - "honoraire"
-      - "rémunération"
-      - "employeur"
-      - "mensualité"
-      - "versement"
-      - "13ème salaire"
-      - "prime"
-      - "commission"
-  
-  - name: "Revenus Professionnels"
+      - médecin
+      - docteur
+      - hôpital
+      - clinique
+      - médical
+      - fitness
+      - gym
+      - sport
+      - santé
+      - dentiste
+      - opticien
+      - physiothérapie
+      - thérapeute
+  - name: Bien-être
     keywords:
-      - "salaire"
-      - "revenu"
-      - "paye"
-      - "traitement"
-      - "honoraire"
-      - "rémunération"
-      - "employeur"
-      - "mensualité"
-      - "versement"
-      - "13ème salaire"
-      - "prime"
-      - "commission"
-  
-  - name: "Santé"
-    keywords:
-      - "médecin"
-      - "docteur"
-      - "hôpital"
-      - "clinique"
-      - "médical"
-      - "fitness"
-      - "gym"
-      - "sport"
-      - "santé"
-      - "dentiste"
-      - "opticien"
-      - "physiothérapie"
-      - "thérapeute"
-  
-  - name: "Bien-être"
-    keywords:
-      - "médecin"
-      - "docteur"
-      - "hôpital"
-      - "clinique"
-      - "médical"
-      - "fitness"
-      - "gym"
-      - "sport"
-      - "santé"
-      - "dentiste"
-      - "opticien"
-      - "physiothérapie"
-      - "thérapeute"
-  
-  - name: "Services"
-    keywords:
-      - "service"
-      - "facture"
-      - "abonnement"
-      - "tv"
+      - médecin
+      - docteur
+      - hôpital
+      - clinique
+      - médical
+      - fitness
+      - gym
+      - sport
+      - santé
+      - dentiste
+      - opticien
+      - physiothérapie
+      - thérapeute
+  - name: Services
+    keywords: [service, facture, abonnement, tv
 
   
-  - name: "Utilités"
+]
+  - name: Utilités
     keywords:
-      - "électricité"
-      - "eau"
-      - "gaz"
-      - "internet"
-      - "téléphone"
-      - "télécommunication"
-      - "chauffage"
-      - "ordures"
-      - "service"
-      - "facture"
-      - "abonnement"
-      - "tv"
-      - "romande energie"
-      - "swisscom"
-      - "salt"
-      - "sunrise"
-      - "wingo"
-      - "upc"
-      - "wc"
-  
-  - name: "Services Professionnels"
+      - électricité
+      - eau
+      - gaz
+      - internet
+      - téléphone
+      - télécommunication
+      - chauffage
+      - ordures
+      - service
+      - facture
+      - abonnement
+      - tv
+      - romande energie
+      - swisscom
+      - salt
+      - sunrise
+      - wingo
+      - upc
+      - wc
+  - name: Services Professionnels
     keywords:
-      - "bureau"
-      - "impression"
-      - "conseil"
-      - "logiciel"
-      - "service"
-      - "professionnel"
-      - "avocat"
-      - "notaire"
-      - "comptable"
-      - "fiduciaire"
-      - "consultant"
-      - "honoraires"
-  
-  - name: "Shopping"
+      - bureau
+      - impression
+      - conseil
+      - logiciel
+      - service
+      - professionnel
+      - avocat
+      - notaire
+      - comptable
+      - fiduciaire
+      - consultant
+      - honoraires
+  - name: Shopping
     keywords:
-      - "amazon"
-      - "ebay"
-      - "manor"
-      - "zalando"
-      - "magasin"
-      - "retail"
-      - "boutique"
-      - "achat"
-      - "habillement"
-      - "vêtements"
-      - "chaussures"
-      - "accessoires"
-      - "galeries"
-      - "fnac"
-  
-  - name: "Soins Personnels"
+      - amazon
+      - ebay
+      - manor
+      - zalando
+      - magasin
+      - retail
+      - boutique
+      - achat
+      - habillement
+      - vêtements
+      - chaussures
+      - accessoires
+      - galeries
+      - fnac
+  - name: Soins Personnels
     keywords:
-      - "pharmacie"
-      - "apotheke"
-      - "beauté"
-      - "salon"
-      - "coiffeur"
-      - "barbier"
-      - "cosmétiques"
-      - "droguerie"
-      - "parfumerie"
-      - "esthétique"
-  
-  - name: "Sport"
+      - pharmacie
+      - apotheke
+      - beauté
+      - salon
+      - coiffeur
+      - barbier
+      - cosmétiques
+      - droguerie
+      - parfumerie
+      - esthétique
+  - name: Sport
     keywords:
-      - "abonnement sport"
-      - "club"
-      - "fitness"
-      - "ski"
-      - "piscine"
-      - "tennis"
-      - "golf"
-      - "salle de sport"
-      - "équipement sportif"
-      - "activité"
-      - "cours"
-  
-  - name: "Activités"
+      - abonnement sport
+      - club
+      - fitness
+      - ski
+      - piscine
+      - tennis
+      - golf
+      - salle de sport
+      - équipement sportif
+      - activité
+      - cours
+  - name: Activités
     keywords:
-      - "abonnement sport"
-      - "club"
-      - "fitness"
-      - "ski"
-      - "piscine"
-      - "tennis"
-      - "golf"
-      - "salle de sport"
-      - "équipement sportif"
-      - "activité"
-      - "cours"
-  
-  - name: "Transports Publics"
+      - abonnement sport
+      - club
+      - fitness
+      - ski
+      - piscine
+      - tennis
+      - golf
+      - salle de sport
+      - équipement sportif
+      - activité
+      - cours
+  - name: Transports Publics
     keywords:
-      - "cff"
-      - "sbb"
-      - "train"
-      - "bus"
-      - "tram"
-      - "métro"
-      - "abonnement"
-      - "billet"
-      - "transport"
-      - "tpg"
-      - "swisspass"
-      - "mobilis"
-  
-  - name: "Virements"
+      - cff
+      - sbb
+      - train
+      - bus
+      - tram
+      - métro
+      - abonnement
+      - billet
+      - transport
+      - tpg
+      - swisspass
+      - mobilis
+  - name: Virements
     keywords:
-      - "virement"
-      - "transfert"
-      - "remboursement"
-      - "versement"
-      - "e-banking"
-      - "twint"
-      - "mobile banking"
-      - "transaction"
-      - "swift"
-      - "compte à compte"
-  
-  - name: "Transferts"
+      - virement
+      - transfert
+      - remboursement
+      - versement
+      - e-banking
+      - twint
+      - mobile banking
+      - transaction
+      - swift
+      - compte à compte
+  - name: Transferts
     keywords:
-      - "virement"
-      - "transfert"
-      - "remboursement"
-      - "versement"
-      - "e-banking"
-      - "twint"
-      - "mobile banking"
-      - "transaction"
-      - "swift"
-      - "compte à compte"
-  
-  - name: "Voiture"
+      - virement
+      - transfert
+      - remboursement
+      - versement
+      - e-banking
+      - twint
+      - mobile banking
+      - transaction
+      - swift
+      - compte à compte
+  - name: Voiture
     keywords:
-      - "essence"
-      - "carburant"
-      - "garage"
-      - "réparation"
-      - "entretien"
-      - "automobile"
-      - "parking"
-      - "péage"
-      - "autoroute"
-      - "vignette"
-      - "taxi"
-      - "uber"
-      - "location voiture"
-  
-  - name: "Transport Privé"
+      - essence
+      - carburant
+      - garage
+      - réparation
+      - entretien
+      - automobile
+      - parking
+      - péage
+      - autoroute
+      - vignette
+      - taxi
+      - uber
+      - location voiture
+  - name: Transport Privé
     keywords:
-      - "essence"
-      - "carburant"
-      - "garage"
-      - "réparation"
-      - "entretien"
-      - "automobile"
-      - "parking"
-      - "péage"
-      - "autoroute"
-      - "vignette"
-      - "taxi"
-      - "uber"
-      - "location voiture"
-  
-  - name: "Voyages"
+      - essence
+      - carburant
+      - garage
+      - réparation
+      - entretien
+      - automobile
+      - parking
+      - péage
+      - autoroute
+      - vignette
+      - taxi
+      - uber
+      - location voiture
+  - name: Voyages
     keywords:
-      - "hôtel"
-      - "booking.com"
-      - "airbnb"
-      - "compagnie aérienne"
-      - "avion"
-      - "vol"
-      - "vacances"
-      - "voyage"
-      - "séjour"
-      - "agence de voyage"
-      - "croisière"
-      - "hébergement"
-      - "tourisme"
-  
-  - name: "Séjours"
+      - hôtel
+      - booking.com
+      - airbnb
+      - compagnie aérienne
+      - avion
+      - vol
+      - vacances
+      - voyage
+      - séjour
+      - agence de voyage
+      - croisière
+      - hébergement
+      - tourisme
+  - name: Séjours
     keywords:
-      - "hôtel"
-      - "booking.com"
-      - "airbnb"
-      - "compagnie aérienne"
-      - "avion"
-      - "vol"
-      - "vacances"
-      - "voyage"
-      - "séjour"
-      - "agence de voyage"
-      - "croisière"
-      - "hébergement"
-      - "tourisme"
+      - hôtel
+      - booking.com
+      - airbnb
+      - compagnie aérienne
+      - avion
+      - vol
+      - vacances
+      - voyage
+      - séjour
+      - agence de voyage
+      - croisière
+      - hébergement
+      - tourisme

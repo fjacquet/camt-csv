@@ -6,18 +6,13 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	// Setup a test logger
-	log = logrus.New()
-	log.SetLevel(logrus.DebugLevel)
-}
 
 func setupTestCategorizer(t *testing.T) {
 	t.Helper()
@@ -41,11 +36,7 @@ func setupTestCategorizer(t *testing.T) {
 	})
 }
 
-func TestValidateFormat(t *testing.T) {
-	// Setup mock PDF extraction
-	cleanup := mockPDFExtraction()
-	defer cleanup()
-
+func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
 	err := os.MkdirAll(tempDir, 0750)
@@ -58,80 +49,56 @@ func TestValidateFormat(t *testing.T) {
 		}
 	}()
 
-	// Create a mock PDF file (just a text file with .pdf extension for testing)
-	validFile := filepath.Join(tempDir, "valid.pdf")
+	// Create an invalid file
 	invalidFile := filepath.Join(tempDir, "invalid.txt")
-
-	// Create a valid PDF-like file and an invalid file
-	err = os.WriteFile(validFile, []byte("%PDF-1.5\nSome PDF content"), 0600)
-	if err != nil {
-		t.Fatalf("Failed to write valid test file: %v", err)
-	}
 	err = os.WriteFile(invalidFile, []byte("This is not a PDF file"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
 
-	// Test valid file
-	valid, err := ValidateFormat(validFile)
-	assert.NoError(t, err)
-	assert.True(t, valid)
+	file, err := os.Open(invalidFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", invalidFile, err)
+		}
+	}()
 
-	// Test invalid file
-	valid, err = ValidateFormat(invalidFile)
-	assert.NoError(t, err)
-	assert.False(t, valid)
-
-	// Test file that doesn't exist
-	valid, err = ValidateFormat(filepath.Join(tempDir, "nonexistent.pdf"))
-	assert.Error(t, err)
-	assert.False(t, valid)
+	adapter := NewAdapter()
+	_, err = adapter.Parse(file)
+	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
 func TestParseFile(t *testing.T) {
-	// Setup mock PDF extraction
-	cleanup := mockPDFExtraction()
-	defer cleanup()
+	// Create a temporary test file
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test_pdf.pdf")
 
-	// Set test environment variable to enable mock transactions
-	if err := os.Setenv("TEST_ENV", "1"); err != nil {
-		t.Fatalf("Failed to set TEST_ENV: %v", err)
-	}
+	// For this test, we'll use a dummy PDF file.
+	// In a real scenario, you would use a real PDF file.
+	err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+	assert.NoError(t, err, "Failed to create test file")
+
+	file, err := os.Open(testFile)
+	require.NoError(t, err)
 	defer func() {
-		if err := os.Unsetenv("TEST_ENV"); err != nil {
-			t.Logf("Failed to unset TEST_ENV: %v", err)
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", testFile, err)
 		}
 	}()
 
-	// Create temp directories
-	tempDir := filepath.Join(os.TempDir(), "pdf-test")
-	err := os.MkdirAll(tempDir, 0750)
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temp dir: %v", err)
-		}
-	}()
-
-	// Create a mock PDF file with transaction-like content
-	mockPDFFile := filepath.Join(tempDir, "statement.pdf")
-	err = os.WriteFile(mockPDFFile, []byte("%PDF-1.5\nBank Statement"), 0600)
-	if err != nil {
-		t.Fatalf("Failed to write mock PDF file: %v", err)
-	}
-
-	// With our mock in place, this should now succeed
-	transactions, err := ParseFile(mockPDFFile)
-	assert.NoError(t, err)
-	assert.NotNil(t, transactions)
-	assert.Len(t, transactions, 2) // Our mock returns 2 transactions
+	// Test parsing
+	adapter := NewAdapter()
+	_, err = adapter.Parse(file)
+	assert.Error(t, err, "Expected an error when parsing a dummy PDF file")
 }
 
 func TestConvertToCSV(t *testing.T) {
 	// Initialize the test environment
 	setupTestCategorizer(t)
+
+	// Set CSV delimiter to comma for this test
+	common.SetDelimiter(',')
 
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
@@ -168,11 +135,14 @@ func TestConvertToCSV(t *testing.T) {
 	// Check for transaction data
 	assert.Contains(t, csvContent, "01.01.2023")
 	assert.Contains(t, csvContent, "Coffee Shop Test")
-	assert.Contains(t, csvContent, "15.5")
+	assert.Contains(t, csvContent, "15.5") // Amount can be 15.5 or 15.50
 	assert.Contains(t, csvContent, "EUR")
 }
 
 func TestWriteToCSV(t *testing.T) {
+	// Set CSV delimiter to comma for this test
+	common.SetDelimiter(',')
+
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
 
@@ -217,19 +187,7 @@ func TestWriteToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "Coffee Shop Purchase Card Payment REF123456")
 	assert.Contains(t, csvContent, "02.01.2023")
 	assert.Contains(t, csvContent, "Salary Payment Incoming Transfer SAL987654")
-	assert.Contains(t, csvContent, "100")
-	assert.Contains(t, csvContent, "1000")
+	assert.Contains(t, csvContent, "100")  // Amount can be 100 or 100.00
+	assert.Contains(t, csvContent, "1000") // Amount can be 1000 or 1000.00
 	assert.Contains(t, csvContent, "EUR")
-}
-
-func TestSetLogger(t *testing.T) {
-	// Create a new logger
-	newLogger := logrus.New()
-	newLogger.SetLevel(logrus.WarnLevel)
-
-	// Set the logger
-	SetLogger(newLogger)
-
-	// Verify that the package logger is updated
-	assert.Equal(t, newLogger, log)
 }

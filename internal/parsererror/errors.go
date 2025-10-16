@@ -1,70 +1,40 @@
-// Package parsererror provides standardized error types and handling for all parsers.
 package parsererror
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
-var (
-	// ErrFileNotFound is returned when a file cannot be found
-	ErrFileNotFound = errors.New("file not found")
-
-	// ErrInvalidFormat is returned when a file has an invalid format
-	ErrInvalidFormat = errors.New("invalid file format")
-
-	// ErrParsing is returned when there's an error parsing file contents
-	ErrParsing = errors.New("parsing error")
-
-	// ErrIO is returned for general input/output errors
-	ErrIO = errors.New("input/output error")
-
-	// ErrInternal is returned for internal processing errors
-	ErrInternal = errors.New("internal error")
-)
-
-// FileNotFoundError creates a new file not found error with the given path
-func FileNotFoundError(path string) error {
-	return fmt.Errorf("%w: %s", ErrFileNotFound, path)
+// InvalidFormatError represents an error where the input file does not conform
+// to the expected format for a specific parser.
+type InvalidFormatError struct {
+	FilePath             string
+	ExpectedFormat       string
+	ActualContentSnippet string // Optional: a snippet of the actual content for debugging
+	Msg                  string
 }
 
-// InvalidFormatError creates a new invalid format error with the given details
-func InvalidFormatError(path, details string) error {
-	if details == "" {
-		return fmt.Errorf("%w: %s", ErrInvalidFormat, path)
+func (e *InvalidFormatError) Error() string {
+	if e.ActualContentSnippet != "" {
+		return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s. Content snippet: '%s'",
+			e.FilePath, e.Msg, e.ExpectedFormat, e.ActualContentSnippet)
 	}
-	return fmt.Errorf("%w: %s (%s)", ErrInvalidFormat, path, details)
+	return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s",
+		e.FilePath, e.Msg, e.ExpectedFormat)
 }
 
-// ParsingError creates a new parsing error with the given details
-func ParsingError(details string, err error) error {
-	if err == nil {
-		return fmt.Errorf("%w: %s", ErrParsing, details)
+// DataExtractionError represents an error where specific required data could not be extracted
+// from a file, even if the file format itself might be valid.
+type DataExtractionError struct {
+	FilePath       string
+	FieldName      string
+	RawDataSnippet string // Optional: a snippet of the raw data where extraction failed
+	Reason         string
+	Msg            string
+}
+
+func (e *DataExtractionError) Error() string {
+	if e.RawDataSnippet != "" {
+		return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s. Raw data snippet: '%s'",
+			e.FilePath, e.FieldName, e.Msg, e.Reason, e.RawDataSnippet)
 	}
-	return fmt.Errorf("%w: %s: %v", ErrParsing, details, err)
-}
-
-// IOError creates a new IO error with the given details
-func IOError(operation, path string, err error) error {
-	return fmt.Errorf("%w: %s %s: %v", ErrIO, operation, path, err)
-}
-
-// IsFileNotFound checks if an error is a file not found error
-func IsFileNotFound(err error) bool {
-	return errors.Is(err, ErrFileNotFound)
-}
-
-// IsInvalidFormat checks if an error is an invalid format error
-func IsInvalidFormat(err error) bool {
-	return errors.Is(err, ErrInvalidFormat)
-}
-
-// IsParsing checks if an error is a parsing error
-func IsParsing(err error) bool {
-	return errors.Is(err, ErrParsing)
-}
-
-// IsIO checks if an error is an IO error
-func IsIO(err error) bool {
-	return errors.Is(err, ErrIO)
+	return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s",
+		e.FilePath, e.FieldName, e.Msg, e.Reason)
 }

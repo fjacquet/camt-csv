@@ -1,9 +1,11 @@
-// Package batch handles batch conversion of multiple CAMT.053 XML files
+// Package batch handles batch processing of files
 package batch
 
 import (
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/camtparser"
+	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -11,31 +13,30 @@ import (
 // Cmd represents the batch command
 var Cmd = &cobra.Command{
 	Use:   "batch",
-	Short: "Batch convert multiple CAMT.053 XML files to CSV",
-	Long:  `Batch convert all CAMT.053 XML files in a directory to CSV format.`,
+	Short: "Batch process files from a directory",
+	Long:  `Batch process files from an input directory and output them to another directory.`,
 	Run:   batchFunc,
 }
 
-func init() {
-	// Batch command specific flags
-	Cmd.Flags().StringVarP(&root.InputDir, "input-dir", "d", "", "Input directory containing files")
-	Cmd.Flags().StringVarP(&root.OutputDir, "output-dir", "r", "", "Output directory for CSV files")
-	if err := Cmd.MarkFlagRequired("input-dir"); err != nil {
-		panic(err)
-	}
-	if err := Cmd.MarkFlagRequired("output-dir"); err != nil {
-		panic(err)
-	}
-}
-
 func batchFunc(cmd *cobra.Command, args []string) {
-	root.Log.Info("Batch convert command called")
+	root.Log.Info("Batch command called")
 	root.Log.Infof("Input directory: %s", root.InputDir)
 	root.Log.Infof("Output directory: %s", root.OutputDir)
 
-	count, err := camtparser.BatchConvert(root.InputDir, root.OutputDir)
+	if root.InputDir == "" || root.OutputDir == "" {
+		root.Log.Fatal("Input and output directories must be specified")
+	}
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(root.OutputDir, 0750); err != nil {
+		root.Log.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	adapter := camtparser.NewAdapter()
+	count, err := adapter.BatchConvert(root.InputDir, root.OutputDir)
 	if err != nil {
 		root.Log.Fatalf("Error during batch conversion: %v", err)
 	}
-	root.Log.Infof("Successfully processed %d files", count)
+
+	root.Log.Info(fmt.Sprintf("Batch processing completed. %d files converted.", count))
 }

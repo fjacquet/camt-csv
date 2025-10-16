@@ -19,11 +19,7 @@ We will standardize all parsers to implement a common `Parser` interface:
 
 ```go
 type Parser interface {
-    ParseFile(filePath string) ([]models.Transaction, error)
-    ValidateFormat(filePath string) (bool, error)
-    ConvertToCSV(inputFile, outputFile string) error
-    WriteToCSV(transactions []models.Transaction, csvFile string) error
-    SetLogger(logger *logrus.Logger)
+    Parse(r io.Reader) ([]models.Transaction, error)
 }
 ```
 

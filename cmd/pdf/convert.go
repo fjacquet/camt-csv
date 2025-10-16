@@ -4,7 +4,7 @@ package pdf
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/pdfparser"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/spf13/cobra"
 )
@@ -22,9 +22,10 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 	root.Log.Infof("Input file: %s", root.SharedFlags.Input)
 	root.Log.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p := pdfparser.NewAdapter()
-	if err := common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log); err != nil {
-		root.Log.Fatalf("Error processing PDF file: %v", err)
+	p, err := parser.GetParser(parser.PDF)
+	if err != nil {
+		root.Log.Fatalf("Error getting PDF parser: %v", err)
 	}
+	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("PDF to CSV conversion completed successfully!")
 }

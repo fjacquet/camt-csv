@@ -5,18 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	// Set up test logger
-	testLogger := logrus.New()
-	testLogger.SetLevel(logrus.DebugLevel)
-	SetLogger(testLogger)
-}
 
 func TestParseFile(t *testing.T) {
 	// Create a temporary test file
@@ -33,8 +27,17 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	err := os.WriteFile(testFile, []byte(csvContent), 0600)
 	assert.NoError(t, err, "Failed to create test file")
 
+	file, err := os.Open(testFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", testFile, err)
+		}
+	}()
+
 	// Test parsing
-	transactions, err := ParseFile(testFile)
+	adapter := NewAdapter()
+	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "Failed to parse Revolut CSV file")
 	assert.Equal(t, 4, len(transactions), "Expected 4 transactions")
 
@@ -59,6 +62,9 @@ func TestWriteToCSV(t *testing.T) {
 	// Create a temporary directory for output
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.csv")
+
+	// Set CSV delimiter to comma for this test
+	common.SetDelimiter(',')
 
 	// Create test transactions
 	transactions := []models.Transaction{
@@ -100,42 +106,28 @@ func TestWriteToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "02.01.2025,Boreal Coffee Shop,57.50,CHF")
 }
 
-func TestValidateFormat(t *testing.T) {
+func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create a temporary test directory
 	tempDir := t.TempDir()
-
-	// Valid Revolut CSV
-	validFile := filepath.Join(tempDir, "valid.csv")
-	validContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-TRANSFER,Current,2025-01-02 08:07:09,2025-01-02 08:07:09,To CHF Vacances,-2.50,0.00,CHF,COMPLETED,111.42`
-	err := os.WriteFile(validFile, []byte(validContent), 0600)
-	assert.NoError(t, err, "Failed to create valid test file")
 
 	// Invalid CSV (missing required columns)
 	invalidFile := filepath.Join(tempDir, "invalid.csv")
 	invalidContent := `Date,Description,Balance
 2025-01-02,Some description,111.42`
-	err = os.WriteFile(invalidFile, []byte(invalidContent), 0600)
+	err := os.WriteFile(invalidFile, []byte(invalidContent), 0600)
 	assert.NoError(t, err, "Failed to create invalid test file")
 
-	// Empty CSV (header only)
-	emptyFile := filepath.Join(tempDir, "empty.csv")
-	emptyContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance`
-	err = os.WriteFile(emptyFile, []byte(emptyContent), 0600)
-	assert.NoError(t, err, "Failed to create empty test file")
+	file, err := os.Open(invalidFile)
+	require.NoError(t, err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file %s: %v", invalidFile, err)
+		}
+	}()
 
-	// Test validation
-	valid, err := ValidateFormat(validFile)
-	assert.NoError(t, err, "Error validating valid file")
-	assert.True(t, valid, "Valid file should be recognized as valid")
-
-	valid, err = ValidateFormat(invalidFile)
-	assert.NoError(t, err, "Error validating invalid file")
-	assert.False(t, valid, "Invalid file should be recognized as invalid")
-
-	valid, err = ValidateFormat(emptyFile)
-	assert.NoError(t, err, "Error validating empty file")
-	assert.False(t, valid, "Empty file should be recognized as invalid")
+	adapter := NewAdapter()
+	_, err = adapter.Parse(file)
+	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
 func TestConvertToCSV(t *testing.T) {
@@ -143,6 +135,9 @@ func TestConvertToCSV(t *testing.T) {
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.csv")
 	outputFile := filepath.Join(tempDir, "output.csv")
+
+	// Set CSV delimiter to comma for this test
+	common.SetDelimiter(',')
 
 	// Create a test CSV file
 	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance

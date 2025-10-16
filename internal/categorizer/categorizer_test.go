@@ -1,26 +1,42 @@
-package categorizer
+package categorizer_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
-	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestCategorizeTransaction(t *testing.T) {
-	// Load environment variables from .env file
-	config.LoadEnv()
+// MockAIClient implements the AIClient interface for testing purposes.
+type MockAIClient struct {
+	CategorizeFunc func(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+}
 
-	// Set test mode to disable API calls
-	if err := os.Setenv("TEST_MODE", "true"); err != nil {
-		t.Fatalf("Failed to set TEST_MODE: %v", err)
+func (m *MockAIClient) Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
+	return m.CategorizeFunc(ctx, transaction)
+}
+
+func TestCategorizer_CategorizeTransaction(t *testing.T) {
+	// Setup a mock AI client
+	mockAIClient := &MockAIClient{
+		CategorizeFunc: func(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
+			// Simulate AI categorization logic
+			if transaction.Description == "Coffee Shop" {
+				transaction.Category = "Food & Drink"
+			} else if transaction.Description == "Online Store" {
+				transaction.Category = "Shopping"
+			} else {
+				transaction.Category = "Uncategorized (AI)"
+			}
+			return transaction, nil
+		},
 	}
-	defer func() {
-		if err := os.Unsetenv("TEST_MODE"); err != nil {
-			t.Logf("Failed to unset TEST_MODE: %v", err)
-		}
-	}()
 
 	// Create a mock store for testing
 	mockStore := &store.CategoryStore{
@@ -29,112 +45,111 @@ func TestCategorizeTransaction(t *testing.T) {
 		DebitorsFile:   "testdata/debitors.yaml",
 	}
 
-	// Set up the test categorizer
-	SetTestCategoryStore(mockStore)
+	// Create a new logger for the categorizer
+	logger := logrus.New()
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(logrus.DebugLevel)
+
+	// Instantiate the categorizer with the mock AI client and mock store
+	categorizerInstance := categorizer.NewCategorizer(mockAIClient, mockStore, logger)
 
 	// Test cases
 	testCases := []struct {
-		name        string
-		transaction Transaction
-		expectError bool
+		name             string
+		transaction      categorizer.Transaction
+		expectedCategory string
+		expectError      bool
 	}{
 		{
-			name: "Coffee Shop Transaction (Creditor)",
-			transaction: Transaction{
-				PartyName: "Starbucks Coffee",
-				IsDebtor:  false,
-				Amount:    "5.75 EUR",
-				Date:      "2023-01-01",
-				Info:      "Coffee purchase",
+			name: "Direct Mapping - Creditor",
+			transaction: categorizer.Transaction{
+				PartyName:   "Starbucks Coffee",
+				IsDebtor:    false,
+				Amount:      "5.75",
+				Date:        "2023-01-01",
+				Info:        "Coffee purchase",
+				Description: "Starbucks Coffee",
 			},
-			expectError: false,
+			expectedCategory: "Restaurants",
+			expectError:      false,
 		},
 		{
-			name: "Grocery Store Transaction (Creditor)",
-			transaction: Transaction{
-				PartyName: "Whole Foods Market",
-				IsDebtor:  false,
-				Amount:    "87.32 EUR",
-				Date:      "2023-01-02",
-				Info:      "Weekly groceries",
+			name: "Keyword Mapping - Creditor",
+			transaction: categorizer.Transaction{
+				PartyName:   "MIGROS",
+				IsDebtor:    false,
+				Amount:      "87.32",
+				Date:        "2023-01-02",
+				Info:        "Weekly groceries",
+				Description: "MIGROS",
 			},
-			expectError: false,
+			expectedCategory: "Alimentation",
+			expectError:      false,
 		},
 		{
-			name: "Unknown Transaction",
-			transaction: Transaction{
-				PartyName: "Unknown Merchant",
-				IsDebtor:  false,
-				Amount:    "10.00 EUR",
-				Date:      "2023-01-05",
-				Info:      "Unknown purchase",
+			name: "AI Fallback - Coffee Shop",
+			transaction: categorizer.Transaction{
+				PartyName:   "New Coffee Place",
+				IsDebtor:    false,
+				Amount:      "12.50",
+				Date:        "2023-01-03",
+				Info:        "Coffee Shop",
+				Description: "Coffee Shop",
 			},
-			expectError: false,
+			expectedCategory: "Food & Drink", // From mock AI
+			expectError:      false,
 		},
 		{
-			name: "Salary Transaction (Debtor)",
-			transaction: Transaction{
-				PartyName: "Acme Corp",
-				IsDebtor:  true,
-				Amount:    "3000.00 EUR",
-				Date:      "2023-01-15",
-				Info:      "Monthly salary",
+			name: "AI Fallback - Online Store",
+			transaction: categorizer.Transaction{
+				PartyName:   "Generic Online Store",
+				IsDebtor:    false,
+				Amount:      "50.00",
+				Date:        "2023-01-04",
+				Info:        "Online Store",
+				Description: "Online Store",
 			},
-			expectError: false,
+			expectedCategory: "Shopping", // From mock AI
+			expectError:      false,
+		},
+		{
+			name: "AI Fallback - Uncategorized",
+			transaction: categorizer.Transaction{
+				PartyName:   "Truly Unknown",
+				IsDebtor:    false,
+				Amount:      "20.00",
+				Date:        "2023-01-05",
+				Info:        "Random expense",
+				Description: "Random expense",
+			},
+			expectedCategory: "Uncategorized (AI)", // From mock AI
+			expectError:      false,
+		},
+		{
+			name: "Empty Party Name",
+			transaction: categorizer.Transaction{
+				PartyName:   "",
+				IsDebtor:    false,
+				Amount:      "10.00",
+				Date:        "2023-01-06",
+				Info:        "Empty party",
+				Description: "Empty party",
+			},
+			expectedCategory: "Uncategorized",
+			expectError:      false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Use the global categorizer since we've set it up with the test store
-			category, err := CategorizeTransaction(tc.transaction)
+			category, err := categorizerInstance.CategorizeTransaction(tc.transaction)
 
-			if tc.expectError && err == nil {
-				t.Errorf("Expected error but got none")
-			}
-			if !tc.expectError && err != nil {
-				t.Errorf("Did not expect error but got: %v", err)
-			}
-			if err == nil {
-				t.Logf("Category: %s", category.Name)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedCategory, category.Name)
 			}
 		})
 	}
-}
-
-// Simplified test for categorization with no API key
-func TestCategorizeTransactionNoAPIKey(t *testing.T) {
-	// Force test mode to prevent any API calls
-	if err := os.Setenv("TEST_MODE", "true"); err != nil {
-		t.Fatalf("Failed to set TEST_MODE: %v", err)
-	}
-	defer func() {
-		if err := os.Unsetenv("TEST_MODE"); err != nil {
-			t.Logf("Failed to unset TEST_MODE: %v", err)
-		}
-	}()
-
-	// Create a test transaction
-	transaction := Transaction{
-		PartyName: "New Merchant",
-		IsDebtor:  false,
-		Amount:    "15.00 EUR",
-		Date:      "2023-01-20",
-		Info:      "Test transaction",
-	}
-
-	// Use the global categorizer
-	category, err := CategorizeTransaction(transaction)
-
-	// Validation
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	// Should fall back to "Uncategorized" category in test mode
-	if category.Name != "Uncategorized" {
-		t.Errorf("Expected 'Uncategorized' category but got '%s'", category.Name)
-	}
-
-	t.Logf("Category: %s, Description: %s", category.Name, category.Description)
 }

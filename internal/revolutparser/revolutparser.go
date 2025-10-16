@@ -3,6 +3,7 @@
 package revolutparser
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -13,19 +14,14 @@ import (
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parsererror"
 
+	"github.com/gocarina/gocsv"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()
-
-// SetLogger allows setting a configured logger for this package.
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
-}
 
 // RevolutCSVRow represents a single row in a Revolut CSV file
 // It uses struct tags for gocsv unmarshaling
@@ -42,24 +38,34 @@ type RevolutCSVRow struct {
 	Balance       string `csv:"Balance"`
 }
 
-// ParseFile parses a Revolut CSV file and returns a slice of Transaction objects.
+// Parse parses a Revolut CSV file from an io.Reader and returns a slice of Transaction objects.
 // This is the main entry point for parsing Revolut CSV files.
-func ParseFile(filePath string) ([]models.Transaction, error) {
-	log.WithField("file", filePath).Info("Parsing Revolut CSV file")
+func Parse(r io.Reader) ([]models.Transaction, error) {
+	log.Info("Parsing Revolut CSV from reader")
+
+	// Buffer the reader content so we can validate and parse from the same data
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("error reading input: %w", err)
+	}
 
 	// Check if the file format is valid
-	valid, err := ValidateFormat(filePath)
+	valid, err := validateFormat(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("validation error: %w", err)
 	}
 	if !valid {
-		return nil, fmt.Errorf("invalid Revolut CSV format")
+		return nil, &parsererror.InvalidFormatError{
+			FilePath:       "(from reader)",
+			ExpectedFormat: "Revolut CSV",
+			Msg:            "invalid Revolut CSV format",
+		}
 	}
 
-	// Use common.ReadCSVFile to read the CSV
-	revolutRows, err := common.ReadCSVFile[RevolutCSVRow](filePath)
-	if err != nil {
-		log.WithError(err).Error("Failed to read Revolut CSV file")
+	// Parse the CSV data
+	var revolutRows []*RevolutCSVRow
+	if err := gocsv.Unmarshal(bytes.NewReader(data), &revolutRows); err != nil {
+		log.WithError(err).Error("Failed to read Revolut CSV from reader")
 		return nil, fmt.Errorf("error reading Revolut CSV: %w", err)
 	}
 
@@ -89,7 +95,7 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 		}
 
 		// Convert Revolut row to Transaction
-		tx, err := convertRevolutRowToTransaction(revolutRows[i])
+		tx, err := convertRevolutRowToTransaction(*revolutRows[i])
 		if err != nil {
 			log.WithError(err).WithField("row", revolutRows[i]).Warn("Failed to convert row to transaction")
 			continue
@@ -115,7 +121,7 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 	// Post-process transactions to apply specific description transformations
 	processedTransactions := postProcessTransactions(transactions)
 
-	log.WithField("count", len(processedTransactions)).Info("Successfully parsed Revolut CSV file")
+	log.WithField("count", len(processedTransactions)).Info("Successfully parsed Revolut CSV from reader")
 	return processedTransactions, nil
 }
 
@@ -301,7 +307,8 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	}
 
 	log.WithFields(logrus.Fields{
-		"file":  csvFile,
+		"file": csvFile,
+
 		"count": len(transactions),
 	}).Info("Successfully wrote transactions to CSV file")
 
@@ -309,24 +316,26 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 }
 
 // ConvertToCSV converts a Revolut CSV file to the standard CSV format.
-// This is a convenience function that combines ParseFile and WriteToCSV.
+// This is a convenience function that combines Parse and WriteToCSV.
 func ConvertToCSV(inputFile, outputFile string) error {
 	log.WithFields(logrus.Fields{
 		"input":  inputFile,
 		"output": outputFile,
 	}).Info("Converting file to CSV")
 
-	// Validate the file format
-	valid, err := ValidateFormat(inputFile)
+	// Open the input file
+	file, err := os.Open(inputFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening input file: %w", err)
 	}
-	if !valid {
-		return fmt.Errorf("input file is not a valid Revolut CSV")
-	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			logrus.Warnf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Parse the file
-	transactions, err := ParseFile(inputFile)
+	transactions, err := Parse(file)
 	if err != nil {
 		return err
 	}
@@ -345,22 +354,11 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	return nil
 }
 
-// ValidateFormat checks if the file is a valid Revolut CSV file.
-func ValidateFormat(filePath string) (bool, error) {
-	log.WithField("file", filePath).Info("Validating Revolut CSV format")
+// validateFormat checks if the file is a valid Revolut CSV file.
+func validateFormat(r io.Reader) (bool, error) {
+	log.Info("Validating Revolut CSV format from reader")
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.WithError(err).Error("Failed to open file for validation")
-		return false, fmt.Errorf("error opening file for validation: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file")
-		}
-	}()
-
-	reader := csv.NewReader(file)
+	reader := csv.NewReader(r)
 
 	// Read header
 	header, err := reader.Read()
@@ -399,7 +397,7 @@ func ValidateFormat(filePath string) (bool, error) {
 		return false, fmt.Errorf("error reading CSV record: %w", err)
 	}
 
-	log.Info("File is a valid Revolut CSV")
+	log.Info("Reader contains valid Revolut CSV")
 	return true, nil
 }
 
@@ -433,15 +431,48 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 
 		inputPath := fmt.Sprintf("%s/%s", inputDir, file.Name())
 
+		// Open the input file for validation and parsing
+		inputFile, err := os.Open(inputPath)
+		if err != nil {
+			log.WithError(err).WithField("file", inputPath).Warning("Error opening file, skipping")
+			continue
+		}
+
 		// Validate if it's a Revolut CSV file
-		isValid, err := ValidateFormat(inputPath)
+		isValid, err := validateFormat(inputFile)
 		if err != nil {
 			log.WithError(err).WithField("file", inputPath).Warning("Error validating file, skipping")
+			if err := inputFile.Close(); err != nil {
+				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after validation attempt")
+			}
 			continue
 		}
 
 		if !isValid {
 			log.WithField("file", inputPath).Info("Not a valid Revolut CSV file, skipping")
+			if err := inputFile.Close(); err != nil {
+				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after validation attempt")
+			}
+			continue
+		}
+
+		// Rewind the file to the beginning for parsing after validation
+		_, err = inputFile.Seek(0, io.SeekStart)
+		if err != nil {
+			log.WithError(err).WithField("file", inputPath).Warning("Error rewinding file, skipping")
+			if err := inputFile.Close(); err != nil {
+				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after rewinding")
+			}
+			continue
+		}
+
+		// Parse the file
+		transactions, err := Parse(inputFile)
+		if err := inputFile.Close(); err != nil {
+			log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after parsing")
+		}
+		if err != nil {
+			log.WithError(err).WithField("file", inputPath).Warning("Failed to parse file, skipping")
 			continue
 		}
 
@@ -450,12 +481,9 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		baseNameWithoutExt := strings.TrimSuffix(baseName, ".csv")
 		outputPath := fmt.Sprintf("%s/%s-standardized.csv", outputDir, baseNameWithoutExt)
 
-		// Convert the file
-		if err := ConvertToCSV(inputPath, outputPath); err != nil {
-			log.WithFields(logrus.Fields{
-				"file":  inputPath,
-				"error": err,
-			}).Warning("Failed to convert file, skipping")
+		// Write to CSV
+		if err := WriteToCSV(transactions, outputPath); err != nil {
+			log.WithError(err).WithField("file", inputPath).Warning("Failed to write to CSV, skipping")
 			continue
 		}
 		processed++

@@ -13,7 +13,7 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 **Implementation**:
 
 - All parser packages (camtparser, revolutparser, selmaparser, pdfparser) implement the standardized `parser.Parser` interface
-- Common interface methods: `ParseFile()`, `WriteToCSV()`, `ValidateFormat()`, `ConvertToCSV()`, `SetLogger()`
+- Common interface method: `Parse(r io.Reader)`
 - This allows the main application to work with any parser without knowing implementation details
 
 **Benefits**:

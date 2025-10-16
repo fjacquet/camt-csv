@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/models"
@@ -101,7 +100,6 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
-		// If file doesn't exist, return empty slice (not an error)
 		if os.IsNotExist(err) {
 			log.Warnf("Categories file not found: %s", filename)
 			return []models.CategoryConfig{}, nil
@@ -109,86 +107,30 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 		return nil, fmt.Errorf("error resolving categories file: %w", err)
 	}
 
-	// Check if the file exists
-	_, err = os.Stat(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Warnf("Categories file not found: %s", filePath)
 			return []models.CategoryConfig{}, nil
 		}
-		return nil, fmt.Errorf("error checking categories file: %w", err)
-	}
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
 		return nil, fmt.Errorf("error reading categories file: %w", err)
 	}
 
-	// First try to unmarshal using the proper CategoriesConfig struct
-	// This handles the proper YAML structure: "categories: [...]"
-	var categoriesConfig models.CategoriesConfig
-	err = yaml.Unmarshal(data, &categoriesConfig)
-	if err == nil && len(categoriesConfig.Categories) > 0 {
-		log.Debugf("Loaded %d categories from %s using CategoriesConfig",
-			len(categoriesConfig.Categories), filePath)
-		return categoriesConfig.Categories, nil
+	var config struct {
+		Categories []models.CategoryConfig `yaml:"categories"`
 	}
-
-	// Fallback 1: Try to unmarshal directly to an array if the file doesn't have the top-level key
-	var categories []models.CategoryConfig
-	err = yaml.Unmarshal(data, &categories)
-	if err == nil && len(categories) > 0 {
-		log.Debugf("Loaded %d categories from %s using direct array", len(categories), filePath)
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		// Fallback for a simple list of categories
+		var categories []models.CategoryConfig
+		if err2 := yaml.Unmarshal(data, &categories); err2 != nil {
+			return nil, fmt.Errorf("error parsing categories file: %w", err)
+		}
+		log.Debugf("Loaded %d categories from %s using fallback", len(categories), filePath)
 		return categories, nil
 	}
 
-	// Fallback 2: Try parsing manually for backward compatibility
-	return s.parseExistingCategoriesFile(data)
-}
-
-// parseExistingCategoriesFile attempts to manually parse the categories file for maximum compatibility
-// parseExistingCategoriesFile attempts to manually parse the categories file for maximum backward compatibility.
-// It assumes a simple YAML file with category names as keys and descriptions or keyword lists as values.
-// This function is used as a fallback when the standard CategoriesConfig format is not used.
-// It returns an empty slice if the file is empty or can't be parsed.
-func (s *CategoryStore) parseExistingCategoriesFile(data []byte) ([]models.CategoryConfig, error) {
-	// Attempt to unmarshal as a map
-	var categoriesMap map[string]interface{}
-	if err := yaml.Unmarshal(data, &categoriesMap); err != nil {
-		return nil, fmt.Errorf("error parsing categories file: %w", err)
-	}
-
-	var categories []models.CategoryConfig
-
-	// Process each key-value pair in the map
-	for name, value := range categoriesMap {
-		category := models.CategoryConfig{
-			Name: name,
-		}
-
-		// Value could be a string (description) or a map (with keywords, etc.)
-		switch v := value.(type) {
-		case string:
-			// Simple format: category: description
-			// We ignore the description since CategoryConfig has no Description field
-		case map[string]interface{}:
-			// Extract keywords if present
-			if keywordsVal, ok := v["keywords"]; ok {
-				if keywordsList, ok := keywordsVal.([]interface{}); ok {
-					for _, k := range keywordsList {
-						if keyword, ok := k.(string); ok {
-							category.Keywords = append(category.Keywords, strings.ToLower(keyword))
-						}
-					}
-				}
-			}
-		}
-
-		categories = append(categories, category)
-	}
-
-	log.Debugf("Parsed %d categories from custom format", len(categories))
-	return categories, nil
+	log.Debugf("Loaded %d categories from %s", len(config.Categories), filePath)
+	return config.Categories, nil
 }
 
 // LoadCreditorMappings loads creditor mappings from YAML
@@ -200,7 +142,6 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
-		// If file doesn't exist, return empty map (not an error)
 		if os.IsNotExist(err) {
 			log.Warnf("Creditor mappings file not found: %s", filename)
 			return map[string]string{}, nil
@@ -215,6 +156,7 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
+		log.WithError(err).Warnf("Failed to unmarshal creditor mappings from %s", filePath)
 		return nil, fmt.Errorf("error parsing creditor mappings: %w", err)
 	}
 
@@ -231,7 +173,6 @@ func (s *CategoryStore) LoadDebitorMappings() (map[string]string, error) {
 
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
-		// If file doesn't exist, return empty map (not an error)
 		if os.IsNotExist(err) {
 			log.Warnf("Debitor mappings file not found: %s", filename)
 			return map[string]string{}, nil
@@ -246,6 +187,7 @@ func (s *CategoryStore) LoadDebitorMappings() (map[string]string, error) {
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
+		log.WithError(err).Warnf("Failed to unmarshal debitor mappings from %s", filePath)
 		return nil, fmt.Errorf("error parsing debitor mappings: %w", err)
 	}
 

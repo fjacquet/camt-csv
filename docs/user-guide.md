@@ -31,7 +31,7 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 Before installing CAMT-CSV, ensure you have:
 
-- **Go 1.24 or higher**: [Download Go](https://golang.org/dl/)
+- **Go 1.24.2 or higher**: [Download Go](https://golang.org/dl/)
 - **pdftotext CLI tool** (for PDF processing):
   - **macOS**: `brew install poppler`
   - **Ubuntu/Debian**: `apt-get install poppler-utils`
@@ -57,46 +57,50 @@ You should see the main help menu with available commands.
 
 ## Configuration
 
-CAMT-CSV uses environment variables for configuration. You can set these in your shell or use a `.env` file in the project root.
+CAMT-CSV uses a hierarchical configuration system, allowing you to manage settings flexibly. Settings are applied in the following order of precedence (highest to lowest):
+
+1.  **CLI Flags**: Options passed directly on the command line (e.g., `--log-level debug`).
+2.  **Environment Variables**: Variables prefixed with `CAMT_` (e.g., `CAMT_LOG_LEVEL=debug`).
+3.  **Configuration File**: A `camt-csv.yaml` file located in `~/.camt-csv/`.
 
 ### Setting Up Configuration
 
-1. Copy the sample configuration file:
+Create and edit the configuration file for persistent settings:
 
-   ```bash
-   cp .env.sample .env
-   ```
-
-2. Edit `.env` with your preferred settings:
-
-   ```bash
-   nano .env  # or your preferred editor
-   ```
+```bash
+mkdir -p ~/.camt-csv
+nano ~/.camt-csv/camt-csv.yaml  # or your preferred editor
+```
 
 ### Configuration Options
 
-| Variable | Description | Default | Options |
-|----------|-------------|---------|---------|
-| `GEMINI_API_KEY` | API key for Gemini AI categorization | - | Your Google AI API key |
-| `GEMINI_MODEL` | Gemini model for categorization | `gemini-2.0-flash` | Any valid Gemini model |
-| `GEMINI_REQUESTS_PER_MINUTE` | Rate limit for AI API calls | `10` | Positive integer |
-| `USE_AI_CATEGORIZATION` | Enable/disable AI categorization | `false` | `true`, `false` |
-| `LOG_LEVEL` | Logging verbosity | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic` |
-| `LOG_FORMAT` | Log output format | `text` | `text`, `json` |
-| `DATA_DIR` | Custom data directory path | - | Any valid directory path |
-| `CSV_DELIMITER` | CSV output delimiter | `,` | Any single character (e.g., `;`) |
+| YAML Key (`camt-csv.yaml`) | Environment Variable | CLI Flag | Description | Default |
+| :--- | :--- | :--- | :--- | :--- |
+| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` | Logging verbosity | `info` |
+| `log.format` | `CAMT_LOG_FORMAT` | `--log-format` | Log output format (`text`, `json`) | `text` |
+| `csv.delimiter` | `CAMT_CSV_DELIMITER` | `--csv-delimiter` | CSV output delimiter | `,` |
+| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` | Enable/disable AI categorization | `false` |
+| `ai.model` | `CAMT_AI_MODEL` | - | Gemini model for categorization | `gemini-2.0-flash` |
+| `ai.api_key` | `GEMINI_API_KEY` | - | API key for Gemini | - |
 
 ### Example Configuration
 
+```yaml
+# ~/.camt-csv/camt-csv.yaml example
+log:
+  level: "info"
+  format: "text"
+csv:
+  delimiter: ";"
+ai:
+  enabled: true
+  model: "gemini-2.0-flash"
+```
+
+To set the API key, use the environment variable:
+
 ```bash
-# .env file example
-GEMINI_API_KEY=your_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
-GEMINI_REQUESTS_PER_MINUTE=15
-USE_AI_CATEGORIZATION=true
-LOG_LEVEL=info
-LOG_FORMAT=text
-CSV_DELIMITER=;
+export GEMINI_API_KEY=your_api_key_here
 ```
 
 ## Basic Usage
@@ -188,36 +192,37 @@ categories:
 
 #### AI Categorization Setup
 
-1. Get a Google AI API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Set your API key:
+1.  Get a Google AI API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+2.  Set your API key as an environment variable:
 
-   ```bash
-   export GEMINI_API_KEY=your_api_key_here
-   ```
+    ```bash
+    export GEMINI_API_KEY=your_api_key_here
+    ```
 
-3. Enable AI categorization:
+3.  Enable AI categorization in `~/.camt-csv/camt-csv.yaml`:
 
-   ```bash
-   export USE_AI_CATEGORIZATION=true
-   ```
+    ```yaml
+    ai:
+      enabled: true
+    ```
 
 ### Custom Output Formats
 
 #### Change CSV Delimiter
 
-For European Excel compatibility:
+For European Excel compatibility, set the delimiter in `~/.camt-csv/camt-csv.yaml`:
 
-```bash
-export CSV_DELIMITER=";"
-./camt-csv camt -i input.xml -o output.csv
+```yaml
+csv:
+  delimiter: ";"
 ```
 
 #### Custom Data Directory
 
-Store configuration files in a custom location:
+Store configuration files in a custom location by setting the `CAMT_DATA_DIRECTORY` environment variable:
 
 ```bash
-export DATA_DIR="/path/to/custom/data"
+export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 ./camt-csv camt -i input.xml -o output.csv
 ```
 
@@ -402,18 +407,17 @@ sudo apt-get install poppler-utils
 
 ### Debug Mode
 
-Enable detailed logging for troubleshooting:
+Enable detailed logging for troubleshooting by setting the log level as a CLI flag:
 
 ```bash
-export LOG_LEVEL=debug
-./camt-csv camt -i input.xml -o output.csv
+./camt-csv --log-level debug camt -i input.xml -o output.csv
 ```
 
 ### Getting Help
 
-1. **Command Help**: `./camt-csv [command] --help`
-2. **General Help**: `./camt-csv --help`
-3. **Version Info**: `./camt-csv version`
+1.  **Command Help**: `./camt-csv [command] --help`
+2.  **General Help**: `./camt-csv --help`
+3.  **Version Info**: `./camt-csv version`
 
 ## Examples
 
@@ -429,67 +433,71 @@ head -5 output/transactions.csv
 
 ### Example 2: Batch Processing with Custom Delimiter
 
-```bash
-# Set semicolon delimiter for European Excel
-export CSV_DELIMITER=";"
+1.  **Set the delimiter in `~/.camt-csv/camt-csv.yaml`**:
 
-# Process all files in directory
-./camt-csv batch -i input_files/ -o output_files/
+    ```yaml
+    csv:
+      delimiter: ";"
+    ```
 
-# Check results
-ls output_files/
-```
+2.  **Process all files in a directory**:
+
+    ```bash
+    ./camt-csv batch -i input_files/ -o output_files/
+    ```
 
 ### Example 3: AI-Powered Categorization
 
-```bash
-# Configure AI categorization
-export GEMINI_API_KEY=your_api_key
-export USE_AI_CATEGORIZATION=true
-export GEMINI_REQUESTS_PER_MINUTE=5
+1.  **Configure AI categorization in `~/.camt-csv/camt-csv.yaml`**:
 
-# Process with AI categorization
-./camt-csv revolut -i revolut_export.csv -o categorized.csv
+    ```yaml
+    ai:
+      enabled: true
+    ```
 
-# Check learned patterns
-cat database/creditors.yaml
-```
+2.  **Set your API key as an environment variable**:
+
+    ```bash
+    export GEMINI_API_KEY=your_api_key
+    ```
+
+3.  **Process with AI categorization**:
+
+    ```bash
+    ./camt-csv revolut -i revolut_export.csv -o categorized.csv
+    ```
 
 ### Example 4: Custom Categories
 
-1. **Edit categories file**:
+1.  **Edit categories file**:
 
-   ```bash
-   nano database/categories.yaml
-   ```
+    ```bash
+    nano database/categories.yaml
+    ```
 
-2. **Add custom category**:
+2.  **Add custom category**:
 
-   ```yaml
-   categories:
-     - name: "Online Shopping"
-       keywords:
-         - "amazon"
-         - "ebay"
-         - "online"
-         - "e-commerce"
-   ```
+    ```yaml
+    categories:
+      - name: "Online Shopping"
+        keywords:
+          - "amazon"
+          - "ebay"
+          - "online"
+          - "e-commerce"
+    ```
 
-3. **Process transactions**:
+3.  **Process transactions**:
 
-   ```bash
-   ./camt-csv camt -i statement.xml -o categorized.csv
-   ```
+    ```bash
+    ./camt-csv camt -i statement.xml -o categorized.csv
+    ```
 
 ### Example 5: Debugging Failed Processing
 
 ```bash
-# Enable debug logging
-export LOG_LEVEL=debug
-export LOG_FORMAT=text
-
-# Process with detailed output
-./camt-csv pdf -i problematic.pdf -o debug.csv 2>&1 | tee debug.log
+# Process with detailed logging enabled via CLI flag
+./camt-csv --log-level debug --log-format text pdf -i problematic.pdf -o debug.csv 2>&1 | tee debug.log
 
 # Review debug information
 less debug.log

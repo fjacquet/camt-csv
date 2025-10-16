@@ -19,7 +19,7 @@
   * Always check errors. Don't ignore them.
   * Propagate errors up the call stack until they can be handled meaningfully.
   * Use `fmt.Errorf` with `%w` for wrapping errors where appropriate (`errors.Is`, `errors.As`).
-  * Define custom error types for specific error conditions.
+  * **Custom Errors**: Define custom error types (e.g., `InvalidFormatError`, `DataExtractionError`) for specific error conditions to allow for programmatic error handling.
   * Return errors as the last return value.
 * **Concurrency:**
   * Favor `sync.WaitGroup` for waiting on goroutines.
@@ -80,6 +80,8 @@
 * **Separation of Concerns:** Separate CLI parsing logic from core business logic.
   * `cmd` package should handle flag parsing and command execution.
   * Core logic should reside in `internal` or `pkg` packages.
+* **Parser Factory**: For applications that support multiple input formats, use a factory pattern to centralize parser instantiation. This makes it easy to add new parsers without modifying existing code.
+* **AIClient Interface**: When interacting with external AI services, define an `AIClient` interface to decouple the application from the specific AI provider. This allows for easier testing and swapping of AI backends.
 
 ## 5. Logging
 
@@ -87,6 +89,7 @@
 * **Levels:** Use appropriate logging levels (DEBUG, INFO, WARN, ERROR, FATAL).
 * **Output Format:** Specify a preferred output format (e.g., JSON for machine readability, plain text for human readability depending on context).
 * **Contextual Logging:** Include relevant context in log messages (e.g., `requestID`, `userID`).
+* **Standardized Fields**: Use a centralized `constants.go` file to define standardized field names for structured logging. This ensures consistency and makes logs easier to parse and analyze.
 
 ## 6. Dependency Management
 
@@ -111,6 +114,7 @@
 * **Linters:** Recommend or mandate specific linters (e.g., `golangci-lint` with a defined set of checks).
 * **Pre-commit Hooks:** Suggest using tools like `pre-commit` to automate `go fmt`, `goimports`, and linting before commits.
 * **CI/CD:** Integrate these checks into the CI/CD pipeline to enforce standards.
+* **Speckit Workflow**: Utilize the `speckit` command suite (`spec`, `plan`, `tasks`, `analyze`, `implement`) to streamline the software development lifecycle, from specification to implementation.
 
 ## 10. Review Process
 

@@ -69,7 +69,6 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.Error(t, err, "ReadCSVFile should return an error for a non-existent file")
 }
 
-// setupTestCategorizer initializes the categorizer with a test CategoryStore for use in tests.
 func setupTestCategorizer(t *testing.T) {
 	t.Helper()
 	tempDir := t.TempDir()

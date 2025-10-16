@@ -45,7 +45,7 @@ func SetLogger(logger *logrus.Logger) {
 // This is a generic function that can be used by any parser
 // TCSVRow is the struct type that maps to the CSV columns
 func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
-	log.WithField("file", filePath).Info("Reading CSV file")
+	log.WithField(logging.FieldFile, filePath).Info("Reading CSV file")
 
 	// Open the file
 	file, err := os.Open(filePath)
@@ -85,8 +85,8 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	}
 
 	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
+		logging.FieldFile:  csvFile,
+		logging.FieldCount: len(transactions),
 	}).Info("Writing transactions to CSV file")
 
 	// Create the directory if it doesn't exist
@@ -154,8 +154,8 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	}
 
 	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
+		logging.FieldFile:  csvFile,
+		logging.FieldCount: len(transactions),
 	}).Info("Successfully wrote transactions to CSV file")
 
 	return nil
@@ -168,9 +168,9 @@ func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) 
 	}
 
 	log.WithFields(logrus.Fields{
-		"count":     len(transactions),
-		"file":      csvFile,
-		"delimiter": string(Delimiter),
+		logging.FieldCount:     len(transactions),
+		logging.FieldFile:      csvFile,
+		logging.FieldDelimiter: string(Delimiter),
 	}).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
 
 	// Use the primary function for writing transactions to ensure consistency
@@ -186,8 +186,8 @@ func GeneralizedConvertToCSV(
 	validateFunc func(string) (bool, error),
 ) error {
 	log.WithFields(logrus.Fields{
-		"input":  inputFile,
-		"output": outputFile,
+		logging.FieldInputFile:  inputFile,
+		logging.FieldOutputFile: outputFile,
 	}).Info("Converting file to CSV")
 
 	// Check if input file exists
@@ -218,9 +218,9 @@ func GeneralizedConvertToCSV(
 	}
 
 	log.WithFields(logrus.Fields{
-		"input":  inputFile,
-		"output": outputFile,
-		"count":  len(transactions),
+		logging.FieldInputFile:  inputFile,
+		logging.FieldOutputFile: outputFile,
+		logging.FieldCount:      len(transactions),
 	}).Info("Successfully converted file to CSV")
 
 	return nil

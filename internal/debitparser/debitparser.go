@@ -39,6 +39,52 @@ func SetLogger(logger *logrus.Logger) {
 	}
 }
 
+// Parse parses a Visa Debit CSV file from an io.Reader and returns a slice of Transaction objects.
+func Parse(r io.Reader) ([]models.Transaction, error) {
+	log.Info("Parsing Visa Debit CSV from reader")
+
+	// Configure gocsv for semicolon delimiter
+	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
+		r := csv.NewReader(in)
+		r.Comma = ';' // CSV uses semicolon as delimiter
+		return r
+	})
+
+	var debitRows []*DebitCSVRow
+	if err := gocsv.Unmarshal(r, &debitRows); err != nil {
+		log.WithError(err).Error("Failed to read Visa Debit CSV from reader")
+		return nil, fmt.Errorf("error reading Visa Debit CSV: %w", err)
+	}
+
+	// Reset the CSV reader to default for other parsers
+	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
+		return csv.NewReader(in)
+	})
+
+	log.WithField("count", len(debitRows)).Info("Successfully read rows from CSV file")
+
+	// Convert DebitCSVRow objects to Transaction objects
+	var transactions []models.Transaction
+	for _, row := range debitRows {
+		// Skip empty rows
+		if row.Datum == "" {
+			continue
+		}
+
+		// Convert Debit row to Transaction
+		tx, err := convertDebitRowToTransaction(*row)
+		if err != nil {
+			log.WithError(err).Warning("Failed to convert row to transaction, skipping")
+			continue
+		}
+
+		transactions = append(transactions, tx)
+	}
+
+	log.WithField("count", len(transactions)).Info("Successfully parsed Visa Debit CSV file")
+	return transactions, nil
+}
+
 // ParseFile parses a Visa Debit CSV file and returns a slice of Transaction objects.
 // This is the main entry point for parsing Visa Debit CSV files.
 func ParseFile(filePath string) ([]models.Transaction, error) {

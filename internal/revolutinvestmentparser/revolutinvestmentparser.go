@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parsererror"
+
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 )
@@ -31,44 +33,41 @@ func init() {
 	logger = logrus.New()
 }
 
-// SetLogger sets the logger for the Revolut investment parser
-func SetLogger(l *logrus.Logger) {
-	logger = l
-}
+// Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
+func Parse(r io.Reader) ([]models.Transaction, error) {
+	logger.Info("Parsing Revolut investment CSV from reader")
 
-// ParseFile parses a Revolut investment CSV file and returns a slice of transactions
-func ParseFile(filePath string) ([]models.Transaction, error) {
-	logger.Infof("Parsing Revolut investment CSV file: %s", filePath)
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logger.Warnf("Failed to close file: %v", closeErr)
-		}
-	}()
-
-	reader := csv.NewReader(file)
+	reader := csv.NewReader(r)
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSV: %w", err)
 	}
 
 	if len(records) < 2 {
-		return nil, fmt.Errorf("CSV file is empty or contains only headers")
+		return nil, &parsererror.InvalidFormatError{
+			FilePath:       "(from reader)",
+			ExpectedFormat: "Revolut Investment CSV",
+			Msg:            "CSV file is empty or contains only headers",
+		}
 	}
 
 	// Validate headers
 	expectedHeaders := []string{"Date", "Ticker", "Type", "Quantity", "Price per share", "Total Amount", "Currency", "FX Rate"}
 	if len(records[0]) < len(expectedHeaders) {
-		return nil, fmt.Errorf("CSV file has insufficient columns")
+		return nil, &parsererror.InvalidFormatError{
+			FilePath:       "(from reader)",
+			ExpectedFormat: "Revolut Investment CSV",
+			Msg:            "CSV file has insufficient columns",
+		}
 	}
 
 	for i, header := range expectedHeaders {
 		if strings.TrimSpace(records[0][i]) != header {
-			return nil, fmt.Errorf("unexpected header at position %d: expected '%s', got '%s'", i, header, strings.TrimSpace(records[0][i]))
+			return nil, &parsererror.InvalidFormatError{
+				FilePath:       "(from reader)",
+				ExpectedFormat: "Revolut Investment CSV",
+				Msg:            fmt.Sprintf("unexpected header at position %d: expected '%s', got '%s'", i, header, strings.TrimSpace(records[0][i])),
+			}
 		}
 	}
 
@@ -141,7 +140,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
 				transaction.NumberOfShares = int(quantity.IntPart())
 			} else {
-				logger.Warnf("Failed to parse quantity '%s': %v", row.Quantity, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Quantity",
+					RawDataSnippet: row.Quantity,
+					Msg:            fmt.Sprintf("failed to parse quantity: %v", err),
+				}
 			}
 		}
 
@@ -154,7 +158,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			if price, err := decimal.NewFromString(priceStr); err == nil {
 				transaction.AmountExclTax = price
 			} else {
-				logger.Warnf("Failed to parse price per share '%s': %v", row.PricePerShare, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Price per share",
+					RawDataSnippet: row.PricePerShare,
+					Msg:            fmt.Sprintf("failed to parse price per share: %v", err),
+				}
 			}
 		}
 
@@ -171,7 +180,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.CreditDebit = "DBIT"
 				logger.Debugf("Set CreditDebit to DBIT for BUY transaction")
 			} else {
-				logger.Warnf("Failed to parse total amount '%s': %v", row.TotalAmount, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Total Amount",
+					RawDataSnippet: row.TotalAmount,
+					Msg:            fmt.Sprintf("failed to parse total amount: %v", err),
+				}
 			}
 		}
 
@@ -193,7 +207,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Credit = amount
 				logger.Debugf("Set CreditDebit to CRDT for DIVIDEND transaction")
 			} else {
-				logger.Warnf("Failed to parse dividend amount '%s': %v", row.TotalAmount, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Total Amount",
+					RawDataSnippet: row.TotalAmount,
+					Msg:            fmt.Sprintf("failed to parse dividend amount: %v", err),
+				}
 			}
 		}
 
@@ -215,7 +234,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Credit = amount
 				logger.Debugf("Set CreditDebit to CRDT for CASH TOP-UP transaction")
 			} else {
-				logger.Warnf("Failed to parse cash top-up amount '%s': %v", row.TotalAmount, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Total Amount",
+					RawDataSnippet: row.TotalAmount,
+					Msg:            fmt.Sprintf("failed to parse cash top-up amount: %v", err),
+				}
 			}
 		}
 
@@ -236,7 +260,12 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.CreditDebit = "DBIT"
 				logger.Debugf("Set CreditDebit to DBIT for default transaction")
 			} else {
-				logger.Warnf("Failed to parse amount '%s': %v", row.TotalAmount, err)
+				return transaction, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Total Amount",
+					RawDataSnippet: row.TotalAmount,
+					Msg:            fmt.Sprintf("failed to parse amount: %v", err),
+				}
 			}
 		}
 		transaction.Description = fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)
@@ -268,44 +297,6 @@ func formatDate(dateStr string) string {
 
 	// If parsing fails, return original string
 	return dateStr
-}
-
-// ValidateFormat validates if the given file is a valid Revolut investment CSV file
-func ValidateFormat(filePath string) (bool, error) {
-	logger.Infof("Validating Revolut investment CSV file format: %s", filePath)
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return false, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logger.Warnf("Failed to close file: %v", closeErr)
-		}
-	}()
-
-	reader := csv.NewReader(file)
-	records, err := reader.Read()
-	if err != nil {
-		if err == io.EOF {
-			return false, fmt.Errorf("CSV file is empty")
-		}
-		return false, fmt.Errorf("failed to read CSV header: %w", err)
-	}
-
-	if len(records) < 8 {
-		return false, fmt.Errorf("CSV file has insufficient columns")
-	}
-
-	expectedHeaders := []string{"Date", "Ticker", "Type", "Quantity", "Price per share", "Total Amount", "Currency", "FX Rate"}
-	for i, header := range expectedHeaders {
-		if strings.TrimSpace(records[i]) != header {
-			return false, fmt.Errorf("unexpected header at position %d: expected '%s', got '%s'", i, header, strings.TrimSpace(records[i]))
-		}
-	}
-
-	logger.Info("File format validation successful")
-	return true, nil
 }
 
 // WriteToCSV writes transactions to a CSV file
@@ -358,7 +349,18 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 func ConvertToCSV(inputFile, outputFile string) error {
 	logger.Infof("Converting Revolut investment CSV file from '%s' to '%s'", inputFile, outputFile)
 
-	transactions, err := ParseFile(inputFile)
+	// Open the input file
+	file, err := os.Open(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to open input file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.Warnf("Failed to close file: %v", err)
+		}
+	}()
+
+	transactions, err := Parse(file)
 	if err != nil {
 		return fmt.Errorf("failed to parse input file: %w", err)
 	}

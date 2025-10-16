@@ -210,14 +210,10 @@ func (c *Categorizer) initializeAI() error {
 ```go
 // go.mod changes
 - github.com/google/generative-ai-go v0.7.0
-+ go.jetify.com/ai v0.3.2
 
 // Indirect dependencies removed:
 - cloud.google.com/go/ai v0.13.0
 - Multiple protobuf-related dependencies
-
-// New minimal dependencies:
-+ Jetify AI SDK (Google provider only)
 ```
 
 ## Configuration Examples

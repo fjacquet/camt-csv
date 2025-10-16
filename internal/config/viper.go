@@ -54,6 +54,10 @@ type Config struct {
 			DateFormatDetection bool `mapstructure:"date_format_detection" yaml:"date_format_detection"`
 		} `mapstructure:"revolut" yaml:"revolut"`
 	} `mapstructure:"parsers" yaml:"parsers"`
+
+	Constitution struct {
+		FilePaths []string `mapstructure:"file_paths" yaml:"file_paths"`
+	} `mapstructure:"constitution" yaml:"constitution"`
 }
 
 // InitializeConfig initializes Viper configuration with hierarchical loading
@@ -86,6 +90,11 @@ func InitializeConfig() (*Config, error) {
 	// 5. Handle special case for API key (always from env, not prefixed)
 	if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
 		fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
+	}
+
+	// Bind constitution file paths from environment variable
+	if err := v.BindEnv("constitution.file_paths", "CAMT_CONSTITUTION_FILE_PATHS"); err != nil {
+		fmt.Printf("Warning: failed to bind CAMT_CONSTITUTION_FILE_PATHS environment variable: %v\n", err)
 	}
 
 	var config Config
@@ -133,6 +142,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("parsers.camt.strict_validation", true)
 	v.SetDefault("parsers.pdf.ocr_enabled", false)
 	v.SetDefault("parsers.revolut.date_format_detection", true)
+
+	// Constitution defaults
+	v.SetDefault("constitution.file_paths", []string{})
 }
 
 // validateConfig validates the configuration values

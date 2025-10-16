@@ -10,138 +10,43 @@ This document provides formal specifications for all APIs, interfaces, and contr
 
 ```go
 type Parser interface {
-    ParseFile(filePath string) ([]models.Transaction, error)
-    ValidateFormat(filePath string) (bool, error)
-    ConvertToCSV(inputFile, outputFile string) error
-    WriteToCSV(transactions []models.Transaction, csvFile string) error
-    SetLogger(logger *logrus.Logger)
+    Parse(r io.Reader) ([]models.Transaction, error)
 }
 ```
 
-#### ParseFile Method Specification
+#### Parse Method Specification
 
-**Signature**: `ParseFile(filePath string) ([]models.Transaction, error)`
+**Signature**: `Parse(r io.Reader) ([]models.Transaction, error)`
 
-**Purpose**: Extract financial transactions from a source file
+**Purpose**: Extract financial transactions from a source reader
 
 **Preconditions**:
 
-- `filePath` MUST be a valid file path string
-- File MUST exist and be readable
-- File MUST be in the format supported by the specific parser
+- `r` MUST be a valid `io.Reader`
+- The data from the reader MUST be in the format supported by the specific parser
 
 **Postconditions**:
 
 - Returns slice of valid `Transaction` objects on success
 - Returns empty slice (not nil) if no transactions found
-- Returns error if file format is invalid or I/O error occurs
+- Returns error if data format is invalid or I/O error occurs
 - All returned transactions MUST have valid `Date`, `Amount`, and `Currency` fields
 
 **Error Conditions**:
 
 ```go
-// File not found
-FileNotFoundError{Path: string}
-
 // Invalid format
-InvalidFormatError{Path: string, Expected: string, Actual: string}
+InvalidFormatError{Reason: string}
 
 // Parse error with context
-ParseError{Path: string, Line: int, Reason: string}
+ParseError{Line: int, Reason: string}
 ```
 
 **Implementation Requirements**:
 
-- MUST validate file format before parsing
 - MUST handle malformed data gracefully
-- MUST use structured logging with file context
-- MUST close file handles properly (defer pattern)
-
-#### ValidateFormat Method Specification
-
-**Signature**: `ValidateFormat(filePath string) (bool, error)`
-
-**Purpose**: Check if file conforms to expected format without full parsing
-
-**Preconditions**:
-
-- `filePath` MUST be a valid file path string
-
-**Postconditions**:
-
-- Returns `(true, nil)` for valid format
-- Returns `(false, nil)` for invalid format (not an error condition)
-- Returns `(false, error)` only for I/O errors
-
-**Performance Requirements**:
-
-- MUST complete validation in O(1) time relative to file size
-- SHOULD read minimal data necessary for validation
-- MUST NOT load entire file into memory
-
-#### ConvertToCSV Method Specification
-
-**Signature**: `ConvertToCSV(inputFile, outputFile string) error`
-
-**Purpose**: End-to-end conversion from source format to CSV
-
-**Preconditions**:
-
-- `inputFile` MUST exist and be readable
-- `outputFile` directory MUST be writable
-- Parser MUST support the input file format
-
-**Postconditions**:
-
-- Creates valid CSV file at `outputFile` path
-- CSV MUST use configured delimiter (from `common.Delimiter`)
-- CSV MUST include standard headers
-- Creates output directory if it doesn't exist
-
-**Atomicity Guarantee**:
-
-- On failure, MUST NOT leave partial output file
-- SHOULD use temporary file and atomic rename
-
-#### WriteToCSV Method Specification
-
-**Signature**: `WriteToCSV(transactions []models.Transaction, csvFile string) error`
-
-**Purpose**: Export transaction slice to CSV format
-
-**Preconditions**:
-
-- `transactions` can be empty but MUST NOT be nil
-- `csvFile` directory MUST be writable
-
-**Postconditions**:
-
-- Creates valid CSV file with headers
-- Empty input produces CSV with headers only
-- Uses configured CSV delimiter
-- All numeric values formatted consistently
-
-**Data Integrity Requirements**:
-
-- Decimal amounts MUST preserve precision
-- Dates MUST be in DD.MM.YYYY format
-- Currency codes MUST be ISO 4217 compliant
-
-#### SetLogger Method Specification
-
-**Signature**: `SetLogger(logger *logrus.Logger)`
-
-**Purpose**: Configure logging for parser instance
-
-**Preconditions**:
-
-- `logger` can be nil (disables logging)
-
-**Postconditions**:
-
-- All parser operations use provided logger
-- Logger propagated to internal components
-- Structured logging with consistent field names
+- MUST use structured logging with relevant context
+- MUST NOT be responsible for closing the reader
 
 ## Data Model Specifications
 
@@ -276,25 +181,23 @@ type CategorizeTransaction struct {
 
 ## Configuration Specification
 
-### Environment Variables
-
-| Variable | Type | Default | Validation | Description |
-|----------|------|---------|------------|-------------|
-| `GEMINI_API_KEY` | string | "" | non-empty if AI enabled | Google AI API key |
-| `GEMINI_MODEL` | string | "gemini-2.0-flash" | valid model name | Gemini model identifier |
-| `GEMINI_REQUESTS_PER_MINUTE` | int | 10 | 1-1000 | API rate limit |
-| `USE_AI_CATEGORIZATION` | bool | false | true/false | Enable AI categorization |
-| `LOG_LEVEL` | string | "info" | trace/debug/info/warn/error | Logging verbosity |
-| `LOG_FORMAT` | string | "text" | text/json | Log output format |
-| `CSV_DELIMITER` | string | "," | single character | CSV field separator |
-| `DATA_DIR` | string | "" | valid directory path | Custom data directory |
-
 ### Configuration Loading Order
 
-1. **Command-line flags** (highest priority)
-2. **Environment variables**
-3. **Configuration file** (`~/.camt-csv/config.yaml`)
-4. **Default values** (lowest priority)
+1.  **Command-line flags** (highest priority)
+2.  **Environment variables**
+3.  **Configuration file** (`~/.camt-csv/camt-csv.yaml`)
+4.  **Default values** (lowest priority)
+
+### Configuration Options
+
+| YAML Key (`camt-csv.yaml`) | Environment Variable | CLI Flag | Description | Default |
+| :--- | :--- | :--- | :--- | :--- |
+| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` | Logging verbosity | `info` |
+| `log.format` | `CAMT_LOG_FORMAT` | `--log-format` | Log output format (`text`, `json`) | `text` |
+| `csv.delimiter` | `CAMT_CSV_DELIMITER` | `--csv-delimiter` | CSV output delimiter | `,` |
+| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` | Enable/disable AI categorization | `false` |
+| `ai.model` | `CAMT_AI_MODEL` | - | Gemini model for categorization | `gemini-2.0-flash` |
+| `ai.api_key` | `GEMINI_API_KEY` | - | API key for Gemini | - |
 
 ## Error Handling Specification
 

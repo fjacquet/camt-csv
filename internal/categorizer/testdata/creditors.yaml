@@ -1,6 +1,5 @@
-creditors:
-  Starbucks Coffee: Food
-  Whole Foods Market: Food
-  Electric Company Ltd: Utilities
-  Amazon: Shopping
-  Uber: Transportation
+Starbucks Coffee: Restaurants
+Whole Foods Market: Food
+Electric Company Ltd: Utilities
+Amazon: Shopping
+Uber: Transportation

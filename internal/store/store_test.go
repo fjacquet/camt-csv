@@ -54,12 +54,12 @@ func TestFindConfigFile(t *testing.T) {
 func TestLoadCategories_ValidAndMissing(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "categories.yaml")
-	content := `- name: Groceries
-  keywords: ["supermarket", "grocery"]
-  color: "green"
-- name: Rent
-  keywords: ["apartment", "rent"]
-  color: "blue"
+	content := `
+categories:
+  - name: Groceries
+    keywords: ["supermarket", "grocery"]
+  - name: Rent
+    keywords: ["apartment", "rent"]
 `
 	writeFile(t, file, content)
 	store := NewTestCategoryStore(dir)
@@ -69,9 +69,8 @@ func TestLoadCategories_ValidAndMissing(t *testing.T) {
 	assert.Equal(t, "Groceries", cats[0].Name)
 
 	// Missing file: should return empty slice, not error
-	missingFile := filepath.Join(dir, "missing.yaml")
 	store2 := NewTestCategoryStore(dir)
-	store2.CategoriesFile = missingFile
+	store2.CategoriesFile = filepath.Join(dir, "missing.yaml")
 	cats2, err := store2.LoadCategories()
 	assert.NoError(t, err)
 	assert.Empty(t, cats2)

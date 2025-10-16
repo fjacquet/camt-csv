@@ -2,47 +2,46 @@
 package common
 
 import (
-	"fmt"
-
 	"fjacquet/camt-csv/internal/categorizer"
-	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
 
 	"github.com/sirupsen/logrus"
 )
 
-// ProcessFile is a helper function that handles the common validation and conversion logic
-func ProcessFile(p parser.Parser, input, output string, validate bool, log *logrus.Logger) error {
+// ProcessFile processes a single file using the given parser.
+func ProcessFile(parser models.Parser, inputFile, outputFile string, validate bool, log *logrus.Logger) {
+	parser.SetLogger(log)
+
 	if validate {
-		log.Debug("Validating file format...")
-		valid, err := p.ValidateFormat(input)
+		log.Info("Validating format...")
+		valid, err := parser.ValidateFormat(inputFile)
 		if err != nil {
-			return fmt.Errorf("error validating file: %w", err)
+			log.Fatalf("Error validating file: %v", err)
 		}
 		if !valid {
-			return fmt.Errorf("the file is not in a valid format")
+			log.Fatal("The file is not in a valid format")
 		}
-		log.Debug("Validation successful.")
+		log.Info("Validation successful.")
 	}
 
-	if err := p.ConvertToCSV(input, output); err != nil {
-		return fmt.Errorf("error converting file: %w", err)
+	err := parser.ConvertToCSV(inputFile, outputFile)
+	if err != nil {
+		log.Fatalf("Error converting to CSV: %v", err)
 	}
-
-	return nil
+	log.Info("Conversion completed successfully!")
 }
 
-// SaveCategoryMappings saves any updated creditor/debitor mappings to disk
-// This ensures that AI-categorized transactions are properly stored for future use
-func SaveCategoryMappings(log *logrus.Logger) {
-	// Save creditor mappings if needed
-	if err := categorizer.SaveCreditorsToYAML(); err != nil {
+// SaveMappings saves the creditor and debitor mappings.
+func SaveMappings(log *logrus.Logger) {
+	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), log)
+	err := categorizerInstance.SaveCreditorsToYAML()
+	if err != nil {
 		log.Warnf("Failed to save creditor mappings: %v", err)
 	}
 
-	// Save debitor mappings if needed
-	if err := categorizer.SaveDebitorsToYAML(); err != nil {
+	err = categorizerInstance.SaveDebitorsToYAML()
+	if err != nil {
 		log.Warnf("Failed to save debitor mappings: %v", err)
 	}
-
-	log.Debug("Category mapping save complete")
 }

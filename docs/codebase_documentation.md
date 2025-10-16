@@ -10,7 +10,7 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 
 * **Multi-format Conversion:** Supports CAMT.053 XML, PDF (including Viseca credit card statements), Revolut CSV, Revolut Investment CSV, Selma CSV, and generic Debit CSV.
 * **Transaction Categorization:** Hybrid approach using local YAML-based keyword matching and AI (Gemini) as a fallback.
-* **CLI Interface:** Modular command structure for various operations (convert, batch, categorize, revolut-investment).
+* **CLI Interface:** Modular command structure for various operations (camt, pdf, batch, categorize, revolut-investment).
 * **Hierarchical Configuration:** Viper-based configuration system supporting config files, environment variables, and CLI flags with full backward compatibility.
 * **Extensible Parser Architecture:** Standardized interface for easy addition of new data sources.
 
@@ -38,17 +38,16 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 * **Pure Functions:** Many functions, especially within `internal/models`, `internal/currencyutils`, and `internal/dateutils`, are pure. For example, `models.FormatDate` and `currencyutils.StandardizeAmount` take inputs and return outputs without side effects, always producing the same output for the same input.
 * **Immutability:** Data structures like `models.Transaction` are designed to be passed by value or explicitly copied when modifications are needed, although Go's struct behavior means they are not strictly immutable by default. The `Update...` methods on `Transaction` modify the receiver, which is a common Go idiom, but the overall design encourages treating `Transaction` objects as value types.
 * **Function Composition:** The `parser.DefaultParser` and `common.GeneralizedConvertToCSV` exemplify composition. `GeneralizedConvertToCSV` takes `parseFunc` and `validateFunc` as arguments, composing them to create a complete conversion pipeline.
-* **Strict Separation of Core Logic and Side Effects:**
+* **Strict Separation of Core Logic and Side Effects:
   * **Pure Core:** Packages like `internal/models`, `internal/currencyutils`, `internal/dateutils`, and parts of `internal/categorizer` (e.g., `categorizeLocallyByKeywords`) contain pure logic.
   * **Impure Layer (Side Effects):** Interactions with the file system (`os.ReadFile`, `os.WriteFile`), external APIs (Gemini in `internal/categorizer`), and logging (`logrus`) are confined to specific functions or packages, typically within the `internal/infrastructure` (though not explicitly named as such, `internal/store` and parts of `internal/categorizer` handle this) or the top-level `cmd/` packages. For instance, `categorizer.categorizeWithGemini` handles the external API call, while `categorizer.categorizeTransaction` orchestrates the pure and impure steps.
 * **Higher-Order Functions:** While not explicitly using `map`, `filter`, `reduce` in a functional library sense (as Go's standard library doesn't heavily promote this style), the design of functions accepting other functions (like `common.GeneralizedConvertToCSV`) achieves a similar compositional benefit.
 
 ### 3. Key Modules and Their Responsibilities
 
-* **`cmd/`**:
+* **`cmd/`**: 
   * `batch/batch.go`: Handles batch conversion of multiple files.
   * `camt/convert.go`: CLI command for CAMT.053 XML conversion.
-  * `camt-csv/main.go`: Main entry point for the CLI application.
   * `categorize/categorize.go`: CLI command for categorizing transactions.
   * `common/process.go`: Common processing logic for CLI commands.
   * `debit/convert.go`: CLI command for Debit CSV conversion.
@@ -57,7 +56,9 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * `root/root.go`: Defines the root Cobra command for the CLI.
   * `selma/convert.go`: CLI command for Selma CSV conversion.
 
-* **`internal/`**:
+* **`main.go`**: Main entry point for the CLI application.
+
+* **`internal/`**: 
   * **`camtparser/`**: Parses CAMT.053 XML files. Implements the `parser.Parser` interface.
   * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debitor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
   * **`common/`**: Provides shared utilities, including CSV reading/writing (`csv.go`) and a generalized conversion function (`GeneralizedConvertToCSV`).
@@ -77,7 +78,7 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * **`textutils/`**: Utilities for text extraction and manipulation.
   * **`xmlutils/`**: Utilities for XML processing (e.g., XPath, constants).
 
-* **`database/`**:
+* **`database/`**: 
   * `categories.yaml`: Defines custom transaction categories and associated keywords for local matching.
   * `creditors.yaml`: Stores mappings from creditor names to categories.
   * `debitors.yaml`: Stores mappings from debitor names to categories.
@@ -88,15 +89,11 @@ The project employs a highly standardized parser architecture, making it easy to
 
 **`parser.Parser` Interface:**
 
-All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `selmaparser`, `debitparser`) must implement the following methods:
+All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `selmaparser`, `debitparser`) must implement the following method:
 
-* `ParseFile(filePath string) ([]models.Transaction, error)`: Parses a source file and extracts a slice of `models.Transaction` objects.
-* `ValidateFormat(filePath string) (bool, error)`: Checks if a given file adheres to the expected format for that parser.
-* `ConvertToCSV(inputFile, outputFile string) error`: A convenience method that combines parsing and writing to CSV.
-* `WriteToCSV(transactions []models.Transaction, csvFile string) error`: Writes a slice of `models.Transaction` objects to a CSV file.
-* `SetLogger(logger *logrus.Logger)`: Allows injecting a custom logger for the parser.
+* `Parse(r io.Reader) ([]models.Transaction, error)`: Parses a source file and extracts a slice of `models.Transaction` objects.
 
-The `parser.DefaultParser` struct provides common implementations for `WriteToCSV` and `ConvertToCSV`, promoting code reuse and consistency. The `common.GeneralizedConvertToCSV` function further abstracts the conversion flow, accepting generic `parseFunc` and `validateFunc` arguments.
+This streamlined interface focuses on the core responsibility of a parser: to read from an `io.Reader` and produce a standardized `Transaction` slice. Other functionalities like file I/O, validation, and CSV writing are handled by common utility functions, promoting separation of concerns and code reuse.
 
 ### 5. Transaction Categorization
 
@@ -104,10 +101,10 @@ Transaction categorization is a core feature, implemented in `internal/categoriz
 
 1. **Direct Mapping (Exact Match):** The system first checks `creditorMappings` and `debitorMappings` (loaded from `database/creditors.yaml` and `database/debitors.yaml`). These provide exact, case-insensitive matches for known payees/payers to specific categories. This is the fastest and most efficient method for recurring transactions.
 2. **Local Keyword Matching:** If no direct mapping is found, the `categorizeLocallyByKeywords` function attempts to match transaction descriptions and party names against keywords defined in `database/categories.yaml`. This method is also fast and avoids API calls.
-3. **AI-Based Categorization (Fallback):** If local matching fails and AI categorization is enabled (`USE_AI_CATEGORIZATION=true` in `.env`), the system falls back to using the Google Gemini API.
+3. **AI-Based Categorization (Fallback):** If local matching fails and AI categorization is enabled (`ai.enabled: true` in your configuration), the system falls back to using the Google Gemini API.
     * A prompt is constructed with transaction details and a list of allowed categories.
-    * The Gemini model (`GEMINI_MODEL`, default `gemini-2.0-flash`) is queried.
-    * A rate limiter (`GEMINI_REQUESTS_PER_MINUTE`) is implemented to prevent exceeding API quotas.
+    * The Gemini model (`ai.model`, default `gemini-2.0-flash`) is queried.
+    * A rate limiter (`ai.requests_per_minute`) is implemented to prevent exceeding API quotas.
     * Successful AI categorizations are *automatically saved* to the `creditors.yaml` or `debitors.yaml` files, effectively "learning" new mappings and reducing future AI calls for similar transactions.
 
 **Customization:** Users can customize categories and keyword rules by editing `database/categories.yaml`. New creditor/debitor mappings are automatically learned and saved by the application.
@@ -128,11 +125,9 @@ The project employs a comprehensive testing strategy using Go's built-in `testin
 
 ### 7. Dependency Management
 
-The project uses `uv` for dependency management, as specified in `GEMINI.md`. This ensures reproducible builds and efficient package operations.
+The project uses Go Modules for dependency management, ensuring reproducible builds and efficient package operations.
 
 * **`go.mod` and `go.sum`**: These files define the project's direct and transitive dependencies, managed by Go Modules.
-* **`uv`**: While `go.mod` and `go.sum` are Go's native dependency management, the `GEMINI.md` explicitly states `uv` for all package management operations. This implies that `uv` would be used to interact with the Go module system (e.g., `uv run go mod tidy`, `uv run go build`).
-* **`pyproject.toml`**: Although this is a Go project, the `GEMINI.md` mentions `pyproject.toml` for defining dependencies. This suggests a potential future integration with Python tools or a general guideline for projects that might involve Python. For this specific Go project, `go.mod` is the primary dependency manifest.
 * **Centralized Dependencies**: Dependencies are declared in `go.mod`, ensuring a centralized and version-controlled list.
 * **Reproducible Builds**: `go.sum` ensures that the exact versions of all dependencies are used, leading to reproducible builds across different environments.
 
