@@ -81,7 +81,7 @@ func TestInitializeConfig_ConfigFile(t *testing.T) {
 
 	// Create temporary config file
 	tempDir := t.TempDir()
-	configFile := filepath.Join(tempDir, "camt-csv.yaml")
+	configFile := filepath.Join(tempDir, "config.yaml")
 
 	configContent := `
 log:
@@ -134,7 +134,7 @@ func TestInitializeConfig_HierarchicalPrecedence(t *testing.T) {
 
 	// Create temporary config file
 	tempDir := t.TempDir()
-	configFile := filepath.Join(tempDir, "camt-csv.yaml")
+	configFile := filepath.Join(tempDir, "config.yaml")
 
 	configContent := `
 log:
