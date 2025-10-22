@@ -54,11 +54,11 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 
 func batchFunc(cmd *cobra.Command, args []string) {
 	root.Log.Info("Batch command called")
-	
+
 	// Use the shared flags from root command
 	inputDir := root.SharedFlags.Input
 	outputDir := root.SharedFlags.Output
-	
+
 	root.Log.Infof("Input directory: %s", inputDir)
 	root.Log.Infof("Output directory: %s", outputDir)
 
