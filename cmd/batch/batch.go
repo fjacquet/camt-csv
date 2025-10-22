@@ -14,26 +14,65 @@ import (
 var Cmd = &cobra.Command{
 	Use:   "batch",
 	Short: "Batch process files from a directory",
-	Long:  `Batch process files from an input directory and output them to another directory.`,
-	Run:   batchFunc,
+	Long: `Batch process files from an input directory and output them to another directory.
+
+The batch command processes all XML files in the input directory and converts them to CSV format
+with AI-powered categorization. Each file is validated and converted independently.
+
+Example:
+  camt-csv batch -i input_dir/ -o output_dir/`,
+	Run: batchFunc,
+}
+
+func init() {
+	// Override the usage text for the input/output flags in batch context
+	Cmd.SetUsageTemplate(`Usage:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+
+Aliases:
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+Examples:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Global Flags (for batch, -i/-o refer to directories):
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`)
 }
 
 func batchFunc(cmd *cobra.Command, args []string) {
 	root.Log.Info("Batch command called")
-	root.Log.Infof("Input directory: %s", root.InputDir)
-	root.Log.Infof("Output directory: %s", root.OutputDir)
+	
+	// Use the shared flags from root command
+	inputDir := root.SharedFlags.Input
+	outputDir := root.SharedFlags.Output
+	
+	root.Log.Infof("Input directory: %s", inputDir)
+	root.Log.Infof("Output directory: %s", outputDir)
 
-	if root.InputDir == "" || root.OutputDir == "" {
+	if inputDir == "" || outputDir == "" {
 		root.Log.Fatal("Input and output directories must be specified")
 	}
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(root.OutputDir, 0750); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		root.Log.Fatalf("Failed to create output directory: %v", err)
 	}
 
 	adapter := camtparser.NewAdapter()
-	count, err := adapter.BatchConvert(root.InputDir, root.OutputDir)
+	count, err := adapter.BatchConvert(inputDir, outputDir)
 	if err != nil {
 		root.Log.Fatalf("Error during batch conversion: %v", err)
 	}

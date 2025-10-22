@@ -68,9 +68,10 @@ func InitializeConfig() (*Config, error) {
 	setDefaults(v)
 
 	// 2. Config file locations
-	v.SetConfigName("camt-csv")
+	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath("$HOME/.camt-csv")
+	v.AddConfigPath(".camt-csv")
 	v.AddConfigPath(".")
 
 	// 3. Environment variables
@@ -82,7 +83,7 @@ func InitializeConfig() (*Config, error) {
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			// Log the error but don't fail - continue with defaults and env vars
-			fmt.Printf("Warning: error reading config file: %v\n", err)
+			fmt.Printf("Warning: error reading config file %s: %v\n", v.ConfigFileUsed(), err)
 		}
 		// Config file not found or invalid is OK, we'll use defaults and env vars
 	}

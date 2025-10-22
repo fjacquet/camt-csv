@@ -1,29 +1,25 @@
+---
 log:
-  level: "debug"
-  format: "json"
-
+  level: debug
+  format: json
 csv:
-  delimiter: ","
-  date_format: "DD.MM.YYYY"
+  delimiter: ','
+  date_format: DD.MM.YYYY
   include_headers: true
   quote_all: false
-
 ai:
   enabled: true
-  model: "gemini-2.5-flash"
+  model: gemini-2.5-flash
   requests_per_minute: 20
   timeout_seconds: 30
-  fallback_category: "Uncategorized"
-
+  fallback_category: Uncategorized
 data:
-  directory: ""
+  directory: ''
   backup_enabled: true
-
 categorization:
   auto_learn: true
   confidence_threshold: 0.8
   case_sensitive: false
-
 parsers:
   camt:
     strict_validation: true
