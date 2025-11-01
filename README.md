@@ -9,15 +9,17 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ## ✨ Key Features
 
-- **Multi-format Support**: A flexible parser factory allows for easy extension to support new financial statement formats.
+- **Multi-format Support**: Extensible parser architecture with segregated interfaces and BaseParser foundation for easy addition of new financial statement formats.
 - **Smart Categorization**: Hybrid approach using local rules + AI fallback with a testable `AIClient` interface.
 - **Hierarchical Configuration**: Viper-based config system with files, environment variables, and CLI flags.
 - **Batch Processing**: Handle multiple files at once.
+- **Investment Support**: Dedicated parser for Revolut investment transactions (BUY, DIVIDEND, CASH TOP-UP).
 - **Codebase Compliance Review**: Automated checks against project constitution, identifying non-compliant areas and proposing corrective actions.
 - **Fast & Reliable**: Local processing with optional cloud AI.
 - **Speckit Workflow**: A suite of commands (`spec`, `plan`, `tasks`, `analyze`, `implement`) to streamline the software development lifecycle.
-- **Standardized Logging**: Consistent and structured logging for easier debugging and monitoring.
-- **Custom Errors**: Granular error types for robust error handling.
+- **Standardized Logging**: Abstraction layer with structured logging for easier debugging and monitoring.
+- **Custom Errors**: Granular error types (`InvalidFormatError`, `DataExtractionError`) for robust error handling.
+- **Dependency Injection**: Clean architecture with testable components and mock support.
 
 ## 🚀 Quick Start
 
@@ -98,14 +100,14 @@ See [Configuration Migration Guide](docs/configuration-migration-guide.md) for c
 
 The application uses a parser factory to support multiple file formats. The following parsers are currently available:
 
-| Parser Type | Description |
-|---|---|
-| `camt` | ISO 20022 bank statements |
-| `pdf` | PDF bank statements (including Viseca) |
-| `revolut` | Revolut app exports |
-| `revolut-investment` | Revolut investment transactions |
-| `selma` | Investment platform data |
-| `debit` | Generic CSV debit transaction files |
+| Parser Type | Description | Architecture |
+|---|---|---|
+| `camt` | ISO 20022 bank statements | Embeds BaseParser, implements Parser interface |
+| `pdf` | PDF bank statements (including Viseca) | Embeds BaseParser, uses dependency injection for PDF extraction |
+| `revolut` | Revolut app exports | Embeds BaseParser, implements Parser interface |
+| `revolut-investment` | Revolut investment transactions | Embeds BaseParser, handles BUY/DIVIDEND/CASH TOP-UP transactions |
+| `selma` | Investment platform data | Embeds BaseParser, specialized for investment transactions |
+| `debit` | Generic CSV debit transaction files | Embeds BaseParser, flexible column mapping |
 
 ## 🤖 Smart Categorization
 

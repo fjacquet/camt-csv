@@ -52,7 +52,7 @@
     - Add common WriteToCSV method using common.WriteTransactionsToCSV
     - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 4. Refactor All Parsers to Use BaseParser
+- [x] 4. Refactor All Parsers to Use BaseParser
   - [x] 4.1 Refactor CAMT parser
     - Update ISO20022Parser to embed BaseParser
     - Remove duplicate SetLogger implementation

@@ -1,4 +1,4 @@
-# Mailtag Project Documentation
+# CAMT-CSV Project Documentation
 
 This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, architecture, core functionalities, adherence to functional programming principles, testing strategy, and dependency management.
 
@@ -46,34 +46,40 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 ### 3. Key Modules and Their Responsibilities
 
 * **`cmd/`**: 
+  * `analyze/analyze.go`: CLI command for codebase analysis and compliance checking.
   * `batch/batch.go`: Handles batch conversion of multiple files.
   * `camt/convert.go`: CLI command for CAMT.053 XML conversion.
   * `categorize/categorize.go`: CLI command for categorizing transactions.
   * `common/process.go`: Common processing logic for CLI commands.
   * `debit/convert.go`: CLI command for Debit CSV conversion.
+  * `implement/implement.go`: CLI command for implementing development tasks.
   * `pdf/convert.go`: CLI command for PDF statement conversion.
+  * `review/review.go`: CLI command for codebase compliance review.
   * `revolut/convert.go`: CLI command for Revolut CSV conversion.
+  * `revolut-investment/convert.go`: CLI command for Revolut investment CSV conversion.
   * `root/root.go`: Defines the root Cobra command for the CLI.
   * `selma/convert.go`: CLI command for Selma CSV conversion.
+  * `tasks/tasks.go`: CLI command for task management and tracking.
 
 * **`main.go`**: Main entry point for the CLI application.
 
 * **`internal/`**: 
-  * **`camtparser/`**: Parses CAMT.053 XML files. Implements the `parser.Parser` interface.
+  * **`camtparser/`**: Parses CAMT.053 XML files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debitor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
   * **`common/`**: Provides shared utilities, including CSV reading/writing (`csv.go`) and a generalized conversion function (`GeneralizedConvertToCSV`).
-  * **`config/`**: Handles application configuration, primarily loading environment variables.
+  * **`config/`**: Handles application configuration using Viper, supporting hierarchical configuration from files, environment variables, and CLI flags.
   * **`currencyutils/`**: Utility functions for currency parsing, formatting, and calculations (e.g., tax amounts).
   * **`dateutils/`**: Utility functions for date parsing, formatting, and business day calculations.
-  * **`debitparser/`**: Parses generic debit CSV files. Implements the `parser.Parser` interface.
+  * **`debitparser/`**: Parses generic debit CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`fileutils/`**: General file system utilities.
-  * **`logging/`**: Centralized logging setup using `logrus`.
-  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties.
-  * **`parser/`**: Defines the `parser.Parser` interface, which all specific parsers must implement, ensuring a consistent API. It also provides a `DefaultParser` for common functionalities.
-  * **`parsererror/`**: Defines custom error types for parsing operations.
-  * **`pdfparser/`**: Parses PDF bank statements, including specialized logic for Viseca credit card statements. Implements the `parser.Parser` interface.
-  * **`revolutparser/`**: Parses Revolut CSV export files. Implements the `parser.Parser` interface.
-  * **`selmaparser/`**: Parses Selma investment CSV files, with specific logic for handling investment-related transactions and stamp duty. Implements the `parser.Parser` interface.
+  * **`logging/`**: Centralized logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation using structured logging.
+  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties. Also contains constants to eliminate magic strings.
+  * **`parser/`**: Defines segregated parser interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality.
+  * **`parsererror/`**: Defines custom error types for parsing operations, including `InvalidFormatError` and `DataExtractionError`.
+  * **`pdfparser/`**: Parses PDF bank statements with dependency injection for PDF extraction. Embeds `BaseParser` and implements the `parser.Parser` interface. Includes specialized logic for Viseca credit card statements.
+  * **`revolutparser/`**: Parses Revolut CSV export files. Embeds `BaseParser` and implements the `parser.Parser` interface.
+  * **`revolutinvestmentparser/`**: Parses Revolut investment transaction CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface. Handles investment-specific transaction types like BUY, DIVIDEND, and CASH TOP-UP.
+  * **`selmaparser/`**: Parses Selma investment CSV files, with specific logic for handling investment-related transactions and stamp duty. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`store/`**: Manages loading and saving categorization data (categories, creditors, debitors) from YAML files.
   * **`textutils/`**: Utilities for text extraction and manipulation.
   * **`xmlutils/`**: Utilities for XML processing (e.g., XPath, constants).
@@ -85,15 +91,42 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 
 ### 4. Standardized Parser Architecture
 
-The project employs a highly standardized parser architecture, making it easy to add new financial data sources. This is achieved through the `parser.Parser` interface defined in `internal/parser/parser.go`.
+The project employs a highly standardized parser architecture built around segregated interfaces and a common base implementation, making it easy to add new financial data sources while eliminating code duplication.
 
-**`parser.Parser` Interface:**
+**Core Parser Interfaces:**
 
-All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `selmaparser`, `debitparser`) must implement the following method:
+The architecture is built on several segregated interfaces defined in `internal/parser/parser.go`:
 
-* `Parse(r io.Reader) ([]models.Transaction, error)`: Parses a source file and extracts a slice of `models.Transaction` objects.
+* **`Parser`**: Core parsing interface with `Parse(r io.Reader) ([]models.Transaction, error)` method
+* **`Validator`**: Interface for format validation with `ValidateFormat(r io.Reader) error` method  
+* **`CSVConverter`**: Interface for CSV output with `ConvertToCSV(transactions []models.Transaction, csvFile string) error` method
+* **`LoggerConfigurable`**: Interface for logger management with `SetLogger(logger logging.Logger)` method
+* **`FullParser`**: Composite interface combining all capabilities for parsers that need complete functionality
 
-This streamlined interface focuses on the core responsibility of a parser: to read from an `io.Reader` and produce a standardized `Transaction` slice. Other functionalities like file I/O, validation, and CSV writing are handled by common utility functions, promoting separation of concerns and code reuse.
+**BaseParser Foundation:**
+
+All parser implementations embed the `BaseParser` struct from `internal/parser/base.go`, which provides:
+
+* **Common Logger Management**: Implements `LoggerConfigurable` interface with `SetLogger()` and `GetLogger()` methods
+* **Shared CSV Writing**: Provides `WriteToCSV()` method using the common CSV writer from `internal/common`
+* **Consistent Initialization**: `NewBaseParser(logger)` constructor ensures proper setup
+
+**Parser Implementation Pattern:**
+
+```go
+type MyParser struct {
+    parser.BaseParser
+    // parser-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+```
+
+This architecture eliminates code duplication while maintaining the flexibility to add parser-specific functionality. All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `revolutinvestmentparser`, `selmaparser`, `debitparser`) follow this pattern.
 
 ### 5. Transaction Categorization
 

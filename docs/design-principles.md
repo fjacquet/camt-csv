@@ -6,21 +6,32 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ## Core Design Principles
 
-### 1. **Interface-Driven Design**
+### 1. **Interface-Driven Design with Segregated Interfaces**
 
-**Principle**: All parsers implement a common interface to ensure consistency and interchangeability.
+**Principle**: All parsers implement segregated interfaces that separate concerns and provide only the capabilities they need.
 
 **Implementation**:
 
-- All parser packages (camtparser, revolutparser, selmaparser, pdfparser) implement the standardized `parser.Parser` interface
-- Common interface method: `Parse(r io.Reader)`
-- This allows the main application to work with any parser without knowing implementation details
+- **Core Interfaces**: `Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`
+- **BaseParser Foundation**: All parsers embed `BaseParser` struct for common functionality
+- **Composition over Inheritance**: Parsers compose interfaces rather than inheriting from large base classes
+- **Single Responsibility per Interface**: Each interface has one clear purpose
+
+**Example**:
+```go
+type MyParser struct {
+    parser.BaseParser  // Provides logging and CSV writing
+    // parser-specific fields
+}
+```
 
 **Benefits**:
 
-- Easy to add new financial data formats
-- Consistent API across all parsers
-- Simplified testing and maintenance
+- Easy to add new financial data formats following established patterns
+- Eliminates code duplication through BaseParser
+- Consistent API across all parsers with shared functionality
+- Simplified testing with common test utilities
+- Interface segregation principle compliance
 
 ### 2. **Single Responsibility Principle**
 
@@ -46,11 +57,21 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 **Implementation**:
 
-- Logger injection through constructors (replacing global logger pattern)
-- Components depend on `logging.Logger` interface rather than concrete implementations
-- Categorizer injection for transaction classification
-- Store injection for configuration management
-- Test-specific dependency injection in test suites
+- **Logger Injection**: All parsers receive logger through `BaseParser` constructor
+- **Interface Dependencies**: Components depend on `logging.Logger` interface rather than concrete implementations
+- **PDF Extractor Injection**: PDF parser uses `PDFExtractor` interface for testability
+- **Categorizer Injection**: Transaction classification through injected categorizer
+- **Store Injection**: Configuration management through injected store
+- **Test-specific Injection**: Mock dependencies in test suites
+
+**Example**:
+```go
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+```
 
 **Benefits**:
 
@@ -59,6 +80,7 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 - Runtime configuration flexibility
 - Cleaner separation between components
 - Easier unit testing without shared state
+- Consistent dependency management through BaseParser
 
 ### 4. **Fail-Fast with Graceful Degradation**
 
@@ -230,10 +252,31 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ### Adding New Parsers
 
-1. Implement the `parser.Parser` interface
-2. Follow the established error handling patterns
-3. Include comprehensive tests
-4. Document format-specific considerations
+1. **Create Parser Package**: Create `internal/<format>parser/` directory
+2. **Embed BaseParser**: Struct should embed `parser.BaseParser` for common functionality
+3. **Implement Interfaces**: Implement `parser.Parser` interface (minimum requirement)
+4. **Constructor Pattern**: Use `NewMyParser(logger logging.Logger)` constructor accepting logger
+5. **Error Handling**: Use custom error types (`InvalidFormatError`, `DataExtractionError`)
+6. **Testing**: Include comprehensive tests with mock dependencies
+7. **Documentation**: Document format-specific considerations and usage examples
+
+**Example Structure**:
+```go
+type MyParser struct {
+    parser.BaseParser
+    // format-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+
+func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+    // implementation
+}
+```
 
 ### Extending Functionality
 

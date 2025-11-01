@@ -120,6 +120,7 @@ All CAMT-CSV commands follow this pattern:
 | `camt` | Convert CAMT.053 XML files | XML bank statements |
 | `pdf` | Convert PDF bank statements | PDF files |
 | `revolut` | Process Revolut CSV exports | Revolut CSV format |
+| `revolut-investment` | Process Revolut investment transactions | Revolut investment CSV format |
 | `selma` | Process Selma investment files | Selma CSV format |
 | `debit` | Process generic debit CSV files | Generic CSV format |
 | `batch` | Process multiple files | Directory of files |
@@ -143,6 +144,12 @@ All CAMT-CSV commands follow this pattern:
 
    ```bash
    ./camt-csv revolut -i revolut_export.csv -o processed.csv
+   ```
+
+4. **Process Revolut investment transactions:**
+
+   ```bash
+   ./camt-csv revolut-investment -i investment_export.csv -o processed.csv
    ```
 
 ## Advanced Features
@@ -274,6 +281,28 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 
 ```bash
 ./camt-csv revolut -i revolut_export.csv -o processed.csv
+```
+
+### Revolut Investment CSV Files
+
+**Description**: Processes Revolut investment transaction CSV exports
+**Features**:
+
+- Investment transaction categorization (BUY, DIVIDEND, CASH TOP-UP)
+- Share quantity and price tracking
+- Multi-currency support with FX rate handling
+- Automatic debit/credit classification
+- Investment-specific metadata (ticker, fund information)
+
+**Supported Transaction Types**:
+- **BUY**: Stock purchases with quantity and price per share
+- **DIVIDEND**: Dividend payments from holdings
+- **CASH TOP-UP**: Cash deposits to investment account
+
+**Example Usage**:
+
+```bash
+./camt-csv revolut-investment -i investment_export.csv -o processed.csv
 ```
 
 ### Selma Investment CSV
@@ -493,7 +522,25 @@ head -5 output/transactions.csv
     ./camt-csv camt -i statement.xml -o categorized.csv
     ```
 
-### Example 5: Debugging Failed Processing
+### Example 5: Processing Revolut Investment Transactions
+
+```bash
+# Process Revolut investment CSV with detailed transaction categorization
+./camt-csv revolut-investment -i revolut_investment_export.csv -o investment_transactions.csv
+
+# View the processed investment transactions
+head -10 investment_transactions.csv
+```
+
+**Sample Input (Revolut Investment CSV)**:
+```csv
+Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate
+2024-01-15T10:30:00.000Z,AAPL,BUY,10,$150.00,$1500.00,USD,1.0
+2024-01-20T09:15:00.000Z,AAPL,DIVIDEND,,,$25.50,USD,1.0
+2024-01-25T14:45:00.000Z,,CASH TOP-UP,,,$1000.00,USD,1.0
+```
+
+### Example 6: Debugging Failed Processing
 
 ```bash
 # Process with detailed logging enabled via CLI flag

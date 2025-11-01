@@ -15,11 +15,51 @@ The CAMT-CSV project supports multiple financial file formats (CAMT.053 XML, PDF
 
 ## Decision
 
-We will standardize all parsers to implement a common `Parser` interface:
+We will standardize all parsers using a segregated interface architecture with a common foundation:
 
+**Core Interfaces:**
 ```go
 type Parser interface {
     Parse(r io.Reader) ([]models.Transaction, error)
+}
+
+type Validator interface {
+    ValidateFormat(r io.Reader) error
+}
+
+type CSVConverter interface {
+    ConvertToCSV(transactions []models.Transaction, csvFile string) error
+}
+
+type LoggerConfigurable interface {
+    SetLogger(logger logging.Logger)
+}
+
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+}
+```
+
+**BaseParser Foundation:**
+All parsers embed a `BaseParser` struct that provides common functionality:
+- Logger management (implements `LoggerConfigurable`)
+- CSV writing capability (implements `CSVConverter`)
+- Consistent initialization patterns
+
+**Implementation Pattern:**
+```go
+type MyParser struct {
+    parser.BaseParser
+    // parser-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
 }
 ```
 
@@ -28,10 +68,12 @@ type Parser interface {
 ### Positive
 
 - **Consistency**: All parsers behave identically from the caller's perspective
-- **Testability**: Uniform test patterns across all parsers
+- **Code Reuse**: BaseParser eliminates duplication of common functionality (logging, CSV writing)
+- **Testability**: Uniform test patterns across all parsers with shared test utilities
 - **Maintainability**: Easier to add new parsers following established patterns
 - **Polymorphism**: Can treat all parsers uniformly in the CLI layer
-- **Documentation**: Single interface to document and understand
+- **Segregated Interfaces**: Parsers can implement only the interfaces they need
+- **Documentation**: Clear interface contracts to document and understand
 
 ### Negative
 
@@ -47,10 +89,12 @@ type Parser interface {
 
 ## Implementation Notes
 
-- All parsers now validate format before parsing
-- Error handling is consistent across parsers
-- Logging is standardized using structured logging with context
-- CSV output format is unified across all parsers
+- All parsers embed `BaseParser` for common functionality
+- Segregated interfaces allow parsers to implement only needed capabilities
+- Error handling uses custom error types (`InvalidFormatError`, `DataExtractionError`)
+- Logging is standardized using abstraction layer with structured logging
+- CSV output format is unified across all parsers via shared `WriteToCSV` method
+- Dependency injection pattern used for testability (e.g., PDF extractor interface)
 
 ## Related Decisions
 
