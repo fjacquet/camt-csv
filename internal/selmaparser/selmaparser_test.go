@@ -7,6 +7,7 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -69,7 +70,8 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
@@ -107,7 +109,8 @@ func TestParseFile(t *testing.T) {
 	}()
 
 	// Test parsing the file
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "ParseFile should not return an error for valid input")
 	assert.NotNil(t, transactions, "Transactions should not be nil")

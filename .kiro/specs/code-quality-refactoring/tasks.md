@@ -37,15 +37,15 @@
 
 ## Phase 2: Parser Architecture Refactoring
 
-- [ ] 3. Redesign Parser Interfaces
-  - [ ] 3.1 Define segregated interfaces
+- [x] 3. Redesign Parser Interfaces
+  - [x] 3.1 Define segregated interfaces
     - Update `internal/parser/parser.go` with Parser interface (Parse method only)
     - Add Validator interface with ValidateFormat method
     - Add CSVConverter interface with ConvertToCSV method
     - Add LoggerConfigurable interface with SetLogger method
     - Create FullParser interface composing all capabilities
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
-  - [ ] 3.2 Create BaseParser foundation
+  - [x] 3.2 Create BaseParser foundation
     - Create `internal/parser/base.go` with BaseParser struct
     - Implement SetLogger method in BaseParser
     - Implement GetLogger helper method
@@ -53,21 +53,21 @@
     - _Requirements: 3.1, 3.2, 3.3_
 
 - [ ] 4. Refactor All Parsers to Use BaseParser
-  - [ ] 4.1 Refactor CAMT parser
+  - [x] 4.1 Refactor CAMT parser
     - Update ISO20022Parser to embed BaseParser
     - Remove duplicate SetLogger implementation
     - Remove duplicate WriteToCSV implementation
     - Update constructor to accept logger parameter
     - Verify all tests pass
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
-  - [ ] 4.2 Refactor Revolut parser
+  - [x] 4.2 Refactor Revolut parser
     - Update RevolutParser to embed BaseParser
     - Remove duplicate SetLogger implementation
     - Remove duplicate WriteToCSV implementation
     - Update constructor to accept logger parameter
     - Verify all tests pass
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
-  - [ ] 4.3 Refactor PDF parser with dependency injection
+  - [x] 4.3 Refactor PDF parser with dependency injection
     - Update PDFParser to embed BaseParser
     - Define PDFExtractor interface in `internal/pdfparser/extractor.go`
     - Implement RealPDFExtractor using pdftotext
@@ -76,7 +76,7 @@
     - Remove TEST_ENV environment variable checks
     - Write tests for PDF parser with mock extractor
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 10.1, 10.2, 10.3, 10.4, 10.5, 15.3_
-  - [ ] 4.4 Refactor remaining parsers
+  - [x] 4.4 Refactor remaining parsers
     - Refactor Selma, Debit, RevolutInvestment parsers to embed BaseParser
     - Remove duplicate code from all parsers
     - Update constructors to accept logger

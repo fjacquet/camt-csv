@@ -12,21 +12,22 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/html/charset"
 )
 
 // Adapter implements the models.Parser interface for CAMT.053 XML files.
 type Adapter struct {
-	logger *logrus.Logger
+	parser.BaseParser
 }
 
 // NewAdapter creates a new adapter for the camtparser.
-func NewAdapter() models.Parser {
+func NewAdapter(logger logging.Logger) *Adapter {
 	return &Adapter{
-		logger: logrus.New(),
+		BaseParser: parser.NewBaseParser(logger),
 	}
 }
 
@@ -482,7 +483,8 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 		if err := file.Close(); err != nil {
 
-			logrus.Warnf("Failed to close file: %v", err)
+			a.GetLogger().Warn("Failed to close file",
+				logging.Field{Key: "error", Value: err})
 
 		}
 
@@ -502,12 +504,9 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	if len(transactions) == 0 {
 
-		logrus.WithFields(logrus.Fields{
-
-			"file": csvFile,
-
-			"delimiter": string(common.Delimiter),
-		}).Info("No transactions found, created empty CSV file with headers")
+		a.GetLogger().Info("No transactions found, created empty CSV file with headers",
+			logging.Field{Key: "file", Value: csvFile},
+			logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
 
 		emptyTransactions := []models.Transaction{}
 
@@ -517,12 +516,9 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	// Write the transactions to the CSV file
 
-	logrus.WithFields(logrus.Fields{
-
-		"count": len(transactions),
-
-		"file": csvFile,
-	}).Info("Writing transactions to CSV file")
+	a.GetLogger().Info("Writing transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	// Create the directory if it doesn't exist
 
@@ -540,38 +536,22 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	}
 
-	logrus.WithFields(logrus.Fields{
-
-		"count": len(transactions),
-
-		"file": csvFile,
-	}).Info("Successfully wrote transactions to CSV file")
+	a.GetLogger().Info("Successfully wrote transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	return nil
 
 }
 
-// WriteToCSV implements models.Parser.WriteToCSV
 
-func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-
-}
-
-// SetLogger implements models.Parser.SetLogger
-
-func (a *Adapter) SetLogger(logger *logrus.Logger) {
-
-	a.logger = logger
-
-}
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
 
 func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
 
-	a.logger.WithField("file", xmlFile).Info("Validating CAMT.053 format")
+	a.GetLogger().Info("Validating CAMT.053 format",
+		logging.Field{Key: "file", Value: xmlFile})
 
 	// Check if file exists
 
@@ -593,7 +573,8 @@ func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
 
 	defer func() {
 		if err := file.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close file %s during format validation", xmlFile)
+			a.GetLogger().WithError(err).Warn("Failed to close file during format validation",
+				logging.Field{Key: "file", Value: xmlFile})
 		}
 	}()
 
@@ -629,11 +610,13 @@ func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
 
 	if isCamt {
 
-		a.logger.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
+		a.GetLogger().Info("File is a valid CAMT.053 XML",
+			logging.Field{Key: "file", Value: xmlFile})
 
 	} else {
 
-		a.logger.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
+		a.GetLogger().Info("File is not a valid CAMT.053 XML",
+			logging.Field{Key: "file", Value: xmlFile})
 
 	}
 
@@ -645,12 +628,9 @@ func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
 
 func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
-	a.logger.WithFields(logrus.Fields{
-
-		"inputDir": inputDir,
-
-		"outputDir": outputDir,
-	}).Info("Batch converting CAMT.053 XML files")
+	a.GetLogger().Info("Batch converting CAMT.053 XML files",
+		logging.Field{Key: "inputDir", Value: inputDir},
+		logging.Field{Key: "outputDir", Value: outputDir})
 
 	// Ensure output directory exists
 
@@ -692,7 +672,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if err != nil {
 
-			a.logger.WithError(err).WithField("file", inputFile).Error("Error validating file format")
+			a.GetLogger().WithError(err).Error("Error validating file format",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -700,7 +681,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if !isValid {
 
-			a.logger.WithField("file", inputFile).Debug("Skipping non-CAMT.053 file")
+			a.GetLogger().Debug("Skipping non-CAMT.053 file",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -710,7 +692,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if err := a.ConvertToCSV(inputFile, outputFile); err != nil {
 
-			a.logger.WithError(err).WithField("file", inputFile).Error("Failed to convert file")
+			a.GetLogger().WithError(err).Error("Failed to convert file",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -720,7 +703,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 	}
 
-	a.logger.WithField("count", count).Info("Batch conversion completed")
+	a.GetLogger().Info("Batch conversion completed",
+		logging.Field{Key: "count", Value: count})
 
 	return count, nil
 

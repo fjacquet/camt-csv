@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,8 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	}()
 
 	// Test parsing
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "Failed to parse Revolut CSV file")
 	assert.Equal(t, 4, len(transactions), "Expected 4 transactions")
@@ -125,7 +127,8 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }

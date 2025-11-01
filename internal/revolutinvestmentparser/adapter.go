@@ -6,21 +6,20 @@ import (
 	"io"
 	"os"
 
-	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-
-	"github.com/sirupsen/logrus"
+	"fjacquet/camt-csv/internal/parser"
 )
 
 // Adapter implements the models.Parser interface for Revolut investment CSV files.
 type Adapter struct {
-	logger *logrus.Logger
+	parser.BaseParser
 }
 
 // NewAdapter creates a new adapter for the revolutinvestmentparser.
-func NewAdapter() models.Parser {
+func NewAdapter(logger logging.Logger) *Adapter {
 	return &Adapter{
-		logger: logrus.New(),
+		BaseParser: parser.NewBaseParser(logger),
 	}
 }
 
@@ -37,7 +36,8 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close input file %s", inputFile)
+			a.GetLogger().WithError(err).Warn("Failed to close input file",
+				logging.Field{Key: "file", Value: inputFile})
 		}
 	}()
 
@@ -49,15 +49,7 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	return a.WriteToCSV(transactions, outputFile)
 }
 
-// WriteToCSV implements models.Parser.WriteToCSV
-func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-}
 
-// SetLogger implements models.Parser.SetLogger
-func (a *Adapter) SetLogger(logger *logrus.Logger) {
-	a.logger = logger
-}
 
 // ValidateFormat checks if a file is a valid Revolut Investment CSV file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
@@ -67,7 +59,8 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close file %s during format validation", file)
+			a.GetLogger().WithError(err).Warn("Failed to close file during format validation",
+				logging.Field{Key: "file", Value: file})
 		}
 	}()
 

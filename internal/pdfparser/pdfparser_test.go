@@ -7,6 +7,7 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -64,7 +65,9 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	mockExtractor := NewMockPDFExtractor("", assert.AnError)
+	adapter := NewAdapter(logger, mockExtractor)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
@@ -87,10 +90,18 @@ func TestParseFile(t *testing.T) {
 		}
 	}()
 
-	// Test parsing
-	adapter := NewAdapter()
+	// Test parsing with mock extractor that returns mock transactions
+	logger := logging.GetLogger()
+	// Provide mock text that looks like a transaction
+	mockText := `Date valeur Détails Monnaie Montant
+01.01.25 02.01.25 Test Transaction CHF 100.50
+03.01.25 04.01.25 Another Transaction CHF 200.75-`
+	mockExtractor := NewMockPDFExtractor(mockText, nil)
+	adapter := NewAdapter(logger, mockExtractor)
 	_, err = adapter.Parse(file)
-	assert.Error(t, err, "Expected an error when parsing a dummy PDF file")
+	assert.NoError(t, err, "Expected no error when parsing with mock extractor")
+	// Note: The mock text might not parse into transactions due to format requirements
+	// This test mainly verifies that the dependency injection works
 }
 
 func TestConvertToCSV(t *testing.T) {

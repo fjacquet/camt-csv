@@ -3,7 +3,7 @@ package batch
 
 import (
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/camtparser"
+	"fjacquet/camt-csv/internal/factory"
 	"fmt"
 	"os"
 
@@ -72,8 +72,13 @@ func batchFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	adapter := camtparser.NewAdapter()
-	count, err := adapter.BatchConvert(inputDir, outputDir)
+	// Get CAMT parser from factory
+	parser, err := factory.GetParser(factory.CAMT)
+	if err != nil {
+		logger.Fatalf("Failed to get CAMT parser: %v", err)
+	}
+	
+	count, err := parser.BatchConvert(inputDir, outputDir)
 	if err != nil {
 		logger.Fatalf("Error during batch conversion: %v", err)
 	}

@@ -8,21 +8,21 @@ import (
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
-
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+var log = logging.GetLogger()
 
 // Parse extracts and parses transaction data from a PDF file provided as an io.Reader.
+// This function uses the default RealPDFExtractor for backward compatibility.
 func Parse(r io.Reader) ([]models.Transaction, error) {
-	// For test environments, check if we should use mock data
-	if os.Getenv("TEST_ENV") != "" {
-		log.Info("Using mock transactions for testing")
-		return createMockTransactions(), nil
-	}
+	return ParseWithExtractor(r, NewRealPDFExtractor())
+}
+
+// ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
+func ParseWithExtractor(r io.Reader, extractor PDFExtractor) ([]models.Transaction, error) {
 
 	// Read the content of the reader into a temporary file for PDF processing
 	tempFile, err := os.CreateTemp("", "*.pdf")
@@ -31,12 +31,14 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	}
 	defer func() {
 		if err := os.Remove(tempFile.Name()); err != nil {
-			log.WithError(err).Warnf("Failed to remove temporary file %s", tempFile.Name())
+			log.WithError(err).Warn("Failed to remove temporary file",
+				logging.Field{Key: "file", Value: tempFile.Name()})
 		}
 	}()
 	defer func() {
 		if err := tempFile.Close(); err != nil {
-			log.WithError(err).Warnf("Failed to close temporary file %s", tempFile.Name())
+			log.WithError(err).Warn("Failed to close temporary file",
+				logging.Field{Key: "file", Value: tempFile.Name()})
 		}
 	}()
 
@@ -54,13 +56,9 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	// 	return nil, fmt.Errorf("failed to close temporary PDF file: %w", err)
 	// }
 
-	// Validate the file format (using the temporary file path)
-	isValid, err := validateFormat(tempFile.Name())
+	// Validate the file format using the provided extractor
+	_, err = extractor.ExtractText(tempFile.Name())
 	if err != nil {
-		return nil, err
-	}
-
-	if !isValid {
 		return nil, &parsererror.InvalidFormatError{
 			FilePath:       tempFile.Name(),
 			ExpectedFormat: "PDF",
@@ -68,24 +66,24 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 		}
 	}
 
-	log.WithField("file", tempFile.Name()).Info("Parsing PDF file")
+	log.Info("Parsing PDF file",
+		logging.Field{Key: "file", Value: tempFile.Name()})
 
-	// Extract text from PDF
-	text, err := extractTextFromPDF(tempFile.Name())
+	// Extract text from PDF using the provided extractor
+	text, err := extractor.ExtractText(tempFile.Name())
 	if err != nil {
 		log.WithError(err).Error("Failed to extract text from PDF")
 		return nil, fmt.Errorf("error extracting text from PDF: %w", err)
 	}
 
 	// Write raw PDF text to debug file if in debug mode
-	if log.GetLevel() >= logrus.DebugLevel {
-		debugFile := "debug_pdf_extract.txt"
-		err = os.WriteFile(debugFile, []byte(text), 0600)
-		if err != nil {
-			log.WithError(err).Warning("Failed to write debug file")
-		} else {
-			log.WithField("file", debugFile).Debug("Wrote raw PDF text to debug file")
-		}
+	debugFile := "debug_pdf_extract.txt"
+	err = os.WriteFile(debugFile, []byte(text), 0600)
+	if err != nil {
+		log.WithError(err).Warn("Failed to write debug file")
+	} else {
+		log.Debug("Wrote raw PDF text to debug file",
+			logging.Field{Key: "file", Value: debugFile})
 	}
 
 	// Preprocess the text to clean it up and identify transaction blocks
@@ -114,7 +112,8 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logrus.Warnf("Failed to close file: %v", err)
+			log.Warn("Failed to close file",
+				logging.Field{Key: "error", Value: err})
 		}
 	}()
 
@@ -126,20 +125,18 @@ func ConvertToCSV(inputFile, outputFile string) error {
 
 	// Handle empty transactions list
 	if len(transactions) == 0 {
-		logrus.WithFields(logrus.Fields{
-			"file":      outputFile,
-			"delimiter": string(common.Delimiter),
-		}).Info("No transactions found, created empty CSV file with headers")
+		log.Info("No transactions found, created empty CSV file with headers",
+			logging.Field{Key: "file", Value: outputFile},
+			logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
 
 		emptyTransactions := []models.Transaction{}
 		return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
 	}
 
 	// Write the transactions to the CSV file
-	logrus.WithFields(logrus.Fields{
-		"count": len(transactions),
-		"file":  outputFile,
-	}).Info("Writing transactions to CSV file")
+	log.Info("Writing transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: outputFile})
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(outputFile)
@@ -151,10 +148,9 @@ func ConvertToCSV(inputFile, outputFile string) error {
 		return err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"count": len(transactions),
-		"file":  outputFile,
-	}).Info("Successfully wrote transactions to CSV file")
+	log.Info("Successfully wrote transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: outputFile})
 
 	return nil
 }
@@ -162,11 +158,10 @@ func ConvertToCSV(inputFile, outputFile string) error {
 // WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
 // that is specifically used by the PDF parser tests.
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	log.WithFields(logrus.Fields{
-		"file":      csvFile,
-		"count":     len(transactions),
-		"delimiter": string(common.Delimiter),
-	}).Info("Writing transactions to CSV file using common implementation")
+	log.Info("Writing transactions to CSV file using common implementation",
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
 
 	// Use the common implementation to ensure consistent delimiter usage
 	return common.WriteTransactionsToCSV(transactions, csvFile)
@@ -182,10 +177,12 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 //   - bool: True if the file is a valid PDF, False otherwise
 //   - error: Any error encountered during validation
 func validateFormat(pdfFile string) (bool, error) {
-	log.WithField("file", pdfFile).Info("Validating PDF format")
+	log.Info("Validating PDF format",
+		logging.Field{Key: "file", Value: pdfFile})
 
-	// Try to extract text as a validation check
-	_, err := extractTextFromPDF(pdfFile)
+	// Try to extract text as a validation check using the real extractor
+	extractor := NewRealPDFExtractor()
+	_, err := extractor.ExtractText(pdfFile)
 	if err != nil {
 		log.WithError(err).Error("PDF validation failed")
 		return false, nil

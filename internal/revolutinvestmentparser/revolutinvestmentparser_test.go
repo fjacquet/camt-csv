@@ -5,17 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
-	// Set up logging for tests
-	logger = logrus.New()
-	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+	// Tests will use the default logger
 	os.Exit(m.Run())
 }
 
@@ -40,7 +38,8 @@ func TestParseFile(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 3)
@@ -85,7 +84,8 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	require.Error(t, err)
 }

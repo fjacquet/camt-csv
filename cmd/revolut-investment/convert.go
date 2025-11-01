@@ -4,7 +4,7 @@ package revolutinvestment
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/factory"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ func revolutInvestmentFunc(cmd *cobra.Command, args []string) {
 	logger.Infof("Input file: %s", root.SharedFlags.Input)
 	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p, err := parser.GetParser(parser.RevolutInvestment)
+	p, err := factory.GetParser(factory.RevolutInvestment)
 	if err != nil {
 		logger.Fatalf("Error getting Revolut Investment parser: %v", err)
 	}

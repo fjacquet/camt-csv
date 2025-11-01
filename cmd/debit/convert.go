@@ -4,7 +4,7 @@ package debit
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/factory"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ func debitFunc(cmd *cobra.Command, args []string) {
 	logger.Infof("Input file: %s", root.SharedFlags.Input)
 	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p, err := parser.GetParser(parser.Debit)
+	p, err := factory.GetParser(factory.Debit)
 	if err != nil {
 		logger.Fatalf("Error getting Debit parser: %v", err)
 	}

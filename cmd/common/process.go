@@ -12,12 +12,8 @@ import (
 
 // ProcessFile processes a single file using the given parser.
 func ProcessFile(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
-	// Convert logging interface to logrus for parsers that still expect it
-	if logrusAdapter, ok := log.(*logging.LogrusAdapter); ok {
-		parser.SetLogger(logrusAdapter.GetLogrusLogger())
-	} else {
-		parser.SetLogger(logrus.New()) // Fallback to default
-	}
+	// Set the logger on the parser using the new interface
+	parser.SetLogger(log)
 
 	if validate {
 		log.Info("Validating format...")

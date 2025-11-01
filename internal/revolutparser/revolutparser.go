@@ -13,15 +13,15 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
 
 	"github.com/gocarina/gocsv"
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+var log = logging.GetLogger()
 
 // RevolutCSVRow represents a single row in a Revolut CSV file
 // It uses struct tags for gocsv unmarshaling
@@ -97,7 +97,8 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 		// Convert Revolut row to Transaction
 		tx, err := convertRevolutRowToTransaction(*revolutRows[i])
 		if err != nil {
-			log.WithError(err).WithField("row", revolutRows[i]).Warn("Failed to convert row to transaction")
+			log.WithError(err).Warn("Failed to convert row to transaction",
+				logging.Field{Key: "row", Value: revolutRows[i]})
 			continue
 		}
 
@@ -121,7 +122,8 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	// Post-process transactions to apply specific description transformations
 	processedTransactions := postProcessTransactions(transactions)
 
-	log.WithField("count", len(processedTransactions)).Info("Successfully parsed Revolut CSV from reader")
+	log.Info("Successfully parsed Revolut CSV from reader",
+		logging.Field{Key: "count", Value: len(processedTransactions)})
 	return processedTransactions, nil
 }
 
@@ -244,10 +246,9 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
-	log.WithFields(logrus.Fields{
-		"file":  csvFile,
-		"count": len(transactions),
-	}).Info("Writing transactions to CSV file")
+	log.Info("Writing transactions to CSV file",
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)})
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
@@ -306,11 +307,9 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 		return fmt.Errorf("error flushing CSV writer: %w", err)
 	}
 
-	log.WithFields(logrus.Fields{
-		"file": csvFile,
-
-		"count": len(transactions),
-	}).Info("Successfully wrote transactions to CSV file")
+	log.Info("Successfully wrote transactions to CSV file",
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)})
 
 	return nil
 }
@@ -318,10 +317,9 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 // ConvertToCSV converts a Revolut CSV file to the standard CSV format.
 // This is a convenience function that combines Parse and WriteToCSV.
 func ConvertToCSV(inputFile, outputFile string) error {
-	log.WithFields(logrus.Fields{
-		"input":  inputFile,
-		"output": outputFile,
-	}).Info("Converting file to CSV")
+	log.Info("Converting file to CSV",
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
 	file, err := os.Open(inputFile)
@@ -330,7 +328,8 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logrus.Warnf("Failed to close file: %v", err)
+			log.Warn("Failed to close file",
+				logging.Field{Key: "error", Value: err})
 		}
 	}()
 
@@ -345,11 +344,10 @@ func ConvertToCSV(inputFile, outputFile string) error {
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		"count":  len(transactions),
-		"input":  inputFile,
-		"output": outputFile,
-	}).Info("Successfully converted file to CSV")
+	log.Info("Successfully converted file to CSV",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	return nil
 }
@@ -382,7 +380,8 @@ func validateFormat(r io.Reader) (bool, error) {
 	// Check if all required columns exist
 	for _, requiredCol := range requiredColumns {
 		if !headerMap[requiredCol] {
-			log.WithField("column", requiredCol).Info("Required column missing from Revolut CSV")
+			log.Info("Required column missing from Revolut CSV",
+				logging.Field{Key: "column", Value: requiredCol})
 			return false, nil
 		}
 	}
@@ -404,10 +403,9 @@ func validateFormat(r io.Reader) (bool, error) {
 // BatchConvert converts all CSV files in a directory to the standard CSV format.
 // It processes all files with a .csv extension in the specified directory.
 func BatchConvert(inputDir, outputDir string) (int, error) {
-	log.WithFields(logrus.Fields{
-		"inputDir":  inputDir,
-		"outputDir": outputDir,
-	}).Info("Batch converting Revolut CSV files")
+	log.Info("Batch converting Revolut CSV files",
+		logging.Field{Key: "inputDir", Value: inputDir},
+		logging.Field{Key: "outputDir", Value: outputDir})
 
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0750); err != nil {
@@ -434,24 +432,29 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Open the input file for validation and parsing
 		inputFile, err := os.Open(inputPath)
 		if err != nil {
-			log.WithError(err).WithField("file", inputPath).Warning("Error opening file, skipping")
+			log.WithError(err).Warn("Error opening file, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			continue
 		}
 
 		// Validate if it's a Revolut CSV file
 		isValid, err := validateFormat(inputFile)
 		if err != nil {
-			log.WithError(err).WithField("file", inputPath).Warning("Error validating file, skipping")
+			log.WithError(err).Warn("Error validating file, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			if err := inputFile.Close(); err != nil {
-				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after validation attempt")
+				log.WithError(err).Warn("Failed to close file after validation attempt",
+					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
 		}
 
 		if !isValid {
-			log.WithField("file", inputPath).Info("Not a valid Revolut CSV file, skipping")
+			log.Info("Not a valid Revolut CSV file, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			if err := inputFile.Close(); err != nil {
-				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after validation attempt")
+				log.WithError(err).Warn("Failed to close file after validation attempt",
+					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
 		}
@@ -459,9 +462,11 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Rewind the file to the beginning for parsing after validation
 		_, err = inputFile.Seek(0, io.SeekStart)
 		if err != nil {
-			log.WithError(err).WithField("file", inputPath).Warning("Error rewinding file, skipping")
+			log.WithError(err).Warn("Error rewinding file, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			if err := inputFile.Close(); err != nil {
-				log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after rewinding")
+				log.WithError(err).Warn("Failed to close file after rewinding",
+					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
 		}
@@ -469,10 +474,12 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Parse the file
 		transactions, err := Parse(inputFile)
 		if err := inputFile.Close(); err != nil {
-			log.WithError(err).WithField("file", inputPath).Warn("Failed to close file after parsing")
+			log.WithError(err).Warn("Failed to close file after parsing",
+				logging.Field{Key: "file", Value: inputPath})
 		}
 		if err != nil {
-			log.WithError(err).WithField("file", inputPath).Warning("Failed to parse file, skipping")
+			log.WithError(err).Warn("Failed to parse file, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			continue
 		}
 
@@ -483,12 +490,14 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 
 		// Write to CSV
 		if err := WriteToCSV(transactions, outputPath); err != nil {
-			log.WithError(err).WithField("file", inputPath).Warning("Failed to write to CSV, skipping")
+			log.WithError(err).Warn("Failed to write to CSV, skipping",
+				logging.Field{Key: "file", Value: inputPath})
 			continue
 		}
 		processed++
 	}
 
-	log.WithField("count", processed).Info("Batch conversion completed")
+	log.Info("Batch conversion completed",
+		logging.Field{Key: "count", Value: processed})
 	return processed, nil
 }

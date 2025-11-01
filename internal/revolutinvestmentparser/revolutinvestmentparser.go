@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
 
 // RevolutInvestmentCSVRow represents a single row in a Revolut investment CSV file
@@ -27,11 +27,7 @@ type RevolutInvestmentCSVRow struct {
 	FXRate        string `csv:"FX Rate"`
 }
 
-var logger *logrus.Logger
-
-func init() {
-	logger = logrus.New()
-}
+var logger = logging.GetLogger()
 
 // Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
 func Parse(r io.Reader) ([]models.Transaction, error) {
@@ -76,7 +72,8 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	// Process each row (skip header)
 	for i, record := range records[1:] {
 		if len(record) < 8 {
-			logger.Warnf("Skipping row %d: insufficient columns", i+2)
+			logger.Warn("Skipping row: insufficient columns",
+				logging.Field{Key: "row", Value: i + 2})
 			continue
 		}
 
@@ -93,14 +90,16 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 
 		transaction, err := convertRowToTransaction(row)
 		if err != nil {
-			logger.Warnf("Failed to convert row %d to transaction: %v", i+2, err)
+			logger.WithError(err).Warn("Failed to convert row to transaction",
+				logging.Field{Key: "row", Value: i + 2})
 			continue
 		}
 
 		transactions = append(transactions, transaction)
 	}
 
-	logger.Infof("Successfully parsed %d transactions from Revolut investment CSV", len(transactions))
+	logger.Info("Successfully parsed transactions from Revolut investment CSV",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
@@ -126,15 +125,17 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 		if fxRate, err := decimal.NewFromString(row.FXRate); err == nil {
 			transaction.ExchangeRate = fxRate
 		} else {
-			logger.Warnf("Failed to parse FX rate '%s': %v", row.FXRate, err)
+			logger.WithError(err).Warn("Failed to parse FX rate",
+				logging.Field{Key: "fxRate", Value: row.FXRate})
 		}
 	}
 
 	// Handle different transaction types
-	logger.Debugf("Processing transaction type: '%s'", row.Type)
+	logger.Debug("Processing transaction type",
+		logging.Field{Key: "type", Value: row.Type})
 	switch {
 	case strings.Contains(row.Type, "BUY"):
-		logger.Debugf("Processing BUY transaction")
+		logger.Debug("Processing BUY transaction")
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
@@ -178,7 +179,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				// For buy transactions, this is typically a debit
 				transaction.DebitFlag = true
 				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debugf("Set CreditDebit to DBIT for BUY transaction")
+				logger.Debug("Set CreditDebit to DBIT for BUY transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
@@ -192,7 +193,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 		transaction.Description = fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)
 
 	case strings.Contains(row.Type, "DIVIDEND"):
-		logger.Debugf("Processing DIVIDEND transaction")
+		logger.Debug("Processing DIVIDEND transaction")
 		// Parse dividend amount
 		if row.TotalAmount != "" {
 			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
@@ -205,7 +206,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.DebitFlag = false
 				transaction.CreditDebit = models.TransactionTypeCredit
 				transaction.Credit = amount
-				logger.Debugf("Set CreditDebit to CRDT for DIVIDEND transaction")
+				logger.Debug("Set CreditDebit to CRDT for DIVIDEND transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
@@ -219,7 +220,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 		transaction.Description = fmt.Sprintf("Dividend from %s", row.Ticker)
 
 	case strings.Contains(row.Type, "CASH TOP-UP"):
-		logger.Debugf("Processing CASH TOP-UP transaction")
+		logger.Debug("Processing CASH TOP-UP transaction")
 		// Parse cash top-up amount
 		if row.TotalAmount != "" {
 			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
@@ -232,7 +233,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.DebitFlag = false
 				transaction.CreditDebit = models.TransactionTypeCredit
 				transaction.Credit = amount
-				logger.Debugf("Set CreditDebit to CRDT for CASH TOP-UP transaction")
+				logger.Debug("Set CreditDebit to CRDT for CASH TOP-UP transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
@@ -246,7 +247,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 		transaction.Description = "Cash top-up to investment account"
 
 	default:
-		logger.Debugf("Processing default transaction")
+		logger.Debug("Processing default transaction")
 		// Handle other transaction types
 		if row.TotalAmount != "" {
 			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
@@ -258,7 +259,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				// Default to debit for unknown transaction types
 				transaction.DebitFlag = true
 				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debugf("Set CreditDebit to DBIT for default transaction")
+				logger.Debug("Set CreditDebit to DBIT for default transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
@@ -301,7 +302,9 @@ func formatDate(dateStr string) string {
 
 // WriteToCSV writes transactions to a CSV file
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	logger.Infof("Writing %d transactions to CSV file: %s", len(transactions), csvFile)
+	logger.Info("Writing transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	file, err := os.Create(csvFile)
 	if err != nil {
@@ -309,7 +312,7 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			logger.Warnf("Failed to close file: %v", closeErr)
+			logger.WithError(closeErr).Warn("Failed to close file")
 		}
 	}()
 
@@ -332,7 +335,7 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	for _, transaction := range transactions {
 		record, err := transaction.MarshalCSV()
 		if err != nil {
-			logger.Warnf("Failed to marshal transaction: %v", err)
+			logger.WithError(err).Warn("Failed to marshal transaction")
 			continue
 		}
 
@@ -347,7 +350,9 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 // ConvertToCSV converts a Revolut investment CSV file to the standardized format
 func ConvertToCSV(inputFile, outputFile string) error {
-	logger.Infof("Converting Revolut investment CSV file from '%s' to '%s'", inputFile, outputFile)
+	logger.Info("Converting Revolut investment CSV file",
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
 	file, err := os.Open(inputFile)
@@ -356,7 +361,7 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logger.Warnf("Failed to close file: %v", err)
+			logger.WithError(err).Warn("Failed to close file")
 		}
 	}()
 

@@ -6,20 +6,22 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSetLogger(t *testing.T) {
 	// Create a new logger
-	newLogger := logrus.New()
-	newLogger.SetLevel(logrus.WarnLevel)
+	logger := logging.GetLogger()
 
-	// Set the logger
-	adapter := NewAdapter()
+	// Create adapter with logger
+	adapter := NewAdapter(logger)
+	
+	// Test that we can set a different logger
+	newLogger := logging.NewLogrusAdapter("debug", "text")
 	adapter.SetLogger(newLogger)
 }
 
@@ -133,7 +135,8 @@ func TestParseFile(t *testing.T) {
 	}()
 
 	// Test parsing
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "Failed to parse CAMT.053 XML file")
 	assert.Equal(t, 1, len(transactions), "Expected 1 transaction")
@@ -167,7 +170,8 @@ func TestConvertToCSV(t *testing.T) {
 	csvFile := filepath.Join(tempDir, "output.csv")
 
 	// Convert XML to CSV
-	adapter := NewAdapter()
+	logger := logging.GetLogger()
+	adapter := NewAdapter(logger)
 	err = adapter.ConvertToCSV(xmlFile, csvFile)
 	assert.NoError(t, err)
 
