@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fjacquet/camt-csv/internal/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +30,7 @@ func TestInitializeConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "gemini-2.0-flash", config.AI.Model)
 	assert.Equal(t, 10, config.AI.RequestsPerMinute)
 	assert.Equal(t, 30, config.AI.TimeoutSeconds)
-	assert.Equal(t, "Uncategorized", config.AI.FallbackCategory)
+	assert.Equal(t, models.CategoryUncategorized, config.AI.FallbackCategory)
 	assert.Equal(t, "", config.Data.Directory)
 	assert.True(t, config.Data.BackupEnabled)
 	assert.True(t, config.Categorization.AutoLearn)

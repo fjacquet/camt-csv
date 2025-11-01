@@ -110,7 +110,7 @@ func TestConvertToCSV(t *testing.T) {
 			Description: "Coffee Shop Test",
 			Amount:      models.ParseAmount("15.50"),
 			Currency:    "EUR",
-			CreditDebit: "DBIT",
+			CreditDebit: models.TransactionTypeDebit,
 		},
 	}
 
@@ -154,7 +154,7 @@ func TestWriteToCSV(t *testing.T) {
 			Amount:         models.ParseAmount("100.00"),
 			Currency:       "EUR",
 			EntryReference: "REF123456",
-			CreditDebit:    "DBIT",
+			CreditDebit:    models.TransactionTypeDebit,
 		},
 		{
 			Date:           "2023-01-02",
@@ -162,7 +162,7 @@ func TestWriteToCSV(t *testing.T) {
 			Amount:         models.ParseAmount("1000.00"),
 			Currency:       "EUR",
 			EntryReference: "SAL987654",
-			CreditDebit:    "CRDT",
+			CreditDebit:    models.TransactionTypeCredit,
 		},
 	}
 

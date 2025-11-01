@@ -85,8 +85,8 @@ func TestGetAmountAsDecimal(t *testing.T) {
 
 func TestCreditDebitMethods(t *testing.T) {
 	t.Run("IsDebit", func(t *testing.T) {
-		debitTx := &Transaction{CreditDebit: "DBIT"}
-		creditTx := &Transaction{CreditDebit: "CRDT"}
+		debitTx := &Transaction{CreditDebit: TransactionTypeDebit}
+		creditTx := &Transaction{CreditDebit: TransactionTypeCredit}
 		unknownTx := &Transaction{CreditDebit: "UNKNOWN"}
 
 		assert.True(t, debitTx.IsDebit(), "Transaction with CreditDebit=DBIT should return true for IsDebit()")
@@ -95,8 +95,8 @@ func TestCreditDebitMethods(t *testing.T) {
 	})
 
 	t.Run("IsCredit", func(t *testing.T) {
-		debitTx := &Transaction{CreditDebit: "DBIT"}
-		creditTx := &Transaction{CreditDebit: "CRDT"}
+		debitTx := &Transaction{CreditDebit: TransactionTypeDebit}
+		creditTx := &Transaction{CreditDebit: TransactionTypeCredit}
 		unknownTx := &Transaction{CreditDebit: "UNKNOWN"}
 
 		assert.False(t, debitTx.IsCredit(), "Transaction with CreditDebit=DBIT should return false for IsCredit()")
@@ -113,9 +113,9 @@ func TestGetPartyName(t *testing.T) {
 		payer       string
 		expected    string
 	}{
-		{"DebitTransaction", "DBIT", "Payee Example", "Payer Example", "Payee Example"},
-		{"CreditTransaction", "CRDT", "Payee Example", "Payer Example", "Payer Example"},
-		{"EmptyParties", "CRDT", "", "", ""},
+		{"DebitTransaction", TransactionTypeDebit, "Payee Example", "Payer Example", "Payee Example"},
+		{"CreditTransaction", TransactionTypeCredit, "Payee Example", "Payer Example", "Payer Example"},
+		{"EmptyParties", TransactionTypeCredit, "", "", ""},
 	}
 
 	for _, tc := range testCases {

@@ -409,7 +409,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 				PartyName: transaction.PartyName,
 
-				IsDebtor: transaction.CreditDebit == "DBIT", // Use the CreditDebit field to determine if it's a debit transaction
+				IsDebtor: transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
 
 				Amount: transaction.Amount.String(),
 

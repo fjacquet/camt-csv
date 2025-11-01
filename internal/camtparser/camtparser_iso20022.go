@@ -134,7 +134,7 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 	}
 
 	// Set Debit/Credit amounts based on CreditDebit indicator
-	if tx.CreditDebit == "DBIT" {
+	if tx.CreditDebit == models.TransactionTypeDebit {
 		tx.Debit = amount
 		tx.Name = tx.Payee // For debits, the name is the payee/recipient
 	} else {
@@ -144,7 +144,7 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 
 	// Special case for DELL salary
 	if strings.Contains(tx.Description, "VIRT BANC") && strings.Contains(tx.Description, "DELL SA") {
-		tx.Category = "Salaire"
+		tx.Category = models.CategorySalary
 		p.log.WithField("description", tx.Description).Debug("Categorized as salary payment from DELL SA")
 	}
 
@@ -160,7 +160,7 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 		}
 
 		// Create categorizer transaction from our transaction
-		isDebtor := transactions[i].CreditDebit == "DBIT"
+		isDebtor := transactions[i].CreditDebit == models.TransactionTypeDebit
 		catTx := categorizer.Transaction{
 			PartyName:   transactions[i].GetPartyName(),
 			IsDebtor:    isDebtor,
@@ -179,7 +179,7 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 
 			// If this was a successful categorization, save it to the database
 			// for future use to avoid needing to re-categorize
-			if category.Name != "" && category.Name != "Uncategorized" {
+			if category.Name != "" && category.Name != models.CategoryUncategorized {
 				partyName := catTx.PartyName
 				if isDebtor {
 					p.log.Infof("Auto-learning debitor mapping: '%s' → '%s'",

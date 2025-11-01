@@ -177,7 +177,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Amount = amount
 				// For buy transactions, this is typically a debit
 				transaction.DebitFlag = true
-				transaction.CreditDebit = "DBIT"
+				transaction.CreditDebit = models.TransactionTypeDebit
 				logger.Debugf("Set CreditDebit to DBIT for BUY transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{
@@ -203,7 +203,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Amount = amount
 				// Dividends are typically credits
 				transaction.DebitFlag = false
-				transaction.CreditDebit = "CRDT"
+				transaction.CreditDebit = models.TransactionTypeCredit
 				transaction.Credit = amount
 				logger.Debugf("Set CreditDebit to CRDT for DIVIDEND transaction")
 			} else {
@@ -230,7 +230,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Amount = amount
 				// Cash top-ups are typically credits
 				transaction.DebitFlag = false
-				transaction.CreditDebit = "CRDT"
+				transaction.CreditDebit = models.TransactionTypeCredit
 				transaction.Credit = amount
 				logger.Debugf("Set CreditDebit to CRDT for CASH TOP-UP transaction")
 			} else {
@@ -257,7 +257,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				transaction.Amount = amount
 				// Default to debit for unknown transaction types
 				transaction.DebitFlag = true
-				transaction.CreditDebit = "DBIT"
+				transaction.CreditDebit = models.TransactionTypeDebit
 				logger.Debugf("Set CreditDebit to DBIT for default transaction")
 			} else {
 				return transaction, &parsererror.DataExtractionError{

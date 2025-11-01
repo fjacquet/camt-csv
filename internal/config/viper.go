@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"fjacquet/camt-csv/internal/models"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -128,7 +130,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.model", "gemini-2.0-flash")
 	v.SetDefault("ai.requests_per_minute", 10)
 	v.SetDefault("ai.timeout_seconds", 30)
-	v.SetDefault("ai.fallback_category", "Uncategorized")
+	v.SetDefault("ai.fallback_category", models.CategoryUncategorized)
 
 	// Data defaults
 	v.SetDefault("data.directory", "")

@@ -93,9 +93,9 @@ func FormatTransaction(tx *models.Transaction) {
 		if tx.Amount.IsNegative() ||
 			strings.Contains(strings.ToLower(tx.Description), "payment") ||
 			strings.Contains(strings.ToLower(tx.Description), "purchase") {
-			tx.CreditDebit = "DBIT"
+			tx.CreditDebit = models.TransactionTypeDebit
 		} else {
-			tx.CreditDebit = "CRDT"
+			tx.CreditDebit = models.TransactionTypeCredit
 		}
 	}
 

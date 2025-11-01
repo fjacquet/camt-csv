@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -51,7 +52,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	// Instantiate the categorizer with the mock AI client and mock store
-	categorizerInstance := categorizer.NewCategorizer(mockAIClient, mockStore, logger)
+	categorizerInstance := categorizer.NewCategorizer(mockAIClient, mockStore, logging.NewLogrusAdapterFromLogger(logger))
 
 	// Test cases
 	testCases := []struct {
@@ -135,7 +136,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 				Info:        "Empty party",
 				Description: "Empty party",
 			},
-			expectedCategory: "Uncategorized",
+			expectedCategory: models.CategoryUncategorized,
 			expectError:      false,
 		},
 	}

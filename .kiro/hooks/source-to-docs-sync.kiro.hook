@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Source to Docs Sync",
+  "description": "Monitors all Go source files, configuration files, and related project files for changes and triggers documentation updates in README.md or the docs/ folder",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Source files have been modified. Please review the changes and update the relevant documentation:\n- If the changes affect user-facing features, commands, or configuration: update README.md\n- If the changes affect architecture, design decisions, or implementation details: update appropriate files in the docs/ folder (e.g., docs/codebase_documentation.md, docs/design-principles.md, docs/coding-standards.md, docs/user-guide.md)\n- If new parsers or commands were added: update both README.md and docs/user-guide.md\n- If configuration options changed: update docs/configuration-migration-guide.md and README.md\n- Ensure all code examples and usage instructions remain accurate\n- Update any affected Architecture Decision Records in docs/adr/ if design decisions changed"
+  }
+}

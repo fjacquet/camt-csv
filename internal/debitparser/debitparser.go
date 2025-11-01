@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/gocarina/gocsv"
@@ -35,7 +36,7 @@ type DebitCSVRow struct {
 func SetLogger(logger *logrus.Logger) {
 	if logger != nil {
 		log = logger
-		common.SetLogger(logger)
+		common.SetLogger(logging.NewLogrusAdapterFromLogger(logger))
 	}
 }
 
@@ -158,7 +159,7 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 	if row.Betrag == "" {
 		// If amount is empty, default to 0
 		amount = decimal.NewFromFloat(0)
-		creditDebit = "CRDT"
+		creditDebit = models.TransactionTypeCredit
 	} else {
 		// Use StandardizeAmount to handle formatting (comma vs. decimal point)
 		var err error
@@ -169,11 +170,11 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 
 		// Determine credit/debit based on sign
 		if strings.HasPrefix(row.Betrag, "-") {
-			creditDebit = "DBIT"
+			creditDebit = models.TransactionTypeDebit
 			// Remove negative sign for consistency
 			amount = amount.Abs()
 		} else {
-			creditDebit = "CRDT"
+			creditDebit = models.TransactionTypeCredit
 		}
 	}
 

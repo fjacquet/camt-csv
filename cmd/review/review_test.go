@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fjacquet/camt-csv/internal/config"
-	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"os"
 	"path/filepath"
@@ -30,10 +29,8 @@ func setupTest(t *testing.T) (*cobra.Command, string, *bytes.Buffer, func()) {
 			if err != nil {
 				logrus.Fatalf("Failed to initialize test configuration: %v", err)
 			}
-			testLogger := config.ConfigureLoggingFromConfig(testAppConfig)
-			if testLogger != nil {
-				logging.SetLogger(testLogger)
-			}
+			// Configure logging for test
+			config.ConfigureLoggingFromConfig(testAppConfig)
 		},
 	}
 
@@ -51,29 +48,24 @@ func setupTest(t *testing.T) (*cobra.Command, string, *bytes.Buffer, func()) {
 	// This is crucial because config and logger are global singletons
 	// For tests, we want to ensure they are isolated
 	testAppConfig, _ := config.InitializeConfig() // Re-initialize with defaults
-	testLogger := config.ConfigureLoggingFromConfig(testAppConfig)
-	logging.SetLogger(testLogger)
+	config.ConfigureLoggingFromConfig(testAppConfig)
 
 	// Capture stdout and stderr
 	outBuf := new(bytes.Buffer)
 	testRootCmd.SetOut(outBuf)
 	testRootCmd.SetErr(outBuf) // Redirect stderr to the same buffer for simplicity in tests
 
-	// Redirect logrus output to the same buffer
-	oldLogrusOutput := logging.GetLogger().Out
-	logging.GetLogger().SetOutput(outBuf)
+	// Note: Output redirection removed for logging interface compatibility
 
 	return testRootCmd, tempDir, outBuf, func() {
 		os.Args = oldArgs
 		// Restore global logger and config to a default clean state
 		defaultAppConfig, _ := config.InitializeConfig()
-		defaultLogger := config.ConfigureLoggingFromConfig(defaultAppConfig)
-		logging.SetLogger(defaultLogger)
+		config.ConfigureLoggingFromConfig(defaultAppConfig)
 		// Clear constitutionFiles for next test
 		constitutionFiles = []string{}
 
-		// Restore logrus output
-		logging.GetLogger().SetOutput(oldLogrusOutput)
+		// Note: Output restoration removed for logging interface compatibility
 	}
 }
 

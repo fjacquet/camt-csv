@@ -178,16 +178,16 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 func determineCreditDebit(transactionType, amount string) string {
 	// For Selma, "trade" with negative amount typically means outgoing money (DBIT)
 	if transactionType == "trade" && strings.HasPrefix(amount, "-") {
-		return "DBIT"
+		return models.TransactionTypeDebit
 	}
 
 	// If we can't determine from type, try to use the amount sign
 	if strings.HasPrefix(amount, "-") {
-		return "DBIT"
+		return models.TransactionTypeDebit
 	}
 
 	// Default to credit for anything else
-	return "CRDT"
+	return models.TransactionTypeCredit
 }
 
 // ProcessTransactions processes a slice of Transaction objects from Selma CSV data.

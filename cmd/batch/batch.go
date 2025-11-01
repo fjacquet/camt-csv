@@ -59,22 +59,23 @@ func batchFunc(cmd *cobra.Command, args []string) {
 	inputDir := root.SharedFlags.Input
 	outputDir := root.SharedFlags.Output
 
-	root.Log.Infof("Input directory: %s", inputDir)
-	root.Log.Infof("Output directory: %s", outputDir)
+	logger := root.GetLogrusAdapter()
+	logger.Infof("Input directory: %s", inputDir)
+	logger.Infof("Output directory: %s", outputDir)
 
 	if inputDir == "" || outputDir == "" {
-		root.Log.Fatal("Input and output directories must be specified")
+		logger.Fatal("Input and output directories must be specified")
 	}
 
 	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		root.Log.Fatalf("Failed to create output directory: %v", err)
+		logger.Fatalf("Failed to create output directory: %v", err)
 	}
 
 	adapter := camtparser.NewAdapter()
 	count, err := adapter.BatchConvert(inputDir, outputDir)
 	if err != nil {
-		root.Log.Fatalf("Error during batch conversion: %v", err)
+		logger.Fatalf("Error during batch conversion: %v", err)
 	}
 
 	root.Log.Info(fmt.Sprintf("Batch processing completed. %d files converted.", count))

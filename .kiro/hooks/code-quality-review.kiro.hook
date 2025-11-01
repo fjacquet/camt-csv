@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Code Quality Analyzer",
+  "description": "Monitors source code files for changes and provides intelligent suggestions for code improvements including code smells, design patterns, best practices, readability, maintainability, and performance optimizations",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": []
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the modified Go source code files for potential improvements. Focus on:\n\n1. **Code Smells**: Identify anti-patterns, duplicated code, overly complex functions, god objects, tight coupling, and magic numbers/strings\n2. **Design Patterns**: Suggest appropriate design patterns (Strategy, Adapter, Factory, Template Method) where they would improve the code\n3. **Best Practices**: Check adherence to Go idioms, proper error handling, interface usage, and the project's constitution principles\n4. **Readability**: Evaluate naming conventions, function length, comment quality, and code organization\n5. **Maintainability**: Assess modularity, separation of concerns, testability, and documentation completeness\n6. **Performance**: Identify potential optimizations for memory usage, allocations, resource management, and algorithmic efficiency\n\nFor each issue found:\n- Explain the problem clearly\n- Provide specific, actionable suggestions\n- Include code examples where helpful\n- Prioritize issues by severity (critical, important, minor)\n\nEnsure all suggestions maintain existing functionality and align with the project's Go-based architecture, testing requirements, and coding standards."
+  }
+}

@@ -46,7 +46,8 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 **Implementation**:
 
-- Logger injection via `SetLogger()` methods
+- Logger injection through constructors (replacing global logger pattern)
+- Components depend on `logging.Logger` interface rather than concrete implementations
 - Categorizer injection for transaction classification
 - Store injection for configuration management
 - Test-specific dependency injection in test suites
@@ -54,8 +55,10 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 **Benefits**:
 
 - Improved testability with mock dependencies
+- Elimination of global mutable state
 - Runtime configuration flexibility
 - Cleaner separation between components
+- Easier unit testing without shared state
 
 ### 4. **Fail-Fast with Graceful Degradation**
 
@@ -92,20 +95,24 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ### 6. **Comprehensive Logging & Observability**
 
-**Principle**: All significant operations are logged with appropriate detail levels.
+**Principle**: All significant operations are logged with appropriate detail levels using a framework-agnostic abstraction.
 
 **Implementation**:
 
-- Structured logging using logrus with consistent field names
+- Logging abstraction layer (`logging.Logger` interface) decouples application from specific frameworks
+- Dependency injection of logger instances through constructors
+- Structured logging with consistent field names from `internal/logging/constants.go`
 - Different log levels (Debug, Info, Warn, Error) for different scenarios
-- Context-rich log messages with relevant metadata
-- Centralized logger configuration
+- Context-rich log messages with relevant metadata using `WithField`, `WithFields`, and `WithError`
+- Default implementation uses `LogrusAdapter` wrapping logrus
 
 **Benefits**:
 
 - Easy troubleshooting and debugging
 - Production monitoring capabilities
 - Audit trail for financial data processing
+- Improved testability with mock loggers
+- Flexibility to change logging implementations without modifying business logic
 
 ### 7. **Test-Driven Quality Assurance**
 

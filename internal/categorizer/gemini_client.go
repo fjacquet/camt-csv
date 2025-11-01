@@ -2,6 +2,7 @@ package categorizer
 
 import (
 	"context"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
@@ -11,13 +12,13 @@ import (
 type GeminiClient struct {
 	// Add fields for Gemini API client, e.g., API key, HTTP client
 	// For now, we'll keep it simple as the actual API interaction is out of scope for this task.
-	log *logrus.Logger
+	log logging.Logger
 }
 
 // NewGeminiClient creates a new instance of GeminiClient.
-func NewGeminiClient(logger *logrus.Logger) *GeminiClient {
+func NewGeminiClient(logger logging.Logger) *GeminiClient {
 	if logger == nil {
-		logger = logrus.New()
+		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
 	return &GeminiClient{
 		log: logger,
@@ -28,10 +29,10 @@ func NewGeminiClient(logger *logrus.Logger) *GeminiClient {
 // or an error if categorization fails.
 // This is a placeholder implementation. Actual Gemini API calls would go here.
 func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
-	c.log.WithFields(logrus.Fields{
-		"operation":   "gemini_categorization",
-		"description": transaction.Description,
-	}).Debug("Attempting to categorize transaction using Gemini API (mocked)")
+	c.log.WithFields(
+		logging.Field{Key: "operation", Value: "gemini_categorization"},
+		logging.Field{Key: "description", Value: transaction.Description},
+	).Debug("Attempting to categorize transaction using Gemini API (mocked)")
 
 	// Simulate API call and categorization logic
 	// In a real implementation, this would involve:
@@ -50,11 +51,11 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 		transaction.Category = "Uncategorized (AI)"
 	}
 
-	c.log.WithFields(logrus.Fields{
-		"operation":   "gemini_categorization",
-		"description": transaction.Description,
-		"category":    transaction.Category,
-	}).Debug("Transaction categorized by Gemini API (mocked)")
+	c.log.WithFields(
+		logging.Field{Key: "operation", Value: "gemini_categorization"},
+		logging.Field{Key: "description", Value: transaction.Description},
+		logging.Field{Key: "category", Value: transaction.Category},
+	).Debug("Transaction categorized by Gemini API (mocked)")
 
 	return transaction, nil
 }

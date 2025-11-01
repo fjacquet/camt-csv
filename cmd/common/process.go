@@ -3,6 +3,7 @@ package common
 
 import (
 	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -10,8 +11,13 @@ import (
 )
 
 // ProcessFile processes a single file using the given parser.
-func ProcessFile(parser models.Parser, inputFile, outputFile string, validate bool, log *logrus.Logger) {
-	parser.SetLogger(log)
+func ProcessFile(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
+	// Convert logging interface to logrus for parsers that still expect it
+	if logrusAdapter, ok := log.(*logging.LogrusAdapter); ok {
+		parser.SetLogger(logrusAdapter.GetLogrusLogger())
+	} else {
+		parser.SetLogger(logrus.New()) // Fallback to default
+	}
 
 	if validate {
 		log.Info("Validating format...")
@@ -34,7 +40,7 @@ func ProcessFile(parser models.Parser, inputFile, outputFile string, validate bo
 
 // SaveMappings saves the creditor and debitor mappings.
 func SaveMappings(log *logrus.Logger) {
-	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), log)
+	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), logging.NewLogrusAdapterFromLogger(log))
 	err := categorizerInstance.SaveCreditorsToYAML()
 	if err != nil {
 		log.Warnf("Failed to save creditor mappings: %v", err)

@@ -6,19 +6,17 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
 )
 
 // ReportGenerator provides functionality to generate compliance reports in various formats.
 type ReportGenerator struct {
-	logger *logrus.Logger
+	logger logging.Logger
 }
 
 // NewReportGenerator creates a new instance of ReportGenerator.
 func NewReportGenerator() *ReportGenerator {
 	return &ReportGenerator{
-		logger: logging.GetLogger().WithField("component", "ReportGenerator").Logger,
+		logger: logging.GetLogger().WithField("component", "ReportGenerator"),
 	}
 }
 
@@ -39,7 +37,7 @@ func (g *ReportGenerator) GenerateReport(report *models.ComplianceReport, format
 func (g *ReportGenerator) generateJSONReport(report *models.ComplianceReport) ([]byte, error) {
 	jsonReport, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		g.logger.Errorf("Failed to marshal JSON report: %v", err)
+		g.logger.WithError(err).Error("Failed to marshal JSON report")
 		return nil, fmt.Errorf("failed to marshal JSON report: %w", err)
 	}
 	return jsonReport, nil
@@ -49,7 +47,7 @@ func (g *ReportGenerator) generateJSONReport(report *models.ComplianceReport) ([
 func (g *ReportGenerator) generateXMLReport(report *models.ComplianceReport) ([]byte, error) {
 	xmlReport, err := xml.MarshalIndent(report, "", "  ")
 	if err != nil {
-		g.logger.Errorf("Failed to marshal XML report: %v", err)
+		g.logger.WithError(err).Error("Failed to marshal XML report")
 		return nil, fmt.Errorf("failed to marshal XML report: %w", err)
 	}
 	return []byte(xml.Header + string(xmlReport)), nil

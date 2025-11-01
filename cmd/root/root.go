@@ -13,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/store"
 	"log"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -60,12 +61,12 @@ It also provides transaction categorization based on the party's name.`,
 			categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), Log)
 			err := categorizerInstance.SaveCreditorsToYAML()
 			if err != nil {
-				Log.Warnf("Failed to save creditor mappings: %v", err)
+				Log.WithError(err).Warn("Failed to save creditor mappings")
 			}
 
 			err = categorizerInstance.SaveDebitorsToYAML()
 			if err != nil {
-				Log.Warnf("Failed to save debitor mappings: %v", err)
+				Log.WithError(err).Warn("Failed to save debitor mappings")
 			}
 		},
 	}
@@ -94,10 +95,16 @@ func initializeConfiguration() {
 	}
 
 	// Configure logging based on the loaded configuration
-	Log = config.ConfigureLoggingFromConfig(AppConfig)
+	logrusLogger := config.ConfigureLoggingFromConfig(AppConfig)
+	Log = logging.NewLogrusAdapterFromLogger(logrusLogger)
+}
 
-	// Set the configured logger as the global logger
-	logging.SetLogger(Log)
+// GetLogrusAdapter returns the logger as a LogrusAdapter for backward compatibility
+func GetLogrusAdapter() *logging.LogrusAdapter {
+	if adapter, ok := Log.(*logging.LogrusAdapter); ok {
+		return adapter
+	}
+	return logging.NewLogrusAdapterFromLogger(logrus.New()).(*logging.LogrusAdapter)
 }
 
 // Init initializes the root command and all flags

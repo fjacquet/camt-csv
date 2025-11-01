@@ -18,13 +18,14 @@ var Cmd = &cobra.Command{
 }
 
 func pdfFunc(cmd *cobra.Command, args []string) {
+	logger := root.GetLogrusAdapter()
 	root.Log.Info("PDF convert command called")
-	root.Log.Infof("Input file: %s", root.SharedFlags.Input)
-	root.Log.Infof("Output file: %s", root.SharedFlags.Output)
+	logger.Infof("Input file: %s", root.SharedFlags.Input)
+	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
 	p, err := parser.GetParser(parser.PDF)
 	if err != nil {
-		root.Log.Fatalf("Error getting PDF parser: %v", err)
+		logger.Fatalf("Error getting PDF parser: %v", err)
 	}
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("PDF to CSV conversion completed successfully!")

@@ -58,12 +58,14 @@ func categorizeFunc(cmd *cobra.Command, args []string) {
 		// Categorize the transaction using the instance
 		category, err := categorizerInstance.CategorizeTransaction(transaction)
 		if err != nil {
-			root.Log.Errorf("Error categorizing transaction: %v", err)
+			logger := root.GetLogrusAdapter()
+			logger.Errorf("Error categorizing transaction: %v", err)
 		} else {
-			root.Log.Infof("Category: %s", category.Name)
+			logger := root.GetLogrusAdapter()
+			logger.Infof("Category: %s", category.Name)
 
 			// The mappings are automatically updated through CategorizeTransaction
-			root.Log.Infof("Transaction categorized as: %s", category.Name)
+			logger.Infof("Transaction categorized as: %s", category.Name)
 		}
 	} else {
 		root.Log.Error("Party name is required for categorization")

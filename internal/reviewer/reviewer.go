@@ -7,12 +7,11 @@ import (
 	"fjacquet/camt-csv/internal/scanner"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 )
 
 // Reviewer orchestrates the codebase review process.
 type Reviewer struct {
-	logger             *logrus.Logger
+	logger             logging.Logger
 	codebaseScanner    *scanner.CodebaseScanner
 	constitutionLoader *parser.ConstitutionLoader
 	principleEvaluator PrincipleEvaluator
@@ -22,7 +21,7 @@ type Reviewer struct {
 // It takes a CodebaseScanner, ConstitutionLoader, and PrincipleEvaluator as dependencies.
 func NewReviewer(codebaseScanner *scanner.CodebaseScanner, constitutionLoader *parser.ConstitutionLoader, principleEvaluator PrincipleEvaluator) *Reviewer {
 	return &Reviewer{
-		logger:             logging.GetLogger().WithField("component", "Reviewer").Logger,
+		logger:             logging.GetLogger().WithField("component", "Reviewer"),
 		codebaseScanner:    codebaseScanner,
 		constitutionLoader: constitutionLoader,
 		principleEvaluator: principleEvaluator,
@@ -88,7 +87,10 @@ func (r *Reviewer) PerformReview(paths, constitutionFilePaths, principleIDs []st
 			}
 
 			if evalErr != nil {
-				r.logger.Errorf("Error evaluating principle %s for section %s: %v", principle.ID, section.Path, evalErr)
+				r.logger.WithError(evalErr).WithFields(
+					logging.Field{Key: "principle", Value: principle.ID},
+					logging.Field{Key: "section", Value: section.Path},
+				).Error("Error evaluating principle for section")
 				// Add a finding for the evaluation error itself
 				report.Findings = append(report.Findings, models.Finding{
 					Principle: principle,

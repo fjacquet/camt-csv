@@ -6,19 +6,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
 // ConstitutionLoader provides functionality to load and parse constitution definition files.
 type ConstitutionLoader struct {
-	logger *logrus.Logger
+	logger logging.Logger
 }
 
 // NewConstitutionLoader creates a new instance of ConstitutionLoader.
 func NewConstitutionLoader() *ConstitutionLoader {
 	return &ConstitutionLoader{
-		logger: logging.GetLogger().WithField("component", "ConstitutionLoader").Logger,
+		logger: logging.GetLogger().WithField("component", "ConstitutionLoader"),
 	}
 }
 
@@ -29,7 +28,7 @@ func (l *ConstitutionLoader) LoadConstitutionFiles(filePaths []string) ([]models
 	var allPrinciples []models.ConstitutionPrinciple
 
 	for _, filePath := range filePaths {
-		l.logger.Debugf("Loading constitution file: %s", filePath)
+		l.logger.WithField("file", filePath).Debug("Loading constitution file")
 		principles, err := l.loadSingleConstitutionFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load constitution file %s: %w", filePath, err)

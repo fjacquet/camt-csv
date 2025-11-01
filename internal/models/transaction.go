@@ -125,12 +125,12 @@ func (t *Transaction) SetFeesFromDecimal(fees decimal.Decimal) {
 
 // IsDebit returns true if the transaction is a debit (outgoing money)
 func (t *Transaction) IsDebit() bool {
-	return t.DebitFlag || t.CreditDebit == "DBIT" || t.Amount.IsNegative()
+	return t.DebitFlag || t.CreditDebit == TransactionTypeDebit || t.Amount.IsNegative()
 }
 
 // IsCredit returns true if the transaction is a credit (incoming money)
 func (t *Transaction) IsCredit() bool {
-	return t.CreditDebit == "CRDT" || (t.CreditDebit != "DBIT" && t.CreditDebit != "UNKNOWN" && !t.DebitFlag && !t.Amount.IsNegative())
+	return t.CreditDebit == TransactionTypeCredit || (t.CreditDebit != TransactionTypeDebit && t.CreditDebit != "UNKNOWN" && !t.DebitFlag && !t.Amount.IsNegative())
 }
 
 // UpdateNameFromParties sets the Name field based on the transaction type

@@ -7,19 +7,17 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/sirupsen/logrus"
 )
 
 // CodebaseScanner provides functionality to scan files and directories.
 type CodebaseScanner struct {
-	logger *logrus.Logger
+	logger logging.Logger
 }
 
 // NewCodebaseScanner creates a new instance of CodebaseScanner.
 func NewCodebaseScanner() *CodebaseScanner {
 	return &CodebaseScanner{
-		logger: logging.GetLogger().WithField("component", "CodebaseScanner").Logger,
+		logger: logging.GetLogger().WithField("component", "CodebaseScanner"),
 	}
 }
 
@@ -32,13 +30,13 @@ func (s *CodebaseScanner) ScanPaths(paths []string) ([]models.CodebaseSection, e
 	for _, p := range paths {
 		absPath, err := filepath.Abs(p)
 		if err != nil {
-			s.logger.Errorf("Failed to get absolute path for %s: %v", p, err)
+			s.logger.WithError(err).WithField("path", p).Error("Failed to get absolute path")
 			return nil, fmt.Errorf("failed to get absolute path for %s: %w", p, err)
 		}
 
 		info, err := os.Stat(absPath)
 		if err != nil {
-			s.logger.Errorf("Failed to stat path %s: %v", absPath, err)
+			s.logger.WithError(err).WithField("path", absPath).Error("Failed to stat path")
 			return nil, fmt.Errorf("failed to stat path %s: %w", absPath, err)
 		}
 
@@ -67,7 +65,7 @@ func (s *CodebaseScanner) scanDirectory(dirPath string) ([]models.CodebaseSectio
 
 	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			s.logger.Warnf("Error walking path %s: %v", path, err)
+			s.logger.WithError(err).WithField("path", path).Warn("Error walking path")
 			return nil // Continue walking even if there's an error with one path
 		}
 
@@ -93,7 +91,7 @@ func (s *CodebaseScanner) scanDirectory(dirPath string) ([]models.CodebaseSectio
 func (s *CodebaseScanner) scanFile(filePath string) (models.CodebaseSection, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		s.logger.Errorf("Failed to read file %s: %v", filePath, err)
+		s.logger.WithError(err).WithField("file", filePath).Error("Failed to read file")
 		return models.CodebaseSection{}, fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 

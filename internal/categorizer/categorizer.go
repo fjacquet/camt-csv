@@ -42,7 +42,7 @@ type Categorizer struct {
 	isDirtyCreditors bool // Track if creditorMappings has been modified and needs to be saved
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
 	store            *store.CategoryStore
-	logger           *logrus.Logger
+	logger           logging.Logger
 	aiClient         AIClient // New field for AIClient interface
 }
 
@@ -62,19 +62,19 @@ type Config interface {
 }
 
 // SetLogger allows setting a custom logger
-func SetLogger(logger *logrus.Logger) {
+func SetLogger(logger logging.Logger) {
 	if logger != nil {
 		log = logger
 
 		// Update default categorizer if it exists
 		if defaultCategorizer != nil {
-			defaultCategorizer.logger = logger
+			defaultCategorizer.logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 		}
 	}
 }
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, and logger.
-func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger *logrus.Logger) *Categorizer {
+func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger logging.Logger) *Categorizer {
 	if logger == nil {
 		logger = logging.GetLogger()
 	}
@@ -94,7 +94,7 @@ func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger *logru
 	// Load categories from YAML
 	categories, err := c.store.LoadCategories()
 	if err != nil {
-		c.logger.Warnf("Failed to load categories: %v", err)
+		c.logger.WithError(err).Warn("Failed to load categories")
 	} else {
 		c.categories = categories
 	}
@@ -102,7 +102,7 @@ func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger *logru
 	// Load creditor mappings
 	creditorMappings, err := c.store.LoadCreditorMappings()
 	if err != nil {
-		c.logger.Warnf("Failed to load creditor mappings: %v", err)
+		c.logger.WithError(err).Warn("Failed to load creditor mappings")
 	} else {
 		// Normalize keys to lowercase for case-insensitive lookup
 		for key, value := range creditorMappings {
@@ -113,7 +113,7 @@ func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger *logru
 	// Load debitor mappings
 	debitorMappings, err := c.store.LoadDebitorMappings()
 	if err != nil {
-		c.logger.Warnf("Failed to load debitor mappings: %v", err)
+		c.logger.WithError(err).Warn("Failed to load debitor mappings")
 	} else {
 		// Normalize keys to lowercase for case-insensitive lookup
 		for key, value := range debitorMappings {
@@ -173,27 +173,31 @@ func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 
 	// If we successfully found a category via AI, let's immediately save it to the database
 	// so we don't need to recategorize similar transactions in the future
-	if err == nil && category.Name != "" && category.Name != "Uncategorized" {
+	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
 		// Auto-learn this categorization by saving it to the appropriate database
 		if transaction.IsDebtor {
-			defaultCategorizer.logger.Debugf("Auto-learning debitor mapping: '%s' → '%s'",
-				transaction.PartyName, category.Name)
+			defaultCategorizer.logger.WithFields(
+				logging.Field{Key: "party", Value: transaction.PartyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning debitor mapping")
 			defaultCategorizer.updateDebitorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := defaultCategorizer.SaveDebitorsToYAML(); err != nil {
-				defaultCategorizer.logger.Warnf("Failed to save debitor mapping: %v", err)
+				defaultCategorizer.logger.WithError(err).Warn("Failed to save debitor mapping")
 			} else {
-				defaultCategorizer.logger.Debugf("Successfully saved new debitor mapping to disk")
+				defaultCategorizer.logger.Debug("Successfully saved new debitor mapping to disk")
 			}
 		} else {
-			defaultCategorizer.logger.Debugf("Auto-learning creditor mapping: '%s' → '%s'",
-				transaction.PartyName, category.Name)
+			defaultCategorizer.logger.WithFields(
+				logging.Field{Key: "party", Value: transaction.PartyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning creditor mapping")
 			defaultCategorizer.updateCreditorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := defaultCategorizer.SaveCreditorsToYAML(); err != nil {
-				defaultCategorizer.logger.Warnf("Failed to save creditor mapping: %v", err)
+				defaultCategorizer.logger.WithError(err).Warn("Failed to save creditor mapping")
 			} else {
-				defaultCategorizer.logger.Debugf("Successfully saved new creditor mapping to disk")
+				defaultCategorizer.logger.Debug("Successfully saved new creditor mapping to disk")
 			}
 		}
 	}
@@ -211,7 +215,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 	// If party name is empty, return uncategorized immediately
 	if strings.TrimSpace(transaction.PartyName) == "" {
 		return models.Category{
-			Name:        "Uncategorized",
+			Name:        models.CategoryUncategorized,
 			Description: "No party name provided",
 		}, nil
 	}
@@ -295,7 +299,7 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	// If no AI client is available, return uncategorized
 	if c.aiClient == nil {
 		return models.Category{
-			Name:        "Uncategorized",
+			Name:        models.CategoryUncategorized,
 			Description: "AI categorization not available",
 		}, nil
 	}
@@ -313,9 +317,9 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	ctx := context.Background()
 	categorizedTransaction, err := c.aiClient.Categorize(ctx, modelTransaction)
 	if err != nil {
-		c.logger.Warnf("AI categorization error for transaction %s: %v", transaction.PartyName, err)
+		c.logger.WithError(err).WithField("party", transaction.PartyName).Warn("AI categorization error for transaction")
 		return models.Category{
-			Name:        "Uncategorized",
+			Name:        models.CategoryUncategorized,
 			Description: "AI categorization failed",
 		}, nil
 	}
@@ -402,27 +406,27 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 		"JACQUET":   "Virements", // Common family transfers
 
 		// Supermarkets
-		"COOP":       "Alimentation",
-		"MIGROS":     "Alimentation",
-		"ALDI":       "Alimentation",
-		"LIDL":       "Alimentation",
-		"DENNER":     "Alimentation",
-		"MANOR":      "Shopping",
-		"MIGROLINO":  "Alimentation",
-		"KIOSK":      "Alimentation",
-		"MINERALOEL": "Alimentation",
+		"COOP":       models.CategoryGroceries,
+		"MIGROS":     models.CategoryGroceries,
+		"ALDI":       models.CategoryGroceries,
+		"LIDL":       models.CategoryGroceries,
+		"DENNER":     models.CategoryGroceries,
+		"MANOR":      models.CategoryShopping,
+		"MIGROLINO":  models.CategoryGroceries,
+		"KIOSK":      models.CategoryGroceries,
+		"MINERALOEL": models.CategoryGroceries,
 
 		// Restaurants & Food
-		"PIZZERIA":    "Restaurants",
-		"CAFE":        "Restaurants",
-		"RESTAURANT":  "Restaurants",
-		"SUSHI":       "Restaurants",
-		"KEBAB":       "Restaurants",
-		"BOUCHERIE":   "Alimentation",
-		"BOULANGERIE": "Alimentation",
-		"RAMEN":       "Restaurants",
-		"KAMUY":       "Restaurants",
-		"MINESTRONE":  "Restaurants",
+		"PIZZERIA":    models.CategoryRestaurants,
+		"CAFE":        models.CategoryRestaurants,
+		"RESTAURANT":  models.CategoryRestaurants,
+		"SUSHI":       models.CategoryRestaurants,
+		"KEBAB":       models.CategoryRestaurants,
+		"BOUCHERIE":   models.CategoryGroceries,
+		"BOULANGERIE": models.CategoryGroceries,
+		"RAMEN":       models.CategoryRestaurants,
+		"KAMUY":       models.CategoryRestaurants,
+		"MINESTRONE":  models.CategoryRestaurants,
 
 		// Leisure
 		"PISCINE":  "Loisirs",
@@ -433,19 +437,19 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 		"ESCALADE": "Sport",
 
 		// Shops
-		"OCHSNER":       "Shopping",
-		"SPORT":         "Shopping",
-		"MAMMUT":        "Shopping",
-		"MULLER":        "Shopping",
-		"BAZAR":         "Shopping",
-		"INTERDISCOUNT": "Shopping",
+		"OCHSNER":       models.CategoryShopping,
+		"SPORT":         models.CategoryShopping,
+		"MAMMUT":        models.CategoryShopping,
+		"MULLER":        models.CategoryShopping,
+		"BAZAR":         models.CategoryShopping,
+		"INTERDISCOUNT": models.CategoryShopping,
 		"IKEA":          "Mobilier",
-		"PAYOT":         "Shopping",
-		"CALIDA":        "Shopping",
-		"DIGITAL":       "Shopping",
-		"RHB":           "Shopping",
-		"WEBSHOP":       "Shopping",
-		"POST":          "Shopping",
+		"PAYOT":         models.CategoryShopping,
+		"CALIDA":        models.CategoryShopping,
+		"DIGITAL":       models.CategoryShopping,
+		"RHB":           models.CategoryShopping,
+		"WEBSHOP":       models.CategoryShopping,
+		"POST":          models.CategoryShopping,
 
 		// Services
 		"PRESSING":     "Services",
@@ -453,19 +457,19 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 		"5ASEC":        "Services",
 
 		// Cash withdrawals
-		"RETRAIT":    "Retraits",
-		"ATM":        "Retraits",
-		"WITHDRAWAL": "Retraits",
+		"RETRAIT":    models.CategoryWithdrawals,
+		"ATM":        models.CategoryWithdrawals,
+		"WITHDRAWAL": models.CategoryWithdrawals,
 
 		// Utilities and telecom
 		"ROMANDE ENERGIE": "Utilités",
 		"WINGO":           "Services",
 
 		// Transportation
-		"SBB":        "Transports Publics",
-		"CFF":        "Transports Publics",
+		"SBB":        models.CategoryTransport,
+		"CFF":        models.CategoryTransport,
 		"MOBILITY":   "Voiture",
-		"PAYBYPHONE": "Transports Publics",
+		"PAYBYPHONE": models.CategoryTransport,
 
 		// Insurance
 		"ASSURANCE": "Assurances",
@@ -488,16 +492,16 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 
 	// Match bank transaction codes to categories
 	txCodeCategories := map[string]string{
-		"CWDL": "Retraits",  // Cash withdrawals
-		"POSD": "Shopping",  // Point of sale debit
-		"CCRD": "Shopping",  // Credit card payment
-		"ICDT": "Virements", // Internal credit transfer
-		"DMCT": "Virements", // Direct debit
-		"RDDT": "Virements", // Direct debit
-		"AUTT": "Virements", // Automatic transfer
-		"RCDT": "Virements", // Received credit transfer
-		"PMNT": "Virements", // Payment
-		"RMDR": "Services",  // Reminders
+		models.BankCodeCashWithdrawal: models.CategoryWithdrawals, // Cash withdrawals
+		models.BankCodePOS:            models.CategoryShopping,    // Point of sale debit
+		models.BankCodeCreditCard:     models.CategoryShopping,    // Credit card payment
+		models.BankCodeInternalCredit: models.CategoryTransfers,   // Internal credit transfer
+		models.BankCodeDirectDebit:    models.CategoryTransfers,   // Direct debit
+		"RDDT":                       models.CategoryTransfers,   // Direct debit
+		"AUTT":                       models.CategoryTransfers,   // Automatic transfer
+		"RCDT":                       models.CategoryTransfers,   // Received credit transfer
+		"PMNT":                       models.CategoryTransfers,   // Payment
+		"RMDR":                       "Services",                 // Reminders
 	}
 
 	// First try to match merchant name
@@ -531,8 +535,8 @@ func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (mode
 				strings.Contains(description, "RETRAIT") ||
 				strings.Contains(description, "WITHDRAWAL") {
 				return models.Category{
-					Name:        "Shopping",
-					Description: categoryDescriptionFromName("Shopping"),
+					Name:        models.CategoryShopping,
+					Description: categoryDescriptionFromName(models.CategoryShopping),
 				}, true
 			}
 		}

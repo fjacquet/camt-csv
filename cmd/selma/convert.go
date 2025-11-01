@@ -18,13 +18,14 @@ var Cmd = &cobra.Command{
 }
 
 func selmaFunc(cmd *cobra.Command, args []string) {
+	logger := root.GetLogrusAdapter()
 	root.Log.Info("Selma convert command called")
-	root.Log.Infof("Input file: %s", root.SharedFlags.Input)
-	root.Log.Infof("Output file: %s", root.SharedFlags.Output)
+	logger.Infof("Input file: %s", root.SharedFlags.Input)
+	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
 	p, err := parser.GetParser(parser.Selma)
 	if err != nil {
-		root.Log.Fatalf("Error getting Selma parser: %v", err)
+		logger.Fatalf("Error getting Selma parser: %v", err)
 	}
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Selma to CSV conversion completed successfully!")

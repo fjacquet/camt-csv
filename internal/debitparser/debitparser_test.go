@@ -96,7 +96,7 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	assert.Equal(t, "RATP", transactions[0].Description)
 	assert.Equal(t, models.ParseAmount("4.21"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
-	assert.Equal(t, "DBIT", transactions[0].CreditDebit)
+	assert.Equal(t, models.TransactionTypeDebit, transactions[0].CreditDebit)
 }
 
 func setupTestCategorizer(t *testing.T) {
@@ -131,8 +131,8 @@ func TestWriteToCSV(t *testing.T) {
 		currency    string
 		creditDebit string
 	}{
-		{"RATP", "15.04.2025", "4.21", "CHF", "DBIT"},
-		{"Parking-Relais Lausa", "02.04.2025", "4.00", "CHF", "DBIT"},
+		{"RATP", "15.04.2025", "4.21", "CHF", models.TransactionTypeDebit},
+		{"Parking-Relais Lausa", "02.04.2025", "4.00", "CHF", models.TransactionTypeDebit},
 	}
 
 	// Convert to models.Transaction

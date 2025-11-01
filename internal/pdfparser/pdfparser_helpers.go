@@ -140,9 +140,9 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			// Extract amount and currency
 			_, amount, isCredit := extractAmount(trimmedLine)
 			currentTx.Amount = amount
-			currentTx.CreditDebit = "DBIT"
+			currentTx.CreditDebit = models.TransactionTypeDebit
 			if isCredit {
-				currentTx.CreditDebit = "CRDT"
+				currentTx.CreditDebit = models.TransactionTypeCredit
 			}
 
 			// Add to description
@@ -315,9 +315,9 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Set credit/debit indicator
 		if isCredit {
-			tx.CreditDebit = "CRDT"
+			tx.CreditDebit = models.TransactionTypeCredit
 		} else {
-			tx.CreditDebit = "DBIT"
+			tx.CreditDebit = models.TransactionTypeDebit
 		}
 
 		// Attach category if we have one
@@ -365,7 +365,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		}
 
 		// Try to categorize the transaction
-		isDebtor := tx.CreditDebit == "DBIT"
+		isDebtor := tx.CreditDebit == models.TransactionTypeDebit
 
 		// Create a categorizer.Transaction
 		catTx := categorizer.Transaction{
@@ -428,7 +428,7 @@ func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant
 		// Try to categorize the transaction
 		if tx.Category == "" {
 			// Determine if the transaction is a debit or credit
-			isDebtor := tx.CreditDebit == "DBIT"
+			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
 
 			// Create a categorizer.Transaction from our transaction data
 			catTx := categorizer.Transaction{
@@ -685,17 +685,17 @@ func determineCreditDebit(description string) string {
 	if strings.Contains(lowerDesc, "withdrawal") ||
 		strings.Contains(lowerDesc, "payment") ||
 		strings.Contains(lowerDesc, "purchase") {
-		return "DBIT"
+		return models.TransactionTypeDebit
 	}
 
 	if strings.Contains(lowerDesc, "deposit") ||
 		strings.Contains(lowerDesc, "credit") ||
 		strings.Contains(lowerDesc, "refund") {
-		return "CRDT"
+		return models.TransactionTypeCredit
 	}
 
 	// Default to debit if we can't determine
-	return "DBIT"
+	return models.TransactionTypeDebit
 }
 
 // formatDate formats a date string to a standard format

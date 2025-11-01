@@ -144,7 +144,7 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, "Invoice 123", transactions[0].RemittanceInfo)
 	assert.Equal(t, models.ParseAmount("120.00"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
-	assert.Equal(t, "CRDT", transactions[0].CreditDebit)
+	assert.Equal(t, models.TransactionTypeCredit, transactions[0].CreditDebit)
 	assert.Equal(t, "BOOK", transactions[0].Status)
 	assert.Equal(t, "John Doe", transactions[0].PartyName)
 }

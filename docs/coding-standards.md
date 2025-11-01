@@ -85,11 +85,14 @@
 
 ## 5. Logging
 
-* **Structured Logging:** Recommend or mandate structured logging (e.g., using `zap`, `logrus`, or `slog` from Go 1.21+).
-* **Levels:** Use appropriate logging levels (DEBUG, INFO, WARN, ERROR, FATAL).
-* **Output Format:** Specify a preferred output format (e.g., JSON for machine readability, plain text for human readability depending on context).
-* **Contextual Logging:** Include relevant context in log messages (e.g., `requestID`, `userID`).
-* **Standardized Fields**: Use a centralized `constants.go` file to define standardized field names for structured logging. This ensures consistency and makes logs easier to parse and analyze.
+* **Logging Abstraction:** Use the `logging.Logger` interface from `internal/logging` to decouple application code from specific logging frameworks. This enables easier testing and flexibility in choosing logging implementations.
+* **Dependency Injection:** Components should receive logger instances through constructors rather than using global variables. This improves testability and eliminates global state.
+* **Implementation:** The default implementation uses `LogrusAdapter` which wraps `logrus.Logger`. Create loggers using `logging.NewLogrusAdapter(level, format)`.
+* **Levels:** Use appropriate logging levels (DEBUG, INFO, WARN, ERROR).
+* **Output Format:** Support both JSON (for machine readability) and text (for human readability) formats.
+* **Contextual Logging:** Use the `WithField`, `WithFields`, and `WithError` methods to add context to log messages.
+* **Standardized Fields:** Use constants from `internal/logging/constants.go` for field names (e.g., `FieldFile`, `FieldCategory`, `FieldError`). This ensures consistency and makes logs easier to parse and analyze.
+* **Testing:** Use mock logger implementations in tests rather than depending on concrete logging frameworks.
 
 ## 6. Dependency Management
 

@@ -242,7 +242,7 @@ func (e *Entry) GetCreditDebit() string {
 
 // IsCredit returns true if the entry is a credit transaction
 func (e *Entry) IsCredit() bool {
-	return e.CdtDbtInd == "CRDT"
+	return e.CdtDbtInd == TransactionTypeCredit
 }
 
 // GetBankTxCode returns the bank transaction code
@@ -273,7 +273,7 @@ func (e *Entry) GetRemittanceInfo() string {
 
 // GetPayer returns the payer name
 func (e *Entry) GetPayer() string {
-	if e.CdtDbtInd == "CRDT" {
+	if e.CdtDbtInd == TransactionTypeCredit {
 		// For credit transactions (incoming money), debtor is the payer
 		txDetails := e.GetFirstTxDetails()
 		if txDetails != nil {
@@ -297,7 +297,7 @@ func (e *Entry) GetPayer() string {
 
 // GetPayee returns the payee name
 func (e *Entry) GetPayee() string {
-	if e.CdtDbtInd == "DBIT" {
+	if e.CdtDbtInd == TransactionTypeDebit {
 		// For debit transactions (outgoing money), creditor is the payee
 		txDetails := e.GetFirstTxDetails()
 		if txDetails != nil {
@@ -366,7 +366,7 @@ func (e *Entry) GetIBAN() string {
 		return ""
 	}
 
-	if e.CdtDbtInd == "DBIT" {
+	if e.CdtDbtInd == TransactionTypeDebit {
 		// For debit transactions, get creditor IBAN
 		if txDetails.RltdPties.CdtrAcct.ID.IBAN != "" {
 			return txDetails.RltdPties.CdtrAcct.ID.IBAN

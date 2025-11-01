@@ -11,7 +11,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/gocarina/gocsv"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.GetLogger()
@@ -34,7 +33,7 @@ func SetDelimiter(delim rune) {
 }
 
 // SetLogger allows setting a configured logger
-func SetLogger(logger *logrus.Logger) {
+func SetLogger(logger logging.Logger) {
 	if logger == nil {
 		return // Don't change the logger if nil is passed
 	}
@@ -45,7 +44,7 @@ func SetLogger(logger *logrus.Logger) {
 // This is a generic function that can be used by any parser
 // TCSVRow is the struct type that maps to the CSV columns
 func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
-	log.WithField(logging.FieldFile, filePath).Info("Reading CSV file")
+	log.WithField("file", filePath).Info("Reading CSV file")
 
 	// Open the file
 	file, err := os.Open(filePath)
@@ -84,14 +83,14 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
-	log.WithFields(logrus.Fields{
-		logging.FieldFile:  csvFile,
-		logging.FieldCount: len(transactions),
-	}).Info("Writing transactions to CSV file")
+	log.WithFields(
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+	).Info("Writing transactions to CSV file")
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
 		log.WithError(err).Error("Failed to create directory")
 		return fmt.Errorf("error creating directory: %w", err)
 	}
@@ -124,7 +123,7 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 		transactions[i].UpdateDebitCreditAmounts()
 
 		// Set DebitFlag based on transactions[i].CreditDebit or amount sign
-		if transactions[i].CreditDebit == "DBIT" || transactions[i].Amount.IsNegative() {
+		if transactions[i].CreditDebit == models.TransactionTypeDebit || transactions[i].Amount.IsNegative() {
 			transactions[i].DebitFlag = true
 		} else {
 			transactions[i].DebitFlag = false
@@ -153,10 +152,10 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 		return fmt.Errorf("error writing CSV data: %w", err)
 	}
 
-	log.WithFields(logrus.Fields{
-		logging.FieldFile:  csvFile,
-		logging.FieldCount: len(transactions),
-	}).Info("Successfully wrote transactions to CSV file")
+	log.WithFields(
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+	).Info("Successfully wrote transactions to CSV file")
 
 	return nil
 }
@@ -167,11 +166,11 @@ func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) 
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
-	log.WithFields(logrus.Fields{
-		logging.FieldCount:     len(transactions),
-		logging.FieldFile:      csvFile,
-		logging.FieldDelimiter: string(Delimiter),
-	}).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
+	log.WithFields(
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "delimiter", Value: string(Delimiter)},
+	).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
 
 	// Use the primary function for writing transactions to ensure consistency
 	return WriteTransactionsToCSV(transactions, csvFile)
@@ -185,10 +184,10 @@ func GeneralizedConvertToCSV(
 	parseFunc func(string) ([]models.Transaction, error),
 	validateFunc func(string) (bool, error),
 ) error {
-	log.WithFields(logrus.Fields{
-		logging.FieldInputFile:  inputFile,
-		logging.FieldOutputFile: outputFile,
-	}).Info("Converting file to CSV")
+	log.WithFields(
+		logging.Field{Key: "input_file", Value: inputFile},
+		logging.Field{Key: "output_file", Value: outputFile},
+	).Info("Converting file to CSV")
 
 	// Check if input file exists
 	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
@@ -217,11 +216,11 @@ func GeneralizedConvertToCSV(
 		return fmt.Errorf("error writing transactions to CSV: %w", err)
 	}
 
-	log.WithFields(logrus.Fields{
-		logging.FieldInputFile:  inputFile,
-		logging.FieldOutputFile: outputFile,
-		logging.FieldCount:      len(transactions),
-	}).Info("Successfully converted file to CSV")
+	log.WithFields(
+		logging.Field{Key: "input_file", Value: inputFile},
+		logging.Field{Key: "output_file", Value: outputFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+	).Info("Successfully converted file to CSV")
 
 	return nil
 }

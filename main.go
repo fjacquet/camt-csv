@@ -15,8 +15,6 @@ import (
 	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
-	"fjacquet/camt-csv/internal/logging"
-
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
@@ -26,10 +24,9 @@ func init() {
 	loadEnvSilently()
 
 	// 2. Configure global log level directly - this affects ALL new loggers
-	logLevel := configureLogLevelDirectly()
+	configureLogLevelDirectly()
 
-	// 3. Force this level on ALL existing and future loggers
-	logging.SetAllLogLevels(logLevel)
+	// 3. Logging level is now handled by the configuration system
 
 	// 4. Now that logging is properly configured, initialize root command
 	root.Init()

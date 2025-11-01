@@ -53,7 +53,7 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, "Cash top-up to investment account", txn1.Description)
 	assert.Equal(t, "EUR", txn1.Currency)
 	assert.Equal(t, "EUR", txn1.OriginalCurrency)
-	assert.Equal(t, "CRDT", txn1.CreditDebit)
+	assert.Equal(t, models.TransactionTypeCredit, txn1.CreditDebit)
 	assert.False(t, txn1.DebitFlag)
 
 	// Check second transaction (BUY)
@@ -128,7 +128,7 @@ func TestWriteToCSV(t *testing.T) {
 			Description:    "Test transaction",
 			Amount:         models.ParseAmount("100"),
 			Currency:       "EUR",
-			CreditDebit:    "CRDT",
+			CreditDebit:    models.TransactionTypeCredit,
 			DebitFlag:      false,
 			PartyName:      "Test Party",
 			Name:           "Test Party",

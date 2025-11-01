@@ -5,8 +5,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 	"fmt"
 	"regexp"
-
-	"github.com/sirupsen/logrus"
 )
 
 // PrincipleEvaluator defines the interface for evaluating constitution principles.
@@ -18,13 +16,13 @@ type PrincipleEvaluator interface {
 
 // AutomatedPrincipleEvaluator implements PrincipleEvaluator for automated checks.
 type AutomatedPrincipleEvaluator struct {
-	logger *logrus.Logger
+	logger logging.Logger
 }
 
 // NewAutomatedPrincipleEvaluator creates a new instance of AutomatedPrincipleEvaluator.
 func NewAutomatedPrincipleEvaluator() *AutomatedPrincipleEvaluator {
 	return &AutomatedPrincipleEvaluator{
-		logger: logging.GetLogger().WithField("component", "AutomatedPrincipleEvaluator").Logger,
+		logger: logging.GetLogger().WithField("component", "AutomatedPrincipleEvaluator"),
 	}
 }
 
@@ -46,7 +44,7 @@ func (e *AutomatedPrincipleEvaluator) Evaluate(section models.CodebaseSection, p
 
 	regex, err := regexp.Compile(principle.Pattern)
 	if err != nil {
-		e.logger.Errorf("Invalid regex pattern for principle %s: %v", principle.ID, err)
+		e.logger.WithError(err).WithField("principle", principle.ID).Error("Invalid regex pattern for principle")
 		return models.Finding{}, fmt.Errorf("invalid regex pattern for principle %s: %w", principle.ID, err)
 	}
 

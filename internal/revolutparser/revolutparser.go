@@ -78,7 +78,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 		}
 
 		// Only include completed transactions
-		if revolutRows[i].State != "COMPLETED" {
+		if revolutRows[i].State != models.StatusCompleted {
 			continue
 		}
 
@@ -106,7 +106,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 			PartyName:   tx.Description,
 			Description: tx.Description,
 			Amount:      tx.Amount.StringFixed(2),
-			IsDebtor:    tx.CreditDebit == "DBIT",
+			IsDebtor:    tx.CreditDebit == models.TransactionTypeDebit,
 			Date:        tx.Date,
 		})
 		if err != nil {
@@ -131,7 +131,7 @@ func postProcessTransactions(transactions []models.Transaction) []models.Transac
 	for i := range transactions {
 		// Handle descriptions for transfers to CHF Vacances
 		if transactions[i].Type == "TRANSFER" && transactions[i].Description == "To CHF Vacances" {
-			if transactions[i].CreditDebit == "DBIT" {
+			if transactions[i].CreditDebit == models.TransactionTypeDebit {
 				transactions[i].Description = "Transfert to CHF Vacances"
 				transactions[i].Name = "Transfert to CHF Vacances"
 				transactions[i].PartyName = "Transfert to CHF Vacances"
@@ -156,10 +156,10 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 	// we only need to determine credit/debit status here
 	if strings.HasPrefix(row.Amount, "-") {
 		isDebit = true
-		creditDebit = "DBIT"
+		creditDebit = models.TransactionTypeDebit
 	} else {
 		isDebit = false
-		creditDebit = "CRDT"
+		creditDebit = models.TransactionTypeCredit
 	}
 
 	// Format dates to DD.MM.YYYY format for consistency
@@ -185,7 +185,7 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 	// Determine debit and credit amounts
 	debitAmount := decimal.Zero
 	creditAmount := decimal.Zero
-	if creditDebit == "DBIT" {
+	if creditDebit == models.TransactionTypeDebit {
 		debitAmount = amountDecimal
 	} else {
 		creditAmount = amountDecimal

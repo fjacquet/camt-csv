@@ -60,7 +60,10 @@ identifying areas of non-compliance and proposing corrective actions.`, // Note:
 			}
 			// For now, we'll just log the diff and proceed with all paths.
 			// In a real implementation, this diff would be parsed to get changed files.
-			logger.Debugf("Git diff against %s:\n%s", gitRef, diff)
+			logger.WithFields(
+				logging.Field{Key: "git_ref", Value: gitRef},
+				logging.Field{Key: "diff", Value: diff},
+			).Debug("Git diff against reference")
 			// TODO: Parse diff to get changed files and update pathsToScan
 		}
 
@@ -82,7 +85,7 @@ identifying areas of non-compliance and proposing corrective actions.`, // Note:
 			if err != nil {
 				return fmt.Errorf("failed to write report to file %s: %w", outputFile, err)
 			}
-			logger.Infof("Compliance report written to %s", outputFile)
+			logger.WithField("file", outputFile).Info("Compliance report written to file")
 		} else {
 			_, err = cmd.OutOrStdout().Write(reportBytes)
 			if err != nil {

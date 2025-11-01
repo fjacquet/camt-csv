@@ -47,15 +47,15 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	assert.Equal(t, "Transfert to CHF Vacances", transactions[0].Description) // Updated to match actual code behavior
 	assert.Equal(t, models.ParseAmount("2.50"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
-	assert.Equal(t, "DBIT", transactions[0].CreditDebit)
-	assert.Equal(t, "COMPLETED", transactions[0].Status)
+	assert.Equal(t, models.TransactionTypeDebit, transactions[0].CreditDebit)
+	assert.Equal(t, models.StatusCompleted, transactions[0].Status)
 
 	// Verify second transaction
 	assert.Equal(t, "03.01.2025", transactions[1].Date)
 	assert.Equal(t, "02.01.2025", transactions[1].ValueDate)
 	assert.Equal(t, "Boreal Coffee Shop", transactions[1].Description)
 	assert.Equal(t, models.ParseAmount("57.50"), transactions[1].Amount)
-	assert.Equal(t, "DBIT", transactions[1].CreditDebit)
+	assert.Equal(t, models.TransactionTypeDebit, transactions[1].CreditDebit)
 }
 
 func TestWriteToCSV(t *testing.T) {
@@ -74,8 +74,8 @@ func TestWriteToCSV(t *testing.T) {
 			Description: "To CHF Vacances",
 			Amount:      models.ParseAmount("2.50"),
 			Currency:    "CHF",
-			CreditDebit: "DBIT",
-			Status:      "COMPLETED",
+			CreditDebit: models.TransactionTypeDebit,
+			Status:      models.StatusCompleted,
 		},
 		{
 			Date:        "02.01.2025",
@@ -83,8 +83,8 @@ func TestWriteToCSV(t *testing.T) {
 			Description: "Boreal Coffee Shop",
 			Amount:      models.ParseAmount("57.50"),
 			Currency:    "CHF",
-			CreditDebit: "DBIT",
-			Status:      "COMPLETED",
+			CreditDebit: models.TransactionTypeDebit,
+			Status:      models.StatusCompleted,
 		},
 	}
 
