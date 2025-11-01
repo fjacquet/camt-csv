@@ -23,7 +23,9 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 - **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
 - **Batch Processing**: Process multiple files at once
 - **Investment Support**: Dedicated parser for Revolut investment transactions
-- **Extensible Architecture**: Easy to add new file formats
+- **Extensible Architecture**: Standardized parser interfaces with BaseParser foundation for easy addition of new formats
+- **Robust Error Handling**: Custom error types with detailed context for better troubleshooting
+- **Structured Logging**: Framework-agnostic logging with configurable levels and formats
 
 ## Installation
 
@@ -409,12 +411,13 @@ sudo apt-get install poppler-utils
 
 #### 2. "Invalid file format"
 
-**Problem**: File not recognized
+**Problem**: File not recognized or validation fails
 **Solutions**:
 
 - Verify file format matches command (XML for `camt`, PDF for `pdf`, etc.)
 - Check file isn't corrupted
 - Try with a sample file first
+- Look for specific error details in the error message (new error types provide more context)
 
 #### 3. "API quota exceeded"
 
@@ -440,6 +443,45 @@ Enable detailed logging for troubleshooting by setting the log level as a CLI fl
 
 ```bash
 ./camt-csv --log-level debug camt -i input.xml -o output.csv
+```
+
+### Understanding Error Messages
+
+CAMT-CSV provides detailed error messages with context to help troubleshoot issues:
+
+#### Parse Errors
+```
+CAMT: failed to parse amount='invalid': strconv.ParseFloat: parsing "invalid": invalid syntax
+```
+- **Parser**: Which parser encountered the error
+- **Field**: What field failed to parse
+- **Value**: The actual value that caused the issue
+
+#### Validation Errors
+```
+validation failed for /path/to/file.xml: not a valid CAMT.053 XML document
+```
+- **File Path**: The file that failed validation
+- **Reason**: Why validation failed
+
+#### Data Extraction Errors
+```
+data extraction failed in file '/path/to/file.pdf' for field 'amount': unable to parse currency. Reason: no currency symbol found
+```
+- **File Path**: The file where extraction failed
+- **Field**: Which field couldn't be extracted
+- **Reason**: Detailed explanation of the failure
+
+### Logging Configuration
+
+Configure logging output format and level:
+
+```bash
+# JSON format for structured logging
+./camt-csv --log-format json --log-level info camt -i input.xml -o output.csv
+
+# Text format for human-readable output
+./camt-csv --log-format text --log-level debug camt -i input.xml -o output.csv
 ```
 
 ### Getting Help

@@ -19,7 +19,7 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 The project follows a clean separation of concerns:
 
 * **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command typically orchestrates calls to the `internal/` packages.
-* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation.
+* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include dependency injection, logging abstraction, and elimination of global state.
 * **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debitors).
 * **`samples/`**: Provides example input files for various formats.
 
@@ -72,10 +72,10 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * **`dateutils/`**: Utility functions for date parsing, formatting, and business day calculations.
   * **`debitparser/`**: Parses generic debit CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`fileutils/`**: General file system utilities.
-  * **`logging/`**: Centralized logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation using structured logging.
-  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties. Also contains constants to eliminate magic strings.
-  * **`parser/`**: Defines segregated parser interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality.
-  * **`parsererror/`**: Defines custom error types for parsing operations, including `InvalidFormatError` and `DataExtractionError`.
+  * **`logging/`**: Framework-agnostic logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation. Provides structured logging with `Field` struct for key-value pairs, enabling dependency injection and easier testing with mock loggers.
+  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties. Contains comprehensive constants in `constants.go` to eliminate magic strings and numbers throughout the codebase.
+  * **`parser/`**: Defines segregated parser interfaces following Interface Segregation Principle (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality including logging and CSV writing.
+  * **`parsererror/`**: Defines comprehensive custom error types for parsing operations, including `ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, and `DataExtractionError` with proper error wrapping and context.
   * **`pdfparser/`**: Parses PDF bank statements with dependency injection for PDF extraction. Embeds `BaseParser` and implements the `parser.Parser` interface. Includes specialized logic for Viseca credit card statements.
   * **`revolutparser/`**: Parses Revolut CSV export files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`revolutinvestmentparser/`**: Parses Revolut investment transaction CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface. Handles investment-specific transaction types like BUY, DIVIDEND, and CASH TOP-UP.
@@ -98,8 +98,8 @@ The project employs a highly standardized parser architecture built around segre
 The architecture is built on several segregated interfaces defined in `internal/parser/parser.go`:
 
 * **`Parser`**: Core parsing interface with `Parse(r io.Reader) ([]models.Transaction, error)` method
-* **`Validator`**: Interface for format validation with `ValidateFormat(r io.Reader) error` method  
-* **`CSVConverter`**: Interface for CSV output with `ConvertToCSV(transactions []models.Transaction, csvFile string) error` method
+* **`Validator`**: Interface for format validation with `ValidateFormat(filePath string) (bool, error)` method  
+* **`CSVConverter`**: Interface for CSV conversion with `ConvertToCSV(inputFile, outputFile string) error` method
 * **`LoggerConfigurable`**: Interface for logger management with `SetLogger(logger logging.Logger)` method
 * **`FullParser`**: Composite interface combining all capabilities for parsers that need complete functionality
 
@@ -110,6 +110,7 @@ All parser implementations embed the `BaseParser` struct from `internal/parser/b
 * **Common Logger Management**: Implements `LoggerConfigurable` interface with `SetLogger()` and `GetLogger()` methods
 * **Shared CSV Writing**: Provides `WriteToCSV()` method using the common CSV writer from `internal/common`
 * **Consistent Initialization**: `NewBaseParser(logger)` constructor ensures proper setup
+* **Framework-Agnostic Logging**: Uses `logging.Logger` interface for dependency injection
 
 **Parser Implementation Pattern:**
 
@@ -124,9 +125,33 @@ func NewMyParser(logger logging.Logger) *MyParser {
         BaseParser: parser.NewBaseParser(logger),
     }
 }
+
+func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+    p.GetLogger().Info("Starting parse operation")
+    // implementation using structured logging
+}
 ```
 
 This architecture eliminates code duplication while maintaining the flexibility to add parser-specific functionality. All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `revolutinvestmentparser`, `selmaparser`, `debitparser`) follow this pattern.
+
+**Error Handling:**
+
+The parser architecture includes comprehensive error handling with custom error types defined in `internal/parsererror/`:
+
+* **`ParseError`**: For general parsing failures with context
+* **`ValidationError`**: For format validation failures  
+* **`InvalidFormatError`**: For files that don't match expected format
+* **`DataExtractionError`**: For failures extracting specific data fields
+* **`CategorizationError`**: For transaction categorization failures
+
+**Constants and Magic String Elimination:**
+
+All parsers use constants from `internal/models/constants.go` instead of magic strings:
+
+* Transaction types: `TransactionTypeDebit`, `TransactionTypeCredit`
+* Categories: `CategoryUncategorized`, `CategorySalary`, etc.
+* Bank codes: `BankCodeCashWithdrawal`, `BankCodePOS`, etc.
+* File permissions: `PermissionConfigFile`, `PermissionDirectory`
 
 ### 5. Transaction Categorization
 

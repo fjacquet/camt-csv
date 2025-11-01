@@ -65,8 +65,12 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	// Parse the CSV data
 	var revolutRows []*RevolutCSVRow
 	if err := gocsv.Unmarshal(bytes.NewReader(data), &revolutRows); err != nil {
-		log.WithError(err).Error("Failed to read Revolut CSV from reader")
-		return nil, fmt.Errorf("error reading Revolut CSV: %w", err)
+		return nil, &parsererror.ParseError{
+			Parser: "Revolut",
+			Field:  "CSV",
+			Value:  "CSV data",
+			Err:    err,
+		}
 	}
 
 	// Convert RevolutCSVRow objects to Transaction objects
@@ -253,14 +257,12 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
 	if err := os.MkdirAll(dir, 0750); err != nil {
-		log.WithError(err).Error("Failed to create directory")
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
 	// Create the file
 	file, err := os.Create(csvFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to create CSV file")
 		return fmt.Errorf("error creating CSV file: %w", err)
 	}
 	defer func() {
@@ -276,7 +278,6 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	// Write the header
 	header := []string{"Date", "Description", "Amount", "Currency"}
 	if err := csvWriter.Write(header); err != nil {
-		log.WithError(err).Error("Failed to write CSV header")
 		return fmt.Errorf("error writing CSV header: %w", err)
 	}
 
@@ -296,14 +297,12 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 		}
 
 		if err := csvWriter.Write(row); err != nil {
-			log.WithError(err).Error("Failed to write CSV row")
 			return fmt.Errorf("error writing CSV row: %w", err)
 		}
 	}
 
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
-		log.WithError(err).Error("Error flushing CSV writer")
 		return fmt.Errorf("error flushing CSV writer: %w", err)
 	}
 
@@ -361,8 +360,10 @@ func validateFormat(r io.Reader) (bool, error) {
 	// Read header
 	header, err := reader.Read()
 	if err != nil {
-		log.WithError(err).Error("Failed to read CSV header")
-		return false, fmt.Errorf("error reading CSV header: %w", err)
+		return false, &parsererror.ValidationError{
+			FilePath: "(from reader)",
+			Reason:   fmt.Sprintf("failed to read CSV header: %v", err),
+		}
 	}
 
 	// Required columns for a valid Revolut CSV
@@ -392,8 +393,10 @@ func validateFormat(r io.Reader) (bool, error) {
 		log.Info("Revolut CSV file is empty (header only)")
 		return false, nil
 	} else if err != nil {
-		log.WithError(err).Error("Error reading CSV record")
-		return false, fmt.Errorf("error reading CSV record: %w", err)
+		return false, &parsererror.ValidationError{
+			FilePath: "(from reader)",
+			Reason:   fmt.Sprintf("error reading CSV record: %v", err),
+		}
 	}
 
 	log.Info("Reader contains valid Revolut CSV")
@@ -409,14 +412,12 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		log.WithError(err).Error("Failed to create output directory")
 		return 0, fmt.Errorf("error creating output directory: %w", err)
 	}
 
 	// Get all CSV files in input directory
 	files, err := os.ReadDir(inputDir)
 	if err != nil {
-		log.WithError(err).Error("Failed to read input directory")
 		return 0, fmt.Errorf("error reading input directory: %w", err)
 	}
 

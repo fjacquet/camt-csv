@@ -62,8 +62,12 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	reader.FieldsPerRecord = -1 // allow variable number of fields
 	header, err := reader.Read()
 	if err != nil {
-		log.WithError(err).Error("Failed to read Selma CSV header")
-		return nil, err
+		return nil, &parsererror.ParseError{
+			Parser: "Selma",
+			Field:  "CSV header",
+			Value:  "header row",
+			Err:    err,
+		}
 	}
 
 	// Map header fields to struct fields
@@ -289,8 +293,10 @@ func validateFormat(r io.Reader) (bool, error) {
 
 	for _, required := range requiredHeaders {
 		if !headerMap[required] {
-			log.WithField("missing_header", required).Debug("Missing required header")
-			return false, fmt.Errorf("input file is not in a valid format")
+			return false, &parsererror.ValidationError{
+				FilePath: "(from reader)",
+				Reason:   fmt.Sprintf("missing required header: %s", required),
+			}
 		}
 	}
 

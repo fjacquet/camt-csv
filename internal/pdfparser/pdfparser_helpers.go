@@ -30,14 +30,12 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFile) // #nosec G204 -- Expected subprocess for PDF text extraction
 	err := cmd.Run()
 	if err != nil {
-		log.WithError(err).Error("Failed to run pdftotext command")
 		return "", fmt.Errorf("error running pdftotext: %w", err)
 	}
 
 	// Read the extracted text
 	output, err := os.ReadFile(tempFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to read text output")
 		return "", fmt.Errorf("error reading extracted text: %w", err)
 	}
 

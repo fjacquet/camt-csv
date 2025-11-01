@@ -19,7 +19,14 @@
   * Always check errors. Don't ignore them.
   * Propagate errors up the call stack until they can be handled meaningfully.
   * Use `fmt.Errorf` with `%w` for wrapping errors where appropriate (`errors.Is`, `errors.As`).
-  * **Custom Errors**: Define custom error types (e.g., `InvalidFormatError`, `DataExtractionError`) for specific error conditions to allow for programmatic error handling.
+  * **Custom Error Types**: Use standardized error types from `internal/parsererror/`:
+    - `ParseError`: General parsing failures with parser, field, and value context
+    - `ValidationError`: Format validation failures with file path and reason
+    - `CategorizationError`: Transaction categorization failures with strategy context
+    - `InvalidFormatError`: Files not matching expected format with content snippets
+    - `DataExtractionError`: Field extraction failures with raw data context
+  * **Error Context**: Provide detailed context in error messages to aid troubleshooting
+  * **Graceful Degradation**: Log warnings for recoverable issues, return errors for unrecoverable ones
   * Return errors as the last return value.
 * **Concurrency:**
   * Favor `sync.WaitGroup` for waiting on goroutines.
@@ -80,19 +87,42 @@
 * **Separation of Concerns:** Separate CLI parsing logic from core business logic.
   * `cmd` package should handle flag parsing and command execution.
   * Core logic should reside in `internal` or `pkg` packages.
-* **Parser Factory**: For applications that support multiple input formats, use a factory pattern to centralize parser instantiation. This makes it easy to add new parsers without modifying existing code.
+* **Parser Architecture**: Follow the standardized parser architecture:
+  - **Segregated Interfaces**: Use `Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable` interfaces
+  - **BaseParser Embedding**: All parsers should embed `parser.BaseParser` for common functionality
+  - **Constructor Pattern**: Accept logger through constructor: `NewMyParser(logger logging.Logger)`
+  - **Interface Implementation**: Implement only the interfaces your parser needs
+* **Constants Usage**: Use constants from `internal/models/constants.go` instead of magic strings:
+  ```go
+  transaction.CreditDebit = models.TransactionTypeDebit  // Not "DBIT"
+  transaction.Category = models.CategoryUncategorized   // Not "Uncategorized"
+  ```
 * **AIClient Interface**: When interacting with external AI services, define an `AIClient` interface to decouple the application from the specific AI provider. This allows for easier testing and swapping of AI backends.
 
 ## 5. Logging
 
 * **Logging Abstraction:** Use the `logging.Logger` interface from `internal/logging` to decouple application code from specific logging frameworks. This enables easier testing and flexibility in choosing logging implementations.
 * **Dependency Injection:** Components should receive logger instances through constructors rather than using global variables. This improves testability and eliminates global state.
+* **BaseParser Integration:** All parsers should embed `parser.BaseParser` which provides logger management through `SetLogger()` and `GetLogger()` methods.
 * **Implementation:** The default implementation uses `LogrusAdapter` which wraps `logrus.Logger`. Create loggers using `logging.NewLogrusAdapter(level, format)`.
-* **Levels:** Use appropriate logging levels (DEBUG, INFO, WARN, ERROR).
+* **Structured Logging:** Use the `logging.Field` struct for key-value pairs instead of string formatting:
+  ```go
+  logger.Info("Processing transaction",
+      logging.Field{Key: "file", Value: filename},
+      logging.Field{Key: "count", Value: len(transactions)})
+  ```
+* **Levels:** Use appropriate logging levels (DEBUG, INFO, WARN, ERROR, FATAL).
 * **Output Format:** Support both JSON (for machine readability) and text (for human readability) formats.
 * **Contextual Logging:** Use the `WithField`, `WithFields`, and `WithError` methods to add context to log messages.
-* **Standardized Fields:** Use constants from `internal/logging/constants.go` for field names (e.g., `FieldFile`, `FieldCategory`, `FieldError`). This ensures consistency and makes logs easier to parse and analyze.
 * **Testing:** Use mock logger implementations in tests rather than depending on concrete logging frameworks.
+* **Constructor Pattern:** All components requiring logging should accept a logger in their constructor:
+  ```go
+  func NewMyParser(logger logging.Logger) *MyParser {
+      return &MyParser{
+          BaseParser: parser.NewBaseParser(logger),
+      }
+  }
+  ```
 
 ## 6. Dependency Management
 

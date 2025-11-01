@@ -72,8 +72,12 @@ func ParseWithExtractor(r io.Reader, extractor PDFExtractor) ([]models.Transacti
 	// Extract text from PDF using the provided extractor
 	text, err := extractor.ExtractText(tempFile.Name())
 	if err != nil {
-		log.WithError(err).Error("Failed to extract text from PDF")
-		return nil, fmt.Errorf("error extracting text from PDF: %w", err)
+		return nil, &parsererror.ParseError{
+			Parser: "PDF",
+			Field:  "text extraction",
+			Value:  tempFile.Name(),
+			Err:    err,
+		}
 	}
 
 	// Write raw PDF text to debug file if in debug mode
@@ -95,8 +99,12 @@ func ParseWithExtractor(r io.Reader, extractor PDFExtractor) ([]models.Transacti
 	// Parse the lines to extract transactions
 	transactions, err := parseTransactions(lines)
 	if err != nil {
-		log.WithError(err).Error("Failed to parse transactions from PDF text")
-		return nil, fmt.Errorf("error parsing transactions: %w", err)
+		return nil, &parsererror.ParseError{
+			Parser: "PDF",
+			Field:  "transaction parsing",
+			Value:  "extracted text",
+			Err:    err,
+		}
 	}
 
 	return transactions, nil

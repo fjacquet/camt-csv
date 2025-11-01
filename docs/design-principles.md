@@ -121,20 +121,29 @@ func NewMyParser(logger logging.Logger) *MyParser {
 
 **Implementation**:
 
-- Logging abstraction layer (`logging.Logger` interface) decouples application from specific frameworks
-- Dependency injection of logger instances through constructors
-- Structured logging with consistent field names from `internal/logging/constants.go`
-- Different log levels (Debug, Info, Warn, Error) for different scenarios
-- Context-rich log messages with relevant metadata using `WithField`, `WithFields`, and `WithError`
-- Default implementation uses `LogrusAdapter` wrapping logrus
+- **Logging Abstraction Layer**: `logging.Logger` interface decouples application from specific frameworks
+- **Dependency Injection**: Logger instances injected through constructors via `BaseParser`
+- **Structured Logging**: Consistent field names using `logging.Field` struct for key-value pairs
+- **Multiple Log Levels**: Debug, Info, Warn, Error, Fatal with appropriate usage
+- **Context-Rich Messages**: Metadata using `WithField`, `WithFields`, and `WithError` methods
+- **Default Implementation**: `LogrusAdapter` wrapping logrus with JSON and text formatters
+- **Test Support**: Mock logger implementations for unit testing
+
+**Example**:
+```go
+logger.Info("Processing transaction", 
+    logging.Field{Key: "file", Value: filename},
+    logging.Field{Key: "count", Value: len(transactions)})
+```
 
 **Benefits**:
 
-- Easy troubleshooting and debugging
+- Easy troubleshooting and debugging with structured data
 - Production monitoring capabilities
 - Audit trail for financial data processing
 - Improved testability with mock loggers
 - Flexibility to change logging implementations without modifying business logic
+- Consistent logging patterns across all parsers through `BaseParser`
 
 ### 7. **Test-Driven Quality Assurance**
 
@@ -172,20 +181,39 @@ func NewMyParser(logger logging.Logger) *MyParser {
 
 ### 9. **Error Handling & Recovery**
 
-**Principle**: Errors should be handled gracefully with clear communication to users.
+**Principle**: Errors should be handled gracefully with clear communication to users using standardized error types.
 
 **Implementation**:
 
-- Custom error types for different failure scenarios
-- Detailed error messages with context
-- Partial success handling (process what you can)
-- Resource cleanup in error scenarios
+- **Custom Error Types**: Comprehensive error types in `internal/parsererror/`
+  - `ParseError`: General parsing failures with parser, field, and value context
+  - `ValidationError`: Format validation failures with file path and reason
+  - `CategorizationError`: Transaction categorization failures with strategy context
+  - `InvalidFormatError`: Files not matching expected format with content snippets
+  - `DataExtractionError`: Field extraction failures with raw data context
+- **Error Wrapping**: Proper error context using `fmt.Errorf` with `%w` verb
+- **Error Inspection**: Use of `errors.Is` and `errors.As` for error type checking
+- **Graceful Degradation**: Log warnings for recoverable issues, return errors for unrecoverable ones
+- **Resource Cleanup**: Proper cleanup in error scenarios with `defer` statements
+
+**Example**:
+```go
+if err != nil {
+    return nil, &parsererror.ParseError{
+        Parser: "CAMT",
+        Field:  "amount",
+        Value:  rawValue,
+        Err:    err,
+    }
+}
+```
 
 **Benefits**:
 
-- Better user experience
-- System resilience
-- Easier troubleshooting
+- Better user experience with detailed error context
+- System resilience through graceful degradation
+- Easier troubleshooting with structured error information
+- Consistent error handling patterns across all parsers
 
 ### 10. **Performance & Resource Management**
 
@@ -256,9 +284,11 @@ func NewMyParser(logger logging.Logger) *MyParser {
 2. **Embed BaseParser**: Struct should embed `parser.BaseParser` for common functionality
 3. **Implement Interfaces**: Implement `parser.Parser` interface (minimum requirement)
 4. **Constructor Pattern**: Use `NewMyParser(logger logging.Logger)` constructor accepting logger
-5. **Error Handling**: Use custom error types (`InvalidFormatError`, `DataExtractionError`)
-6. **Testing**: Include comprehensive tests with mock dependencies
-7. **Documentation**: Document format-specific considerations and usage examples
+5. **Error Handling**: Use custom error types from `internal/parsererror/`
+6. **Constants Usage**: Use constants from `internal/models/constants.go` instead of magic strings
+7. **Structured Logging**: Use injected logger with structured fields
+8. **Testing**: Include comprehensive tests with mock dependencies
+9. **Documentation**: Document format-specific considerations and usage examples
 
 **Example Structure**:
 ```go
@@ -274,7 +304,22 @@ func NewMyParser(logger logging.Logger) *MyParser {
 }
 
 func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
-    // implementation
+    p.GetLogger().Info("Starting parse operation")
+    
+    // Use constants instead of magic strings
+    transaction.CreditDebit = models.TransactionTypeDebit
+    
+    // Use custom error types with context
+    if err != nil {
+        return nil, &parsererror.ParseError{
+            Parser: "MyParser",
+            Field:  "amount",
+            Value:  rawValue,
+            Err:    err,
+        }
+    }
+    
+    return transactions, nil
 }
 ```
 
