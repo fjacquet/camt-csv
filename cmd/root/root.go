@@ -9,6 +9,7 @@ import (
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
+	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/store"
 	"log"
@@ -32,6 +33,9 @@ var (
 	// Global configuration instance
 	AppConfig *config.Config
 
+	// Global container instance for dependency injection
+	AppContainer *container.Container
+
 	// Cmd is the root command
 	Cmd = &cobra.Command{
 		Use:   "camt-csv",
@@ -46,6 +50,10 @@ It also provides transaction categorization based on the party's name.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Initialize configuration first
 			initializeConfiguration()
+			
+			// Initialize container with dependency injection
+			initializeContainer()
+			
 			// Set the configured logger for all parsers
 			// This will propagate our centralized logging configuration to each package
 			common.SetLogger(Log)
@@ -58,15 +66,31 @@ It also provides transaction categorization based on the party's name.`,
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			// Save the creditor and debitor mappings back to disk after any command runs
-			categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), Log)
-			err := categorizerInstance.SaveCreditorsToYAML()
-			if err != nil {
-				Log.WithError(err).Warn("Failed to save creditor mappings")
-			}
+			if AppContainer != nil {
+				// Use the container's categorizer (preferred method)
+				categorizerInstance := AppContainer.GetCategorizer()
+				err := categorizerInstance.SaveCreditorsToYAML()
+				if err != nil {
+					Log.WithError(err).Warn("Failed to save creditor mappings")
+				}
 
-			err = categorizerInstance.SaveDebitorsToYAML()
-			if err != nil {
-				Log.WithError(err).Warn("Failed to save debitor mappings")
+				err = categorizerInstance.SaveDebitorsToYAML()
+				if err != nil {
+					Log.WithError(err).Warn("Failed to save debitor mappings")
+				}
+			} else {
+				// Fallback to old method for backward compatibility
+				// Deprecated: This will be removed in v2.0.0
+				categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), Log)
+				err := categorizerInstance.SaveCreditorsToYAML()
+				if err != nil {
+					Log.WithError(err).Warn("Failed to save creditor mappings")
+				}
+
+				err = categorizerInstance.SaveDebitorsToYAML()
+				if err != nil {
+					Log.WithError(err).Warn("Failed to save debitor mappings")
+				}
 			}
 		},
 	}
@@ -99,12 +123,36 @@ func initializeConfiguration() {
 	Log = logging.NewLogrusAdapterFromLogger(logrusLogger)
 }
 
+// initializeContainer creates the dependency injection container
+func initializeContainer() {
+	var err error
+	AppContainer, err = container.NewContainer(AppConfig)
+	if err != nil {
+		Log.Fatalf("Failed to initialize container: %v", err)
+	}
+	
+	// Update the global logger to use the container's logger
+	Log = AppContainer.GetLogger()
+}
+
 // GetLogrusAdapter returns the logger as a LogrusAdapter for backward compatibility
 func GetLogrusAdapter() *logging.LogrusAdapter {
 	if adapter, ok := Log.(*logging.LogrusAdapter); ok {
 		return adapter
 	}
 	return logging.NewLogrusAdapterFromLogger(logrus.New()).(*logging.LogrusAdapter)
+}
+
+// GetContainer returns the global container instance for dependency injection
+func GetContainer() *container.Container {
+	return AppContainer
+}
+
+// GetConfig returns the global configuration instance
+// Deprecated: Use GetContainer().GetConfig() instead for dependency injection.
+// This function will be removed in v2.0.0.
+func GetConfig() *config.Config {
+	return AppConfig
 }
 
 // Init initializes the root command and all flags

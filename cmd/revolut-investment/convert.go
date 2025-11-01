@@ -4,7 +4,7 @@ package revolutinvestment
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/factory"
+	"fjacquet/camt-csv/internal/container"
 
 	"github.com/spf13/cobra"
 )
@@ -23,10 +23,18 @@ func revolutInvestmentFunc(cmd *cobra.Command, args []string) {
 	logger.Infof("Input file: %s", root.SharedFlags.Input)
 	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p, err := factory.GetParser(factory.RevolutInvestment)
+	// Get container from root command context
+	appContainer := root.GetContainer()
+	if appContainer == nil {
+		logger.Fatal("Container not initialized")
+	}
+
+	// Get parser from container
+	p, err := appContainer.GetParser(container.RevolutInvestment)
 	if err != nil {
 		logger.Fatalf("Error getting Revolut Investment parser: %v", err)
 	}
+	
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Revolut Investment to CSV conversion completed successfully!")
 }

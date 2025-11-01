@@ -57,6 +57,12 @@ type Config struct {
 		} `mapstructure:"revolut" yaml:"revolut"`
 	} `mapstructure:"parsers" yaml:"parsers"`
 
+	Categories struct {
+		File          string `mapstructure:"file" yaml:"file"`
+		CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
+		DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+	} `mapstructure:"categories" yaml:"categories"`
+
 	Constitution struct {
 		FilePaths []string `mapstructure:"file_paths" yaml:"file_paths"`
 	} `mapstructure:"constitution" yaml:"constitution"`
@@ -145,6 +151,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("parsers.camt.strict_validation", true)
 	v.SetDefault("parsers.pdf.ocr_enabled", false)
 	v.SetDefault("parsers.revolut.date_format_detection", true)
+
+	// Categories defaults
+	v.SetDefault("categories.file", "categories.yaml")
+	v.SetDefault("categories.creditors_file", "creditors.yaml")
+	v.SetDefault("categories.debitors_file", "debitors.yaml")
 
 	// Constitution defaults
 	v.SetDefault("constitution.file_paths", []string{})

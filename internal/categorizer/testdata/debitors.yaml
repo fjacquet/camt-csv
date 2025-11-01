@@ -1,4 +1,6 @@
-Acme Corp: Income
-Payroll Services: Income
-Pension Fund: Income
-Dividend Payment: Income
+acme corp: Income
+coop: Alimentation
+dividend payment: Income
+payroll services: Income
+pension fund: Income
+unknown store: AI_Category

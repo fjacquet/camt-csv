@@ -5,7 +5,6 @@ import (
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/config"
-	"fjacquet/camt-csv/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -46,14 +45,14 @@ func categorizeFunc(cmd *cobra.Command, args []string) {
 			Info:      root.Info,
 		}
 
-		// Create a new GeminiClient
-		geminiClient := categorizer.NewGeminiClient(root.Log)
+		// Get container from root command context
+		appContainer := root.GetContainer()
+		if appContainer == nil {
+			root.Log.Fatal("Container not initialized")
+		}
 
-		// Create a new CategoryStore (using default paths for now)
-		categoryStore := store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml")
-
-		// Create a new Categorizer instance with the GeminiClient and CategoryStore
-		categorizerInstance := categorizer.NewCategorizer(geminiClient, categoryStore, root.Log)
+		// Get categorizer from container (preferred method)
+		categorizerInstance := appContainer.GetCategorizer()
 
 		// Categorize the transaction using the instance
 		category, err := categorizerInstance.CategorizeTransaction(transaction)

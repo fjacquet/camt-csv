@@ -101,21 +101,21 @@
     - Wrap errors with context using fmt.Errorf with %w
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6. Implement Dependency Injection Architecture
-  - [ ] 6.1 Create dependency container
+- [x] 6. Implement Dependency Injection Architecture
+  - [x] 6.1 Create dependency container
     - Create `internal/container/container.go` with Container struct
     - Implement NewContainer function that wires all dependencies
     - Add GetParser method for retrieving parsers by type
     - Add helper methods for accessing common dependencies
     - _Requirements: 1.1, 1.2, 1.3_
-  - [ ] 6.2 Refactor Categorizer for dependency injection
+  - [x] 6.2 Refactor Categorizer for dependency injection
     - Update Categorizer constructor to accept all dependencies
     - Remove global defaultCategorizer variable
     - Remove initCategorizer function
     - Update CategorizeTransaction to accept Categorizer instance
     - Add deprecation notice to old global functions
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
-  - [ ] 6.3 Update CLI commands and config
+  - [x] 6.3 Update CLI commands and config
     - Update all CLI commands (`cmd/camt/convert.go`, `cmd/pdf/convert.go`, etc.) to use container
     - Remove direct parser factory usage
     - Refactor config.Logger to be instance-based

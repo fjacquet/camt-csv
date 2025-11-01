@@ -47,6 +47,8 @@ type Categorizer struct {
 }
 
 // Global singleton instance - simple approach for a CLI tool
+// Deprecated: Use dependency injection with NewCategorizer instead.
+// This will be removed in v2.0.0.
 var defaultCategorizer *Categorizer
 var log = logging.GetLogger()
 
@@ -125,6 +127,8 @@ func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger loggin
 }
 
 // initCategorizer initializes the default categorizer instance
+// Deprecated: Use dependency injection with NewCategorizer instead.
+// This function will be removed in v2.0.0.
 func initCategorizer() {
 	// Only initialize once
 	if defaultCategorizer == nil {
@@ -160,6 +164,19 @@ func SetTestCategoryStore(store *store.CategoryStore) {
 
 // CategorizeTransaction categorizes a transaction using the default categorizer
 // This is a package-level function that uses the default categorizer
+// Deprecated: Use NewCategorizer with dependency injection instead.
+// This function will be removed in v2.0.0.
+//
+// Migration example:
+//   // Old way (deprecated)
+//   category, err := categorizer.CategorizeTransaction(transaction)
+//
+//   // New way (recommended)
+//   container, err := container.NewContainer(config)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   category, err := container.Categorizer.CategorizeTransaction(transaction)
 func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	initCategorizer()
 
@@ -205,7 +222,81 @@ func CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	return category, err
 }
 
-// Public method for the Categorizer struct
+// CategorizeTransactionWithCategorizer categorizes a transaction using the provided categorizer instance.
+// This function provides a migration path from the global singleton pattern to dependency injection.
+//
+// Parameters:
+//   - categorizer: The categorizer instance to use
+//   - transaction: The transaction to categorize
+//
+// Returns:
+//   - models.Category: The assigned category
+//   - error: Any error encountered during categorization
+//
+// Example usage:
+//   container, err := container.NewContainer(config)
+//   if err != nil {
+//       return err
+//   }
+//   category, err := categorizer.CategorizeTransactionWithCategorizer(container.Categorizer, transaction)
+func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transaction) (models.Category, error) {
+	if cat == nil {
+		return models.Category{}, fmt.Errorf("categorizer cannot be nil")
+	}
+	
+	// Get the actual categorization
+	category, err := cat.CategorizeTransaction(transaction)
+
+	// If we successfully found a category via AI, let's immediately save it to the database
+	// so we don't need to recategorize similar transactions in the future
+	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
+		// Auto-learn this categorization by saving it to the appropriate database
+		if transaction.IsDebtor {
+			cat.logger.WithFields(
+				logging.Field{Key: "party", Value: transaction.PartyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning debitor mapping")
+			cat.updateDebitorCategory(transaction.PartyName, category.Name)
+			// Force immediate save to disk
+			if err := cat.SaveDebitorsToYAML(); err != nil {
+				cat.logger.WithError(err).Warn("Failed to save debitor mapping")
+			} else {
+				cat.logger.Debug("Successfully saved new debitor mapping to disk")
+			}
+		} else {
+			cat.logger.WithFields(
+				logging.Field{Key: "party", Value: transaction.PartyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning creditor mapping")
+			cat.updateCreditorCategory(transaction.PartyName, category.Name)
+			// Force immediate save to disk
+			if err := cat.SaveCreditorsToYAML(); err != nil {
+				cat.logger.WithError(err).Warn("Failed to save creditor mapping")
+			} else {
+				cat.logger.Debug("Successfully saved new creditor mapping to disk")
+			}
+		}
+	}
+
+	return category, err
+}
+
+// CategorizeTransaction categorizes a transaction using this categorizer instance.
+// This is the preferred method for dependency injection.
+//
+// Parameters:
+//   - transaction: The transaction to categorize
+//
+// Returns:
+//   - models.Category: The assigned category
+//   - error: Any error encountered during categorization
+//
+// Example usage:
+//   container, err := container.NewContainer(config)
+//   if err != nil {
+//       return err
+//   }
+//   category, err := container.Categorizer.CategorizeTransaction(transaction)
 func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	return c.categorizeTransaction(transaction)
 }
@@ -244,6 +335,11 @@ func categoryDescriptionFromName(name string) string {
 	return "Description for " + name
 }
 
+// UpdateDebitorCategory updates a debitor category mapping for this categorizer instance.
+func (c *Categorizer) UpdateDebitorCategory(partyName, categoryName string) {
+	c.updateDebitorCategory(partyName, categoryName)
+}
+
 func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
@@ -251,6 +347,7 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.isDirtyDebitors = true
 }
 
+// SaveDebitorsToYAML saves debitor mappings to YAML file if they have been modified.
 func (c *Categorizer) SaveDebitorsToYAML() error {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
@@ -264,6 +361,11 @@ func (c *Categorizer) SaveDebitorsToYAML() error {
 	return nil
 }
 
+// UpdateCreditorCategory updates a creditor category mapping for this categorizer instance.
+func (c *Categorizer) UpdateCreditorCategory(partyName, categoryName string) {
+	c.updateCreditorCategory(partyName, categoryName)
+}
+
 func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
@@ -271,6 +373,7 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.isDirtyCreditors = true
 }
 
+// SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.
 func (c *Categorizer) SaveCreditorsToYAML() error {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
@@ -284,11 +387,17 @@ func (c *Categorizer) SaveCreditorsToYAML() error {
 	return nil
 }
 
+// UpdateDebitorCategory updates a debitor category mapping using the default categorizer
+// Deprecated: Use dependency injection with NewCategorizer instead.
+// This function will be removed in v2.0.0.
 func UpdateDebitorCategory(partyName, categoryName string) {
 	initCategorizer()
 	defaultCategorizer.updateDebitorCategory(partyName, categoryName)
 }
 
+// UpdateCreditorCategory updates a creditor category mapping using the default categorizer
+// Deprecated: Use dependency injection with NewCategorizer instead.
+// This function will be removed in v2.0.0.
 func UpdateCreditorCategory(partyName, categoryName string) {
 	initCategorizer()
 	defaultCategorizer.updateCreditorCategory(partyName, categoryName)
