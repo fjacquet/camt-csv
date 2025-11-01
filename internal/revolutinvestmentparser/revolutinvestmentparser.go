@@ -103,45 +103,54 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	return transactions, nil
 }
 
-// convertRowToTransaction converts a RevolutInvestmentCSVRow to a models.Transaction
+// convertRowToTransaction converts a RevolutInvestmentCSVRow to a models.Transaction using TransactionBuilder
 func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, error) {
-	var transaction models.Transaction
-
-	// Parse date
-	transaction.Date = formatDate(row.Date)
-	transaction.ValueDate = transaction.Date
-
-	// Set investment details
-	transaction.Investment = row.Ticker
-	transaction.Fund = row.Ticker
-	transaction.Type = row.Type
-
-	// Parse currency
-	transaction.Currency = row.Currency
-	transaction.OriginalCurrency = row.Currency
-
 	// Parse FX rate
+	var fxRate decimal.Decimal
 	if row.FXRate != "" {
-		if fxRate, err := decimal.NewFromString(row.FXRate); err == nil {
-			transaction.ExchangeRate = fxRate
-		} else {
+		var err error
+		fxRate, err = decimal.NewFromString(row.FXRate)
+		if err != nil {
 			logger.WithError(err).Warn("Failed to parse FX rate",
 				logging.Field{Key: "fxRate", Value: row.FXRate})
+			fxRate = decimal.NewFromInt(1) // Default to 1
 		}
+	} else {
+		fxRate = decimal.NewFromInt(1)
 	}
+
+	// Start building the transaction
+	builder := models.NewTransactionBuilder().
+		WithDate(formatDate(row.Date)).
+		WithValueDate(formatDate(row.Date)).
+		WithInvestment(row.Ticker).
+		WithFund(row.Ticker).
+		WithType(row.Type).
+		WithCurrency(row.Currency).
+		WithOriginalAmount(decimal.Zero, row.Currency).
+		WithExchangeRate(fxRate)
+
+	// Set party name
+	partyName := "Revolut Investment"
+	if row.Ticker != "" {
+		partyName = fmt.Sprintf("Revolut Investment - %s", row.Ticker)
+	}
+	builder = builder.WithPartyName(partyName)
 
 	// Handle different transaction types
 	logger.Debug("Processing transaction type",
 		logging.Field{Key: "type", Value: row.Type})
+	
 	switch {
 	case strings.Contains(row.Type, "BUY"):
 		logger.Debug("Processing BUY transaction")
+		
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				transaction.NumberOfShares = int(quantity.IntPart())
+				builder = builder.WithNumberOfShares(int(quantity.IntPart()))
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Quantity",
 					RawDataSnippet: row.Quantity,
@@ -150,16 +159,13 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		// Parse price per share
+		// Parse price per share for tax info
 		if row.PricePerShare != "" {
-			priceStr := strings.TrimPrefix(row.PricePerShare, "€")
-			priceStr = strings.TrimPrefix(priceStr, "$")
-			priceStr = strings.TrimPrefix(priceStr, "£")
-			priceStr = strings.ReplaceAll(priceStr, ",", "")
+			priceStr := cleanAmountString(row.PricePerShare)
 			if price, err := decimal.NewFromString(priceStr); err == nil {
-				transaction.AmountExclTax = price
+				builder = builder.WithTaxInfo(price, decimal.Zero, decimal.Zero)
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Price per share",
 					RawDataSnippet: row.PricePerShare,
@@ -170,18 +176,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 
 		// Parse total amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// For buy transactions, this is typically a debit
-				transaction.DebitFlag = true
-				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debug("Set CreditDebit to DBIT for BUY transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsDebit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -190,25 +189,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)
+		builder = builder.WithDescription(fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)).
+			WithPayee(partyName, "")
 
 	case strings.Contains(row.Type, "DIVIDEND"):
 		logger.Debug("Processing DIVIDEND transaction")
+		
 		// Parse dividend amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Dividends are typically credits
-				transaction.DebitFlag = false
-				transaction.CreditDebit = models.TransactionTypeCredit
-				transaction.Credit = amount
-				logger.Debug("Set CreditDebit to CRDT for DIVIDEND transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsCredit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -217,25 +210,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = fmt.Sprintf("Dividend from %s", row.Ticker)
+		builder = builder.WithDescription(fmt.Sprintf("Dividend from %s", row.Ticker)).
+			WithPayer(partyName, "")
 
 	case strings.Contains(row.Type, "CASH TOP-UP"):
 		logger.Debug("Processing CASH TOP-UP transaction")
+		
 		// Parse cash top-up amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Cash top-ups are typically credits
-				transaction.DebitFlag = false
-				transaction.CreditDebit = models.TransactionTypeCredit
-				transaction.Credit = amount
-				logger.Debug("Set CreditDebit to CRDT for CASH TOP-UP transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsCredit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -244,24 +231,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = "Cash top-up to investment account"
+		builder = builder.WithDescription("Cash top-up to investment account").
+			WithPayer(partyName, "")
 
 	default:
 		logger.Debug("Processing default transaction")
+		
 		// Handle other transaction types
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Default to debit for unknown transaction types
-				transaction.DebitFlag = true
-				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debug("Set CreditDebit to DBIT for default transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsDebit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -269,24 +251,27 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				}
 			}
 		}
-		transaction.Description = fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)
+		
+		builder = builder.WithDescription(fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)).
+			WithPayee(partyName, "")
 	}
 
-	// Set party name
-	if row.Ticker != "" {
-		transaction.PartyName = fmt.Sprintf("Revolut Investment - %s", row.Ticker)
-	} else {
-		transaction.PartyName = "Revolut Investment"
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("error building transaction: %w", err)
 	}
-
-	// Set name
-	transaction.Name = transaction.PartyName
-
-	// Update derived fields
-	transaction.UpdateNameFromParties()
-	transaction.UpdateDebitCreditAmounts()
 
 	return transaction, nil
+}
+
+// cleanAmountString removes currency symbols and formatting from amount strings
+func cleanAmountString(amountStr string) string {
+	cleaned := strings.TrimPrefix(amountStr, "€")
+	cleaned = strings.TrimPrefix(cleaned, "$")
+	cleaned = strings.TrimPrefix(cleaned, "£")
+	cleaned = strings.ReplaceAll(cleaned, ",", "")
+	return cleaned
 }
 
 // formatDate standardizes the date format

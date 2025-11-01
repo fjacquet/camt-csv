@@ -153,24 +153,10 @@ func postProcessTransactions(transactions []models.Transaction) []models.Transac
 	return transactions
 }
 
-// convertRevolutRowToTransaction converts a RevolutCSVRow to a Transaction
+// convertRevolutRowToTransaction converts a RevolutCSVRow to a Transaction using TransactionBuilder
 func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, error) {
-	var creditDebit string
-	var isDebit bool
-
-	// Now that descriptions are modified at the row level in ParseFile,
-	// we only need to determine credit/debit status here
-	if strings.HasPrefix(row.Amount, "-") {
-		isDebit = true
-		creditDebit = models.TransactionTypeDebit
-	} else {
-		isDebit = false
-		creditDebit = models.TransactionTypeCredit
-	}
-
-	// Format dates to DD.MM.YYYY format for consistency
-	completedDate := models.FormatDate(row.CompletedDate)
-	startedDate := models.FormatDate(row.StartedDate)
+	// Determine if this is a debit or credit transaction
+	isDebit := strings.HasPrefix(row.Amount, "-")
 
 	// Parse amount to decimal (remove negative sign for internal calculations)
 	amount := strings.TrimPrefix(row.Amount, "-")
@@ -188,56 +174,29 @@ func convertRevolutRowToTransaction(row RevolutCSVRow) (models.Transaction, erro
 		}
 	}
 
-	// Determine debit and credit amounts
-	debitAmount := decimal.Zero
-	creditAmount := decimal.Zero
-	if creditDebit == models.TransactionTypeDebit {
-		debitAmount = amountDecimal
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithStatus(row.State).
+		WithDate(row.CompletedDate).
+		WithValueDate(row.StartedDate).
+		WithDescription(row.Description).
+		WithAmount(amountDecimal, row.Currency).
+		WithPartyName(row.Description).
+		WithType(row.Type).
+		WithInvestment(row.Type).
+		WithFees(feeDecimal)
+
+	// Set transaction direction
+	if isDebit {
+		builder = builder.AsDebit().WithPayee(row.Description, "")
 	} else {
-		creditAmount = amountDecimal
+		builder = builder.AsCredit().WithPayer(row.Description, "")
 	}
 
-	// Set payee/payer based on description
-	payee := row.Description
-	payer := row.Description
-
-	transaction := models.Transaction{
-		BookkeepingNumber: "", // Revolut doesn't provide this
-		Status:            row.State,
-		Date:              completedDate,
-		ValueDate:         startedDate,
-		Name:              row.Description,
-		PartyName:         row.Description,
-		Description:       row.Description,
-		Amount:            amountDecimal,
-		CreditDebit:       creditDebit,
-		DebitFlag:         isDebit, // Set the DebitFlag (maps to IsDebit in CSV)
-		Debit:             debitAmount,
-		Credit:            creditAmount,
-		Currency:          row.Currency,
-		AmountExclTax:     amountDecimal, // Default to full amount
-		AmountTax:         decimal.Zero,  // Revolut doesn't provide tax details
-		TaxRate:           decimal.Zero,
-		Recipient:         payee,
-		Investment:        row.Type, // Use transaction type as investment type
-		Number:            "",       // Not provided by Revolut
-		Category:          "",       // Will be categorized later
-		Type:              row.Type,
-		Fund:              "", // Not provided by Revolut
-		NumberOfShares:    0,  // Revolut transactions don't have shares
-		Fees:              feeDecimal,
-		IBAN:              "", // Not provided by Revolut
-		EntryReference:    "",
-		Reference:         "",
-		AccountServicer:   "",
-		BankTxCode:        "",
-		OriginalCurrency:  "", // Not handling foreign currencies for now
-		OriginalAmount:    decimal.Zero,
-		ExchangeRate:      decimal.Zero,
-
-		// Keep these for backward compatibility
-		Payee: payee,
-		Payer: payer,
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("error building transaction: %w", err)
 	}
 
 	return transaction, nil

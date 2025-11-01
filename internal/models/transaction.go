@@ -80,9 +80,158 @@ func ParseAmount(amountStr string) decimal.Decimal {
 // GetAmountAsFloat returns the Amount as a float64
 // DEPRECATED: This method is maintained for backward compatibility only.
 // Use direct decimal operations instead for financial calculations.
+// Migration: Use t.Amount.Float64() directly or better yet, use decimal operations.
 func (t *Transaction) GetAmountAsFloat() float64 {
 	f, _ := t.Amount.Float64()
 	return f
+}
+
+// GetPayee returns the payee name for backward compatibility
+// DEPRECATED: Use t.Payee directly or consider using GetCounterparty() for direction-aware party access.
+// Migration: Access t.Payee field directly or use GetCounterparty() for better semantics.
+func (t *Transaction) GetPayee() string {
+	return t.Payee
+}
+
+// GetPayer returns the payer name for backward compatibility
+// DEPRECATED: Use t.Payer directly or consider using GetCounterparty() for direction-aware party access.
+// Migration: Access t.Payer field directly or use GetCounterparty() for better semantics.
+func (t *Transaction) GetPayer() string {
+	return t.Payer
+}
+
+// GetCounterparty returns the relevant party name based on transaction direction
+// For debits, returns the payee (who receives the money)
+// For credits, returns the payer (who sent the money)
+func (t *Transaction) GetCounterparty() string {
+	if t.IsDebit() {
+		return t.Payee
+	}
+	return t.Payer
+}
+
+// ToTransactionCore converts the legacy Transaction to the new TransactionCore format
+// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
+// Migration: Use NewTransactionBuilder() to create transactions in the new format.
+func (t *Transaction) ToTransactionCore() TransactionCore {
+	var date, valueDate time.Time
+	var err error
+	
+	// Parse dates from string format
+	if t.Date != "" {
+		date, err = time.Parse("02.01.2006", t.Date)
+		if err != nil {
+			// If parsing fails, use zero time
+			date = time.Time{}
+		}
+	}
+	
+	if t.ValueDate != "" {
+		valueDate, err = time.Parse("02.01.2006", t.ValueDate)
+		if err != nil {
+			// If parsing fails, use zero time
+			valueDate = time.Time{}
+		}
+	}
+	
+	return TransactionCore{
+		ID:          t.Number,
+		Date:        date,
+		ValueDate:   valueDate,
+		Amount:      NewMoney(t.Amount, t.Currency),
+		Description: t.Description,
+		Status:      t.Status,
+		Reference:   t.Reference,
+	}
+}
+
+// ToTransactionWithParties converts the legacy Transaction to TransactionWithParties format
+// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
+// Migration: Use NewTransactionBuilder() to create transactions in the new format.
+func (t *Transaction) ToTransactionWithParties() TransactionWithParties {
+	core := t.ToTransactionCore()
+	
+	// Determine direction
+	var direction TransactionDirection
+	if t.IsDebit() {
+		direction = DirectionDebit
+	} else if t.IsCredit() {
+		direction = DirectionCredit
+	} else {
+		direction = DirectionUnknown
+	}
+	
+	return TransactionWithParties{
+		TransactionCore: core,
+		Payer:          NewParty(t.Payer, t.PartyIBAN),
+		Payee:          NewParty(t.Payee, t.PartyIBAN),
+		Direction:      direction,
+	}
+}
+
+// ToCategorizedTransaction converts the legacy Transaction to CategorizedTransaction format
+// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
+// Migration: Use NewTransactionBuilder() to create transactions in the new format.
+func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
+	twp := t.ToTransactionWithParties()
+	
+	return CategorizedTransaction{
+		TransactionWithParties: twp,
+		Category:              t.Category,
+		Type:                  t.Type,
+		Fund:                  t.Fund,
+	}
+}
+
+// FromTransactionCore populates the legacy Transaction from a TransactionCore
+// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
+// Migration: Use NewTransactionBuilder() to create transactions in the new format.
+func (t *Transaction) FromTransactionCore(core TransactionCore) {
+	t.Number = core.ID
+	if !core.Date.IsZero() {
+		t.Date = core.Date.Format("02.01.2006")
+	}
+	if !core.ValueDate.IsZero() {
+		t.ValueDate = core.ValueDate.Format("02.01.2006")
+	}
+	t.Amount = core.Amount.Amount
+	t.Currency = core.Amount.Currency
+	t.Description = core.Description
+	t.Status = core.Status
+	t.Reference = core.Reference
+}
+
+// FromCategorizedTransaction populates the legacy Transaction from a CategorizedTransaction
+// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
+// Migration: Use NewTransactionBuilder() to create transactions in the new format.
+func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
+	// Populate from core
+	t.FromTransactionCore(ct.TransactionCore)
+	
+	// Set party information
+	t.Payer = ct.Payer.Name
+	t.Payee = ct.Payee.Name
+	t.PartyIBAN = ct.GetCounterpartyIBAN()
+	t.PartyName = ct.GetCounterpartyName()
+	
+	// Set direction-based fields
+	if ct.Direction == DirectionDebit {
+		t.CreditDebit = TransactionTypeDebit
+		t.DebitFlag = true
+	} else if ct.Direction == DirectionCredit {
+		t.CreditDebit = TransactionTypeCredit
+		t.DebitFlag = false
+	}
+	
+	// Set categorization
+	t.Category = ct.Category
+	t.Type = ct.Type
+	t.Fund = ct.Fund
+	
+	// Update derived fields
+	t.UpdateNameFromParties()
+	t.UpdateRecipientFromPayee()
+	t.UpdateDebitCreditAmounts()
 }
 
 // GetOriginalAmountAsFloat returns the OriginalAmount as a float64

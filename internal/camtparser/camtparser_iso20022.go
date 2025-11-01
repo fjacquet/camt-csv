@@ -90,7 +90,7 @@ func (p *ISO20022Parser) extractTransactions(document models.ISO20022Document) (
 	return transactions, nil
 }
 
-// entryToTransaction converts an ISO20022 Entry to the Transaction model
+// entryToTransaction converts an ISO20022 Entry to the Transaction model using TransactionBuilder
 func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transaction {
 	amount, err := decimal.NewFromString(entry.Amt.Value)
 	if err != nil {
@@ -99,51 +99,41 @@ func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transact
 		amount = decimal.Zero
 	}
 
-	// Create transaction from entry
-	tx := models.Transaction{
-		BookkeepingNumber: textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo()),
-		Status:            entry.Sts,
-		Date:              entry.BookgDt.Dt,
-		ValueDate:         entry.ValDt.Dt,
-		Name:              "", // Will be set based on credit/debit direction
-		Description:       entry.BuildDescription(),
-		Amount:            amount,
-		CreditDebit:       entry.GetCreditDebit(),
-		Debit:             decimal.Zero, // Will be set below
-		Credit:            decimal.Zero, // Will be set below
-		Currency:          entry.Amt.Ccy,
-		AmountExclTax:     amount, // Default to full amount
-		AmountTax:         decimal.Zero,
-		TaxRate:           decimal.Zero,
-		Recipient:         entry.GetPayee(),
-		Investment:        "", // Will be determined later if applicable
-		Number:            "", // Not typically provided in CAMT.053
-		Category:          "", // Will be determined later
-		Type:              "", // Will be determined later
-		Fund:              textutils.ExtractFund(entry.GetRemittanceInfo()),
-		NumberOfShares:    0,
-		Fees:              decimal.Zero,
-		IBAN:              entry.GetIBAN(),
-		EntryReference:    entry.GetReference(),
-		Reference:         entry.GetReference(), // Using EntryReference as Reference for now
-		AccountServicer:   entry.AcctSvcrRef,
-		BankTxCode:        entry.GetBankTxCode(),
-		OriginalCurrency:  "",
-		OriginalAmount:    decimal.Zero,
-		ExchangeRate:      decimal.Zero,
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithBookkeepingNumber(textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo())).
+		WithStatus(entry.Sts).
+		WithDate(entry.BookgDt.Dt).
+		WithValueDate(entry.ValDt.Dt).
+		WithDescription(entry.BuildDescription()).
+		WithAmount(amount, entry.Amt.Ccy).
+		WithPayer(entry.GetPayer(), entry.GetIBAN()).
+		WithPayee(entry.GetPayee(), entry.GetIBAN()).
+		WithReference(entry.GetReference()).
+		WithEntryReference(entry.GetReference()).
+		WithAccountServicer(entry.AcctSvcrRef).
+		WithBankTxCode(entry.GetBankTxCode()).
+		WithFund(textutils.ExtractFund(entry.GetRemittanceInfo()))
 
-		// Keep these for backward compatibility
-		Payer: entry.GetPayer(),
-		Payee: entry.GetPayee(),
+	// Set transaction direction based on credit/debit indicator
+	if entry.GetCreditDebit() == models.TransactionTypeDebit {
+		builder = builder.AsDebit()
+	} else {
+		builder = builder.AsCredit()
 	}
 
-	// Set Debit/Credit amounts based on CreditDebit indicator
-	if tx.CreditDebit == models.TransactionTypeDebit {
-		tx.Debit = amount
-		tx.Name = tx.Payee // For debits, the name is the payee/recipient
-	} else {
-		tx.Credit = amount
-		tx.Name = tx.Payer // For credits, the name is the payer/sender
+	// Build the transaction
+	tx, err := builder.Build()
+	if err != nil {
+		p.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
+			logging.Field{Key: "entry_reference", Value: entry.GetReference()})
+		// Return a minimal transaction as fallback
+		fallback, _ := models.NewTransactionBuilder().
+			WithDate(entry.BookgDt.Dt).
+			WithAmount(amount, entry.Amt.Ccy).
+			WithDescription("Failed to parse transaction").
+			Build()
+		return fallback
 	}
 
 	// Special case for DELL salary

@@ -162,16 +162,35 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 		}
 	}
 
-	transaction := models.Transaction{
-		BookkeepingNumber: "",
-		Date:              row.Date, // Keep original YYYY-MM-DD format
-		ValueDate:         row.Date, // Use same date for ValueDate for Selma
-		Description:       row.Description,
-		Amount:            amount,
-		Currency:          row.Currency,
-		NumberOfShares:    shares,
-		Fund:              row.Fund,
-		CreditDebit:       determineCreditDebit(row.Description, row.Amount),
+	// Determine transaction direction
+	creditDebit := determineCreditDebit(row.Description, row.Amount)
+	isDebit := creditDebit == models.TransactionTypeDebit
+
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithDate(row.Date).
+		WithValueDate(row.Date).
+		WithDescription(row.Description).
+		WithAmount(amount, row.Currency).
+		WithNumberOfShares(shares).
+		WithFund(row.Fund)
+
+	// Set transaction direction
+	if isDebit {
+		builder = builder.AsDebit()
+	} else {
+		builder = builder.AsCredit()
+	}
+
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, &parsererror.DataExtractionError{
+			FilePath:       "(from reader)",
+			FieldName:      "Transaction",
+			RawDataSnippet: fmt.Sprintf("Date: %s, Amount: %s", row.Date, row.Amount),
+			Msg:            fmt.Sprintf("failed to build transaction: %v", err),
+		}
 	}
 
 	return transaction, nil

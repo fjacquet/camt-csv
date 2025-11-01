@@ -126,8 +126,8 @@
 
 ## Phase 4: Transaction Model Modernization
 
-- [ ] 7. Redesign Transaction Data Model
-  - [ ] 7.1 Create decomposed transaction structure
+- [-] 7. Redesign Transaction Data Model
+  - [x] 7.1 Create decomposed transaction structure
     - Create Money value object in `internal/models/money.go`
     - Create Party struct in `internal/models/party.go`
     - Create TransactionCore struct in `internal/models/transaction_core.go`
@@ -144,8 +144,8 @@
     - Update dateutils package to focus on time.Time operations
     - _Requirements: 9.1, 9.2, 9.3, 9.5_
 
-- [ ] 8. Implement Transaction Builder Pattern
-  - [ ] 8.1 Create TransactionBuilder
+- [x] 8. Implement Transaction Builder Pattern
+  - [x] 8.1 Create TransactionBuilder
     - Create `internal/models/builder.go` with TransactionBuilder struct
     - Implement fluent methods: WithDate, WithAmount, WithPayer, WithPayee, etc.
     - Implement AsDebit and AsCredit methods
@@ -153,14 +153,14 @@
     - Implement populateDerivedFields helper
     - Write comprehensive tests for TransactionBuilder
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 15.1_
-  - [ ] 8.2 Add backward compatibility
+  - [x] 8.2 Add backward compatibility
     - Add GetAmountAsFloat (deprecated) to Transaction
     - Add GetPayee helper method
     - Add GetPayer helper method
     - Add conversion methods between old and new formats
     - Add deprecation comments with migration guidance
     - _Requirements: 4.5, 14.4_
-  - [ ] 8.3 Migrate all parsers to use TransactionBuilder
+  - [x] 8.3 Migrate all parsers to use TransactionBuilder
     - Update CAMT parser entryToTransaction to use builder
     - Update Revolut parser convertRevolutRowToTransaction to use builder
     - Update PDF parser transaction construction

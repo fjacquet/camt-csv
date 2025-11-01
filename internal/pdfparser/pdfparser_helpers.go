@@ -310,23 +310,27 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 				logging.Field{Key: "amount", Value: originalAmount})
 		}
 
-		// Create the transaction
-		tx := models.Transaction{
-			Date:             formatDate(txDate),
-			ValueDate:        formatDate(valueDate),
-			Description:      description,
-			Payee:            description,
-			Amount:           models.ParseAmount(amount),
-			Currency:         "CHF",
-			OriginalCurrency: originalCurrency,
-			OriginalAmount:   models.ParseAmount(originalAmount),
+		// Create the transaction using TransactionBuilder
+		builder := models.NewTransactionBuilder().
+			WithDate(formatDate(txDate)).
+			WithValueDate(formatDate(valueDate)).
+			WithDescription(description).
+			WithAmountFromString(amount, "CHF").
+			WithOriginalAmount(models.ParseAmount(originalAmount), originalCurrency)
+
+		// Set transaction direction and parties
+		if isCredit {
+			builder = builder.AsCredit().WithPayer(description, "")
+		} else {
+			builder = builder.AsDebit().WithPayee(description, "")
 		}
 
-		// Set credit/debit indicator
-		if isCredit {
-			tx.CreditDebit = models.TransactionTypeCredit
-		} else {
-			tx.CreditDebit = models.TransactionTypeDebit
+		// Build the transaction
+		tx, err := builder.Build()
+		if err != nil {
+			log.WithError(err).Warn("Failed to build transaction, skipping",
+				logging.Field{Key: "description", Value: description})
+			continue
 		}
 
 		// Attach category if we have one

@@ -187,16 +187,26 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 		description = strings.TrimPrefix(description, "PMT CARTE ")
 	}
 
-	// Create and return the transaction
-	transaction := models.Transaction{
-		Date:           formattedDate,
-		ValueDate:      formattedDate, // Use same date for value date since there's no separate value date
-		Description:    description,
-		Amount:         amount,
-		Currency:       row.Waehrung,
-		CreditDebit:    creditDebit,
-		EntryReference: row.Referenznummer,
-		Status:         row.StatusKontofuhrung,
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithDate(formattedDate).
+		WithValueDate(formattedDate).
+		WithDescription(description).
+		WithAmount(amount, row.Waehrung).
+		WithEntryReference(row.Referenznummer).
+		WithStatus(row.StatusKontofuhrung)
+
+	// Set transaction direction
+	if creditDebit == models.TransactionTypeDebit {
+		builder = builder.AsDebit()
+	} else {
+		builder = builder.AsCredit()
+	}
+
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("error building transaction: %w", err)
 	}
 
 	return transaction, nil
