@@ -8,8 +8,10 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -178,8 +180,12 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 		}
 	}
 
-	// Format date to standard DD.MM.YYYY format
-	formattedDate := models.FormatDate(row.Datum)
+	// Parse date to time.Time (will be formatted automatically during CSV marshaling)
+	parsedDate, err := dateutils.ParseDateString(row.Datum)
+	if err != nil {
+		// If parsing fails, use current date as fallback
+		parsedDate = time.Now()
+	}
 
 	// Extract just the business name from the description (after "PMT CARTE " prefix)
 	description := row.Beneficiaire
@@ -189,8 +195,8 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 
 	// Use TransactionBuilder for consistent transaction construction
 	builder := models.NewTransactionBuilder().
-		WithDate(formattedDate).
-		WithValueDate(formattedDate).
+		WithDateFromTime(parsedDate).
+		WithValueDateFromTime(parsedDate).
 		WithDescription(description).
 		WithAmount(amount, row.Waehrung).
 		WithEntryReference(row.Referenznummer).

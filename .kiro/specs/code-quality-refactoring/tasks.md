@@ -135,7 +135,7 @@
     - Create CategorizedTransaction struct
     - Define TransactionDirection type and constants
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
-  - [ ] 7.2 Modernize date handling
+  - [x] 7.2 Modernize date handling
     - Change Date field from string to time.Time
     - Change ValueDate field from string to time.Time
     - Update MarshalCSV to format time.Time as DD.MM.YYYY
@@ -171,19 +171,19 @@
 
 ## Phase 5: Categorization Strategy Pattern
 
-- [ ] 9. Implement Strategy Pattern for Categorization
-  - [ ] 9.1 Define strategy architecture
+- [x] 9. Implement Strategy Pattern for Categorization
+  - [x] 9.1 Define strategy architecture
     - Create `internal/categorizer/strategy.go` with CategorizationStrategy interface
     - Define Categorize method signature with context
     - Add Name method for logging/debugging
     - _Requirements: 11.1_
-  - [ ] 9.2 Implement categorization strategies
+  - [x] 9.2 Implement categorization strategies
     - Create DirectMappingStrategy in `internal/categorizer/direct_mapping.go`
     - Implement strategy for creditor mappings
     - Implement strategy for debitor mappings
     - Write comprehensive tests for DirectMappingStrategy
     - _Requirements: 11.2, 15.2_
-  - [ ] 9.3 Implement keyword and AI strategies
+  - [x] 9.3 Implement keyword and AI strategies
     - Create KeywordStrategy in `internal/categorizer/keyword.go`
     - Implement pattern matching logic
     - Load keyword patterns from configuration
@@ -192,7 +192,7 @@
     - Implement AI client integration with error handling
     - Write tests for AIStrategy with mock client
     - _Requirements: 11.3, 11.4, 15.2_
-  - [ ] 9.4 Refactor Categorizer to orchestrate strategies
+  - [x] 9.4 Refactor Categorizer to orchestrate strategies
     - Update Categorizer to hold slice of strategies
     - Implement strategy iteration in Categorize method
     - Initialize strategies in priority order in constructor

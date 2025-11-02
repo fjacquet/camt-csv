@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -116,8 +117,8 @@ func TestBaseParser_WriteToCSV(t *testing.T) {
 		transactions := []models.Transaction{
 			{
 				EntryReference: "test-1",
-				Date:          "01.01.2024",
-				ValueDate:     "01.01.2024",
+				Date:          time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				ValueDate:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 				Amount:        decimal.NewFromFloat(100.50),
 				Currency:      "CHF",
 				Description:   "Test transaction 1",
@@ -125,8 +126,8 @@ func TestBaseParser_WriteToCSV(t *testing.T) {
 			},
 			{
 				EntryReference: "test-2",
-				Date:          "02.01.2024",
-				ValueDate:     "02.01.2024",
+				Date:          time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+				ValueDate:     time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
 				Amount:        decimal.NewFromFloat(-50.25),
 				Currency:      "CHF",
 				Description:   "Test transaction 2",

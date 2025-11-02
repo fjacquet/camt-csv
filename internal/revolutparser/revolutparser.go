@@ -112,7 +112,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 			Description: tx.Description,
 			Amount:      tx.Amount.StringFixed(2),
 			IsDebtor:    tx.CreditDebit == models.TransactionTypeDebit,
-			Date:        tx.Date,
+			Date:        tx.Date.Format("02.01.2006"),
 		})
 		if err != nil {
 			log.WithError(err).Warn("Failed to categorize transaction")
@@ -242,8 +242,11 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 	// Write each transaction
 	for _, tx := range transactions {
-		// Ensure date is in DD.MM.YYYY format
-		date := models.FormatDate(tx.Date)
+		// Format date as DD.MM.YYYY
+		var date string
+		if !tx.Date.IsZero() {
+			date = tx.Date.Format("02.01.2006")
+		}
 
 		// Format the amount with 2 decimal places
 		amount := tx.Amount.StringFixed(2)

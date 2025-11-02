@@ -169,3 +169,55 @@ func CompareDates(date1, date2 time.Time) int {
 		return 0
 	}
 }
+
+// ParseDateString attempts to parse a date string using multiple common formats
+// This replaces the old FormatDate function with proper time.Time handling
+// Returns the parsed time.Time or an error if parsing fails
+func ParseDateString(dateStr string) (time.Time, error) {
+	// Skip processing if empty
+	if dateStr == "" {
+		return time.Time{}, nil
+	}
+
+	// Clean the input string
+	cleanDate := CleanDateString(dateStr)
+
+	// Try various date formats commonly found in financial data
+	formats := []string{
+		"02.01.2006",                // DD.MM.YYYY (Swiss/European)
+		"2006-01-02",                // YYYY-MM-DD (ISO)
+		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
+		"2006-01-02T15:04:05Z",      // ISO 8601
+		"2006-01-02T15:04:05-07:00", // ISO 8601 with timezone
+		"02/01/2006",                // DD/MM/YYYY (European)
+		"01/02/2006",                // MM/DD/YYYY (US format)
+		"02-01-2006",                // DD-MM-YYYY
+		"01-02-2006",                // MM-DD-YYYY
+		"2.1.2006",                  // D.M.YYYY
+		"January 2, 2006",           // Month D, YYYY
+		"2 January 2006",            // D Month YYYY
+		"02 Jan 2006",               // DD MMM YYYY
+		"Jan 02, 2006",              // MMM DD, YYYY
+		"January 2006",              // Month YYYY (for monthly statements)
+		"Jan 2006",                  // MMM YYYY (abbreviated month)
+		"01/2006",                   // MM/YYYY
+		"2006/01",                   // YYYY/MM
+	}
+
+	// Try each format until one works
+	for _, format := range formats {
+		if t, err := time.Parse(format, cleanDate); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
+}
+
+// ToSwissFormat formats a time.Time as DD.MM.YYYY (Swiss format)
+func ToSwissFormat(date time.Time) string {
+	if date.IsZero() {
+		return ""
+	}
+	return date.Format("02.01.2006")
+}

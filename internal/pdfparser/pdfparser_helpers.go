@@ -130,7 +130,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			if len(fields) > 0 {
 				currentTx.Date = formatDate(fields[0])
 				log.Debug("Extracted transaction date",
-					logging.Field{Key: "date", Value: currentTx.Date})
+					logging.Field{Key: "date", Value: currentTx.Date.Format("02.01.2006")})
 
 				// Try to extract value date if present
 				if len(fields) > 1 && datePattern.MatchString(fields[1]) {
@@ -312,8 +312,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Create the transaction using TransactionBuilder
 		builder := models.NewTransactionBuilder().
-			WithDate(formatDate(txDate)).
-			WithValueDate(formatDate(valueDate)).
+			WithDateFromTime(formatDate(txDate)).
+			WithValueDateFromTime(formatDate(valueDate)).
 			WithDescription(description).
 			WithAmountFromString(amount, "CHF").
 			WithOriginalAmount(models.ParseAmount(originalAmount), originalCurrency)
@@ -388,7 +388,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			PartyName: tx.Payee,
 			IsDebtor:  isDebtor,
 			Amount:    fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-			Date:      tx.Date,
+			Date:      tx.Date.Format("02.01.2006"),
 			Info:      tx.Description,
 		}
 
@@ -431,7 +431,7 @@ func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant
 	}
 
 	// Fill in empty fields with placeholders to avoid null values
-	if tx.ValueDate == "" {
+	if tx.ValueDate.IsZero() {
 		tx.ValueDate = tx.Date
 	}
 
@@ -457,7 +457,7 @@ func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant
 				}(),
 				IsDebtor: isDebtor,
 				Amount:   fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-				Date:     tx.Date,
+				Date:     tx.Date.Format("02.01.2006"),
 				Info:     tx.Description,
 			}
 
@@ -614,10 +614,8 @@ func extractMerchant(description string) string {
 // sortTransactions sorts transactions by date
 func sortTransactions(transactions []models.Transaction) {
 	sort.Slice(transactions, func(i, j int) bool {
-		// Parse dates for comparison
-		dateI, _ := time.Parse("02.01.2006", transactions[i].Date)
-		dateJ, _ := time.Parse("02.01.2006", transactions[j].Date)
-		return dateI.Before(dateJ)
+		// Compare time.Time values directly
+		return transactions[i].Date.Before(transactions[j].Date)
 	})
 }
 
@@ -715,8 +713,8 @@ func determineCreditDebit(description string) string {
 	return models.TransactionTypeDebit
 }
 
-// formatDate formats a date string to a standard format
-func formatDate(date string) string {
+// formatDate parses a date string and returns time.Time
+func formatDate(date string) time.Time {
 	// Remove any non-digit or dot characters
 	re := regexp.MustCompile(`[^\d.]`)
 	date = re.ReplaceAllString(date, "")
@@ -740,13 +738,12 @@ func formatDate(date string) string {
 		}
 	}
 
-	// If we failed to parse any format, just return the original
+	// If we failed to parse any format, return zero time
 	if err != nil {
-		return date
+		return time.Time{}
 	}
 
-	// Return in the standard DD.MM.YYYY format
-	return t.Format("02.01.2006")
+	return t
 }
 
 // min returns the smaller of x or y

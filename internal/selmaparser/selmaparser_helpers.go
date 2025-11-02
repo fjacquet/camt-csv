@@ -67,13 +67,8 @@ func CleanAmount(amount string) string {
 
 // FormatTransaction ensures the transaction is in the standard format
 func FormatTransaction(tx *models.Transaction) {
-	// Format the date if needed
-	if tx.Date != "" {
-		tx.Date = FormatDate(tx.Date)
-	}
-
-	// Ensure ValueDate is set
-	if tx.ValueDate == "" {
+	// Ensure ValueDate is set if Date is set
+	if !tx.Date.IsZero() && tx.ValueDate.IsZero() {
 		tx.ValueDate = tx.Date
 	}
 
@@ -114,8 +109,11 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 	// First pass: identify stamp duties and build the lookup map
 	for _, tx := range transactions {
 		if tx.Description == "stamp_duty" {
-			// Normalize date key to match processed transactions
-			date := models.FormatDate(tx.Date)
+			// Format date as key to match processed transactions
+			var date string
+			if !tx.Date.IsZero() {
+				date = tx.Date.Format("02.01.2006")
+			}
 			fund := tx.Fund
 
 			// Get the amount as a decimal
@@ -143,18 +141,16 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 			continue
 		}
 
-		// Standardize date format to DD.MM.YYYY
-		tx.Date = models.FormatDate(tx.Date)
-		if tx.ValueDate != "" {
-			tx.ValueDate = models.FormatDate(tx.ValueDate)
-		} else {
+		// Ensure ValueDate is set
+		if tx.ValueDate.IsZero() && !tx.Date.IsZero() {
 			// If no value date, use the transaction date
 			tx.ValueDate = tx.Date
 		}
 
 		// Add stamp duty amount if applicable
 		if tx.Description == "trade" && tx.Fund != "" {
-			if dayDuties, exists := stampDuties[tx.Date]; exists {
+			dateKey := tx.Date.Format("02.01.2006")
+			if dayDuties, exists := stampDuties[dateKey]; exists {
 				if dutyInfo, found := dayDuties[tx.Fund]; found {
 					// Associate stamp duty as a fee (decimal)
 					tx.Fees = dutyInfo.Amount

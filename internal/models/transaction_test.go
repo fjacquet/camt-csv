@@ -7,55 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFormatDate(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		// Already correct format
-		{"AlreadyCorrectFormat", "01.01.2023", "01.01.2023"},
-		{"EmptyString", "", ""},
-
-		// ISO format
-		{"ISO_Date", "2023-01-01", "01.01.2023"},
-		{"ISO_DateTime", "2023-01-01 12:30:45", "01.01.2023"},
-		{"ISO_DateTimeZ", "2023-01-01T12:30:45Z", "01.01.2023"},
-		{"ISO_DateTimeZone", "2023-01-01T12:30:45+01:00", "01.01.2023"},
-
-		// European formats (day first)
-		{"European_SlashFormat", "01/01/2023", "01.01.2023"},
-		{"European_DashFormat", "01-01-2023", "01.01.2023"},
-
-		// US formats (month first)
-		{"US_SlashFormat", "12/31/2023", "31.12.2023"},
-		{"US_DashFormat", "12-31-2023", "31.12.2023"},
-
-		// Text formats
-		{"LongFormat", "January 1, 2023", "01.01.2023"},
-		{"DayFirstLongFormat", "1 January 2023", "01.01.2023"},
-		{"ShortMonthFormat", "01 Jan 2023", "01.01.2023"},
-		{"MonthYearOnly", "January 2023", "01.01.2023"},
-		{"ShortMonthYearOnly", "Jan 2023", "01.01.2023"},
-
-		// Short formats
-		{"MonthYear_Slash", "01/2023", "01.01.2023"},
-		{"YearMonth_Slash", "2023/01", "01.01.2023"},
-
-		// Unusual but valid formats
-		{"ShortDayMonthFormat", "1.1.2023", "01.01.2023"},
-
-		// Invalid format - should return original
-		{"Invalid_Format", "not-a-date", "not-a-date"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := FormatDate(tc.input)
-			assert.Equal(t, tc.expected, result, "FormatDate(%s) should return %s", tc.input, tc.expected)
-		})
-	}
-}
 
 func TestGetAmountAsDecimal(t *testing.T) {
 	testCases := []struct {

@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	
+	"fjacquet/camt-csv/internal/dateutils"
 )
 
 // TransactionBuilder provides a fluent API for constructing transactions
@@ -66,9 +68,13 @@ func (b *TransactionBuilder) WithDate(dateStr string) *TransactionBuilder {
 		return b
 	}
 	
-	// Use the existing FormatDate function to standardize the date
-	formattedDate := FormatDate(dateStr)
-	b.tx.Date = formattedDate
+	// Parse the date string to time.Time using dateutils
+	parsedDate, err := dateutils.ParseDateString(dateStr)
+	if err != nil {
+		b.err = fmt.Errorf("invalid date format: %w", err)
+		return b
+	}
+	b.tx.Date = parsedDate
 	return b
 }
 
@@ -81,7 +87,7 @@ func (b *TransactionBuilder) WithDateFromTime(date time.Time) *TransactionBuilde
 		b.err = errors.New("date cannot be zero")
 		return b
 	}
-	b.tx.Date = date.Format("02.01.2006")
+	b.tx.Date = date
 	return b
 }
 
@@ -91,8 +97,13 @@ func (b *TransactionBuilder) WithValueDate(dateStr string) *TransactionBuilder {
 		return b
 	}
 	if dateStr != "" {
-		formattedDate := FormatDate(dateStr)
-		b.tx.ValueDate = formattedDate
+		// Parse the date string to time.Time using dateutils
+		parsedDate, err := dateutils.ParseDateString(dateStr)
+		if err != nil {
+			b.err = fmt.Errorf("invalid value date format: %w", err)
+			return b
+		}
+		b.tx.ValueDate = parsedDate
 	}
 	return b
 }
@@ -103,7 +114,7 @@ func (b *TransactionBuilder) WithValueDateFromTime(valueDate time.Time) *Transac
 		return b
 	}
 	if !valueDate.IsZero() {
-		b.tx.ValueDate = valueDate.Format("02.01.2006")
+		b.tx.ValueDate = valueDate
 	}
 	return b
 }
@@ -380,7 +391,7 @@ func (b *TransactionBuilder) Build() (Transaction, error) {
 	}
 	
 	// Validate required fields
-	if b.tx.Date == "" {
+	if b.tx.Date.IsZero() {
 		return Transaction{}, errors.New("date is required")
 	}
 	
@@ -414,7 +425,7 @@ func (b *TransactionBuilder) populateDerivedFields() {
 	}
 	
 	// Set value date to transaction date if not set
-	if b.tx.ValueDate == "" {
+	if b.tx.ValueDate.IsZero() {
 		b.tx.ValueDate = b.tx.Date
 	}
 	

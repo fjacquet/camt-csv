@@ -121,8 +121,8 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 
 	// Start building the transaction
 	builder := models.NewTransactionBuilder().
-		WithDate(formatDate(row.Date)).
-		WithValueDate(formatDate(row.Date)).
+		WithDateFromTime(formatDate(row.Date)).
+		WithValueDateFromTime(formatDate(row.Date)).
 		WithInvestment(row.Ticker).
 		WithFund(row.Ticker).
 		WithType(row.Type).
@@ -274,15 +274,15 @@ func cleanAmountString(amountStr string) string {
 	return cleaned
 }
 
-// formatDate standardizes the date format
-func formatDate(dateStr string) string {
+// formatDate parses the date string and returns time.Time
+func formatDate(dateStr string) time.Time {
 	// Parse ISO format date
 	if t, err := time.Parse(time.RFC3339Nano, dateStr); err == nil {
-		return t.Format("02.01.2006") // Return as DD.MM.YYYY
+		return t
 	}
 
-	// If parsing fails, return original string
-	return dateStr
+	// If parsing fails, return zero time
+	return time.Time{}
 }
 
 // WriteToCSV writes transactions to a CSV file

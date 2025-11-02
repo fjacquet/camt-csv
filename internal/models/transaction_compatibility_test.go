@@ -64,8 +64,8 @@ func TestTransaction_GetCounterparty(t *testing.T) {
 func TestTransaction_ToTransactionCore(t *testing.T) {
 	tx := Transaction{
 		Number:      "TX123",
-		Date:        "15.01.2025",
-		ValueDate:   "16.01.2025",
+		Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+		ValueDate:   time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC),
 		Amount:      decimal.NewFromFloat(100.50),
 		Currency:    "CHF",
 		Description: "Test transaction",
@@ -92,8 +92,8 @@ func TestTransaction_ToTransactionCore(t *testing.T) {
 func TestTransaction_ToTransactionCore_InvalidDates(t *testing.T) {
 	tx := Transaction{
 		Number:      "TX123",
-		Date:        "invalid-date",
-		ValueDate:   "another-invalid-date",
+		Date:        time.Time{}, // Zero time for invalid date test
+		ValueDate:   time.Time{}, // Zero time for invalid date test
 		Amount:      decimal.NewFromFloat(100.50),
 		Currency:    "CHF",
 		Description: "Test transaction",
@@ -112,7 +112,7 @@ func TestTransaction_ToTransactionCore_InvalidDates(t *testing.T) {
 func TestTransaction_ToTransactionWithParties(t *testing.T) {
 	tx := Transaction{
 		Number:      "TX123",
-		Date:        "15.01.2025",
+		Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 		Amount:      decimal.NewFromFloat(100.50),
 		Currency:    "CHF",
 		CreditDebit: TransactionTypeDebit,
@@ -135,7 +135,7 @@ func TestTransaction_ToTransactionWithParties(t *testing.T) {
 func TestTransaction_ToCategorizedTransaction(t *testing.T) {
 	tx := Transaction{
 		Number:      "TX123",
-		Date:        "15.01.2025",
+		Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 		Amount:      decimal.NewFromFloat(100.50),
 		Currency:    "CHF",
 		CreditDebit: TransactionTypeCredit,
@@ -171,8 +171,8 @@ func TestTransaction_FromTransactionCore(t *testing.T) {
 	tx.FromTransactionCore(core)
 	
 	assert.Equal(t, "TX123", tx.Number)
-	assert.Equal(t, "15.01.2025", tx.Date)
-	assert.Equal(t, "16.01.2025", tx.ValueDate)
+	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
+	assert.Equal(t, time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC), tx.ValueDate)
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(100.50)))
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "Test transaction", tx.Description)
@@ -193,8 +193,8 @@ func TestTransaction_FromTransactionCore_ZeroDates(t *testing.T) {
 	tx.FromTransactionCore(core)
 	
 	assert.Equal(t, "TX123", tx.Number)
-	assert.Equal(t, "", tx.Date)     // Should remain empty for zero time
-	assert.Equal(t, "", tx.ValueDate) // Should remain empty for zero time
+	assert.True(t, tx.Date.IsZero())     // Should be zero time
+	assert.True(t, tx.ValueDate.IsZero()) // Should be zero time
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(100.50)))
 }
 
@@ -221,7 +221,7 @@ func TestTransaction_FromCategorizedTransaction(t *testing.T) {
 	tx.FromCategorizedTransaction(ct)
 	
 	assert.Equal(t, "TX123", tx.Number)
-	assert.Equal(t, "15.01.2025", tx.Date)
+	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(100.50)))
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "John Doe", tx.Payer)
@@ -245,8 +245,8 @@ func TestTransaction_ConversionRoundTrip(t *testing.T) {
 	// Test that converting from Transaction to new format and back preserves data
 	original := Transaction{
 		Number:      "TX123",
-		Date:        "15.01.2025",
-		ValueDate:   "16.01.2025",
+		Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+		ValueDate:   time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC),
 		Amount:      decimal.NewFromFloat(100.50),
 		Currency:    "CHF",
 		Description: "Test transaction",

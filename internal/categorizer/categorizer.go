@@ -10,7 +10,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
@@ -32,16 +34,20 @@ type Transaction struct {
 	Description string
 }
 
-// Categorizer handles the categorization of transactions and manages
-// the category, creditor, and debitor mapping databases
+// Categorizer handles the categorization of transactions using multiple strategies.
+// It orchestrates different categorization approaches in priority order.
 type Categorizer struct {
+	// Strategy-based categorization
+	strategies []CategorizationStrategy
+	
+	// Legacy fields for backward compatibility and auto-learning
 	categories       []models.CategoryConfig
 	creditorMappings map[string]string // Maps creditor names to categories
 	debitorMappings  map[string]string // Maps debitor names to categories
 	configMutex      sync.RWMutex
 	isDirtyCreditors bool // Track if creditorMappings has been modified and needs to be saved
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
-	store            *store.CategoryStore
+	store            CategoryStoreInterface
 	logger           logging.Logger
 	aiClient         AIClient // New field for AIClient interface
 }
@@ -76,7 +82,7 @@ func SetLogger(logger logging.Logger) {
 }
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, and logger.
-func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger logging.Logger) *Categorizer {
+func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger) *Categorizer {
 	if logger == nil {
 		logger = logging.GetLogger()
 	}
@@ -91,6 +97,13 @@ func NewCategorizer(aiClient AIClient, store *store.CategoryStore, logger loggin
 		store:            store,
 		logger:           logger,
 		aiClient:         aiClient,
+	}
+
+	// Initialize strategies in priority order
+	c.strategies = []CategorizationStrategy{
+		NewDirectMappingStrategy(store, logger),
+		NewKeywordStrategy(store, logger),
+		NewAIStrategy(aiClient, logger),
 	}
 
 	// Load categories from YAML
@@ -135,7 +148,11 @@ func initCategorizer() {
 		// Create a default GeminiClient and CategoryStore
 		defaultLogger := logging.GetLogger()
 		defaultAIClient := NewGeminiClient(defaultLogger) // Assuming NewGeminiClient exists
-		defaultStore := store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml")
+		defaultStore := &store.CategoryStore{
+			CategoriesFile: "categories.yaml",
+			CreditorsFile:  "creditors.yaml",
+			DebitorsFile:   "debitors.yaml",
+		}
 
 		defaultCategorizer = NewCategorizer(defaultAIClient, defaultStore, defaultLogger)
 	}
@@ -143,7 +160,7 @@ func initCategorizer() {
 
 // SetTestCategoryStore allows tests to inject a test CategoryStore.
 // This should only be used in tests!
-func SetTestCategoryStore(store *store.CategoryStore) {
+func SetTestCategoryStore(store CategoryStoreInterface) {
 	// If store is nil, reset to default categorizer
 	if store == nil {
 		defaultCategorizer = nil
@@ -311,23 +328,47 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 		}, nil
 	}
 
-	// Step 1: Try to categorize by debitor mapping
-	if category, found := c.categorizeByDebitorMapping(transaction); found {
-		return category, nil
+	// Try each strategy in priority order
+	ctx := context.Background()
+	for _, strategy := range c.strategies {
+		c.logger.WithFields(
+			logging.Field{Key: "strategy", Value: strategy.Name()},
+			logging.Field{Key: "party", Value: transaction.PartyName},
+		).Debug("Trying strategy")
+		
+		category, found, err := strategy.Categorize(ctx, transaction)
+		if err != nil {
+			c.logger.WithError(err).WithFields(
+				logging.Field{Key: "strategy", Value: strategy.Name()},
+				logging.Field{Key: "party", Value: transaction.PartyName},
+			).Warn("Strategy failed during categorization")
+			continue
+		}
+		
+		if found {
+			c.logger.WithFields(
+				logging.Field{Key: "strategy", Value: strategy.Name()},
+				logging.Field{Key: "party", Value: transaction.PartyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Transaction categorized successfully")
+			return category, nil
+		}
+		
+		c.logger.WithFields(
+			logging.Field{Key: "strategy", Value: strategy.Name()},
+			logging.Field{Key: "party", Value: transaction.PartyName},
+		).Debug("Strategy did not find a match")
 	}
 
-	// Step 2: Try to categorize by creditor mapping
-	if category, found := c.categorizeByCreditorMapping(transaction); found {
-		return category, nil
-	}
-
-	// Step 3: Try to categorize by local keywords
-	if category, found := c.categorizeLocallyByKeywords(transaction); found {
-		return category, nil
-	}
-
-	// Step 4: Fallback to AI categorization
-	return c.categorizeWithGemini(transaction)
+	// If no strategy succeeded, return uncategorized
+	c.logger.WithFields(
+		logging.Field{Key: "party", Value: transaction.PartyName},
+	).Debug("No strategy could categorize transaction, returning uncategorized")
+	
+	return models.Category{
+		Name:        models.CategoryUncategorized,
+		Description: "No categorization strategy succeeded",
+	}, nil
 }
 
 func categoryDescriptionFromName(name string) string {
@@ -345,6 +386,14 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	defer c.configMutex.Unlock()
 	c.debitorMappings[strings.ToLower(partyName)] = categoryName
 	c.isDirtyDebitors = true
+	
+	// Update the DirectMappingStrategy as well
+	for _, strategy := range c.strategies {
+		if directMapping, ok := strategy.(*DirectMappingStrategy); ok {
+			directMapping.UpdateDebitorMapping(partyName, categoryName)
+			break
+		}
+	}
 }
 
 // SaveDebitorsToYAML saves debitor mappings to YAML file if they have been modified.
@@ -371,6 +420,14 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	defer c.configMutex.Unlock()
 	c.creditorMappings[strings.ToLower(partyName)] = categoryName
 	c.isDirtyCreditors = true
+	
+	// Update the DirectMappingStrategy as well
+	for _, strategy := range c.strategies {
+		if directMapping, ok := strategy.(*DirectMappingStrategy); ok {
+			directMapping.UpdateCreditorMapping(partyName, categoryName)
+			break
+		}
+	}
 }
 
 // SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.
@@ -404,6 +461,7 @@ func UpdateCreditorCategory(partyName, categoryName string) {
 }
 
 // categorizeWithGemini attempts to categorize a transaction using the AI client
+// Deprecated: This method is now handled by AIStrategy. It's kept for backward compatibility.
 func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
 	// If no AI client is available, return uncategorized
 	if c.aiClient == nil {
@@ -414,11 +472,18 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	}
 
 	// Convert Transaction to models.Transaction
+	// Parse the date string to time.Time
+	parsedDate, err := dateutils.ParseDateString(transaction.Date)
+	if err != nil {
+		// If parsing fails, use zero time
+		parsedDate = time.Time{}
+	}
+	
 	modelTransaction := models.Transaction{
 		PartyName:   transaction.PartyName,
 		Description: transaction.Description,
 		Amount:      models.ParseAmount(transaction.Amount),
-		Date:        transaction.Date,
+		Date:        parsedDate,
 		Category:    "", // Will be filled by AI
 	}
 
@@ -441,10 +506,11 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 }
 
 //------------------------------------------------------------------------------
-// LOCAL CATEGORIZATION METHODS
+// DEPRECATED CATEGORIZATION METHODS (kept for backward compatibility)
 //------------------------------------------------------------------------------
 
 // categorizeByCreditorMapping attempts to categorize a transaction using the creditor mapping database
+// Deprecated: This method is now handled by DirectMappingStrategy. It's kept for backward compatibility.
 func (c *Categorizer) categorizeByCreditorMapping(transaction Transaction) (models.Category, bool) {
 	if transaction.IsDebtor {
 		return models.Category{}, false
@@ -469,6 +535,7 @@ func (c *Categorizer) categorizeByCreditorMapping(transaction Transaction) (mode
 }
 
 // categorizeByDebitorMapping attempts to categorize a transaction using the debitor mapping database
+// Deprecated: This method is now handled by DirectMappingStrategy. It's kept for backward compatibility.
 func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (models.Category, bool) {
 	if !transaction.IsDebtor {
 		return models.Category{}, false
@@ -493,6 +560,7 @@ func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (model
 }
 
 // categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
+// Deprecated: This method is now handled by KeywordStrategy. It's kept for backward compatibility.
 func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (models.Category, bool) {
 	partyName := strings.ToUpper(transaction.PartyName)
 	description := strings.ToUpper(transaction.Info)

@@ -205,25 +205,23 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			// Format the dates as DD.MM.YYYY
 
+			var parsedBookingDate, parsedValueDate time.Time
+			
 			if bookingDateParsed, err := time.Parse("2006-01-02", bookingDate); err == nil {
-
-				bookingDate = bookingDateParsed.Format("02.01.2006")
-
+				parsedBookingDate = bookingDateParsed
 			}
 
 			if valueDateParsed, err := time.Parse("2006-01-02", valueDate); err == nil {
-
-				valueDate = valueDateParsed.Format("02.01.2006")
-
+				parsedValueDate = valueDateParsed
 			}
 
 			// Create transaction
 
 			transaction := models.Transaction{
 
-				Date: bookingDate,
+				Date: parsedBookingDate,
 
-				ValueDate: valueDate,
+				ValueDate: parsedValueDate,
 
 				Amount: models.ParseAmount(entry.Amount.Value),
 
@@ -414,7 +412,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 				Amount: transaction.Amount.String(),
 
-				Date: transaction.Date,
+				Date: transaction.Date.Format("02.01.2006"),
 
 				Info: transaction.RemittanceInfo,
 

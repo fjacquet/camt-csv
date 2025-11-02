@@ -160,7 +160,7 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			PartyName:   transactions[i].GetPartyName(),
 			IsDebtor:    isDebtor,
 			Amount:      fmt.Sprintf("%s %s", transactions[i].Amount.String(), transactions[i].Currency),
-			Date:        transactions[i].Date,
+			Date:        transactions[i].Date.Format("02.01.2006"),
 			Info:        transactions[i].Description,
 			Description: transactions[i].Description,
 		}

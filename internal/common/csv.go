@@ -109,13 +109,7 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 
 	// Update date formats and ensure derived fields are correctly set
 	for i := range transactions {
-		// Normalize dates to DD.MM.YYYY format
-		if transactions[i].Date != "" {
-			transactions[i].Date = models.FormatDate(transactions[i].Date)
-		}
-		if transactions[i].ValueDate != "" {
-			transactions[i].ValueDate = models.FormatDate(transactions[i].ValueDate)
-		}
+		// Dates are now time.Time and will be formatted automatically during CSV marshaling
 
 		// Update various derived fields
 		transactions[i].UpdateNameFromParties()

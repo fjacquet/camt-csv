@@ -88,7 +88,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 			expectError:      false,
 		},
 		{
-			name: "AI Fallback - Coffee Shop",
+			name: "Keyword Match - Coffee Shop",
 			transaction: categorizer.Transaction{
 				PartyName:   "New Coffee Place",
 				IsDebtor:    false,
@@ -97,7 +97,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 				Info:        "Coffee Shop",
 				Description: "Coffee Shop",
 			},
-			expectedCategory: "Food & Drink", // From mock AI
+			expectedCategory: "Food", // From keyword strategy (coffee keyword)
 			expectError:      false,
 		},
 		{

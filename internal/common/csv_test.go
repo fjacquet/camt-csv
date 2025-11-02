@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/logging"
@@ -106,14 +107,14 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:        "2023-01-01",
+			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description: "Transaction 1",
 			Amount:      models.ParseAmount("100.00"),
 			Currency:    "CHF",
 			CreditDebit: models.TransactionTypeDebit,
 		},
 		{
-			Date:        "2023-01-02",
+			Date:        time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description: "Transaction 2",
 			Amount:      models.ParseAmount("200.00"),
 			Currency:    "CHF",
@@ -167,7 +168,7 @@ Bob Johnson,42,bob@example.com,UK`
 	parseFunc := func(string) ([]models.Transaction, error) {
 		// Return simple test transactions
 		transaction := models.Transaction{
-			Date:        "2023-01-01",
+			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description: "Test Transaction",
 			Amount:      models.ParseAmount("100.00"),
 			Currency:    "CHF",
@@ -200,14 +201,14 @@ func TestExportTransactionsToCSV(t *testing.T) {
 	// Create sample transactions
 	transactions := []models.Transaction{
 		{
-			Date:        "2023-01-01",
+			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description: "Test Debit",
 			Amount:      models.ParseAmount("123.45"),
 			Currency:    "CHF",
 			CreditDebit: models.TransactionTypeDebit,
 		},
 		{
-			Date:        "2023-01-02",
+			Date:        time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description: "Test Credit",
 			Amount:      models.ParseAmount("-67.89"),
 			Currency:    "EUR",

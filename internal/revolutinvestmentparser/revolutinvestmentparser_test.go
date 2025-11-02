@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -46,8 +47,12 @@ func TestParseFile(t *testing.T) {
 
 	// Check first transaction (CASH TOP-UP)
 	txn1 := transactions[0]
-	assert.Equal(t, "30.05.2025", txn1.Date)
-	assert.Equal(t, "30.05.2025", txn1.ValueDate)
+	assert.Equal(t, 2025, txn1.Date.Year())
+	assert.Equal(t, time.May, txn1.Date.Month())
+	assert.Equal(t, 30, txn1.Date.Day())
+	assert.Equal(t, 2025, txn1.ValueDate.Year())
+	assert.Equal(t, time.May, txn1.ValueDate.Month())
+	assert.Equal(t, 30, txn1.ValueDate.Day())
 	assert.Equal(t, "Revolut Investment", txn1.PartyName)
 	assert.Equal(t, "Cash top-up to investment account", txn1.Description)
 	assert.Equal(t, "EUR", txn1.Currency)
@@ -57,7 +62,9 @@ func TestParseFile(t *testing.T) {
 
 	// Check second transaction (BUY)
 	txn2 := transactions[1]
-	assert.Equal(t, "30.05.2025", txn2.Date)
+	assert.Equal(t, 2025, txn2.Date.Year())
+	assert.Equal(t, time.May, txn2.Date.Month())
+	assert.Equal(t, 30, txn2.Date.Day())
 	assert.Equal(t, "2B7K", txn2.Investment)
 	assert.Equal(t, "2B7K", txn2.Fund)
 	assert.Equal(t, "BUY - MARKET", txn2.Type)
@@ -105,7 +112,9 @@ func TestConvertRowToTransaction(t *testing.T) {
 	txn, err := convertRowToTransaction(row)
 	require.NoError(t, err)
 
-	assert.Equal(t, "30.05.2025", txn.Date)
+	assert.Equal(t, 2025, txn.Date.Year())
+	assert.Equal(t, time.May, txn.Date.Month())
+	assert.Equal(t, 30, txn.Date.Day())
 	assert.Equal(t, "2B7K", txn.Investment)
 	assert.Equal(t, "BUY - MARKET", txn.Type)
 	assert.Equal(t, "EUR", txn.Currency)
@@ -114,17 +123,19 @@ func TestConvertRowToTransaction(t *testing.T) {
 
 func TestFormatDate(t *testing.T) {
 	formatted := formatDate("2025-05-30T10:31:05.452Z")
-	assert.Equal(t, "30.05.2025", formatted)
+	assert.Equal(t, 2025, formatted.Year())
+	assert.Equal(t, time.May, formatted.Month())
+	assert.Equal(t, 30, formatted.Day())
 
 	// Test with invalid date
 	invalid := formatDate("invalid-date")
-	assert.Equal(t, "invalid-date", invalid)
+	assert.True(t, invalid.IsZero()) // Should return zero time for invalid date
 }
 
 func TestWriteToCSV(t *testing.T) {
 	transactions := []models.Transaction{
 		{
-			Date:           "30.05.2025",
+			Date:           time.Date(2025, 5, 30, 0, 0, 0, 0, time.UTC),
 			Description:    "Test transaction",
 			Amount:         models.ParseAmount("100"),
 			Currency:       "EUR",

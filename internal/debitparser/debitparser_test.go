@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/models"
@@ -92,7 +93,9 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	}
 
 	// Check the first transaction
-	assert.Equal(t, "15.04.2025", transactions[0].Date)
+	assert.Equal(t, 2025, transactions[0].Date.Year())
+	assert.Equal(t, time.April, transactions[0].Date.Month())
+	assert.Equal(t, 15, transactions[0].Date.Day())
 	assert.Equal(t, "RATP", transactions[0].Description)
 	assert.Equal(t, models.ParseAmount("4.21"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)

@@ -27,19 +27,19 @@ func TestTransactionBuilder_WithDate(t *testing.T) {
 		name        string
 		dateStr     string
 		expectError bool
-		expectedDate string
+		expectedDate time.Time
 	}{
 		{
 			name:         "valid DD.MM.YYYY format",
 			dateStr:      "15.01.2025",
 			expectError:  false,
-			expectedDate: "15.01.2025",
+			expectedDate: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			name:         "valid YYYY-MM-DD format",
 			dateStr:      "2025-01-15",
 			expectError:  false,
-			expectedDate: "15.01.2025",
+			expectedDate: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			name:        "empty date",
@@ -68,7 +68,7 @@ func TestTransactionBuilder_WithDateFromTime(t *testing.T) {
 	builder := NewTransactionBuilder().WithDateFromTime(date)
 	
 	assert.Nil(t, builder.err)
-	assert.Equal(t, "15.01.2025", builder.tx.Date)
+	assert.Equal(t, date, builder.tx.Date)
 }
 
 func TestTransactionBuilder_WithDateFromTime_ZeroTime(t *testing.T) {
@@ -180,7 +180,7 @@ func TestTransactionBuilder_FluentChaining(t *testing.T) {
 		Build()
 	
 	require.NoError(t, err)
-	assert.Equal(t, "15.01.2025", tx.Date)
+	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
 	assert.True(t, tx.Amount.Equal(amount))
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "Test transaction", tx.Description)
@@ -268,7 +268,7 @@ func TestTransactionBuilder_PopulateDerivedFields(t *testing.T) {
 	// Check derived fields
 	assert.Equal(t, "Acme Corp", tx.Name) // For debit, Name should be Payee
 	assert.Equal(t, "Acme Corp", tx.Recipient)
-	assert.Equal(t, "15.01.2025", tx.ValueDate) // Should default to Date
+	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.ValueDate) // Should default to Date
 	assert.NotEmpty(t, tx.Number) // Should generate a UUID
 	assert.True(t, tx.Debit.Equal(decimal.NewFromFloat(100.0)))
 	assert.True(t, tx.Credit.IsZero())
@@ -368,7 +368,7 @@ func TestTransactionBuilder_Reset(t *testing.T) {
 	
 	// Should be a new builder with default values
 	assert.NotEqual(t, builder, reset)
-	assert.Equal(t, "", reset.tx.Date)
+	assert.True(t, reset.tx.Date.IsZero())
 	assert.True(t, reset.tx.Amount.IsZero())
 	assert.Equal(t, "CHF", reset.tx.Currency) // Default currency
 }
@@ -407,8 +407,8 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	
 	// Verify all fields are set correctly
 	assert.Equal(t, "BK123", tx.BookkeepingNumber)
-	assert.Equal(t, "15.01.2025", tx.Date)
-	assert.Equal(t, "16.01.2025", tx.ValueDate)
+	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
+	assert.Equal(t, time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC), tx.ValueDate)
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(1234.56)))
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "Complex transaction", tx.Description)

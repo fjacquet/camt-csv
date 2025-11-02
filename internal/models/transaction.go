@@ -3,7 +3,6 @@ package models
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,10 +12,10 @@ import (
 
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
-	BookkeepingNumber string          `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
-	Status            string          `csv:"Status"`            // Status code
-	Date              string          `csv:"Date"`              // Date in DD.MM.YYYY format
-	ValueDate         string          `csv:"ValueDate"`         // Value date in DD.MM.YYYY format
+	BookkeepingNumber string    `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
+	Status            string    `csv:"Status"`            // Status code
+	Date              time.Time `csv:"Date"`              // Transaction date
+	ValueDate         time.Time `csv:"ValueDate"`         // Value date
 	Name              string          `csv:"Name"`              // Name of the other party (combined from Payee/Payer)
 	PartyName         string          `csv:"PartyName"`         // Name of the other party (standardized field)
 	PartyIBAN         string          `csv:"PartyIBAN"`         // IBAN of the other party
@@ -114,30 +113,10 @@ func (t *Transaction) GetCounterparty() string {
 // DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
 // Migration: Use NewTransactionBuilder() to create transactions in the new format.
 func (t *Transaction) ToTransactionCore() TransactionCore {
-	var date, valueDate time.Time
-	var err error
-	
-	// Parse dates from string format
-	if t.Date != "" {
-		date, err = time.Parse("02.01.2006", t.Date)
-		if err != nil {
-			// If parsing fails, use zero time
-			date = time.Time{}
-		}
-	}
-	
-	if t.ValueDate != "" {
-		valueDate, err = time.Parse("02.01.2006", t.ValueDate)
-		if err != nil {
-			// If parsing fails, use zero time
-			valueDate = time.Time{}
-		}
-	}
-	
 	return TransactionCore{
 		ID:          t.Number,
-		Date:        date,
-		ValueDate:   valueDate,
+		Date:        t.Date,
+		ValueDate:   t.ValueDate,
 		Amount:      NewMoney(t.Amount, t.Currency),
 		Description: t.Description,
 		Status:      t.Status,
@@ -188,12 +167,8 @@ func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
 // Migration: Use NewTransactionBuilder() to create transactions in the new format.
 func (t *Transaction) FromTransactionCore(core TransactionCore) {
 	t.Number = core.ID
-	if !core.Date.IsZero() {
-		t.Date = core.Date.Format("02.01.2006")
-	}
-	if !core.ValueDate.IsZero() {
-		t.ValueDate = core.ValueDate.Format("02.01.2006")
-	}
+	t.Date = core.Date
+	t.ValueDate = core.ValueDate
 	t.Amount = core.Amount.Amount
 	t.Currency = core.Amount.Currency
 	t.Description = core.Description
@@ -364,69 +339,7 @@ func StandardizeAmount(amountStr string) string {
 	return formatted
 }
 
-// FormatDate standardizes date strings to the DD.MM.YYYY format
-// It handles various input formats from different sources
-func FormatDate(dateStr string) string {
-	// Skip processing if empty
-	if dateStr == "" {
-		return ""
-	}
 
-	// Clean the input string
-	cleanDate := strings.TrimSpace(dateStr)
-
-	// If it's already in the target format (DD.MM.YYYY), return as is
-	if matched, _ := regexp.MatchString(`^\d{2}\.\d{2}\.\d{4}$`, cleanDate); matched {
-		return cleanDate
-	}
-
-	// Try various date formats commonly found in financial data
-	formats := []string{
-		"2006-01-02",                // YYYY-MM-DD (ISO)
-		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
-		"2006-01-02T15:04:05Z",      // ISO 8601
-		"2006-01-02T15:04:05-07:00", // ISO 8601 with timezone
-		"02/01/2006",                // DD/MM/YYYY
-		"01/02/2006",                // MM/DD/YYYY (US format)
-		"02-01-2006",                // DD-MM-YYYY
-		"01-02-2006",                // MM-DD-YYYY
-		"2.1.2006",                  // D.M.YYYY
-		"02.01.2006",                // DD.MM.YYYY
-		"January 2, 2006",           // Month D, YYYY
-		"2 January 2006",            // D Month YYYY
-		"02 Jan 2006",               // DD MMM YYYY
-		"Jan 02, 2006",              // MMM DD, YYYY
-		"January 2006",              // Month YYYY (for monthly statements)
-		"Jan 2006",                  // MMM YYYY (abbreviated month)
-		"01/2006",                   // MM/YYYY
-		"2006/01",                   // YYYY/MM
-	}
-
-	// European day-first preference (important for ambiguous formats)
-	// This list matches the same formats but with European day-first parsing
-	europeanFormats := []string{
-		"02/01/2006", // DD/MM/YYYY (European)
-		"02-01-2006", // DD-MM-YYYY (European)
-	}
-
-	// First try European formats (as they're more common in Swiss financial data)
-	for _, format := range europeanFormats {
-		if t, err := time.Parse(format, cleanDate); err == nil {
-			return t.Format("02.01.2006") // Return as DD.MM.YYYY
-		}
-	}
-
-	// Then try all other formats
-	for _, format := range formats {
-		if t, err := time.Parse(format, cleanDate); err == nil {
-			return t.Format("02.01.2006") // Return as DD.MM.YYYY
-		}
-	}
-
-	// If we can't parse the date, log a warning and return the original
-	// log.WithField("date", dateStr).Warning("Unable to parse date format")
-	return dateStr
-}
 
 func (t *Transaction) MarshalCSV() ([]string, error) {
 	// Make sure the derived fields are populated correctly
@@ -438,8 +351,8 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 	return []string{
 		t.BookkeepingNumber,
 		t.Status,
-		t.Date,
-		t.ValueDate,
+		t.formatDateForCSV(t.Date),
+		t.formatDateForCSV(t.ValueDate),
 		t.Name,
 		t.Description,
 		t.RemittanceInfo,
@@ -476,14 +389,20 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 func (t *Transaction) UnmarshalCSV(record []string) error {
 	t.BookkeepingNumber = record[0]
 	t.Status = record[1]
-	t.Date = record[2]
-	t.ValueDate = record[3]
+	var err error
+	t.Date, err = t.parseDateFromCSV(record[2])
+	if err != nil {
+		return fmt.Errorf("failed to parse date: %w", err)
+	}
+	t.ValueDate, err = t.parseDateFromCSV(record[3])
+	if err != nil {
+		return fmt.Errorf("failed to parse value date: %w", err)
+	}
 	t.Name = record[4]
 	t.Description = record[5]
 	t.RemittanceInfo = record[6]
 	t.PartyName = record[7]
 	t.PartyIBAN = record[8]
-	var err error
 	t.Amount, err = decimal.NewFromString(record[9])
 	if err != nil {
 		return err
@@ -546,4 +465,22 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 		return err
 	}
 	return nil
+}
+
+// formatDateForCSV formats a time.Time as DD.MM.YYYY for CSV output
+// Returns empty string for zero time
+func (t *Transaction) formatDateForCSV(date time.Time) string {
+	if date.IsZero() {
+		return ""
+	}
+	return date.Format("02.01.2006")
+}
+
+// parseDateFromCSV parses a date string from CSV format (DD.MM.YYYY) to time.Time
+// Returns zero time for empty strings
+func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
+	if dateStr == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse("02.01.2006", dateStr)
 }
