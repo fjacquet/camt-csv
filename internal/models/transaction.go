@@ -88,18 +88,72 @@ func (t *Transaction) GetCounterparty() string {
 	return t.Payer
 }
 
-// GetPayee returns the payee name for backward compatibility
+// GetPayee returns the appropriate party name based on transaction direction for backward compatibility.
+// For debit transactions (money going out), returns the payee (who receives the money).
+// For credit transactions (money coming in), returns the payer (who sent the money to us).
+// This provides a consistent "other party" perspective from the account holder's viewpoint.
+//
+// Deprecated: This method is provided for backward compatibility during migration.
+// For new code, use TransactionBuilder pattern or access Payer/Payee fields directly.
+// Consider using GetCounterparty() for similar functionality.
+// 
+// Migration example:
+//   // Old code:
+//   otherParty := tx.GetPayee()
+//   
+//   // New code (direct access):
+//   payee := tx.Payee  // if you specifically need the payee
+//   
+//   // New code (counterparty - recommended):
+//   otherParty := tx.GetCounterparty()
 func (t *Transaction) GetPayee() string {
-	return t.Payee
-}
-
-// GetPayer returns the payer name for backward compatibility
-func (t *Transaction) GetPayer() string {
+	if t.IsDebit() {
+		// For debit (outgoing), the payee is who receives our money
+		return t.Payee
+	}
+	// For credit (incoming), the "payee" from our perspective is who sent us money
 	return t.Payer
 }
 
-// GetAmountAsFloat returns the amount as float64 for backward compatibility
-// Deprecated: Use GetAmountAsDecimal() instead for precise calculations
+// GetPayer returns the appropriate party name based on transaction direction for backward compatibility.
+// For debit transactions (money going out), returns the payer (account holder who sent the money).
+// For credit transactions (money coming in), returns the payee (who received the money from the sender).
+// This provides a consistent "account holder" perspective.
+//
+// Deprecated: This method is provided for backward compatibility during migration.
+// For new code, use TransactionBuilder pattern or access Payer/Payee fields directly.
+// Consider using GetCounterparty() for the other party in the transaction.
+//
+// Migration example:
+//   // Old code:
+//   accountHolder := tx.GetPayer()
+//   
+//   // New code (direct access):
+//   payer := tx.Payer  // if you specifically need the payer
+//   
+//   // New code (account holder perspective):
+//   // For debits: account holder is the payer
+//   // For credits: account holder is the payee
+func (t *Transaction) GetPayer() string {
+	if t.IsDebit() {
+		// For debit (outgoing), the payer is the account holder
+		return t.Payer
+	}
+	// For credit (incoming), the "payer" from account holder's perspective is the payee
+	return t.Payee
+}
+
+// GetAmountAsFloat returns the amount as float64 for backward compatibility.
+// Note: This method may lose precision for large amounts or amounts with many decimal places.
+//
+// Deprecated: Use GetAmountAsDecimal() instead for precise financial calculations.
+// For new code, use TransactionBuilder.WithAmount() to set amounts as decimal.Decimal.
+// Migration example:
+//   // Old code:
+//   amount := tx.GetAmountAsFloat()
+//   
+//   // New code:
+//   amount := tx.GetAmountAsDecimal()
 func (t *Transaction) GetAmountAsFloat() float64 {
 	f, _ := t.Amount.Float64()
 	return f

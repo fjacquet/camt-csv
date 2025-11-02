@@ -1,0 +1,2 @@
+BookkeepingNumber;Status;Date;ValueDate;Name;PartyName;PartyIBAN;Description;RemittanceInfo;Amount;CreditDebit;IsDebit;Debit;Credit;Currency;AmountExclTax;AmountTax;TaxRate;Recipient;InvestmentType;Number;Category;Type;Fund;NumberOfShares;Fees;IBAN;EntryReference;Reference;AccountServicer;BankTxCode;OriginalCurrency;OriginalAmount;ExchangeRate
+;BOOK;31.12.2024;31.12.2024;;;;RESULTAT DE CLOTURE;;65.63;CRDT;false;0.00;65.63;CHF;0.00;0.00;0.00;;;;Uncategorized;;;0;0.00;;;X14057;705234020005001/390;;;0.00;0.00

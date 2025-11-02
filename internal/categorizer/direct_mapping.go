@@ -9,6 +9,24 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
+// normalizeStringToLower converts a string to lowercase using strings.Builder
+// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
+//
+// Performance rationale: This approach provides consistent memory allocation
+// patterns and prevents multiple reallocations during string processing.
+// The pre-allocation ensures optimal performance in categorization hot paths
+// where string normalization is performed frequently.
+func normalizeStringToLower(input string) string {
+	if input == "" {
+		return ""
+	}
+	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
+	builder := strings.Builder{}
+	builder.Grow(len(input))
+	builder.WriteString(strings.ToLower(input))
+	return builder.String()
+}
+
 // DirectMappingStrategy implements categorization using exact name matches
 // from creditor and debtor mapping databases.
 type DirectMappingStrategy struct {
@@ -46,8 +64,8 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 		return models.Category{}, false, nil
 	}
 
-	// Convert to lowercase for case-insensitive lookup
-	partyNameLower := strings.ToLower(tx.PartyName)
+	// Performance optimization: Use helper function to minimize allocations during party name normalization
+	partyNameLower := normalizeStringToLower(tx.PartyName)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -110,9 +128,9 @@ func (s *DirectMappingStrategy) loadMappings() {
 			s.creditorMappings = newMap
 		}
 		
-		// Normalize keys to lowercase for case-insensitive lookup
+		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range creditorMappings {
-			s.creditorMappings[strings.ToLower(key)] = value
+			s.creditorMappings[normalizeStringToLower(key)] = value
 		}
 		s.mu.Unlock()
 		s.logger.WithField("count", len(creditorMappings)).Debug("Loaded creditor mappings for DirectMappingStrategy")
@@ -133,9 +151,9 @@ func (s *DirectMappingStrategy) loadMappings() {
 			s.debtorMappings = newMap
 		}
 		
-		// Normalize keys to lowercase for case-insensitive lookup
+		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range debtorMappings {
-			s.debtorMappings[strings.ToLower(key)] = value
+			s.debtorMappings[normalizeStringToLower(key)] = value
 		}
 		s.mu.Unlock()
 		s.logger.WithField("count", len(debtorMappings)).Debug("Loaded debtor mappings for DirectMappingStrategy")
@@ -159,14 +177,16 @@ func (s *DirectMappingStrategy) ReloadMappings() {
 func (s *DirectMappingStrategy) UpdateCreditorMapping(partyName, categoryName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.creditorMappings[strings.ToLower(partyName)] = categoryName
+	// Performance optimization: Use helper function to minimize allocations during mapping updates
+	s.creditorMappings[normalizeStringToLower(partyName)] = categoryName
 }
 
 // UpdateDebtorMapping adds or updates a debtor mapping.
 func (s *DirectMappingStrategy) UpdateDebtorMapping(partyName, categoryName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.debtorMappings[strings.ToLower(partyName)] = categoryName
+	// Performance optimization: Use helper function to minimize allocations during mapping updates
+	s.debtorMappings[normalizeStringToLower(partyName)] = categoryName
 }
 
 

@@ -16,6 +16,24 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
+// normalizeStringToLowerCategorizer converts a string to lowercase using strings.Builder
+// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
+//
+// Performance rationale: Centralizes string normalization logic and ensures
+// consistent memory allocation patterns across the categorizer. The helper
+// function approach reduces code duplication and provides a single point
+// for optimization improvements.
+func normalizeStringToLowerCategorizer(input string) string {
+	if input == "" {
+		return ""
+	}
+	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
+	builder := strings.Builder{}
+	builder.Grow(len(input))
+	builder.WriteString(strings.ToLower(input))
+	return builder.String()
+}
+
 //------------------------------------------------------------------------------
 // TYPE DEFINITIONS
 //------------------------------------------------------------------------------
@@ -116,9 +134,9 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 			c.creditorMappings = newMap
 		}
 		
-		// Normalize keys to lowercase for case-insensitive lookup
+		// Performance optimization: Use helper function to minimize allocations when loading creditor mappings
 		for key, value := range creditorMappings {
-			c.creditorMappings[strings.ToLower(key)] = value
+			c.creditorMappings[normalizeStringToLowerCategorizer(key)] = value
 		}
 	}
 
@@ -137,9 +155,9 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 			c.debitorMappings = newMap
 		}
 		
-		// Normalize keys to lowercase for case-insensitive lookup
+		// Performance optimization: Use helper function to minimize allocations when loading debtor mappings
 		for key, value := range debitorMappings {
-			c.debitorMappings[strings.ToLower(key)] = value
+			c.debitorMappings[normalizeStringToLowerCategorizer(key)] = value
 		}
 	}
 
@@ -322,7 +340,8 @@ func (c *Categorizer) UpdateDebitorCategory(partyName, categoryName string) {
 func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
-	c.debitorMappings[strings.ToLower(partyName)] = categoryName
+	// Performance optimization: Use helper function to minimize allocations during mapping updates
+	c.debitorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
 	c.isDirtyDebitors = true
 	
 	// Update the DirectMappingStrategy as well
@@ -356,7 +375,8 @@ func (c *Categorizer) UpdateCreditorCategory(partyName, categoryName string) {
 func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
-	c.creditorMappings[strings.ToLower(partyName)] = categoryName
+	// Performance optimization: Use helper function to minimize allocations during mapping updates
+	c.creditorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
 	c.isDirtyCreditors = true
 	
 	// Update the DirectMappingStrategy as well

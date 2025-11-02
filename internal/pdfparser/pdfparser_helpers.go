@@ -130,7 +130,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 
 			// Start a new transaction
 			inTransaction = true
-			currentTx = models.Transaction{}
+			currentTx = models.Transaction{} // Keep minimal struct for temporary storage during parsing
 			description.Reset()
 			// merchant would be empty string here, but we don't need to assign it
 

@@ -147,6 +147,196 @@ func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
 	assert.Equal(t, 5.25, tx.GetFeesAsFloat())
 }
 
+func TestTransaction_GetPayee_DirectionBased(t *testing.T) {
+	tests := []struct {
+		name        string
+		tx          Transaction
+		expected    string
+		description string
+	}{
+		{
+			name: "debit transaction returns payee",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+				Payer:       "Account Holder",
+				Payee:       "Store ABC",
+			},
+			expected:    "Store ABC",
+			description: "For debit transactions, GetPayee() should return the payee (who receives money)",
+		},
+		{
+			name: "credit transaction returns payer",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+				Payer:       "Employer Corp",
+				Payee:       "Account Holder",
+			},
+			expected:    "Employer Corp",
+			description: "For credit transactions, GetPayee() should return the payer (who sent money to us)",
+		},
+		{
+			name: "unknown direction with zero amount returns payer",
+			tx: Transaction{
+				CreditDebit: "UNKNOWN",
+				DebitFlag:   false,
+				Payer:       "Some Payer",
+				Payee:       "Some Payee",
+				Amount:      decimal.Zero,
+			},
+			expected:    "Some Payer",
+			description: "For unknown direction with zero amount (credit behavior), GetPayee() returns payer",
+		},
+		{
+			name: "negative amount treated as debit",
+			tx: Transaction{
+				CreditDebit: "",
+				DebitFlag:   false,
+				Amount:      decimal.NewFromFloat(-50.00),
+				Payer:       "Account Holder",
+				Payee:       "Utility Company",
+			},
+			expected:    "Utility Company",
+			description: "Negative amounts are treated as debits, so GetPayee() returns the payee",
+		},
+		{
+			name: "empty parties in debit",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+				Payer:       "",
+				Payee:       "",
+			},
+			expected:    "",
+			description: "Empty payee in debit transaction should return empty string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.tx.GetPayee()
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestTransaction_GetPayer_DirectionBased(t *testing.T) {
+	tests := []struct {
+		name        string
+		tx          Transaction
+		expected    string
+		description string
+	}{
+		{
+			name: "debit transaction returns payer",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+				Payer:       "Account Holder",
+				Payee:       "Store ABC",
+			},
+			expected:    "Account Holder",
+			description: "For debit transactions, GetPayer() should return the payer (account holder)",
+		},
+		{
+			name: "credit transaction returns payee",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+				Payer:       "Employer Corp",
+				Payee:       "Account Holder",
+			},
+			expected:    "Account Holder",
+			description: "For credit transactions, GetPayer() should return the payee (account holder)",
+		},
+		{
+			name: "unknown direction with zero amount returns payee",
+			tx: Transaction{
+				CreditDebit: "UNKNOWN",
+				DebitFlag:   false,
+				Payer:       "Some Payer",
+				Payee:       "Some Payee",
+				Amount:      decimal.Zero,
+			},
+			expected:    "Some Payee",
+			description: "For unknown direction with zero amount (credit behavior), GetPayer() returns payee",
+		},
+		{
+			name: "negative amount treated as debit",
+			tx: Transaction{
+				CreditDebit: "",
+				DebitFlag:   false,
+				Amount:      decimal.NewFromFloat(-50.00),
+				Payer:       "Account Holder",
+				Payee:       "Utility Company",
+			},
+			expected:    "Account Holder",
+			description: "Negative amounts are treated as debits, so GetPayer() returns the payer",
+		},
+		{
+			name: "empty parties in credit",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+				Payer:       "",
+				Payee:       "",
+			},
+			expected:    "",
+			description: "Empty payee in credit transaction should return empty string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.tx.GetPayer()
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestTransaction_GetAmountAsFloat_Precision(t *testing.T) {
+	tests := []struct {
+		name     string
+		amount   decimal.Decimal
+		expected float64
+	}{
+		{
+			name:     "simple amount",
+			amount:   decimal.NewFromFloat(100.50),
+			expected: 100.50,
+		},
+		{
+			name:     "zero amount",
+			amount:   decimal.Zero,
+			expected: 0.0,
+		},
+		{
+			name:     "negative amount",
+			amount:   decimal.NewFromFloat(-75.25),
+			expected: -75.25,
+		},
+		{
+			name:     "large amount",
+			amount:   decimal.NewFromFloat(999999.99),
+			expected: 999999.99,
+		},
+		{
+			name:     "small fractional amount",
+			amount:   decimal.NewFromFloat(0.01),
+			expected: 0.01,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tx := Transaction{Amount: tt.amount}
+			result := tx.GetAmountAsFloat()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestTransaction_SetPayerInfo(t *testing.T) {
 	tx := Transaction{}
 	tx.SetPayerInfo("John Doe", "CH1234567890")

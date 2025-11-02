@@ -215,232 +215,182 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 				parsedValueDate = valueDateParsed
 			}
 
-			// Create transaction
+			// Create transaction using TransactionBuilder
+			builder := models.NewTransactionBuilder().
+				WithID(""). // Don't generate UUID, keep empty like original
+				WithDatetime(parsedBookingDate).
+				WithValueDatetime(parsedValueDate).
+				WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
+				WithAccountServicer(entry.AccountServicer.Ref).
+				WithStatus(entry.Status.Status)
 
-			transaction := models.Transaction{
-
-				Date: parsedBookingDate,
-
-				ValueDate: parsedValueDate,
-
-				Amount: models.ParseAmount(entry.Amount.Value),
-
-				Currency: entry.Amount.Currency,
-
-				CreditDebit: entry.CreditDebit.Indicator,
-
-				AccountServicer: entry.AccountServicer.Ref,
-
-				Status: entry.Status.Status,
+			// Set transaction direction
+			if entry.CreditDebit.Indicator == models.TransactionTypeDebit {
+				builder = builder.AsDebit()
+			} else {
+				builder = builder.AsCredit()
 			}
 
 			// Add details from transaction details if available
-
 			txDetails := entry.EntryDetails.TransactionDetails
 
 			// Set description from AddtlNtryInf or RemittanceInfo
-
+			description := ""
+			
 			if entry.AdditionalInfo.Info != "" {
-
-				transaction.Description = entry.AdditionalInfo.Info
-
-			} else if transaction.RemittanceInfo != "" {
-
+				description = entry.AdditionalInfo.Info
+			} else if txDetails.RemittanceInfo.Ustrd != "" {
 				// Use RemittanceInfo as Description if there's no AddtlNtryInf
-
-				transaction.Description = transaction.RemittanceInfo
-
+				description = txDetails.RemittanceInfo.Ustrd
+			}
+			
+			if description != "" {
+				builder = builder.WithDescription(description)
+			}
+			
+			// Always set RemittanceInfo from the XML field if present
+			if txDetails.RemittanceInfo.Ustrd != "" {
+				builder = builder.WithRemittanceInfo(txDetails.RemittanceInfo.Ustrd)
 			}
 
+			// Handle party name extraction and special cases
+			var partyName string
+			var transactionType string
+
 			// Handle special case for ORDRE LSV + transactions
-
-			if strings.Contains(transaction.Description, "ORDRE LSV +") {
-
+			if strings.Contains(description, "ORDRE LSV +") {
 				// For LSV+ transactions, get the creditor name from related parties if available
-
-				cdtrName := ""
-
 				if len(txDetails.RelatedParties.Creditor.Name) > 0 {
-
-					cdtrName = txDetails.RelatedParties.Creditor.Name
-
-					// Set PartyName and Name to the creditor name
-
-					transaction.PartyName = cdtrName
-
-					transaction.Name = cdtrName
-
-					transaction.Type = "Virement"
-
+					partyName = txDetails.RelatedParties.Creditor.Name
+					transactionType = "Virement"
 				}
-
 			} else {
-
 				// Extract PartyName from Description if it starts with specific prefixes
-
-				if transaction.Description != "" {
-
-					extractedName := extractPartyNameFromDescription(transaction.Description)
-
+				if description != "" {
+					extractedName := extractPartyNameFromDescription(description)
 					if extractedName != "" {
-
-						transaction.PartyName = extractedName
-
+						partyName = extractedName
 					}
-
 				}
 
 				// If PartyName is still empty, try to get debtor name from related parties if available
-
-				if transaction.PartyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
-
-					transaction.PartyName = txDetails.RelatedParties.Debtor.Name
-
+				if partyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
+					partyName = txDetails.RelatedParties.Debtor.Name
 				}
+			}
 
-				// Check for IBAN in related parties and accounts
+			if partyName != "" {
+				builder = builder.WithPartyName(partyName)
+			}
+			
+			if transactionType != "" {
+				builder = builder.WithType(transactionType)
+			}
 
-				// Try multiple possible paths for finding the IBAN
+			// Check for IBAN in related parties and accounts
+			// Try multiple possible paths for finding the IBAN
+			var partyIBAN string
+			if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.Debtor.Account.IBAN
+			} else if txDetails.RelatedParties.Creditor.Account.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.Creditor.Account.IBAN
+			} else if txDetails.RelatedParties.DebtorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.DebtorAccount.IBAN
+			} else if txDetails.RelatedParties.CreditorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.CreditorAccount.IBAN
+			} else if txDetails.RelatedAccounts.DebtorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedAccounts.DebtorAccount.IBAN
+			} else if txDetails.RelatedAccounts.CreditorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedAccounts.CreditorAccount.IBAN
+			} else if txDetails.RelatedParties.Debtor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Debtor.Account.ID) {
+				// Some CAMT files store IBAN in the ID field
+				partyIBAN = txDetails.RelatedParties.Debtor.Account.ID
+			} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
+				partyIBAN = txDetails.RelatedParties.Creditor.Account.ID
+			}
 
-				if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
+			if partyIBAN != "" {
+				builder = builder.WithPartyIBAN(partyIBAN)
+			}
 
-					transaction.PartyIBAN = txDetails.RelatedParties.Debtor.Account.IBAN
-
-				} else if txDetails.RelatedParties.Creditor.Account.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Creditor.Account.IBAN
-
-				} else if txDetails.RelatedParties.DebtorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.DebtorAccount.IBAN
-
-				} else if txDetails.RelatedParties.CreditorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.CreditorAccount.IBAN
-
-				} else if txDetails.RelatedAccounts.DebtorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedAccounts.DebtorAccount.IBAN
-
-				} else if txDetails.RelatedAccounts.CreditorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedAccounts.CreditorAccount.IBAN
-
-				} else if txDetails.RelatedParties.Debtor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Debtor.Account.ID) {
-
-					// Some CAMT files store IBAN in the ID field
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Debtor.Account.ID
-
-				} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Creditor.Account.ID
-
-				}
-
-				// Set transaction Type based on description prefix
-
-				transactionType := setTransactionTypeFromDescription(transaction.Description)
-
+			// Set transaction Type based on description prefix if not already set
+			if transactionType == "" {
+				transactionType = setTransactionTypeFromDescription(description)
 				if transactionType != "" {
-
-					transaction.Type = transactionType
-
+					builder = builder.WithType(transactionType)
 				}
-
 			}
 
-			// Get remittance info
 
-			if txDetails.RemittanceInfo.Ustrd != "" {
-
-				transaction.RemittanceInfo = txDetails.RemittanceInfo.Ustrd
-
-			}
 
 			// Get reference information
-
+			var reference string
 			if txDetails.References.MsgId != "" {
-
-				transaction.Reference = txDetails.References.MsgId
-
+				reference = txDetails.References.MsgId
 			} else if txDetails.References.EndToEndId != "" {
-
-				transaction.Reference = txDetails.References.EndToEndId
-
+				reference = txDetails.References.EndToEndId
 			} else if txDetails.References.TxId != "" {
-
-				transaction.Reference = txDetails.References.TxId
-
+				reference = txDetails.References.TxId
 			} else if txDetails.References.AcctSvcrRef != "" {
+				reference = txDetails.References.AcctSvcrRef
+			}
 
-				transaction.Reference = txDetails.References.AcctSvcrRef
+			if reference != "" {
+				builder = builder.WithReference(reference)
+			}
 
+			// Build the transaction
+			transaction, err := builder.Build()
+			if err != nil {
+				// Log error and create a minimal fallback transaction
+				a.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
+					logging.Field{Key: "entry_reference", Value: reference})
+				
+				fallback, _ := models.NewTransactionBuilder().
+					WithDatetime(parsedBookingDate).
+					WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
+					WithDescription("Failed to parse transaction").
+					Build()
+				transaction = fallback
 			}
 
 			// Set Name from PartyName and also update Payee/Payer fields to ensure
-
 			// that UpdateNameFromParties won't override our Name during export
-
 			if transaction.Name == "" {
-
 				transaction.Name = transaction.PartyName
-
 			}
 
 			if transaction.IsDebit() {
-
 				transaction.Payee = transaction.PartyName
-
 			} else {
-
 				transaction.Payer = transaction.PartyName
-
 			}
 
 			// Update derived fields
-
 			transaction.UpdateDebitCreditAmounts()
 
 			// Categorize the transaction
-
 			catTransaction := categorizer.Transaction{
-
 				PartyName: transaction.PartyName,
-
 				IsDebtor: transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
-
 				Amount: transaction.Amount.String(),
-
 				Date: transaction.Date.Format("02.01.2006"),
-
 				Info: transaction.RemittanceInfo,
-
 				Description: transaction.Description,
 			}
 
 			// If PartyName is empty, use Description or RemittanceInfo to help with categorization
-
 			if catTransaction.PartyName == "" {
-
 				// Try to use Description as PartyName if available
-
 				if transaction.Description != "" {
-
 					catTransaction.PartyName = transaction.Description
-
 				} else if transaction.RemittanceInfo != "" {
-
 					// Otherwise use RemittanceInfo
-
 					catTransaction.PartyName = transaction.RemittanceInfo
-
 				}
-
 			}
 
 			// Clean PartyName by removing payment method prefixes before categorization
-
 			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
 
 			// Note: Categorization is now handled by the categorizer component

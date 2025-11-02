@@ -10,19 +10,95 @@ import (
 )
 
 func TestTransaction_GetPayee(t *testing.T) {
-	tx := Transaction{
-		Payee: "Acme Corp",
+	tests := []struct {
+		name     string
+		tx       Transaction
+		expected string
+	}{
+		{
+			name: "debit transaction returns payee",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+				Payer:       "Account Holder",
+				Payee:       "Acme Corp",
+			},
+			expected: "Acme Corp",
+		},
+		{
+			name: "credit transaction returns payer",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+				Payer:       "John Doe",
+				Payee:       "Account Holder",
+			},
+			expected: "John Doe",
+		},
+		{
+			name: "unknown direction defaults to debit behavior",
+			tx: Transaction{
+				CreditDebit: "UNKNOWN",
+				DebitFlag:   false,
+				Amount:      decimal.Zero,
+				Payer:       "Some Payer",
+				Payee:       "Acme Corp",
+			},
+			expected: "Some Payer", // Credit behavior for unknown with zero amount
+		},
 	}
 	
-	assert.Equal(t, "Acme Corp", tx.GetPayee())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.tx.GetPayee())
+		})
+	}
 }
 
 func TestTransaction_GetPayer(t *testing.T) {
-	tx := Transaction{
-		Payer: "John Doe",
+	tests := []struct {
+		name     string
+		tx       Transaction
+		expected string
+	}{
+		{
+			name: "debit transaction returns payer",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+				Payer:       "Account Holder",
+				Payee:       "Acme Corp",
+			},
+			expected: "Account Holder",
+		},
+		{
+			name: "credit transaction returns payee",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+				Payer:       "John Doe",
+				Payee:       "Account Holder",
+			},
+			expected: "Account Holder",
+		},
+		{
+			name: "unknown direction defaults to credit behavior",
+			tx: Transaction{
+				CreditDebit: "UNKNOWN",
+				DebitFlag:   false,
+				Amount:      decimal.Zero,
+				Payer:       "Some Payer",
+				Payee:       "Some Payee",
+			},
+			expected: "Some Payee", // Credit behavior for unknown with zero amount
+		},
 	}
 	
-	assert.Equal(t, "John Doe", tx.GetPayer())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.tx.GetPayer())
+		})
+	}
 }
 
 func TestTransaction_GetCounterparty(t *testing.T) {
@@ -299,9 +375,11 @@ func TestTransaction_BuilderCompatibility(t *testing.T) {
 	
 	require.NoError(t, err)
 	
-	// Test legacy methods work
+	// Test legacy methods work with direction-based behavior
 	assert.Equal(t, 100.50, tx.GetAmountAsFloat())
+	// For debit transaction: GetPayer() returns the payer (account holder)
 	assert.Equal(t, "John Doe", tx.GetPayer())
+	// For debit transaction: GetPayee() returns the payee (who receives money)
 	assert.Equal(t, "Acme Corp", tx.GetPayee())
 	assert.Equal(t, "Acme Corp", tx.GetCounterparty()) // For debit, counterparty is payee
 	
