@@ -10,10 +10,11 @@ This specification defines the requirements for refactoring the camt-csv codebas
 - **Parser**: A component that converts financial data from a specific format to the standardized Transaction model
 - **Categorizer**: A component that assigns categories to transactions using multiple strategies
 - **Transaction**: A financial transaction record with standardized fields
-- **Singleton**: A design pattern ensuring only one instance of a class exists (anti-pattern in this context)
-- **Dependency Injection**: A design pattern where dependencies are provided to a component rather than created internally
-- **God Object**: An anti-pattern where a single class has too many responsibilities
-- **Interface Segregation**: A principle stating that clients should not depend on interfaces they don't use
+- **BaseParser**: A common struct providing shared functionality for all parser implementations
+- **Container**: A dependency injection container that manages application dependencies
+- **Strategy**: A categorization algorithm implementation following the Strategy pattern
+- **Builder**: A pattern for constructing complex Transaction objects with validation
+- **Logger**: An abstraction interface for structured logging functionality
 
 ## Requirements
 
@@ -24,9 +25,9 @@ This specification defines the requirements for refactoring the camt-csv codebas
 #### Acceptance Criteria
 
 1. WHEN the System initializes, THE System SHALL create all dependencies explicitly through constructors
-2. WHEN a component requires a logger, THE System SHALL inject the logger through the constructor rather than using a global variable
+2. WHEN a component requires a Logger, THE System SHALL inject the Logger through the constructor rather than using a global variable
 3. WHEN a component requires configuration, THE System SHALL inject the configuration through the constructor rather than using a global singleton
-4. WHEN the Categorizer is instantiated, THE System SHALL provide all dependencies (AIClient, CategoryStore, Logger) through the constructor
+4. WHEN the Categorizer is instantiated, THE System SHALL provide all dependencies through the constructor
 5. WHEN tests are executed, THE System SHALL allow independent test instances without shared global state
 
 ### Requirement 2: Standardize Error Handling Patterns
@@ -49,7 +50,7 @@ This specification defines the requirements for refactoring the camt-csv codebas
 
 1. WHEN a new Parser is created, THE Parser SHALL embed a BaseParser struct that provides common functionality
 2. WHEN any Parser needs to write CSV output, THE Parser SHALL use the common WriteTransactionsToCSV function
-3. WHEN any Parser needs logger configuration, THE Parser SHALL inherit SetLogger from BaseParser
+3. WHEN any Parser needs Logger configuration, THE Parser SHALL inherit SetLogger from BaseParser
 4. WHEN validation logic is common across parsers, THE System SHALL provide shared validation utilities
 5. WHEN file handling is required, THE System SHALL use common file handling utilities rather than duplicating code
 
@@ -135,7 +136,7 @@ This specification defines the requirements for refactoring the camt-csv codebas
 2. WHEN production code runs, THE System SHALL provide a RealPDFExtractor implementation
 3. WHEN tests run, THE tests SHALL provide a MockPDFExtractor implementation
 4. WHEN the Parse method executes, THE method SHALL NOT check for TEST_ENV environment variable
-5. WHEN the refactoring is complete, THE System SHALL remove all os.Getenv("TEST_ENV") checks from production code
+5. WHEN the refactoring is complete, THE System SHALL remove all environment variable checks from production code
 
 ### Requirement 11: Implement Strategy Pattern for Categorization
 
@@ -147,7 +148,7 @@ This specification defines the requirements for refactoring the camt-csv codebas
 2. WHEN direct mapping categorization is needed, THE System SHALL use a DirectMappingStrategy implementation
 3. WHEN keyword-based categorization is needed, THE System SHALL use a KeywordStrategy implementation
 4. WHEN AI-based categorization is needed, THE System SHALL use an AIStrategy implementation
-5. WHEN the Categorizer processes a transaction, THE Categorizer SHALL iterate through strategies in priority order until one succeeds
+5. WHEN the Categorizer processes a Transaction, THE Categorizer SHALL iterate through strategies in priority order until one succeeds
 
 ### Requirement 12: Implement Builder Pattern for Transaction Construction
 
@@ -155,10 +156,10 @@ This specification defines the requirements for refactoring the camt-csv codebas
 
 #### Acceptance Criteria
 
-1. WHEN the System provides transaction construction, THE System SHALL offer a TransactionBuilder type
-2. WHEN a TransactionBuilder is created, THE builder SHALL initialize with sensible defaults
-3. WHEN transaction fields are set, THE builder SHALL provide fluent methods that return the builder for chaining
-4. WHEN the Build method is called, THE builder SHALL validate and populate derived fields automatically
+1. WHEN the System provides Transaction construction, THE System SHALL offer a TransactionBuilder type
+2. WHEN a TransactionBuilder is created, THE Builder SHALL initialize with sensible defaults
+3. WHEN Transaction fields are set, THE Builder SHALL provide fluent methods that return the Builder for chaining
+4. WHEN the Build method is called, THE Builder SHALL validate and populate derived fields automatically
 5. WHEN complex transactions are created in parsers, THE parsers SHALL use TransactionBuilder for improved readability
 
 ### Requirement 13: Optimize Performance in Hot Paths
@@ -194,5 +195,7 @@ This specification defines the requirements for refactoring the camt-csv codebas
 1. WHEN components use dependency injection, THE tests SHALL easily mock dependencies
 2. WHEN the Categorizer is tested, THE tests SHALL inject mock AIClient and CategoryStore implementations
 3. WHEN parsers are tested, THE tests SHALL not require file system access for unit tests
-4. WHEN the refactoring is complete, THE System SHALL achieve at least 80% code coverage
-5. WHEN critical paths are tested, THE tests SHALL achieve 100% coverage for parsing and categorization logic
+4. WHEN the refactoring is complete, THE System SHALL achieve comprehensive test coverage with 100% coverage for critical paths (parsing, categorization, data validation) and good coverage for remaining functionality
+5. WHEN test coverage is evaluated, THE System SHALL prioritize risk-based testing over arbitrary percentage targets
+
+

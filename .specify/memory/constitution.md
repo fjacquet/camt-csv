@@ -62,7 +62,7 @@ Each component (package, function, type) MUST have a single, well-defined respon
 Core data models and configuration objects MUST be designed to be immutable where possible. Modifications to data structures MUST result in new instances rather than in-place changes. `github.com/shopspring/decimal` MUST be used for financial amounts to prevent floating-point errors.
 
 ### IX. Hybrid Categorization
-Transaction categorization MUST employ a three-tier hybrid system: Direct Mapping (exact matches from `database/creditors.yaml` and `database/debitors.yaml`), Keyword Matching (local rules from `database/categories.yaml` using `gopkg.in/yaml.v3`), and AI Fallback (Google Gemini AI for unknown transactions). This system prioritizes performance, learning, cost control, and privacy. CSV processing MUST use `github.com/gocarina/gocsv`.
+Transaction categorization MUST employ a three-tier hybrid system: Direct Mapping (exact matches from `database/creditors.yaml` and `database/debtors.yaml`), Keyword Matching (local rules from `database/categories.yaml` using `gopkg.in/yaml.v3`), and AI Fallback (Google Gemini AI for unknown transactions). This system prioritizes performance, learning, cost control, and privacy. CSV processing MUST use `github.com/gocarina/gocsv`.
 
 ### X. Configuration Management
 A hierarchical configuration system using `spf13/viper` MUST be used, with precedence: CLI flags > Environment variables (with `CAMT_` prefix, loaded via `github.com/joho/godotenv`) > Configuration file (`~/.camt-csv/config.yaml` or `./camt-csv.yaml`) > Default values. Sensitive data (e.g., API keys) MUST be provided via environment variables only and never hardcoded or logged. Configuration MUST be validated at startup.
