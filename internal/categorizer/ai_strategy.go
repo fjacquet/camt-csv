@@ -67,8 +67,8 @@ func (s *AIStrategy) Categorize(ctx context.Context, tx Transaction) (models.Cat
 	}
 
 	// Check if AI provided a valid category
-	if strings.TrimSpace(categorizedTransaction.Category) == "" || 
-	   categorizedTransaction.Category == models.CategoryUncategorized {
+	if strings.TrimSpace(categorizedTransaction.Category) == "" ||
+		categorizedTransaction.Category == models.CategoryUncategorized {
 		s.logger.WithFields(
 			logging.Field{Key: "strategy", Value: s.Name()},
 			logging.Field{Key: "party", Value: tx.PartyName},
@@ -98,7 +98,7 @@ func (s *AIStrategy) convertToModelTransaction(tx Transaction) (models.Transacti
 	// Parse the date string to time.Time
 	var parsedDate time.Time
 	var err error
-	
+
 	if tx.Date != "" {
 		parsedDate, err = dateutils.ParseDateString(tx.Date)
 		if err != nil {

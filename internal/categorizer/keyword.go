@@ -71,7 +71,7 @@ func (s *KeywordStrategy) Categorize(ctx context.Context, tx Transaction) (model
 		for _, keyword := range categoryConfig.Keywords {
 			// Performance optimization: Use helper function to minimize allocations in keyword matching loop
 			keywordUpper := normalizeStringToUpper(keyword)
-			
+
 			// Check if keyword appears in party name or description
 			if strings.Contains(partyName, keywordUpper) || strings.Contains(description, keywordUpper) {
 				s.logger.WithFields(
@@ -216,11 +216,11 @@ func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (model
 		models.BankCodeCreditCard:     models.CategoryShopping,    // Credit card payment
 		models.BankCodeInternalCredit: models.CategoryTransfers,   // Internal credit transfer
 		models.BankCodeDirectDebit:    models.CategoryTransfers,   // Direct debit
-		"RDDT":                       models.CategoryTransfers,   // Direct debit
-		"AUTT":                       models.CategoryTransfers,   // Automatic transfer
-		"RCDT":                       models.CategoryTransfers,   // Received credit transfer
-		"PMNT":                       models.CategoryTransfers,   // Payment
-		"RMDR":                       "Services",                 // Reminders
+		"RDDT":                        models.CategoryTransfers,   // Direct debit
+		"AUTT":                        models.CategoryTransfers,   // Automatic transfer
+		"RCDT":                        models.CategoryTransfers,   // Received credit transfer
+		"PMNT":                        models.CategoryTransfers,   // Payment
+		"RMDR":                        "Services",                 // Reminders
 	}
 
 	// First try to match merchant name
@@ -269,7 +269,7 @@ func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (model
 				strings.Contains(description, "PMT TWINT") ||
 				strings.Contains(description, "RETRAIT") ||
 				strings.Contains(description, "WITHDRAWAL") {
-				
+
 				s.logger.WithFields(
 					logging.Field{Key: "strategy", Value: s.Name()},
 					logging.Field{Key: "party", Value: tx.PartyName},

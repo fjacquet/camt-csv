@@ -55,10 +55,10 @@ func (p Party) ValidateIBAN() bool {
 	if p.IBAN == "" {
 		return true // Empty IBAN is considered valid (optional field)
 	}
-	
+
 	// Remove spaces and convert to uppercase
 	iban := strings.ToUpper(strings.ReplaceAll(p.IBAN, " ", ""))
-	
+
 	// Basic IBAN format check: 2 letters followed by 2 digits, then alphanumeric characters
 	// Length should be between 15 and 34 characters
 	ibanRegex := regexp.MustCompile(`^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$`)
@@ -79,7 +79,7 @@ func (p Party) FormattedIBAN() string {
 	if normalized == "" {
 		return ""
 	}
-	
+
 	// Add spaces every 4 characters
 	var formatted strings.Builder
 	for i, char := range normalized {
@@ -88,7 +88,7 @@ func (p Party) FormattedIBAN() string {
 		}
 		formatted.WriteRune(char)
 	}
-	
+
 	return formatted.String()
 }
 

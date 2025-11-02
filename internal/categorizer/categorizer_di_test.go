@@ -34,7 +34,7 @@ func TestCategorizeTransactionWithCategorizer(t *testing.T) {
 		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
-	
+
 	// Create mock AI client
 	mockAI := &MockAIClient{
 		CategorizeFunc: func(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
@@ -97,13 +97,13 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
-	
+
 	// Create categorizer
 	cat := NewCategorizer(nil, testStore, testLogger)
 
 	// Test UpdateDebitorCategory
 	cat.UpdateDebitorCategory("TestDebitor", "TestCategory")
-	
+
 	// Verify the mapping was added
 	transaction := Transaction{PartyName: "TestDebitor", IsDebtor: true}
 	category, err := cat.CategorizeTransaction(transaction)
@@ -112,7 +112,7 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 
 	// Test UpdateCreditorCategory
 	cat.UpdateCreditorCategory("TestCreditor", "TestCategory2")
-	
+
 	// Verify the mapping was added
 	transaction = Transaction{PartyName: "TestCreditor", IsDebtor: false}
 	category, err = cat.CategorizeTransaction(transaction)
@@ -128,7 +128,7 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
-	
+
 	// Test with nil AI client
 	cat1 := NewCategorizer(nil, testStore, testLogger)
 	assert.NotNil(t, cat1)
@@ -142,7 +142,7 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 
 	// Test that both categorizers work independently
 	transaction := Transaction{PartyName: "Unknown", IsDebtor: true}
-	
+
 	// First categorizer should return uncategorized (no AI)
 	category1, err := cat1.CategorizeTransaction(transaction)
 	require.NoError(t, err)

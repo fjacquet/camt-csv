@@ -48,22 +48,22 @@ func (m *MockCategoryStore) SaveDebitorMappings(mappings map[string]string) erro
 // MockLogger for benchmarking
 type MockLogger struct{}
 
-func (m *MockLogger) Debug(msg string, fields ...logging.Field)                {}
-func (m *MockLogger) Info(msg string, fields ...logging.Field)                 {}
-func (m *MockLogger) Warn(msg string, fields ...logging.Field)                 {}
-func (m *MockLogger) Error(msg string, fields ...logging.Field)                {}
-func (m *MockLogger) Fatal(msg string, fields ...logging.Field)                {}
-func (m *MockLogger) Fatalf(msg string, args ...interface{})                   {}
-func (m *MockLogger) WithError(err error) logging.Logger                       { return m }
-func (m *MockLogger) WithField(key string, value interface{}) logging.Logger   { return m }
-func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger        { return m }
+func (m *MockLogger) Debug(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Info(msg string, fields ...logging.Field)               {}
+func (m *MockLogger) Warn(msg string, fields ...logging.Field)               {}
+func (m *MockLogger) Error(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Fatal(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Fatalf(msg string, args ...interface{})                 {}
+func (m *MockLogger) WithError(err error) logging.Logger                     { return m }
+func (m *MockLogger) WithField(key string, value interface{}) logging.Logger { return m }
+func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger      { return m }
 
 // BenchmarkDirectMappingStrategy benchmarks the direct mapping strategy
 func BenchmarkDirectMappingStrategy(b *testing.B) {
 	// Create test data
 	creditorMappings := make(map[string]string, 1000)
 	debtorMappings := make(map[string]string, 1000)
-	
+
 	// Populate with test data
 	for i := 0; i < 1000; i++ {
 		creditorMappings[strings.ToLower("CREDITOR_"+string(rune(i)))] = "TestCategory"

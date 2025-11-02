@@ -36,8 +36,25 @@ func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate boo
 }
 
 // ProcessFileLegacy processes a single file using the legacy parser interface.
+//
 // Deprecated: Use ProcessFile with parser.FullParser instead.
-// This function will be removed in v2.0.0.
+// This function will be removed in v3.0.0.
+//
+// Migration example:
+//
+//	// Old code:
+//	ProcessFileLegacy(parser, inputFile, outputFile, validate, log)
+//
+//	// New code:
+//	container, err := container.NewContainer(config)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fullParser, err := container.GetParser(parserType)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	err = fullParser.ConvertToCSV(inputFile, outputFile)
 func ProcessFileLegacy(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
 	// Set the logger on the parser using the new interface
 	parser.SetLogger(log)
@@ -62,8 +79,29 @@ func ProcessFileLegacy(parser models.Parser, inputFile, outputFile string, valid
 }
 
 // SaveMappings saves the creditor and debitor mappings.
+//
 // Deprecated: Use container-based categorizer instead.
-// This function will be removed in v2.0.0.
+// This function will be removed in v3.0.0.
+//
+// Migration example:
+//
+//	// Old code:
+//	SaveMappings(log)
+//
+//	// New code:
+//	container, err := container.NewContainer(config)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	categorizer := container.GetCategorizer()
+//	err = categorizer.SaveCreditorsToYAML()
+//	if err != nil {
+//	    log.Error("Failed to save creditor mappings", err)
+//	}
+//	err = categorizer.SaveDebitorsToYAML()
+//	if err != nil {
+//	    log.Error("Failed to save debtor mappings", err)
+//	}
 func SaveMappings(log *logrus.Logger) {
 	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), logging.NewLogrusAdapterFromLogger(log))
 	err := categorizerInstance.SaveCreditorsToYAML()

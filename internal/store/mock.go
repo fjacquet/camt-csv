@@ -9,7 +9,7 @@ type MockCategoryStore struct {
 	Categories       []models.CategoryConfig
 	CreditorMappings map[string]string
 	DebtorMappings   map[string]string
-	
+
 	// Error flags for testing error conditions
 	LoadCategoriesError       error
 	LoadCreditorMappingsError error
@@ -92,4 +92,3 @@ func (m *MockCategoryStore) SaveDebtorMappings(mappings map[string]string) error
 func (m *MockCategoryStore) FindConfigFile(filename string) (string, error) {
 	return "/mock/path/" + filename, nil
 }
-

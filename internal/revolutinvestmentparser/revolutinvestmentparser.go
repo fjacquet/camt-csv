@@ -145,11 +145,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 	// Handle different transaction types
 	logger.Debug("Processing transaction type",
 		logging.Field{Key: "type", Value: row.Type})
-	
+
 	switch {
 	case strings.Contains(row.Type, "BUY"):
 		logger.Debug("Processing BUY transaction")
-		
+
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
@@ -199,7 +199,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 	case strings.Contains(row.Type, "DIVIDEND"):
 		logger.Debug("Processing DIVIDEND transaction")
-		
+
 		// Parse dividend amount
 		if row.TotalAmount != "" {
 			amountStr := cleanAmountString(row.TotalAmount)
@@ -220,7 +220,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 	case strings.Contains(row.Type, "CASH TOP-UP"):
 		logger.Debug("Processing CASH TOP-UP transaction")
-		
+
 		// Parse cash top-up amount
 		if row.TotalAmount != "" {
 			amountStr := cleanAmountString(row.TotalAmount)
@@ -241,7 +241,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 	default:
 		logger.Debug("Processing default transaction")
-		
+
 		// Handle other transaction types
 		if row.TotalAmount != "" {
 			amountStr := cleanAmountString(row.TotalAmount)
@@ -256,7 +256,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 				}
 			}
 		}
-		
+
 		builder = builder.WithDescription(fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)).
 			WithPayee(partyName, "")
 	}

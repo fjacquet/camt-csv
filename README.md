@@ -13,7 +13,7 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 - **Smart Categorization**: Three-tier hybrid approach using direct mapping, keyword matching, and AI fallback with strategy pattern implementation (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`).
 - **Dependency Injection Architecture**: Clean architecture with explicit dependencies through `Container` pattern, eliminating global state and improving testability.
 - **Framework-Agnostic Logging**: Structured logging abstraction (`logging.Logger` interface) with `LogrusAdapter` implementation for flexible logging backends and dependency injection.
-- **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation, type safety, and backward compatibility methods.
+- **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation, type safety, and enhanced backward compatibility methods with direction-based logic (`GetPayee()`, `GetPayer()`, `GetCounterparty()`).
 - **Comprehensive Error Handling**: Custom error types (`ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, `DataExtractionError`) with detailed context and proper error wrapping.
 - **Hierarchical Configuration**: Viper-based config system supporting files, environment variables, and CLI flags with full backward compatibility.
 - **Investment Support**: Dedicated parser for Revolut investment transactions (BUY, DIVIDEND, CASH TOP-UP) with specialized categorization.
@@ -141,6 +141,39 @@ func NewMyParser(logger logging.Logger) *MyParser {
 }
 ```
 
+### Dependency Injection Container
+
+The application uses a centralized container for dependency management:
+
+```go
+// Create container with all dependencies
+container, err := container.NewContainer(config)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Access components through the container
+parser, err := container.GetParser(container.CAMT)
+categorizer := container.GetCategorizer()
+logger := container.GetLogger()
+
+// All dependencies are explicitly injected
+```
+
+### Transaction Builder Pattern
+
+Complex transactions are constructed using the builder pattern:
+
+```go
+tx, err := models.NewTransactionBuilder().
+    WithDate("2025-01-15").
+    WithAmount(decimal.NewFromFloat(100.50), "CHF").
+    WithPayer("John Doe", "CH1234567890").
+    WithPayee("Acme Corp", "CH0987654321").
+    AsDebit().
+    Build()
+```
+
 ### Supported Formats
 
 | Parser Type | Description | Key Features |
@@ -158,6 +191,8 @@ CAMT-CSV uses a sophisticated three-tier strategy pattern for transaction catego
 
 ### Strategy Pattern Implementation
 
+The categorization system uses the Strategy pattern for modular, testable categorization:
+
 ```go
 type CategorizationStrategy interface {
     Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
@@ -174,6 +209,10 @@ type Categorizer struct {
 // 1. DirectMappingStrategy - Exact name matches (fastest)
 // 2. KeywordStrategy - Pattern matching (local)  
 // 3. AIStrategy - Gemini AI fallback (optional)
+
+// Usage with dependency injection
+categorizer := container.GetCategorizer()
+category, err := categorizer.CategorizeTransaction(transaction)
 ```
 
 ### Categorization Flow
@@ -198,6 +237,15 @@ categorizer := categorizer.NewCategorizer(store, aiClient, logger)
 ### Migration Note
 
 **Important**: Starting from version 2.0.0, the debtor mapping file has been renamed from `debitors.yaml` to `debtors.yaml` to follow standard English spelling conventions. If you have an existing `debitors.yaml` file, please rename it to `debtors.yaml`. The application will continue to work with the old filename for backward compatibility, but it's recommended to update your files.
+
+**Enhanced Backward Compatibility**: Version 2.0.0 introduces enhanced backward compatibility methods for the Transaction model:
+
+- `GetPayee()` - Returns appropriate party based on transaction direction (payee for debits, payer for credits)
+- `GetPayer()` - Returns appropriate party based on transaction direction (payer for debits, payee for credits)  
+- `GetCounterparty()` - Always returns the "other party" in the transaction (recommended for new code)
+- `GetAmountAsFloat()` - Continues to work but is deprecated in favor of `GetAmountAsDecimal()`
+
+These methods ensure existing code continues to work while providing a clear migration path to the new architecture. See the [Migration Guide](docs/MIGRATION_GUIDE_V2.md) for detailed migration instructions.
 
 ## 🛠️ Development
 

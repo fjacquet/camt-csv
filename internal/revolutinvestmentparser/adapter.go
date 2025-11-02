@@ -49,8 +49,6 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	return a.WriteToCSV(transactions, outputFile)
 }
 
-
-
 // ValidateFormat checks if a file is a valid Revolut Investment CSV file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	f, err := os.Open(file)

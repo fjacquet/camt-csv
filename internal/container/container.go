@@ -41,7 +41,7 @@ type Container struct {
 	Store       *store.CategoryStore
 	AIClient    categorizer.AIClient
 	Categorizer *categorizer.Categorizer
-	
+
 	// Parser registry
 	Parsers map[ParserType]parser.FullParser
 }
@@ -59,17 +59,17 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("configuration cannot be nil")
 	}
-	
+
 	// Create logger first as it's needed by other components
 	logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
-	
+
 	// Create category store
 	categoryStore := store.NewCategoryStore(
 		cfg.Categories.File,
 		cfg.Categories.CreditorsFile,
 		cfg.Categories.DebtorsFile,
 	)
-	
+
 	// Create AI client (if enabled)
 	var aiClient categorizer.AIClient
 	if cfg.AI.Enabled && cfg.AI.APIKey != "" {
@@ -78,35 +78,35 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	} else {
 		logger.Info("AI categorization disabled")
 	}
-	
+
 	// Create categorizer with all dependencies
 	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger)
-	
+
 	// Create parsers with dependency injection
 	parsers := make(map[ParserType]parser.FullParser)
-	
+
 	// CAMT parser
 	parsers[CAMT] = camtparser.NewAdapter(logger)
-	
+
 	// PDF parser - needs special handling for extractor
 	parsers[PDF] = pdfparser.NewAdapter(logger, nil) // nil for real extractor
-	
+
 	// Revolut parser
 	parsers[Revolut] = revolutparser.NewAdapter(logger)
-	
+
 	// Revolut Investment parser
 	parsers[RevolutInvestment] = revolutinvestmentparser.NewAdapter(logger)
-	
+
 	// Selma parser
 	parsers[Selma] = selmaparser.NewAdapter(logger)
-	
+
 	// Debit parser
 	parsers[Debit] = debitparser.NewAdapter(logger)
-	
+
 	logger.Info("Container initialized successfully",
 		logging.Field{Key: "parsers_count", Value: len(parsers)},
 		logging.Field{Key: "ai_enabled", Value: cfg.AI.Enabled})
-	
+
 	return &Container{
 		Logger:      logger,
 		Config:      cfg,

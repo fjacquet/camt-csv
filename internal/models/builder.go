@@ -19,19 +19,19 @@ type TransactionBuilder struct {
 func NewTransactionBuilder() *TransactionBuilder {
 	return &TransactionBuilder{
 		tx: Transaction{
-			Number:      uuid.New().String(), // Generate unique ID
-			Status:      StatusCompleted,     // Default status
-			Currency:    "CHF",               // Default currency
-			Category:    CategoryUncategorized, // Default category
-			Amount:      decimal.Zero,        // Default amount
-			Debit:       decimal.Zero,        // Default debit
-			Credit:      decimal.Zero,        // Default credit
-			Fees:        decimal.Zero,        // Default fees
-			AmountExclTax: decimal.Zero,      // Default amount excluding tax
-			AmountTax:   decimal.Zero,        // Default tax amount
-			TaxRate:     decimal.Zero,        // Default tax rate
-			OriginalAmount: decimal.Zero,     // Default original amount
-			ExchangeRate: decimal.Zero,       // Default exchange rate
+			Number:         uuid.New().String(),   // Generate unique ID
+			Status:         StatusCompleted,       // Default status
+			Currency:       "CHF",                 // Default currency
+			Category:       CategoryUncategorized, // Default category
+			Amount:         decimal.Zero,          // Default amount
+			Debit:          decimal.Zero,          // Default debit
+			Credit:         decimal.Zero,          // Default credit
+			Fees:           decimal.Zero,          // Default fees
+			AmountExclTax:  decimal.Zero,          // Default amount excluding tax
+			AmountTax:      decimal.Zero,          // Default tax amount
+			TaxRate:        decimal.Zero,          // Default tax rate
+			OriginalAmount: decimal.Zero,          // Default original amount
+			ExchangeRate:   decimal.Zero,          // Default exchange rate
 		},
 	}
 }
@@ -410,23 +410,23 @@ func (b *TransactionBuilder) Build() (Transaction, error) {
 	if b.err != nil {
 		return Transaction{}, b.err
 	}
-	
+
 	// Validate required fields
 	if b.tx.Date.IsZero() {
 		return Transaction{}, errors.New("transaction date is required")
 	}
-	
+
 	if b.tx.Amount.IsZero() && b.tx.Debit.IsZero() && b.tx.Credit.IsZero() {
 		return Transaction{}, errors.New("transaction amount is required")
 	}
-	
+
 	if b.tx.Currency == "" {
 		return Transaction{}, errors.New("currency is required")
 	}
-	
+
 	// Populate derived fields
 	b.populateDerivedFields()
-	
+
 	return b.tx, nil
 }
 
@@ -436,7 +436,7 @@ func (b *TransactionBuilder) populateDerivedFields() {
 	if b.tx.ValueDate.IsZero() {
 		b.tx.ValueDate = b.tx.Date
 	}
-	
+
 	// Determine transaction direction if not explicitly set
 	if b.tx.CreditDebit == "" {
 		if b.tx.Amount.IsNegative() {
@@ -447,19 +447,19 @@ func (b *TransactionBuilder) populateDerivedFields() {
 			b.tx.DebitFlag = false
 		}
 	}
-	
+
 	// Update name from parties
 	b.tx.UpdateNameFromParties()
-	
+
 	// Update recipient from payee
 	b.tx.UpdateRecipientFromPayee()
-	
+
 	// Update debit/credit amounts
 	b.tx.UpdateDebitCreditAmounts()
-	
+
 	// Update investment type from legacy field
 	b.tx.UpdateInvestmentTypeFromLegacyField()
-	
+
 	// Set PartyName if not already set
 	if b.tx.PartyName == "" {
 		b.tx.PartyName = b.tx.GetPartyName()

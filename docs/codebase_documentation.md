@@ -25,6 +25,7 @@ The project follows a clean separation of concerns built on dependency injection
   - **Interface Segregation**: Parsers implement segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`)
   - **Strategy Pattern**: Categorization uses pluggable strategies (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`)
   - **Builder Pattern**: Transaction construction with validation and type safety
+  - **Enhanced Backward Compatibility**: Direction-based methods (`GetPayee()`, `GetPayer()`, `GetCounterparty()`) for seamless migration
   - **Custom Error Types**: Comprehensive error hierarchy with proper context and wrapping
   - **Constants-Based Design**: Complete elimination of magic strings and numbers
 * **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debtors).

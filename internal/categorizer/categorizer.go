@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
-	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 )
@@ -53,7 +51,7 @@ type Transaction struct {
 type Categorizer struct {
 	// Strategy-based categorization
 	strategies []CategorizationStrategy
-	
+
 	// Legacy fields for backward compatibility and auto-learning
 	categories       []models.CategoryConfig
 	creditorMappings map[string]string // Maps creditor names to categories
@@ -63,13 +61,11 @@ type Categorizer struct {
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
 	store            CategoryStoreInterface
 	logger           logging.Logger
-	
-	// Lazy initialization for AI client
-	aiClient     AIClient // New field for AIClient interface
-	aiClientOnce sync.Once
-	aiFactory    func() AIClient
-}
 
+	// Lazy initialization for AI client
+	aiClient  AIClient // New field for AIClient interface
+	aiFactory func() AIClient
+}
 
 // Note: log variable removed as part of dependency injection refactoring
 
@@ -84,8 +80,6 @@ type Config interface {
 	GetCategorizationConfidenceThreshold() float64
 }
 
-
-
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, and logger.
 func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger) *Categorizer {
 	if logger == nil {
@@ -94,8 +88,8 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 
 	c := &Categorizer{
 		categories:       make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
-		creditorMappings: make(map[string]string, 100),        // Pre-allocate with size hint
-		debitorMappings:  make(map[string]string, 100),        // Pre-allocate with size hint
+		creditorMappings: make(map[string]string, 100),         // Pre-allocate with size hint
+		debitorMappings:  make(map[string]string, 100),         // Pre-allocate with size hint
 		configMutex:      sync.RWMutex{},
 		isDirtyCreditors: false,
 		isDirtyDebitors:  false,
@@ -133,7 +127,7 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 			}
 			c.creditorMappings = newMap
 		}
-		
+
 		// Performance optimization: Use helper function to minimize allocations when loading creditor mappings
 		for key, value := range creditorMappings {
 			c.creditorMappings[normalizeStringToLowerCategorizer(key)] = value
@@ -154,7 +148,7 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 			}
 			c.debitorMappings = newMap
 		}
-		
+
 		// Performance optimization: Use helper function to minimize allocations when loading debtor mappings
 		for key, value := range debitorMappings {
 			c.debitorMappings[normalizeStringToLowerCategorizer(key)] = value
@@ -164,36 +158,11 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 	return c
 }
 
-// getAIClient returns the AI client, initializing it lazily if needed.
-// This uses sync.Once to ensure thread-safe initialization.
-func (c *Categorizer) getAIClient() AIClient {
-	if c.aiClient != nil {
-		return c.aiClient
-	}
-	
-	if c.aiFactory != nil {
-		c.aiClientOnce.Do(func() {
-			if c.aiClient == nil {
-				c.aiClient = c.aiFactory()
-				c.logger.Debug("Lazy-initialized AI client")
-			}
-		})
-	}
-	
-	return c.aiClient
-}
-
 // SetAIClientFactory sets a factory function for lazy AI client initialization.
 // This allows expensive AI client creation to be deferred until actually needed.
 func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
 	c.aiFactory = factory
 }
-
-
-
-
-
-
 
 // CategorizeTransactionWithCategorizer categorizes a transaction using the provided categorizer instance.
 // This function provides a migration path from the global singleton pattern to dependency injection.
@@ -207,16 +176,17 @@ func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
 //   - error: Any error encountered during categorization
 //
 // Example usage:
-//   container, err := container.NewContainer(config)
-//   if err != nil {
-//       return err
-//   }
-//   category, err := categorizer.CategorizeTransactionWithCategorizer(container.Categorizer, transaction)
+//
+//	container, err := container.NewContainer(config)
+//	if err != nil {
+//	    return err
+//	}
+//	category, err := categorizer.CategorizeTransactionWithCategorizer(container.Categorizer, transaction)
 func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transaction) (models.Category, error) {
 	if cat == nil {
 		return models.Category{}, fmt.Errorf("categorizer cannot be nil")
 	}
-	
+
 	// Get the actual categorization
 	category, err := cat.CategorizeTransaction(transaction)
 
@@ -265,11 +235,12 @@ func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transact
 //   - error: Any error encountered during categorization
 //
 // Example usage:
-//   container, err := container.NewContainer(config)
-//   if err != nil {
-//       return err
-//   }
-//   category, err := container.Categorizer.CategorizeTransaction(transaction)
+//
+//	container, err := container.NewContainer(config)
+//	if err != nil {
+//	    return err
+//	}
+//	category, err := container.Categorizer.CategorizeTransaction(transaction)
 func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Category, error) {
 	return c.categorizeTransaction(transaction)
 }
@@ -291,7 +262,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			logging.Field{Key: "strategy", Value: strategy.Name()},
 			logging.Field{Key: "party", Value: transaction.PartyName},
 		).Debug("Trying strategy")
-		
+
 		category, found, err := strategy.Categorize(ctx, transaction)
 		if err != nil {
 			c.logger.WithError(err).WithFields(
@@ -300,7 +271,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			).Warn("Strategy failed during categorization")
 			continue
 		}
-		
+
 		if found {
 			c.logger.WithFields(
 				logging.Field{Key: "strategy", Value: strategy.Name()},
@@ -309,7 +280,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 			).Debug("Transaction categorized successfully")
 			return category, nil
 		}
-		
+
 		c.logger.WithFields(
 			logging.Field{Key: "strategy", Value: strategy.Name()},
 			logging.Field{Key: "party", Value: transaction.PartyName},
@@ -320,7 +291,7 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 	c.logger.WithFields(
 		logging.Field{Key: "party", Value: transaction.PartyName},
 	).Debug("No strategy could categorize transaction, returning uncategorized")
-	
+
 	return models.Category{
 		Name:        models.CategoryUncategorized,
 		Description: "No categorization strategy succeeded",
@@ -343,7 +314,7 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
 	c.debitorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
 	c.isDirtyDebitors = true
-	
+
 	// Update the DirectMappingStrategy as well
 	for _, strategy := range c.strategies {
 		if directMapping, ok := strategy.(*DirectMappingStrategy); ok {
@@ -378,7 +349,7 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
 	c.creditorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
 	c.isDirtyCreditors = true
-	
+
 	// Update the DirectMappingStrategy as well
 	for _, strategy := range c.strategies {
 		if directMapping, ok := strategy.(*DirectMappingStrategy); ok {
@@ -401,53 +372,3 @@ func (c *Categorizer) SaveCreditorsToYAML() error {
 	c.isDirtyCreditors = false
 	return nil
 }
-
-
-
-// categorizeWithGemini attempts to categorize a transaction using the AI client
-// Deprecated: This method is now handled by AIStrategy. It's kept for backward compatibility.
-func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
-	// Get AI client with lazy initialization
-	aiClient := c.getAIClient()
-	if aiClient == nil {
-		return models.Category{
-			Name:        models.CategoryUncategorized,
-			Description: "AI categorization not available",
-		}, nil
-	}
-
-	// Convert Transaction to models.Transaction
-	// Parse the date string to time.Time
-	parsedDate, err := dateutils.ParseDateString(transaction.Date)
-	if err != nil {
-		// If parsing fails, use zero time
-		parsedDate = time.Time{}
-	}
-	
-	modelTransaction := models.Transaction{
-		PartyName:   transaction.PartyName,
-		Description: transaction.Description,
-		Amount:      models.ParseAmount(transaction.Amount),
-		Date:        parsedDate,
-		Category:    "", // Will be filled by AI
-	}
-
-	// Use the AI client to categorize
-	ctx := context.Background()
-	categorizedTransaction, err := aiClient.Categorize(ctx, modelTransaction)
-	if err != nil {
-		c.logger.WithError(err).WithField("party", transaction.PartyName).Warn("AI categorization error for transaction")
-		return models.Category{
-			Name:        models.CategoryUncategorized,
-			Description: "AI categorization failed",
-		}, nil
-	}
-
-	// Return the category from the AI response
-	return models.Category{
-		Name:        categorizedTransaction.Category,
-		Description: categoryDescriptionFromName(categorizedTransaction.Category),
-	}, nil
-}
-
-

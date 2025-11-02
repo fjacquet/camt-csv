@@ -412,7 +412,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction) {
 	// Clean the description
 	cleanDesc := cleanDescription(desc.String())
-	
+
 	// Extract and set merchant/payee
 	payee := merchant
 	if payee == "" {

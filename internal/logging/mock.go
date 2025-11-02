@@ -5,8 +5,8 @@ import "fmt"
 // MockLogger is a mock implementation of the Logger interface for testing.
 // It captures log entries for verification in tests.
 type MockLogger struct {
-	Entries      []LogEntry
-	pendingError error
+	Entries       []LogEntry
+	pendingError  error
 	pendingFields []Field
 }
 

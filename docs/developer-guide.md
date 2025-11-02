@@ -136,6 +136,47 @@ func NewMyParser(logger logging.Logger) *MyParser {
         BaseParser: parser.NewBaseParser(logger),
     }
 }
+
+// Usage example with container
+func main() {
+    // Load configuration
+    cfg, err := config.Load()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Create container with all dependencies
+    container, err := container.NewContainer(cfg)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer container.Close()
+    
+    // Use dependencies from container
+    parser, err := container.GetParser(container.CAMT)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Process files
+    transactions, err := parser.Parse(inputReader)
+    if err != nil {
+        container.GetLogger().Error("Parse failed", logging.Field{Key: "error", Value: err})
+        return
+    }
+    
+    // Categorize transactions
+    for i, tx := range transactions {
+        category, err := container.GetCategorizer().CategorizeTransaction(tx)
+        if err != nil {
+            container.GetLogger().Warn("Categorization failed", 
+                logging.Field{Key: "transaction", Value: tx.Number},
+                logging.Field{Key: "error", Value: err})
+            continue
+        }
+        transactions[i].Category = category.Name
+    }
+}
 ```
 
 ### Interface Segregation
@@ -165,6 +206,123 @@ type MyParser struct {
     parser.BaseParser  // Provides logging and CSV writing
     // parser-specific fields
 }
+```
+
+## Transaction Model and Backward Compatibility
+
+### Core Transaction Structure
+
+The `models.Transaction` struct is the central data structure representing financial transactions:
+
+```go
+type Transaction struct {
+    // Core fields
+    Date              time.Time       `csv:"Date"`
+    ValueDate         time.Time       `csv:"ValueDate"`
+    Amount            decimal.Decimal `csv:"Amount"`
+    Currency          string          `csv:"Currency"`
+    Description       string          `csv:"Description"`
+    
+    // Party information
+    Payer             string          `csv:"-"` // Internal field
+    Payee             string          `csv:"-"` // Internal field
+    PartyName         string          `csv:"PartyName"`
+    PartyIBAN         string          `csv:"PartyIBAN"`
+    
+    // Transaction direction
+    CreditDebit       string          `csv:"CreditDebit"`
+    DebitFlag         bool            `csv:"IsDebit"`
+    
+    // Additional fields...
+}
+```
+
+### Backward Compatibility Methods
+
+The Transaction model provides enhanced backward compatibility methods with direction-based logic:
+
+#### GetPayee() Method
+```go
+// Returns appropriate party based on transaction direction
+otherParty := tx.GetPayee()
+// For debit: returns payee (who receives money)
+// For credit: returns payer (who sent money to us)
+```
+
+#### GetPayer() Method
+```go
+// Returns appropriate party based on transaction direction
+accountHolder := tx.GetPayer()
+// For debit: returns payer (account holder)
+// For credit: returns payee (account holder)
+```
+
+#### GetCounterparty() Method
+```go
+// Recommended for new code - clearer semantics
+counterparty := tx.GetCounterparty()
+// Always returns the "other party" in the transaction
+```
+
+### TransactionBuilder Pattern
+
+For creating new transactions, use the builder pattern:
+
+```go
+tx, err := models.NewTransactionBuilder().
+    WithDate("2025-01-15").
+    WithAmountFromFloat(100.50, "CHF").
+    WithDescription("Payment to supplier").
+    WithPayer("John Doe", "CH1234567890").
+    WithPayee("Acme Corp", "CH0987654321").
+    WithCategory("Business Expenses").
+    AsDebit().
+    Build()
+
+if err != nil {
+    return fmt.Errorf("failed to build transaction: %w", err)
+}
+```
+
+### Migration Guidelines
+
+**Legacy Code (Still Works):**
+```go
+// These methods continue to work with enhanced logic
+payee := tx.GetPayee()
+payer := tx.GetPayer()
+amount := tx.GetAmountAsFloat() // Deprecated but functional
+```
+
+**Modern Code (Recommended):**
+```go
+// Direct field access for clarity
+payee := tx.Payee
+payer := tx.Payer
+amount := tx.GetAmountAsDecimal() // Precise decimal arithmetic
+
+// Or use counterparty for "other party" logic
+counterparty := tx.GetCounterparty()
+
+// Use builder for new transactions
+tx, err := models.NewTransactionBuilder().
+    // ... builder methods
+    Build()
+```
+
+### Conversion Between Formats
+
+The Transaction model supports conversion to/from the new decomposed structure:
+
+```go
+// Convert to new format
+core := tx.ToTransactionCore()
+withParties := tx.ToTransactionWithParties()
+categorized := tx.ToCategorizedTransaction()
+
+// Convert from new format
+var tx models.Transaction
+tx.FromCategorizedTransaction(categorized)
 ```
 
 ## Adding New Parsers

@@ -8,7 +8,7 @@ import (
 
 func TestNewParty(t *testing.T) {
 	party := NewParty("John Doe", "CH1234567890123456")
-	
+
 	assert.Equal(t, "John Doe", party.Name)
 	assert.Equal(t, "CH1234567890123456", party.IBAN)
 }

@@ -145,7 +145,7 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 
 	// Write header manually to ensure correct order
 	header := []string{
-		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN", 
+		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
 		"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit", "Currency",
 		"AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType", "Number", "Category",
 		"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",

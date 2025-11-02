@@ -23,11 +23,11 @@ type TestMockAIClient struct {
 func (m *TestMockAIClient) Categorize(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
 	m.CallCount++
 	m.LastTransaction = tx
-	
+
 	if m.CategorizeFunc != nil {
 		return m.CategorizeFunc(ctx, tx)
 	}
-	
+
 	// Default behavior: return transaction with a test category
 	tx.Category = "AI Test Category"
 	return tx, nil
@@ -264,7 +264,7 @@ func TestAIStrategy_ConvertToModelTransaction(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.transaction.PartyName, modelTx.PartyName)
-				
+
 				// Check description combination
 				if tt.transaction.Info != "" && tt.transaction.Description != "" {
 					assert.Contains(t, modelTx.Description, tt.transaction.Description)
@@ -330,7 +330,7 @@ func TestAIStrategy_Integration(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedFound, found)
-			
+
 			if tc.expectedFound {
 				assert.Equal(t, tc.expectedCategory, category.Name)
 			}

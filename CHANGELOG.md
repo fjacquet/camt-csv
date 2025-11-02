@@ -88,6 +88,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Internal Deprecated Methods**:
   - `Categorizer.categorizeWithGemini()` - Replaced by `AIStrategy`
+
+### Deprecation Timeline
+
+See [DEPRECATION_TIMELINE.md](docs/DEPRECATION_TIMELINE.md) for complete deprecation schedule and migration guidance.
+
+**Current Status (v2.0.0):**
+- ✅ Global singleton functions removed
+- ⚠️ Transaction backward compatibility methods deprecated (removal in v3.0.0)
+- ✅ New dependency injection architecture available
+- ✅ TransactionBuilder pattern available
   - `Categorizer.categorizeByCreditorMapping()` - Replaced by `DirectMappingStrategy`
   - `Categorizer.categorizeByDebitorMapping()` - Replaced by `DirectMappingStrategy`
   - `Categorizer.categorizeLocallyByKeywords()` - Replaced by `KeywordStrategy`

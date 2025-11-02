@@ -71,11 +71,11 @@ func TestGetParser(t *testing.T) {
 
 func TestGetParserWithLogger(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	p, err := factory.GetParserWithLogger(factory.CAMT, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
-	
+
 	// Test that we can set a logger on the parser
 	p.SetLogger(logger)
 }

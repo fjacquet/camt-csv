@@ -37,7 +37,7 @@ func NewBaseParser(logger logging.Logger) BaseParser {
 		// Use a default logger if none provided
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
-	
+
 	return BaseParser{
 		logger: logger,
 	}
@@ -80,6 +80,6 @@ func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile strin
 	b.logger.Info("Writing transactions to CSV using common writer",
 		logging.Field{Key: "file", Value: csvFile},
 		logging.Field{Key: "count", Value: len(transactions)})
-	
+
 	return common.WriteTransactionsToCSV(transactions, csvFile)
 }

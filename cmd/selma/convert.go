@@ -34,7 +34,7 @@ func selmaFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatalf("Error getting Selma parser: %v", err)
 	}
-	
+
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Selma to CSV conversion completed successfully!")
 }

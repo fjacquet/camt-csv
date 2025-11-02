@@ -77,7 +77,7 @@ func batchFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatalf("Failed to get CAMT parser: %v", err)
 	}
-	
+
 	count, err := parser.BatchConvert(inputDir, outputDir)
 	if err != nil {
 		logger.Fatalf("Error during batch conversion: %v", err)

@@ -204,24 +204,3 @@ func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, log
 // Returns:
 //   - bool: True if the file is a valid PDF, False otherwise
 //   - error: Any error encountered during validation
-func validateFormat(pdfFile string) (bool, error) {
-	return validateFormatWithLogger(pdfFile, nil)
-}
-
-func validateFormatWithLogger(pdfFile string, logger logging.Logger) (bool, error) {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Validating PDF format",
-		logging.Field{Key: "file", Value: pdfFile})
-
-	// Try to extract text as a validation check using the real extractor
-	extractor := NewRealPDFExtractor()
-	_, err := extractor.ExtractText(pdfFile)
-	if err != nil {
-		logger.WithError(err).Error("PDF validation failed")
-		return false, nil
-	}
-
-	return true, nil
-}

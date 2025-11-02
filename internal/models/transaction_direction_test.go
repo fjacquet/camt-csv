@@ -84,10 +84,10 @@ func TestTransactionDirectionFromString(t *testing.T) {
 func TestTransactionDirectionMethods(t *testing.T) {
 	assert.True(t, DirectionDebit.IsDebit())
 	assert.False(t, DirectionDebit.IsCredit())
-	
+
 	assert.True(t, DirectionCredit.IsCredit())
 	assert.False(t, DirectionCredit.IsDebit())
-	
+
 	assert.False(t, DirectionUnknown.IsDebit())
 	assert.False(t, DirectionUnknown.IsCredit())
 }

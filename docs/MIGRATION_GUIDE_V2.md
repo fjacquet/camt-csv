@@ -49,6 +49,72 @@ config := config.GetGlobalConfig()
 
 **New (Recommended):**
 ```go
+// Instance-based configuration
+container, err := container.NewContainer(config)
+if err != nil {
+    log.Fatal(err)
+}
+// Access config through container or pass explicitly
+```
+
+## Transaction Model Backward Compatibility
+
+### Enhanced Backward Compatibility Methods
+
+The Transaction model now includes enhanced backward compatibility methods with direction-based logic:
+
+**GetPayee() Method:**
+```go
+// For debit transactions: returns payee (who receives money)
+// For credit transactions: returns payer (who sent money to us)
+otherParty := tx.GetPayee()
+```
+
+**GetPayer() Method:**
+```go
+// For debit transactions: returns payer (account holder)
+// For credit transactions: returns payee (account holder)
+accountHolder := tx.GetPayer()
+```
+
+**GetAmountAsFloat() Method:**
+```go
+// Deprecated but still available for backward compatibility
+amount := tx.GetAmountAsFloat() // May lose precision
+
+// Recommended for new code:
+amount := tx.GetAmountAsDecimal() // Precise decimal arithmetic
+```
+
+### Migration Path for Transaction Access
+
+**Old Pattern (Still Works):**
+```go
+// Legacy access patterns continue to work
+payee := tx.GetPayee()
+payer := tx.GetPayer()
+amount := tx.GetAmountAsFloat()
+```
+
+**New Pattern (Recommended):**
+```go
+// Direct field access for clarity
+payee := tx.Payee
+payer := tx.Payer
+amount := tx.GetAmountAsDecimal()
+
+// Or use counterparty for "other party" logic
+counterparty := tx.GetCounterparty()
+
+// Or use TransactionBuilder for new transactions
+tx, err := models.NewTransactionBuilder().
+    WithPayer("John Doe", "CH1234567890").
+    WithPayee("Acme Corp", "CH0987654321").
+    WithAmountFromFloat(100.50, "CHF").
+    AsDebit().
+    Build()
+```
+```go
 // Load configuration explicitly
 config, err := config.Load()
 if err != nil {

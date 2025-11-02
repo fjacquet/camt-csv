@@ -32,7 +32,7 @@ func NewISO20022Parser(logger logging.Logger) *ISO20022Parser {
 
 // ParseFile parses a CAMT.053 XML file using ISO20022 standard format
 func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, error) {
-	p.GetLogger().Info("Parsing CAMT.053 XML file (ISO20022 mode)", 
+	p.GetLogger().Info("Parsing CAMT.053 XML file (ISO20022 mode)",
 		logging.Field{Key: "file", Value: xmlFilePath})
 
 	// Read XML file
@@ -180,8 +180,8 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 		transactions[i].Category = models.CategoryUncategorized
 
 		p.GetLogger().Debug("Transaction parsed without categorization",
-				logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
-				logging.Field{Key: "party", Value: catTx.PartyName})
+			logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
+			logging.Field{Key: "party", Value: catTx.PartyName})
 	}
 
 	return transactions
@@ -210,19 +210,26 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 		return false, fmt.Errorf("error reading file: %w", err)
 	}
 
+	// Check if file is empty
+	if len(xmlBytes) == 0 {
+		p.GetLogger().Info("File is empty",
+			logging.Field{Key: "file", Value: filePath})
+		return false, fmt.Errorf("file is empty")
+	}
+
 	// Try to unmarshal the XML data into our ISO20022 document structure
 	var document models.ISO20022Document
 	if err := xml.Unmarshal(xmlBytes, &document); err != nil {
 		p.GetLogger().Info("File is not a valid CAMT.053 XML",
 			logging.Field{Key: "file", Value: filePath})
-		return false, nil
+		return false, fmt.Errorf("invalid XML format: %w", err)
 	}
 
 	// Check if we have at least one statement
 	if len(document.BkToCstmrStmt.Stmt) == 0 {
 		p.GetLogger().Info("File is not a valid CAMT.053 XML (no statements)",
 			logging.Field{Key: "file", Value: filePath})
-		return false, nil
+		return false, fmt.Errorf("no statements found in CAMT.053 file")
 	}
 
 	p.GetLogger().Info("File is a valid CAMT.053 XML",
@@ -268,5 +275,3 @@ func (c *ISO20022Parser) CreateEmptyCSVFile(outputFile string) error {
 	emptyTransactions := []models.Transaction{}
 	return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
 }
-
-

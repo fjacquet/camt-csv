@@ -6,7 +6,6 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/scanner"
 	"fmt"
-
 )
 
 // Reviewer orchestrates the codebase review process.

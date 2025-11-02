@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func TestGetAmountAsDecimal(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -130,21 +129,6 @@ func TestUpdateInvestmentTypeFromLegacyField(t *testing.T) {
 		tx.UpdateInvestmentTypeFromLegacyField()
 		assert.Equal(t, "", tx.Investment)
 	})
-}
-
-func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
-	tx := Transaction{
-		Amount: decimal.NewFromFloat(100.50),
-		Debit:  decimal.NewFromFloat(100.50),
-		Credit: decimal.Zero,
-		Fees:   decimal.NewFromFloat(5.25),
-	}
-	
-	// Test deprecated float methods
-	assert.Equal(t, 100.50, tx.GetAmountAsFloat())
-	assert.Equal(t, 100.50, tx.GetDebitAsFloat())
-	assert.Equal(t, 0.0, tx.GetCreditAsFloat())
-	assert.Equal(t, 5.25, tx.GetFeesAsFloat())
 }
 
 func TestTransaction_GetPayee_DirectionBased(t *testing.T) {
@@ -340,7 +324,7 @@ func TestTransaction_GetAmountAsFloat_Precision(t *testing.T) {
 func TestTransaction_SetPayerInfo(t *testing.T) {
 	tx := Transaction{}
 	tx.SetPayerInfo("John Doe", "CH1234567890")
-	
+
 	assert.Equal(t, "John Doe", tx.Payer)
 	assert.Equal(t, "CH1234567890", tx.PartyIBAN)
 }
@@ -348,7 +332,7 @@ func TestTransaction_SetPayerInfo(t *testing.T) {
 func TestTransaction_SetPayeeInfo(t *testing.T) {
 	tx := Transaction{}
 	tx.SetPayeeInfo("Acme Corp", "CH0987654321")
-	
+
 	assert.Equal(t, "Acme Corp", tx.Payee)
 	assert.Equal(t, "CH0987654321", tx.PartyIBAN)
 }
@@ -356,7 +340,7 @@ func TestTransaction_SetPayeeInfo(t *testing.T) {
 func TestTransaction_SetAmountFromFloat(t *testing.T) {
 	tx := Transaction{}
 	tx.SetAmountFromFloat(123.45, "EUR")
-	
+
 	assert.True(t, decimal.NewFromFloat(123.45).Equal(tx.Amount))
 	assert.Equal(t, "EUR", tx.Currency)
 }
@@ -393,7 +377,7 @@ func TestTransaction_GetTransactionDirection(t *testing.T) {
 			expected: DirectionUnknown,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.tx.GetTransactionDirection())
@@ -411,9 +395,9 @@ func TestTransaction_ToBuilder(t *testing.T) {
 		Payer:       "John Doe",
 		Payee:       "Acme Corp",
 	}
-	
+
 	builder := original.ToBuilder()
-	
+
 	// Verify the builder has the same data
 	assert.Equal(t, original.Number, builder.tx.Number)
 	assert.Equal(t, original.Date, builder.tx.Date)
@@ -422,27 +406,27 @@ func TestTransaction_ToBuilder(t *testing.T) {
 	assert.Equal(t, original.Description, builder.tx.Description)
 	assert.Equal(t, original.Payer, builder.tx.Payer)
 	assert.Equal(t, original.Payee, builder.tx.Payee)
-	
+
 	// Modify through builder and build
 	modified, err := builder.WithDescription("Modified description").Build()
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "Modified description", modified.Description)
 	assert.Equal(t, original.Number, modified.Number) // Other fields should remain
 }
 
 func TestNewTransactionFromBuilder(t *testing.T) {
 	builder := NewTransactionFromBuilder()
-	
+
 	assert.NotNil(t, builder)
 	assert.IsType(t, &TransactionBuilder{}, builder)
-	
+
 	// Should be able to build a transaction
 	tx, err := builder.
 		WithDate("2025-01-15").
 		WithAmount(decimal.NewFromFloat(100), "CHF").
 		Build()
-	
+
 	require.NoError(t, err)
 	assert.NotEmpty(t, tx.Number)
 }

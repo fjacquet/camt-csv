@@ -67,10 +67,10 @@ func BenchmarkDirectMappingStrategy_StringOperations(b *testing.B) {
 			"netflix subscription": "Entertainment",
 		},
 		DebtorMappings: map[string]string{
-			"john doe salary":      models.CategorySalary,
-			"rent payment monthly": "Housing",
-			"insurance premium":    "Insurance",
-			"loan payment bank":    "Financial",
+			"john doe salary":       models.CategorySalary,
+			"rent payment monthly":  "Housing",
+			"insurance premium":     "Insurance",
+			"loan payment bank":     "Financial",
 			"tax refund government": "Government",
 		},
 	}

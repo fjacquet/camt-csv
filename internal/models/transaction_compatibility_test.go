@@ -47,7 +47,7 @@ func TestTransaction_GetPayee(t *testing.T) {
 			expected: "Some Payer", // Credit behavior for unknown with zero amount
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.tx.GetPayee())
@@ -93,7 +93,7 @@ func TestTransaction_GetPayer(t *testing.T) {
 			expected: "Some Payee", // Credit behavior for unknown with zero amount
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.tx.GetPayer())
@@ -128,7 +128,7 @@ func TestTransaction_GetCounterparty(t *testing.T) {
 			expected: "John Doe",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.transaction.GetCounterparty()
@@ -148,9 +148,9 @@ func TestTransaction_ToTransactionCore(t *testing.T) {
 		Status:      StatusCompleted,
 		Reference:   "REF123",
 	}
-	
+
 	core := tx.ToTransactionCore()
-	
+
 	assert.Equal(t, "TX123", core.ID)
 	assert.Equal(t, 2025, core.Date.Year())
 	assert.Equal(t, time.January, core.Date.Month())
@@ -174,9 +174,9 @@ func TestTransaction_ToTransactionCore_InvalidDates(t *testing.T) {
 		Currency:    "CHF",
 		Description: "Test transaction",
 	}
-	
+
 	core := tx.ToTransactionCore()
-	
+
 	// Invalid dates should result in zero times
 	assert.True(t, core.Date.IsZero())
 	assert.True(t, core.ValueDate.IsZero())
@@ -197,9 +197,9 @@ func TestTransaction_ToTransactionWithParties(t *testing.T) {
 		Payee:       "Acme Corp",
 		PartyIBAN:   "CH1234567890",
 	}
-	
+
 	twp := tx.ToTransactionWithParties()
-	
+
 	assert.Equal(t, "TX123", twp.ID)
 	assert.Equal(t, DirectionDebit, twp.Direction)
 	assert.Equal(t, "John Doe", twp.Payer.Name)
@@ -222,9 +222,9 @@ func TestTransaction_ToCategorizedTransaction(t *testing.T) {
 		Type:        "Purchase",
 		Fund:        "General",
 	}
-	
+
 	ct := tx.ToCategorizedTransaction()
-	
+
 	assert.Equal(t, "TX123", ct.ID)
 	assert.Equal(t, DirectionCredit, ct.Direction)
 	assert.Equal(t, "Shopping", ct.Category)
@@ -242,10 +242,10 @@ func TestTransaction_FromTransactionCore(t *testing.T) {
 		Status:      StatusCompleted,
 		Reference:   "REF123",
 	}
-	
+
 	var tx Transaction
 	tx.FromTransactionCore(core)
-	
+
 	assert.Equal(t, "TX123", tx.Number)
 	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
 	assert.Equal(t, time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC), tx.ValueDate)
@@ -264,12 +264,12 @@ func TestTransaction_FromTransactionCore_ZeroDates(t *testing.T) {
 		Amount:      NewMoney(decimal.NewFromFloat(100.50), "CHF"),
 		Description: "Test transaction",
 	}
-	
+
 	var tx Transaction
 	tx.FromTransactionCore(core)
-	
+
 	assert.Equal(t, "TX123", tx.Number)
-	assert.True(t, tx.Date.IsZero())     // Should be zero time
+	assert.True(t, tx.Date.IsZero())      // Should be zero time
 	assert.True(t, tx.ValueDate.IsZero()) // Should be zero time
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(100.50)))
 }
@@ -292,10 +292,10 @@ func TestTransaction_FromCategorizedTransaction(t *testing.T) {
 		Type:     "Purchase",
 		Fund:     "General",
 	}
-	
+
 	var tx Transaction
 	tx.FromCategorizedTransaction(ct)
-	
+
 	assert.Equal(t, "TX123", tx.Number)
 	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
 	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(100.50)))
@@ -309,7 +309,7 @@ func TestTransaction_FromCategorizedTransaction(t *testing.T) {
 	assert.Equal(t, "Shopping", tx.Category)
 	assert.Equal(t, "Purchase", tx.Type)
 	assert.Equal(t, "General", tx.Fund)
-	
+
 	// Check derived fields
 	assert.Equal(t, "Acme Corp", tx.Name)      // For debit, Name should be Payee
 	assert.Equal(t, "Acme Corp", tx.Recipient) // Recipient should be set from Payee
@@ -337,12 +337,12 @@ func TestTransaction_ConversionRoundTrip(t *testing.T) {
 		Type:        "Purchase",
 		Fund:        "General",
 	}
-	
+
 	// Convert to new format and back
 	ct := original.ToCategorizedTransaction()
 	var converted Transaction
 	converted.FromCategorizedTransaction(ct)
-	
+
 	// Check key fields are preserved
 	assert.Equal(t, original.Number, converted.Number)
 	assert.Equal(t, original.Date, converted.Date)
@@ -372,9 +372,9 @@ func TestTransaction_BuilderCompatibility(t *testing.T) {
 		WithCategory("Shopping").
 		AsDebit().
 		Build()
-	
+
 	require.NoError(t, err)
-	
+
 	// Test legacy methods work with direction-based behavior
 	assert.Equal(t, 100.50, tx.GetAmountAsFloat())
 	// For debit transaction: GetPayer() returns the payer (account holder)
@@ -382,7 +382,7 @@ func TestTransaction_BuilderCompatibility(t *testing.T) {
 	// For debit transaction: GetPayee() returns the payee (who receives money)
 	assert.Equal(t, "Acme Corp", tx.GetPayee())
 	assert.Equal(t, "Acme Corp", tx.GetCounterparty()) // For debit, counterparty is payee
-	
+
 	// Test conversion to new format
 	ct := tx.ToCategorizedTransaction()
 	assert.Equal(t, DirectionDebit, ct.Direction)

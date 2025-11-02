@@ -206,7 +206,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 			// Format the dates as DD.MM.YYYY
 
 			var parsedBookingDate, parsedValueDate time.Time
-			
+
 			if bookingDateParsed, err := time.Parse("2006-01-02", bookingDate); err == nil {
 				parsedBookingDate = bookingDateParsed
 			}
@@ -236,18 +236,18 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			// Set description from AddtlNtryInf or RemittanceInfo
 			description := ""
-			
+
 			if entry.AdditionalInfo.Info != "" {
 				description = entry.AdditionalInfo.Info
 			} else if txDetails.RemittanceInfo.Ustrd != "" {
 				// Use RemittanceInfo as Description if there's no AddtlNtryInf
 				description = txDetails.RemittanceInfo.Ustrd
 			}
-			
+
 			if description != "" {
 				builder = builder.WithDescription(description)
 			}
-			
+
 			// Always set RemittanceInfo from the XML field if present
 			if txDetails.RemittanceInfo.Ustrd != "" {
 				builder = builder.WithRemittanceInfo(txDetails.RemittanceInfo.Ustrd)
@@ -282,7 +282,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 			if partyName != "" {
 				builder = builder.WithPartyName(partyName)
 			}
-			
+
 			if transactionType != "" {
 				builder = builder.WithType(transactionType)
 			}
@@ -321,8 +321,6 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 				}
 			}
 
-
-
 			// Get reference information
 			var reference string
 			if txDetails.References.MsgId != "" {
@@ -345,7 +343,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 				// Log error and create a minimal fallback transaction
 				a.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
 					logging.Field{Key: "entry_reference", Value: reference})
-				
+
 				fallback, _ := models.NewTransactionBuilder().
 					WithDatetime(parsedBookingDate).
 					WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
@@ -371,11 +369,11 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			// Categorize the transaction
 			catTransaction := categorizer.Transaction{
-				PartyName: transaction.PartyName,
-				IsDebtor: transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
-				Amount: transaction.Amount.String(),
-				Date: transaction.Date.Format("02.01.2006"),
-				Info: transaction.RemittanceInfo,
+				PartyName:   transaction.PartyName,
+				IsDebtor:    transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
+				Amount:      transaction.Amount.String(),
+				Date:        transaction.Date.Format("02.01.2006"),
+				Info:        transaction.RemittanceInfo,
 				Description: transaction.Description,
 			}
 
@@ -486,84 +484,12 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 }
 
-
-
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
 
 func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
-
-	a.GetLogger().Info("Validating CAMT.053 format",
-		logging.Field{Key: "file", Value: xmlFile})
-
-	// Check if file exists
-
-	if _, err := os.Stat(xmlFile); os.IsNotExist(err) {
-
-		return false, fmt.Errorf("file does not exist: %s", xmlFile)
-
-	}
-
-	// Open the file
-
-	file, err := os.Open(xmlFile)
-
-	if err != nil {
-
-		return false, err
-
-	}
-
-	defer func() {
-		if err := file.Close(); err != nil {
-			a.GetLogger().WithError(err).Warn("Failed to close file during format validation",
-				logging.Field{Key: "file", Value: xmlFile})
-		}
-	}()
-
-	// Read enough bytes to check for XML header and CAMT053 identifiers
-
-	buffer := make([]byte, 4096)
-
-	n, err := file.Read(buffer)
-
-	if err != nil && err != io.EOF {
-
-		return false, err
-
-	}
-
-	xmlHeader := string(buffer[:n])
-
-	// Basic checks for XML format
-
-	if !strings.Contains(xmlHeader, "<?xml") {
-
-		return false, nil
-
-	}
-
-	// Check for CAMT.053 specific elements (simplified for quick validation)
-
-	isCamt := strings.Contains(xmlHeader, "Document") &&
-
-		(strings.Contains(xmlHeader, "BkToCstmrStmt") ||
-
-			strings.Contains(xmlHeader, "camt.053"))
-
-	if isCamt {
-
-		a.GetLogger().Info("File is a valid CAMT.053 XML",
-			logging.Field{Key: "file", Value: xmlFile})
-
-	} else {
-
-		a.GetLogger().Info("File is not a valid CAMT.053 XML",
-			logging.Field{Key: "file", Value: xmlFile})
-
-	}
-
-	return isCamt, nil
-
+	// Create a parser instance and use its ValidateFormat method
+	parser := NewISO20022Parser(a.GetLogger())
+	return parser.ValidateFormat(xmlFile)
 }
 
 // BatchConvert converts all XML files in a directory to CSV files.

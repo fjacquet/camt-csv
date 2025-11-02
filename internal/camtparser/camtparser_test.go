@@ -1,8 +1,10 @@
 package camtparser
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +22,7 @@ func TestSetLogger(t *testing.T) {
 
 	// Create adapter with logger
 	adapter := NewAdapter(logger)
-	
+
 	// Test that we can set a different logger
 	newLogger := logging.NewLogrusAdapter("debug", "text")
 	adapter.SetLogger(newLogger)
@@ -236,3 +238,256 @@ func TestBatchConvert(t *testing.T) {
 	})
 }
 */
+
+// Test error scenarios in CAMT parser
+func TestCAMTParser_ErrorScenarios(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("invalid XML format", func(t *testing.T) {
+		invalidXML := `<invalid>not a camt document</invalid>`
+		file := strings.NewReader(invalidXML)
+
+		transactions, err := adapter.Parse(file)
+		assert.Error(t, err)
+		assert.Nil(t, transactions)
+		assert.Contains(t, err.Error(), "error decoding XML")
+	})
+
+	t.Run("empty XML document", func(t *testing.T) {
+		emptyXML := ``
+		file := strings.NewReader(emptyXML)
+
+		transactions, err := adapter.Parse(file)
+		assert.Error(t, err)
+		assert.Nil(t, transactions)
+	})
+
+	t.Run("malformed XML", func(t *testing.T) {
+		malformedXML := `<?xml version="1.0"?><Document><unclosed>`
+		file := strings.NewReader(malformedXML)
+
+		transactions, err := adapter.Parse(file)
+		assert.Error(t, err)
+		assert.Nil(t, transactions)
+	})
+
+	t.Run("missing required fields", func(t *testing.T) {
+		// XML with missing amount
+		xmlWithMissingAmount := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>2023-01-01</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		file := strings.NewReader(xmlWithMissingAmount)
+		transactions, err := adapter.Parse(file)
+
+		// Should not error but may have zero amount
+		assert.NoError(t, err)
+		if len(transactions) > 0 {
+			assert.True(t, transactions[0].Amount.IsZero())
+		}
+	})
+
+	t.Run("invalid date format", func(t *testing.T) {
+		xmlWithInvalidDate := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<Amt Ccy="CHF">100.00</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>invalid-date</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		file := strings.NewReader(xmlWithInvalidDate)
+		transactions, err := adapter.Parse(file)
+
+		// Should handle gracefully - may log warning but not fail
+		assert.NoError(t, err)
+		if len(transactions) > 0 {
+			// Date should be zero time for invalid dates
+			assert.True(t, transactions[0].Date.IsZero())
+		}
+	})
+
+	t.Run("invalid amount format", func(t *testing.T) {
+		xmlWithInvalidAmount := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<Amt Ccy="CHF">invalid-amount</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>2023-01-01</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		file := strings.NewReader(xmlWithInvalidAmount)
+		transactions, err := adapter.Parse(file)
+
+		// Should handle gracefully
+		assert.NoError(t, err)
+		if len(transactions) > 0 {
+			assert.True(t, transactions[0].Amount.IsZero())
+		}
+	})
+
+	t.Run("missing currency", func(t *testing.T) {
+		xmlWithoutCurrency := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<Amt>100.00</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>2023-01-01</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		file := strings.NewReader(xmlWithoutCurrency)
+		transactions, err := adapter.Parse(file)
+
+		// Should handle gracefully
+		assert.NoError(t, err)
+		if len(transactions) > 0 {
+			// Currency should be empty or default
+			assert.True(t, transactions[0].Currency == "" || transactions[0].Currency == "CHF")
+		}
+	})
+
+	t.Run("very large XML document", func(t *testing.T) {
+		// Create a large XML with many entries
+		var xmlBuilder strings.Builder
+		xmlBuilder.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>`)
+
+		// Add 1000 entries
+		for i := 0; i < 1000; i++ {
+			xmlBuilder.WriteString(fmt.Sprintf(`
+			<Ntry>
+				<Amt Ccy="CHF">%d.00</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>2023-01-01</Dt></BookgDt>
+				<NtryDtls>
+					<TxDtls>
+						<RmtInf><Ustrd>Transaction %d</Ustrd></RmtInf>
+					</TxDtls>
+				</NtryDtls>
+			</Ntry>`, i+1, i+1))
+		}
+
+		xmlBuilder.WriteString(`
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`)
+
+		file := strings.NewReader(xmlBuilder.String())
+		transactions, err := adapter.Parse(file)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 1000, len(transactions))
+	})
+}
+
+// Test file validation scenarios
+func TestCAMTParser_FileValidation(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("non-existent file", func(t *testing.T) {
+		isValid, err := adapter.ValidateFormat("/non/existent/file.xml")
+		assert.Error(t, err)
+		assert.False(t, isValid)
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		emptyFile := filepath.Join(tempDir, "empty.xml")
+		err := os.WriteFile(emptyFile, []byte(""), 0600)
+		require.NoError(t, err)
+
+		isValid, err := adapter.ValidateFormat(emptyFile)
+		assert.Error(t, err)
+		assert.False(t, isValid)
+	})
+
+	t.Run("non-XML file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		textFile := filepath.Join(tempDir, "text.xml")
+		err := os.WriteFile(textFile, []byte("This is not XML"), 0600)
+		require.NoError(t, err)
+
+		isValid, err := adapter.ValidateFormat(textFile)
+		assert.Error(t, err)
+		assert.False(t, isValid)
+	})
+
+	t.Run("valid CAMT file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		validFile := filepath.Join(tempDir, "valid.xml")
+		err := os.WriteFile(validFile, []byte(testXMLContent), 0600)
+		require.NoError(t, err)
+
+		isValid, err := adapter.ValidateFormat(validFile)
+		assert.NoError(t, err)
+		assert.True(t, isValid)
+	})
+}
+
+// Test CSV conversion error scenarios
+func TestCAMTParser_CSVConversionErrors(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("invalid input file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		outputFile := filepath.Join(tempDir, "output.csv")
+
+		err := adapter.ConvertToCSV("/non/existent/input.xml", outputFile)
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid output directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		inputFile := filepath.Join(tempDir, "input.xml")
+		err := os.WriteFile(inputFile, []byte(testXMLContent), 0600)
+		require.NoError(t, err)
+
+		// Try to write to non-existent directory
+		err = adapter.ConvertToCSV(inputFile, "/non/existent/dir/output.csv")
+		assert.Error(t, err)
+	})
+
+	t.Run("permission denied on output", func(t *testing.T) {
+		tempDir := t.TempDir()
+		inputFile := filepath.Join(tempDir, "input.xml")
+		err := os.WriteFile(inputFile, []byte(testXMLContent), 0600)
+		require.NoError(t, err)
+
+		// Create read-only directory
+		readOnlyDir := filepath.Join(tempDir, "readonly")
+		err = os.MkdirAll(readOnlyDir, 0400)
+		require.NoError(t, err)
+
+		outputFile := filepath.Join(readOnlyDir, "output.csv")
+		err = adapter.ConvertToCSV(inputFile, outputFile)
+		assert.Error(t, err)
+	})
+}

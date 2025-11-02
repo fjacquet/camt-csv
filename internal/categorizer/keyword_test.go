@@ -137,7 +137,7 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 				IsDebtor:  false,
 				Info:      "Purchase",
 			},
-			categories: []models.CategoryConfig{}, // No YAML categories
+			categories:       []models.CategoryConfig{}, // No YAML categories
 			expectedCategory: models.CategoryGroceries,
 			expectedFound:    true,
 			expectedError:    false,
@@ -173,7 +173,7 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 				IsDebtor:  false,
 				Info:      "Random transaction",
 			},
-			categories: []models.CategoryConfig{}, // No YAML categories
+			categories:    []models.CategoryConfig{}, // No YAML categories
 			expectedFound: false,
 			expectedError: false,
 		},

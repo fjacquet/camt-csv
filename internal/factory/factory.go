@@ -25,8 +25,6 @@ const (
 	Debit             ParserType = "debit"
 )
 
-
-
 // GetParserWithLogger returns a new instance of the appropriate parser for the given type
 // with the provided logger for dependency injection.
 func GetParserWithLogger(parserType ParserType, logger logging.Logger) (models.Parser, error) {

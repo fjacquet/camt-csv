@@ -34,7 +34,7 @@ func camtFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatalf("Error getting CAMT.053 parser: %v", err)
 	}
-	
+
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("CAMT.053 to CSV conversion completed successfully!")
 }

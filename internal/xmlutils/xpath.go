@@ -79,7 +79,7 @@ func CleanText(text string) string {
 	// Use strings.Builder for efficient string operations
 	var builder strings.Builder
 	builder.Grow(len(text)) // Pre-allocate capacity
-	
+
 	// Replace multiple spaces, tabs, and newlines with a single space
 	text = strings.ReplaceAll(text, "\n", " ")
 	text = strings.ReplaceAll(text, "\t", " ")

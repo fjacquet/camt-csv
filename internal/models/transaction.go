@@ -12,10 +12,10 @@ import (
 
 // Transaction represents a financial transaction from various sources
 type Transaction struct {
-	BookkeepingNumber string    `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
-	Status            string    `csv:"Status"`            // Status code
-	Date              time.Time `csv:"Date"`              // Transaction date
-	ValueDate         time.Time `csv:"ValueDate"`         // Value date
+	BookkeepingNumber string          `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
+	Status            string          `csv:"Status"`            // Status code
+	Date              time.Time       `csv:"Date"`              // Transaction date
+	ValueDate         time.Time       `csv:"ValueDate"`         // Value date
 	Name              string          `csv:"Name"`              // Name of the other party (combined from Payee/Payer)
 	PartyName         string          `csv:"PartyName"`         // Name of the other party (standardized field)
 	PartyIBAN         string          `csv:"PartyIBAN"`         // IBAN of the other party
@@ -76,8 +76,6 @@ func ParseAmount(amountStr string) decimal.Decimal {
 	return dec
 }
 
-
-
 // GetCounterparty returns the relevant party name based on transaction direction
 // For debits, returns the payee (who receives the money)
 // For credits, returns the payer (who sent the money)
@@ -96,16 +94,17 @@ func (t *Transaction) GetCounterparty() string {
 // Deprecated: This method is provided for backward compatibility during migration.
 // For new code, use TransactionBuilder pattern or access Payer/Payee fields directly.
 // Consider using GetCounterparty() for similar functionality.
-// 
+//
 // Migration example:
-//   // Old code:
-//   otherParty := tx.GetPayee()
-//   
-//   // New code (direct access):
-//   payee := tx.Payee  // if you specifically need the payee
-//   
-//   // New code (counterparty - recommended):
-//   otherParty := tx.GetCounterparty()
+//
+//	// Old code:
+//	otherParty := tx.GetPayee()
+//
+//	// New code (direct access):
+//	payee := tx.Payee  // if you specifically need the payee
+//
+//	// New code (counterparty - recommended):
+//	otherParty := tx.GetCounterparty()
 func (t *Transaction) GetPayee() string {
 	if t.IsDebit() {
 		// For debit (outgoing), the payee is who receives our money
@@ -125,15 +124,16 @@ func (t *Transaction) GetPayee() string {
 // Consider using GetCounterparty() for the other party in the transaction.
 //
 // Migration example:
-//   // Old code:
-//   accountHolder := tx.GetPayer()
-//   
-//   // New code (direct access):
-//   payer := tx.Payer  // if you specifically need the payer
-//   
-//   // New code (account holder perspective):
-//   // For debits: account holder is the payer
-//   // For credits: account holder is the payee
+//
+//	// Old code:
+//	accountHolder := tx.GetPayer()
+//
+//	// New code (direct access):
+//	payer := tx.Payer  // if you specifically need the payer
+//
+//	// New code (account holder perspective):
+//	// For debits: account holder is the payer
+//	// For credits: account holder is the payee
 func (t *Transaction) GetPayer() string {
 	if t.IsDebit() {
 		// For debit (outgoing), the payer is the account holder
@@ -149,11 +149,12 @@ func (t *Transaction) GetPayer() string {
 // Deprecated: Use GetAmountAsDecimal() instead for precise financial calculations.
 // For new code, use TransactionBuilder.WithAmount() to set amounts as decimal.Decimal.
 // Migration example:
-//   // Old code:
-//   amount := tx.GetAmountAsFloat()
-//   
-//   // New code:
-//   amount := tx.GetAmountAsDecimal()
+//
+//	// Old code:
+//	amount := tx.GetAmountAsFloat()
+//
+//	// New code:
+//	amount := tx.GetAmountAsDecimal()
 func (t *Transaction) GetAmountAsFloat() float64 {
 	f, _ := t.Amount.Float64()
 	return f
@@ -179,8 +180,6 @@ func (t *Transaction) GetFeesAsFloat() float64 {
 	f, _ := t.Fees.Float64()
 	return f
 }
-
-
 
 // GetAmountAsDecimal returns the Amount as a decimal.Decimal for precise calculations
 // This is the recommended way to access the Amount field for financial calculations
@@ -305,8 +304,6 @@ func StandardizeAmount(amountStr string) string {
 	return formatted
 }
 
-
-
 func (t *Transaction) MarshalCSV() ([]string, error) {
 	// Make sure the derived fields are populated correctly
 	t.UpdateNameFromParties()
@@ -365,10 +362,10 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 		return fmt.Errorf("failed to parse value date: %w", err)
 	}
 	t.Name = record[4]
-	t.Description = record[5]
-	t.RemittanceInfo = record[6]
-	t.PartyName = record[7]
-	t.PartyIBAN = record[8]
+	t.PartyName = record[5]
+	t.PartyIBAN = record[6]
+	t.Description = record[7]
+	t.RemittanceInfo = record[8]
 	t.Amount, err = decimal.NewFromString(record[9])
 	if err != nil {
 		return err
@@ -509,11 +506,11 @@ func (t *Transaction) FromTransactionCore(core TransactionCore) {
 func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
 	// Populate from core
 	t.FromTransactionCore(ct.TransactionCore)
-	
+
 	// Set party information
 	t.Payer = ct.Payer.Name
 	t.Payee = ct.Payee.Name
-	
+
 	// Set direction and related fields
 	if ct.Direction == DirectionDebit {
 		t.CreditDebit = TransactionTypeDebit
@@ -526,12 +523,12 @@ func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
 		t.PartyIBAN = ct.Payer.IBAN // For credit, PartyIBAN is payer's IBAN
 		t.PartyName = ct.Payer.Name // For credit, PartyName is payer's name
 	}
-	
+
 	// Set categorization
 	t.Category = ct.Category
 	t.Type = ct.Type
 	t.Fund = ct.Fund
-	
+
 	// Populate derived fields
 	t.UpdateNameFromParties()
 	t.UpdateRecipientFromPayee()
@@ -548,10 +545,10 @@ func NewTransactionFromBuilder() *TransactionBuilder {
 // Deprecated: This method is provided for backward compatibility during migration
 func (t *Transaction) ToBuilder() *TransactionBuilder {
 	builder := NewTransactionBuilder()
-	
+
 	// Copy all fields from the transaction to the builder
 	builder.tx = *t
-	
+
 	return builder
 }
 

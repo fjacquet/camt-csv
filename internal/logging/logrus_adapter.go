@@ -21,7 +21,7 @@ type LogrusAdapter struct {
 // Returns a Logger interface implementation backed by logrus.
 func NewLogrusAdapter(level, format string) Logger {
 	logger := logrus.New()
-	
+
 	// Parse and set log level
 	logLevel, err := logrus.ParseLevel(level)
 	if err != nil {
@@ -29,7 +29,7 @@ func NewLogrusAdapter(level, format string) Logger {
 		logLevel = logrus.InfoLevel
 	}
 	logger.SetLevel(logLevel)
-	
+
 	// Set log format
 	if format == "json" {
 		logger.SetFormatter(&logrus.JSONFormatter{})
@@ -38,7 +38,7 @@ func NewLogrusAdapter(level, format string) Logger {
 			FullTimestamp: true,
 		})
 	}
-	
+
 	return &LogrusAdapter{
 		logger: logger,
 		entry:  logrus.NewEntry(logger),
@@ -141,5 +141,3 @@ func (l *LogrusAdapter) Debugf(format string, args ...interface{}) {
 func (l *LogrusAdapter) GetLogrusLogger() *logrus.Logger {
 	return l.logger
 }
-
-

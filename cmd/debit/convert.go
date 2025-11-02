@@ -34,7 +34,7 @@ func debitFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatalf("Error getting Debit parser: %v", err)
 	}
-	
+
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Debit to CSV conversion completed successfully!")
 }

@@ -127,7 +127,7 @@ func (s *DirectMappingStrategy) loadMappings() {
 			}
 			s.creditorMappings = newMap
 		}
-		
+
 		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range creditorMappings {
 			s.creditorMappings[normalizeStringToLower(key)] = value
@@ -150,7 +150,7 @@ func (s *DirectMappingStrategy) loadMappings() {
 			}
 			s.debtorMappings = newMap
 		}
-		
+
 		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range debtorMappings {
 			s.debtorMappings[normalizeStringToLower(key)] = value
@@ -188,6 +188,3 @@ func (s *DirectMappingStrategy) UpdateDebtorMapping(partyName, categoryName stri
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
 	s.debtorMappings[normalizeStringToLower(partyName)] = categoryName
 }
-
-
-

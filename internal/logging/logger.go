@@ -8,28 +8,28 @@ package logging
 type Logger interface {
 	// Debug logs a debug-level message with optional fields
 	Debug(msg string, fields ...Field)
-	
+
 	// Info logs an info-level message with optional fields
 	Info(msg string, fields ...Field)
-	
+
 	// Warn logs a warning-level message with optional fields
 	Warn(msg string, fields ...Field)
-	
+
 	// Error logs an error-level message with optional fields
 	Error(msg string, fields ...Field)
-	
+
 	// WithError returns a new logger with an error field attached
 	WithError(err error) Logger
-	
+
 	// WithField returns a new logger with a single field attached
 	WithField(key string, value interface{}) Logger
-	
+
 	// WithFields returns a new logger with multiple fields attached
 	WithFields(fields ...Field) Logger
-	
+
 	// Fatal logs a fatal-level message and exits the program
 	Fatal(msg string, fields ...Field)
-	
+
 	// Fatalf logs a fatal-level message with formatting and exits the program
 	Fatalf(msg string, args ...interface{})
 }

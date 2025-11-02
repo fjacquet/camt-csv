@@ -53,8 +53,6 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	return a.WriteToCSV(transactions, outputFile)
 }
 
-
-
 // ValidateFormat checks if a file is a valid PDF file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	a.GetLogger().Info("Validating PDF format",

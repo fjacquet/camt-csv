@@ -50,10 +50,10 @@ It also provides transaction categorization based on the party's name.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Initialize configuration first
 			initializeConfiguration()
-			
+
 			// Initialize container with dependency injection
 			initializeContainer()
-			
+
 			// Note: Logger is now injected through dependency injection container
 			// Individual parsers receive loggers through their constructors
 
@@ -129,7 +129,7 @@ func initializeContainer() {
 	if err != nil {
 		Log.Fatalf("Failed to initialize container: %v", err)
 	}
-	
+
 	// Update the global logger to use the container's logger
 	Log = AppContainer.GetLogger()
 }
@@ -148,8 +148,21 @@ func GetContainer() *container.Container {
 }
 
 // GetConfig returns the global configuration instance
+//
 // Deprecated: Use GetContainer().GetConfig() instead for dependency injection.
-// This function will be removed in v2.0.0.
+// This function will be removed in v3.0.0.
+//
+// Migration example:
+//
+//	// Old code:
+//	config := GetConfig()
+//
+//	// New code:
+//	container, err := container.NewContainer(config.Load())
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	config := container.GetConfig()
 func GetConfig() *config.Config {
 	return AppConfig
 }

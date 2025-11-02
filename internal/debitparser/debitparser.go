@@ -34,8 +34,6 @@ type DebitCSVRow struct {
 	StatusKontofuhrung string `csv:"Status Kontoführung"`
 }
 
-
-
 // Parse parses a Visa Debit CSV file from an io.Reader and returns a slice of Transaction objects.
 func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 	if logger == nil {
