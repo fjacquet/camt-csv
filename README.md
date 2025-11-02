@@ -10,17 +10,17 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 ## ✨ Key Features
 
 - **Multi-format Support**: Extensible parser architecture with segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`) and `BaseParser` foundation for easy addition of new financial statement formats.
-- **Smart Categorization**: Three-tier hybrid approach using direct mapping, keyword matching, and AI fallback with strategy pattern implementation.
-- **Dependency Injection Architecture**: Clean architecture with explicit dependencies, eliminating global state and improving testability.
-- **Framework-Agnostic Logging**: Structured logging abstraction (`logging.Logger` interface) with `LogrusAdapter` implementation for flexible logging backends.
-- **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation and type safety.
-- **Comprehensive Error Handling**: Custom error types (`ParseError`, `ValidationError`, `CategorizationError`) with detailed context for better troubleshooting.
-- **Hierarchical Configuration**: Viper-based config system supporting files, environment variables, and CLI flags with backward compatibility.
+- **Smart Categorization**: Three-tier hybrid approach using direct mapping, keyword matching, and AI fallback with strategy pattern implementation (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`).
+- **Dependency Injection Architecture**: Clean architecture with explicit dependencies through `Container` pattern, eliminating global state and improving testability.
+- **Framework-Agnostic Logging**: Structured logging abstraction (`logging.Logger` interface) with `LogrusAdapter` implementation for flexible logging backends and dependency injection.
+- **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation, type safety, and backward compatibility methods.
+- **Comprehensive Error Handling**: Custom error types (`ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, `DataExtractionError`) with detailed context and proper error wrapping.
+- **Hierarchical Configuration**: Viper-based config system supporting files, environment variables, and CLI flags with full backward compatibility.
 - **Investment Support**: Dedicated parser for Revolut investment transactions (BUY, DIVIDEND, CASH TOP-UP) with specialized categorization.
 - **Batch Processing**: Handle multiple files at once with automatic format detection.
-- **Performance Optimized**: String operations optimization, lazy initialization, and pre-allocation for efficient processing.
-- **Constants-Based Design**: Elimination of magic strings and numbers through comprehensive constants in `internal/models/constants.go`.
-- **Comprehensive Testing**: 80%+ test coverage with mock dependencies and integration tests.
+- **Performance Optimized**: String operations optimization with `strings.Builder`, lazy initialization with `sync.Once`, and pre-allocation for efficient processing.
+- **Constants-Based Design**: Complete elimination of magic strings and numbers through comprehensive constants in `internal/models/constants.go`.
+- **Comprehensive Testing**: Risk-based testing strategy with 100% coverage for critical paths (parsing, validation, categorization) and comprehensive coverage elsewhere.
 
 ## 🚀 Quick Start
 
@@ -113,6 +113,21 @@ type Validator interface {
     ValidateFormat(filePath string) (bool, error)
 }
 
+type CSVConverter interface {
+    ConvertToCSV(inputFile, outputFile string) error
+}
+
+type LoggerConfigurable interface {
+    SetLogger(logger logging.Logger)
+}
+
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+}
+
 // BaseParser provides common functionality
 type MyParser struct {
     parser.BaseParser  // Embedded for logging and CSV writing
@@ -149,6 +164,12 @@ type CategorizationStrategy interface {
     Name() string
 }
 
+type Categorizer struct {
+    strategies []CategorizationStrategy
+    store      *store.CategoryStore
+    logger     logging.Logger
+}
+
 // Strategies are executed in priority order:
 // 1. DirectMappingStrategy - Exact name matches (fastest)
 // 2. KeywordStrategy - Pattern matching (local)  
@@ -157,9 +178,22 @@ type CategorizationStrategy interface {
 
 ### Categorization Flow
 
-1. **Direct Mapping Strategy** - Instant recognition from `creditors.yaml`/`debtors.yaml`
-2. **Keyword Strategy** - Local pattern matching from `categories.yaml`
-3. **AI Strategy** - Gemini AI for unknown transactions with auto-learning
+1. **Direct Mapping Strategy** - Instant recognition from `creditors.yaml`/`debtors.yaml` using exact name matching
+2. **Keyword Strategy** - Local pattern matching from `categories.yaml` using configurable keyword rules
+3. **AI Strategy** - Gemini AI for unknown transactions with auto-learning and rate limiting
+
+### Dependency Injection
+
+The categorizer uses dependency injection for all components:
+
+```go
+// Container manages all dependencies
+container, err := container.NewContainer(config)
+categorizer := container.Categorizer
+
+// Or create directly with dependencies
+categorizer := categorizer.NewCategorizer(store, aiClient, logger)
+```
 
 ### Migration Note
 

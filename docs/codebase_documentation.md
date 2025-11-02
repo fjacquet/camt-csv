@@ -1,6 +1,6 @@
 # CAMT-CSV Project Documentation
 
-This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, architecture, core functionalities, adherence to functional programming principles, testing strategy, and dependency management.
+This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, modern architecture built on dependency injection principles, core functionalities, adherence to functional programming principles, comprehensive testing strategy, and dependency management. The project has undergone significant architectural improvements while maintaining full backward compatibility.
 
 ## 1. Project Overview
 
@@ -16,10 +16,17 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 
 **High-Level Architecture:**
 
-The project follows a clean separation of concerns:
+The project follows a clean separation of concerns built on dependency injection principles:
 
-* **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command typically orchestrates calls to the `internal/` packages.
-* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include dependency injection, logging abstraction, and elimination of global state.
+* **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command receives dependencies through a `Container` instance, eliminating global state.
+* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include:
+  - **Dependency Injection**: All components receive dependencies through constructors
+  - **Logging Abstraction**: Framework-agnostic `logging.Logger` interface with `LogrusAdapter` implementation
+  - **Interface Segregation**: Parsers implement segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`)
+  - **Strategy Pattern**: Categorization uses pluggable strategies (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`)
+  - **Builder Pattern**: Transaction construction with validation and type safety
+  - **Custom Error Types**: Comprehensive error hierarchy with proper context and wrapping
+  - **Constants-Based Design**: Complete elimination of magic strings and numbers
 * **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debtors).
 * **`samples/`**: Provides example input files for various formats.
 
@@ -72,8 +79,9 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * **`dateutils/`**: Utility functions for date parsing, formatting, and business day calculations.
   * **`debitparser/`**: Parses generic debit CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`fileutils/`**: General file system utilities.
+  * **`container/`**: Manages dependency injection with the `Container` struct that creates and wires all application dependencies, eliminating global state and improving testability.
   * **`logging/`**: Framework-agnostic logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation. Provides structured logging with `Field` struct for key-value pairs, enabling dependency injection and easier testing with mock loggers.
-  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties. Contains comprehensive constants in `constants.go` to eliminate magic strings and numbers throughout the codebase.
+  * **`models/`**: Defines the core data structures with decomposed transaction types (`TransactionCore`, `TransactionWithParties`, `CategorizedTransaction`, `Transaction`). Includes `TransactionBuilder` for fluent construction with validation, `Money` and `Party` value objects, and comprehensive constants in `constants.go` to eliminate magic strings and numbers throughout the codebase.
   * **`parser/`**: Defines segregated parser interfaces following Interface Segregation Principle (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality including logging and CSV writing.
   * **`parsererror/`**: Defines comprehensive custom error types for parsing operations, including `ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, and `DataExtractionError` with proper error wrapping and context.
   * **`pdfparser/`**: Parses PDF bank statements with dependency injection for PDF extraction. Embeds `BaseParser` and implements the `parser.Parser` interface. Includes specialized logic for Viseca credit card statements.
@@ -155,17 +163,42 @@ All parsers use constants from `internal/models/constants.go` instead of magic s
 
 ### 5. Transaction Categorization
 
-Transaction categorization is a core feature, implemented in `internal/categorizer/`. It uses a multi-stage, hybrid approach:
+Transaction categorization is a core feature, implemented in `internal/categorizer/` using the Strategy pattern. It uses a three-tier approach with dependency injection:
 
-1. **Direct Mapping (Exact Match):** The system first checks `creditorMappings` and `debitorMappings` (loaded from `database/creditors.yaml` and `database/debitors.yaml`). These provide exact, case-insensitive matches for known payees/payers to specific categories. This is the fastest and most efficient method for recurring transactions.
-2. **Local Keyword Matching:** If no direct mapping is found, the `categorizeLocallyByKeywords` function attempts to match transaction descriptions and party names against keywords defined in `database/categories.yaml`. This method is also fast and avoids API calls.
-3. **AI-Based Categorization (Fallback):** If local matching fails and AI categorization is enabled (`ai.enabled: true` in your configuration), the system falls back to using the Google Gemini API.
-    * A prompt is constructed with transaction details and a list of allowed categories.
-    * The Gemini model (`ai.model`, default `gemini-2.0-flash`) is queried.
-    * A rate limiter (`ai.requests_per_minute`) is implemented to prevent exceeding API quotas.
-    * Successful AI categorizations are *automatically saved* to the `creditors.yaml` or `debitors.yaml` files, effectively "learning" new mappings and reducing future AI calls for similar transactions.
+**Strategy Pattern Implementation:**
+```go
+type CategorizationStrategy interface {
+    Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
+    Name() string
+}
 
-**Customization:** Users can customize categories and keyword rules by editing `database/categories.yaml`. New creditor/debitor mappings are automatically learned and saved by the application.
+type Categorizer struct {
+    strategies []CategorizationStrategy
+    store      *store.CategoryStore
+    logger     logging.Logger
+}
+```
+
+**Three-Tier Strategy Approach:**
+
+1. **DirectMappingStrategy:** Exact, case-insensitive matches from `database/creditors.yaml` and `database/debtors.yaml`. This is the fastest method for recurring transactions, providing instant recognition of known payees/payers.
+
+2. **KeywordStrategy:** Pattern matching against keywords defined in `database/categories.yaml`. Uses configurable keyword rules for transaction descriptions and party names. This method is fast and avoids API calls while handling variations in transaction descriptions.
+
+3. **AIStrategy:** Google Gemini API fallback for unknown transactions when AI categorization is enabled (`ai.enabled: true`). Features include:
+   * Context-aware prompts with transaction details and allowed categories
+   * Configurable model selection (`ai.model`, default `gemini-2.0-flash`)
+   * Rate limiting (`ai.requests_per_minute`) to prevent API quota exceeded
+   * Auto-learning: Successful AI categorizations are automatically saved to YAML files
+   * Lazy initialization with `sync.Once` for optimal performance
+
+**Dependency Injection:**
+The categorizer receives all dependencies through its constructor, eliminating global state:
+```go
+categorizer := categorizer.NewCategorizer(store, aiClient, logger)
+```
+
+**Customization:** Users can customize categories and keyword rules by editing `database/categories.yaml`. New creditor/debtor mappings are automatically learned and saved by the application, creating a self-improving system.
 
 ### 6. Testing Strategy
 

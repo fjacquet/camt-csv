@@ -19,13 +19,15 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 ### Key Features
 
 - **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
-- **Intelligent Categorization**: Hybrid approach using local keyword matching and AI fallback
+- **Smart Categorization**: Three-tier strategy pattern using direct mapping, keyword matching, and AI fallback with auto-learning
+- **Dependency Injection Architecture**: Clean architecture with explicit dependencies, eliminating global state
 - **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
-- **Batch Processing**: Process multiple files at once
-- **Investment Support**: Dedicated parser for Revolut investment transactions
-- **Extensible Architecture**: Standardized parser interfaces with BaseParser foundation for easy addition of new formats
-- **Robust Error Handling**: Custom error types with detailed context for better troubleshooting
-- **Structured Logging**: Framework-agnostic logging with configurable levels and formats
+- **Batch Processing**: Process multiple files at once with automatic format detection
+- **Investment Support**: Dedicated parser for Revolut investment transactions with specialized categorization
+- **Extensible Architecture**: Standardized parser interfaces with BaseParser foundation and segregated interfaces
+- **Comprehensive Error Handling**: Custom error types with detailed context and proper error wrapping
+- **Framework-Agnostic Logging**: Structured logging abstraction with dependency injection and configurable backends
+- **Performance Optimized**: String operations optimization, lazy initialization, and pre-allocation for efficient processing
 
 ## Installation
 
@@ -342,20 +344,33 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 
 ### How Categorization Works
 
-1. **Direct Mapping Check**:
+CAMT-CSV uses a sophisticated **Strategy Pattern** with three-tier categorization:
+
+1. **Direct Mapping Strategy** (Fastest):
    - Checks `database/creditors.yaml` and `database/debtors.yaml`
-   - Exact, case-insensitive matches
-   - Fastest method for known transactions
+   - Exact, case-insensitive matches for known payees/payers
+   - Instant recognition for recurring transactions
+   - No processing overhead
 
-2. **Keyword Matching**:
-   - Uses rules from `database/categories.yaml`
+2. **Keyword Strategy** (Local Processing):
+   - Uses pattern matching rules from `database/categories.yaml`
    - Matches against transaction descriptions and party names
-   - No API calls required
+   - Configurable keyword patterns and rules
+   - No API calls required, fully local processing
 
-3. **AI Categorization**:
+3. **AI Strategy** (Optional Fallback):
    - Fallback to Gemini AI when local methods fail
-   - Analyzes transaction context
-   - Automatically learns new patterns
+   - Context-aware analysis of transaction details
+   - Automatically learns new patterns and saves to YAML files
+   - Rate limiting to prevent API quota exceeded
+   - Lazy initialization for optimal performance
+
+### Strategy Pattern Benefits
+
+- **Independent Testing**: Each strategy can be tested and optimized separately
+- **Easy Extension**: New categorization algorithms can be added as strategies
+- **Flexible Configuration**: Strategies can be enabled/disabled or reordered
+- **Performance Optimization**: Strategies execute in order of efficiency
 
 ### Managing Categories
 
@@ -381,8 +396,10 @@ categories:
 
 ```bash
 cat database/creditors.yaml  # For money received
-cat database/debtors.yaml    # For money spent
+cat database/debtors.yaml    # For money spent (renamed from debitors.yaml)
 ```
+
+**Migration Note**: The debtor mapping file has been renamed from `debitors.yaml` to `debtors.yaml` for standard English spelling. The application maintains backward compatibility with the old filename, but it's recommended to rename your existing file.
 
 ### Categorization Best Practices
 
@@ -417,7 +434,8 @@ sudo apt-get install poppler-utils
 - Verify file format matches command (XML for `camt`, PDF for `pdf`, etc.)
 - Check file isn't corrupted
 - Try with a sample file first
-- Look for specific error details in the error message (new error types provide more context)
+- Look for specific error details in the error message (enhanced error types provide detailed context)
+- Check for `ParseError`, `ValidationError`, or `InvalidFormatError` in the output
 
 #### 3. "API quota exceeded"
 

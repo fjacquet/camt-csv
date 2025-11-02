@@ -57,14 +57,48 @@ type MyParser struct {
 
 **Implementation**:
 
+- **Container Pattern**: Central `Container` struct manages all application dependencies
 - **Logger Injection**: All parsers receive logger through `BaseParser` constructor
 - **Interface Dependencies**: Components depend on `logging.Logger` interface rather than concrete implementations
 - **PDF Extractor Injection**: PDF parser uses `PDFExtractor` interface for testability
-- **Categorizer Injection**: Transaction classification through injected categorizer
+- **Categorizer Injection**: Transaction classification through injected categorizer with strategy dependencies
 - **Store Injection**: Configuration management through injected store
+- **AI Client Injection**: Optional AI client for categorization with lazy initialization
 - **Test-specific Injection**: Mock dependencies in test suites
 
-**Example**:
+**Container Pattern Example:**
+```go
+type Container struct {
+    Logger      logging.Logger
+    Config      *config.Config
+    Store       *store.CategoryStore
+    AIClient    categorizer.AIClient
+    Categorizer *categorizer.Categorizer
+    Parsers     map[parser.ParserType]parser.FullParser
+}
+
+func NewContainer(cfg *config.Config) (*Container, error) {
+    logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
+    store := store.NewCategoryStore(cfg.Categories.File, cfg.Categories.CreditorsFile, cfg.Categories.DebtorsFile)
+    
+    var aiClient categorizer.AIClient
+    if cfg.AI.Enabled {
+        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger)
+    }
+    
+    cat := categorizer.NewCategorizer(store, aiClient, logger)
+    
+    return &Container{
+        Logger:      logger,
+        Config:      cfg,
+        Store:       store,
+        AIClient:    aiClient,
+        Categorizer: cat,
+    }, nil
+}
+```
+
+**Parser Injection Example:**
 ```go
 func NewMyParser(logger logging.Logger) *MyParser {
     return &MyParser{
@@ -75,14 +109,66 @@ func NewMyParser(logger logging.Logger) *MyParser {
 
 **Benefits**:
 
+- Complete elimination of global mutable state
 - Improved testability with mock dependencies
-- Elimination of global mutable state
 - Runtime configuration flexibility
 - Cleaner separation between components
 - Easier unit testing without shared state
 - Consistent dependency management through BaseParser
+- Centralized dependency lifecycle management
+- Explicit dependency relationships
 
-### 4. **Fail-Fast with Graceful Degradation**
+### 4. **Strategy Pattern for Extensibility**
+
+**Principle**: Use the Strategy pattern to enable pluggable algorithms and easy extension of functionality.
+
+**Implementation**:
+
+- **Categorization Strategies**: Multiple algorithms for transaction categorization
+- **Strategy Interface**: Common interface for all categorization approaches
+- **Priority-Based Execution**: Strategies executed in order of efficiency and accuracy
+- **Independent Testing**: Each strategy can be tested in isolation
+
+**Strategy Interface:**
+```go
+type CategorizationStrategy interface {
+    Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
+    Name() string
+}
+```
+
+**Strategy Implementations:**
+- **DirectMappingStrategy**: Exact name matches from YAML files (fastest)
+- **KeywordStrategy**: Pattern matching from configuration (local processing)
+- **AIStrategy**: AI-based categorization with auto-learning (optional)
+
+**Orchestration:**
+```go
+func (c *Categorizer) Categorize(ctx context.Context, tx Transaction) (Category, error) {
+    for _, strategy := range c.strategies {
+        category, found, err := strategy.Categorize(ctx, tx)
+        if err != nil {
+            c.logger.Warn("Strategy failed", 
+                logging.Field{Key: "strategy", Value: strategy.Name()})
+            continue
+        }
+        if found {
+            return category, nil
+        }
+    }
+    return UncategorizedCategory, nil
+}
+```
+
+**Benefits**:
+
+- Easy addition of new categorization algorithms
+- Independent testing and optimization of each strategy
+- Clear separation of concerns between strategies
+- Flexible priority ordering and configuration
+- Improved maintainability through focused implementations
+
+### 5. **Fail-Fast with Graceful Degradation**
 
 **Principle**: Detect errors early but provide meaningful fallbacks when possible.
 
@@ -92,6 +178,7 @@ func NewMyParser(logger logging.Logger) *MyParser {
 - Early return on invalid file formats
 - Graceful handling of malformed data with logging
 - Default values for missing optional fields
+- Custom error types with detailed context
 
 **Benefits**:
 
@@ -99,7 +186,7 @@ func NewMyParser(logger logging.Logger) *MyParser {
 - System stability under adverse conditions
 - Easier debugging with detailed logging
 
-### 5. **Immutable Data Structures**
+### 6. **Immutable Data Structures**
 
 **Principle**: Core data models are designed to be immutable where possible.
 
@@ -115,7 +202,7 @@ func NewMyParser(logger logging.Logger) *MyParser {
 - Predictable behavior
 - Reduced bugs from unexpected state changes
 
-### 6. **Comprehensive Logging & Observability**
+### 7. **Comprehensive Logging & Observability**
 
 **Principle**: All significant operations are logged with appropriate detail levels using a framework-agnostic abstraction.
 
@@ -145,7 +232,7 @@ logger.Info("Processing transaction",
 - Flexibility to change logging implementations without modifying business logic
 - Consistent logging patterns across all parsers through `BaseParser`
 
-### 7. **Test-Driven Quality Assurance**
+### 8. **Test-Driven Quality Assurance**
 
 **Principle**: Comprehensive testing ensures reliability and prevents regressions.
 

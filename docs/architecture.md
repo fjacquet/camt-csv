@@ -16,18 +16,28 @@ CAMT-CSV follows a clean, layered architecture built on dependency injection pri
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Dependency Container                         │
 │                    (container/)                                 │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
+│  │   Logger    │ │   Config    │ │    Store    │ │AIClient   │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
 └─────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │    Parsers      │    │  Categorizer    │    │     Store       │
 │   (parsers/)    │    │ (categorizer/)  │    │   (store/)      │
+│  ┌───────────┐  │    │  ┌───────────┐  │    │                 │
+│  │BaseParser │  │    │  │Strategies │  │    │                 │
+│  └───────────┘  │    │  └───────────┘  │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Core Models                                │
 │                     (models/)                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
+│  │Transaction  │ │   Builder   │ │  Constants  │ │  Errors   │ │
+│  │   Types     │ │   Pattern   │ │             │ │           │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -43,16 +53,45 @@ type Container struct {
     Logger      logging.Logger
     Config      *config.Config
     Store       *store.CategoryStore
+    AIClient    categorizer.AIClient
     Categorizer *categorizer.Categorizer
     Parsers     map[parser.ParserType]parser.FullParser
+}
+
+// NewContainer creates and wires all dependencies
+func NewContainer(cfg *config.Config) (*Container, error) {
+    logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
+    store := store.NewCategoryStore(cfg.Categories.File, cfg.Categories.CreditorsFile, cfg.Categories.DebtorsFile)
+    
+    var aiClient categorizer.AIClient
+    if cfg.AI.Enabled {
+        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger)
+    }
+    
+    cat := categorizer.NewCategorizer(store, aiClient, logger)
+    
+    parsers := make(map[parser.ParserType]parser.FullParser)
+    parsers[parser.CAMT] = camtparser.NewParser(logger)
+    parsers[parser.PDF] = pdfparser.NewParser(logger)
+    // ... other parsers
+    
+    return &Container{
+        Logger:      logger,
+        Config:      cfg,
+        Store:       store,
+        AIClient:    aiClient,
+        Categorizer: cat,
+        Parsers:     parsers,
+    }, nil
 }
 ```
 
 **Benefits:**
-- Explicit dependencies
-- Easy testing with mocks
-- No global mutable state
+- Explicit dependencies with no global state
+- Easy testing with mock dependencies
 - Runtime configuration flexibility
+- Centralized dependency management
+- Proper resource lifecycle management
 
 ### 2. Interface Segregation
 
@@ -164,47 +203,119 @@ type Categorizer struct {
     strategies []CategorizationStrategy
     store      *store.CategoryStore
     logger     logging.Logger
+    mu         sync.RWMutex
+}
+
+func NewCategorizer(store *store.CategoryStore, aiClient AIClient, logger logging.Logger) *Categorizer {
+    c := &Categorizer{
+        store:  store,
+        logger: logger,
+    }
+    
+    // Initialize strategies in priority order
+    c.strategies = []CategorizationStrategy{
+        NewDirectMappingStrategy(store, logger),
+        NewKeywordStrategy(store, logger),
+        NewAIStrategy(aiClient, logger),
+    }
+    
+    return c
+}
+
+func (c *Categorizer) Categorize(ctx context.Context, tx Transaction) (Category, error) {
+    for _, strategy := range c.strategies {
+        category, found, err := strategy.Categorize(ctx, tx)
+        if err != nil {
+            c.logger.Warn("Strategy failed", 
+                logging.Field{Key: "strategy", Value: strategy.Name()},
+                logging.Field{Key: "error", Value: err})
+            continue
+        }
+        if found {
+            c.logger.Debug("Transaction categorized",
+                logging.Field{Key: "strategy", Value: strategy.Name()},
+                logging.Field{Key: "category", Value: category.Name})
+            return category, nil
+        }
+    }
+    
+    return UncategorizedCategory, nil
 }
 ```
 
-**Three-Tier Approach:**
-1. **DirectMappingStrategy**: Exact name matches from YAML files
-2. **KeywordStrategy**: Pattern matching from categories.yaml
-3. **AIStrategy**: Gemini API fallback with auto-learning
+**Three-Tier Strategy Approach:**
+1. **DirectMappingStrategy**: Exact name matches from creditors.yaml/debtors.yaml (fastest)
+2. **KeywordStrategy**: Pattern matching from categories.yaml (local processing)
+3. **AIStrategy**: Gemini API fallback with auto-learning and rate limiting (optional)
 
 ### Data Layer
 
 **Transaction Model Decomposition:**
 ```go
-// Core transaction data
-type TransactionCore struct {
-    ID          string
-    Date        time.Time
-    ValueDate   time.Time
-    Amount      Money
-    Description string
-    Status      string
-    Reference   string
+// Money represents a monetary value with currency
+type Money struct {
+    Amount   decimal.Decimal
+    Currency string
 }
 
-// Adds party information
+// Party represents a transaction party (payer or payee)
+type Party struct {
+    Name string
+    IBAN string
+}
+
+// TransactionCore contains essential transaction data
+type TransactionCore struct {
+    ID            string
+    Date          time.Time
+    ValueDate     time.Time
+    Amount        Money
+    Description   string
+    Status        string
+    Reference     string
+}
+
+// TransactionWithParties adds party information
 type TransactionWithParties struct {
     TransactionCore
-    Payer     Party
-    Payee     Party
-    Direction TransactionDirection
+    Payer         Party
+    Payee         Party
+    Direction     TransactionDirection // DEBIT or CREDIT
 }
 
-// Adds categorization
+// CategorizedTransaction adds categorization data
 type CategorizedTransaction struct {
     TransactionWithParties
-    Category string
-    Type     string
-    Fund     string
+    Category      string
+    Type          string
+    Fund          string
+}
+
+// Transaction maintains backward compatibility
+type Transaction struct {
+    CategorizedTransaction
+    
+    // Additional fields for specific formats
+    BookkeepingNumber string
+    RemittanceInfo    string
+    PartyIBAN         string
+    Investment        string
+    NumberOfShares    int
+    Fees              Money
+    EntryReference    string
+    AccountServicer   string
+    BankTxCode        string
+    OriginalAmount    Money
+    ExchangeRate      decimal.Decimal
+    
+    // Tax-related fields
+    AmountExclTax Money
+    AmountTax     Money
+    TaxRate       decimal.Decimal
 }
 ```
 
-**Builder Pattern:**
+**Builder Pattern with Validation:**
 ```go
 tx, err := NewTransactionBuilder().
     WithDate("2025-01-15").
@@ -213,13 +324,35 @@ tx, err := NewTransactionBuilder().
     WithPayee("Acme Corp", "CH0987654321").
     AsDebit().
     Build()
+
+if err != nil {
+    return fmt.Errorf("transaction construction failed: %w", err)
+}
+```
+
+**Backward Compatibility Methods:**
+```go
+// Legacy accessor methods for backward compatibility
+func (t *Transaction) GetPayee() string {
+    return t.Payee.Name
+}
+
+func (t *Transaction) GetPayer() string {
+    return t.Payer.Name
+}
+
+// Deprecated: Use Amount.Amount.Float64() instead
+func (t *Transaction) GetAmountAsFloat() float64 {
+    f, _ := t.Amount.Amount.Float64()
+    return f
+}
 ```
 
 ## Error Handling Architecture
 
 ### Custom Error Types
 
-**Structured Error Hierarchy:**
+**Comprehensive Error Hierarchy:**
 ```go
 // Base parsing error with context
 type ParseError struct {
@@ -229,10 +362,38 @@ type ParseError struct {
     Err    error
 }
 
+func (e *ParseError) Error() string {
+    return fmt.Sprintf("%s: failed to parse %s='%s': %v", 
+        e.Parser, e.Field, e.Value, e.Err)
+}
+
+func (e *ParseError) Unwrap() error {
+    return e.Err
+}
+
 // Format validation failures
 type ValidationError struct {
     FilePath string
+    Field    string
     Reason   string
+}
+
+func (e *ValidationError) Error() string {
+    if e.Field != "" {
+        return fmt.Sprintf("validation failed for %s field %s: %s", e.FilePath, e.Field, e.Reason)
+    }
+    return fmt.Sprintf("validation failed for %s: %s", e.FilePath, e.Reason)
+}
+
+// Invalid format detection
+type InvalidFormatError struct {
+    FilePath     string
+    ExpectedType string
+    Reason       string
+}
+
+func (e *InvalidFormatError) Error() string {
+    return fmt.Sprintf("invalid %s format in %s: %s", e.ExpectedType, e.FilePath, e.Reason)
 }
 
 // Data extraction failures
@@ -241,6 +402,27 @@ type DataExtractionError struct {
     Field    string
     RawData  string
     Reason   string
+}
+
+func (e *DataExtractionError) Error() string {
+    return fmt.Sprintf("failed to extract %s from %s: %s (raw data: %s)", 
+        e.Field, e.FilePath, e.Reason, e.RawData)
+}
+
+// Categorization failures
+type CategorizationError struct {
+    Transaction string
+    Strategy    string
+    Err         error
+}
+
+func (e *CategorizationError) Error() string {
+    return fmt.Sprintf("categorization failed for %s using %s: %v",
+        e.Transaction, e.Strategy, e.Err)
+}
+
+func (e *CategorizationError) Unwrap() error {
+    return e.Err
 }
 ```
 
@@ -361,36 +543,78 @@ func TestCategorizer_Categorize(t *testing.T) {
 
 ### Optimization Strategies
 
-**String Operations:**
+**String Operations with Builder Pattern:**
 ```go
-// Pre-allocate builder capacity
-var builder strings.Builder
-builder.Grow(len(input))
+// Before: Multiple string operations creating temporary strings
+func (c *Categorizer) categorizeByMapping(tx Transaction) (Category, bool) {
+    partyNameLower := strings.ToLower(tx.PartyName)
+    normalized := strings.ReplaceAll(partyNameLower, " ", "")
+    normalized = strings.ReplaceAll(normalized, "-", "")
+    // Each operation allocates new strings
+}
+
+// After: Single-pass normalization with pre-allocated builder
+func (c *Categorizer) categorizeByMapping(tx Transaction) (Category, bool) {
+    var builder strings.Builder
+    builder.Grow(len(tx.PartyName)) // Avoid reallocations
+    
+    for _, r := range strings.ToLower(tx.PartyName) {
+        if r != ' ' && r != '-' {
+            builder.WriteRune(r)
+        }
+    }
+    normalized := builder.String()
+    // 60-80% reduction in string allocations
+}
 ```
 
-**Lazy Initialization:**
+**Lazy Initialization with Thread Safety:**
 ```go
 type Categorizer struct {
     aiClient     AIClient
     aiClientOnce sync.Once
     aiFactory    func() AIClient
+    logger       logging.Logger
 }
 
 func (c *Categorizer) getAIClient() AIClient {
     c.aiClientOnce.Do(func() {
         if c.aiClient == nil && c.aiFactory != nil {
             c.aiClient = c.aiFactory()
+            c.logger.Debug("AI client initialized lazily")
         }
     })
     return c.aiClient
 }
 ```
 
-**Pre-allocation:**
+**Pre-allocation and Capacity Management:**
 ```go
 // Pre-allocate slices with known capacity
 transactions := make([]models.Transaction, 0, len(entries))
+
+// Pre-allocate maps with size hints to reduce rehashing
+mappings := make(map[string]string, len(items))
+
+// For large datasets, consider batch processing
+const batchSize = 1000
+if len(entries) > batchSize {
+    for i := 0; i < len(entries); i += batchSize {
+        end := i + batchSize
+        if end > len(entries) {
+            end = len(entries)
+        }
+        batch := entries[i:end]
+        processBatch(batch)
+    }
+}
 ```
+
+**Performance Benefits:**
+- Eliminates slice reallocations during growth
+- Reduces map rehashing operations  
+- Controls memory usage for large datasets
+- Improves cache locality through better memory layout
 
 ## Security Architecture
 
