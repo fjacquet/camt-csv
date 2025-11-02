@@ -54,7 +54,8 @@ func TestGetParser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, err := factory.GetParser(tt.parserType)
+			logger := logging.NewLogrusAdapter("info", "text")
+			p, err := factory.GetParserWithLogger(tt.parserType, logger)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -69,7 +70,7 @@ func TestGetParser(t *testing.T) {
 }
 
 func TestGetParserWithLogger(t *testing.T) {
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	
 	p, err := factory.GetParserWithLogger(factory.CAMT, logger)
 	assert.NoError(t, err)

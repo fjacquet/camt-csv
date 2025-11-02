@@ -10,7 +10,7 @@ Convert financial data from multiple sources (CAMT.053 XML, PDF bank statements,
 
 - **Multi-format Support**: Extensible parser architecture supporting CAMT.053 XML, PDF (Viseca), Revolut, Revolut Investment, Selma, and generic debit CSV formats
 - **Smart Categorization**: Three-tier hybrid approach:
-  1. Direct mapping via creditor/debitor YAML files
+  1. Direct mapping via creditor/debtor YAML files
   2. Local keyword matching from categories.yaml
   3. AI fallback using Google Gemini (optional, with auto-learning)
 - **Batch Processing**: Process multiple files in a single operation

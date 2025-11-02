@@ -34,14 +34,14 @@ var reviewCmd = &cobra.Command{
 identifying areas of non-compliance and proposing corrective actions.`, // Note: The backticks here correctly handle multi-line strings in Go.
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := logging.GetLogger().WithField("command", "review")
+		logger := logging.NewLogrusAdapter("info", "text").WithField("command", "review")
 
 		// 1. Instantiate services
-		codebaseScanner := scanner.NewCodebaseScanner()
-		constitutionLoader := parser.NewConstitutionLoader()
-		automatedEvaluator := reviewer.NewAutomatedPrincipleEvaluator()
-		reviewerService := reviewer.NewReviewer(codebaseScanner, constitutionLoader, automatedEvaluator)
-		reportGenerator := report.NewReportGenerator()
+		codebaseScanner := scanner.NewCodebaseScanner(logger)
+		constitutionLoader := parser.NewConstitutionLoader(logger)
+		automatedEvaluator := reviewer.NewAutomatedPrincipleEvaluator(logger)
+		reviewerService := reviewer.NewReviewer(codebaseScanner, constitutionLoader, automatedEvaluator, logger)
+		reportGenerator := report.NewReportGenerator(logger)
 
 		// Validate output format
 		if outputFormat != "json" && outputFormat != "xml" {

@@ -17,10 +17,10 @@ import (
 
 	"github.com/gocarina/gocsv"
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
+// log provides backward compatibility for existing log references
+var log = logging.NewLogrusAdapter("info", "text")
 
 // DebitCSVRow represents a single row in a Visa Debit CSV file
 // It uses struct tags for gocsv unmarshaling
@@ -34,17 +34,14 @@ type DebitCSVRow struct {
 	StatusKontofuhrung string `csv:"Status Kontoführung"`
 }
 
-// SetLogger allows setting a configured logger
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-		common.SetLogger(logging.NewLogrusAdapterFromLogger(logger))
-	}
-}
+
 
 // Parse parses a Visa Debit CSV file from an io.Reader and returns a slice of Transaction objects.
-func Parse(r io.Reader) ([]models.Transaction, error) {
-	log.Info("Parsing Visa Debit CSV from reader")
+func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Parsing Visa Debit CSV from reader")
 
 	// Configure gocsv for semicolon delimiter
 	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
@@ -55,7 +52,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 
 	var debitRows []*DebitCSVRow
 	if err := gocsv.Unmarshal(r, &debitRows); err != nil {
-		log.WithError(err).Error("Failed to read Visa Debit CSV from reader")
+		logger.WithError(err).Error("Failed to read Visa Debit CSV from reader")
 		return nil, fmt.Errorf("error reading Visa Debit CSV: %w", err)
 	}
 
@@ -77,7 +74,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 		// Convert Debit row to Transaction
 		tx, err := convertDebitRowToTransaction(*row)
 		if err != nil {
-			log.WithError(err).Warning("Failed to convert row to transaction, skipping")
+			logger.WithError(err).Warn("Failed to convert row to transaction, skipping")
 			continue
 		}
 
@@ -91,7 +88,14 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 // ParseFile parses a Visa Debit CSV file and returns a slice of Transaction objects.
 // This is the main entry point for parsing Visa Debit CSV files.
 func ParseFile(filePath string) ([]models.Transaction, error) {
-	log.WithField("file", filePath).Info("Parsing Visa Debit CSV file")
+	return ParseFileWithLogger(filePath, nil)
+}
+
+func ParseFileWithLogger(filePath string, logger logging.Logger) ([]models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.WithField("file", filePath).Info("Parsing Visa Debit CSV file")
 
 	// Check if the file format is valid
 	valid, err := ValidateFormat(filePath)
@@ -110,9 +114,9 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 	})
 
 	// Use common.ReadCSVFile to read the CSV with the semicolon delimiter
-	debitRows, err := common.ReadCSVFile[DebitCSVRow](filePath)
+	debitRows, err := common.ReadCSVFile[DebitCSVRow](filePath, logger)
 	if err != nil {
-		log.WithError(err).Error("Failed to read Visa Debit CSV file")
+		logger.WithError(err).Error("Failed to read Visa Debit CSV file")
 		return nil, fmt.Errorf("error reading Visa Debit CSV: %w", err)
 	}
 
@@ -134,7 +138,7 @@ func ParseFile(filePath string) ([]models.Transaction, error) {
 		// Convert Debit row to Transaction
 		tx, err := convertDebitRowToTransaction(row)
 		if err != nil {
-			log.WithError(err).Warning("Failed to convert row to transaction, skipping")
+			log.WithError(err).Warn("Failed to convert row to transaction, skipping")
 			continue
 		}
 
@@ -195,8 +199,8 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 
 	// Use TransactionBuilder for consistent transaction construction
 	builder := models.NewTransactionBuilder().
-		WithDateFromTime(parsedDate).
-		WithValueDateFromTime(parsedDate).
+		WithDatetime(parsedDate).
+		WithValueDatetime(parsedDate).
 		WithDescription(description).
 		WithAmount(amount, row.Waehrung).
 		WithEntryReference(row.Referenznummer).
@@ -296,10 +300,10 @@ func ConvertToCSV(inputFile, outputFile string) error {
 // BatchConvert converts all CSV files in a directory to the standard CSV format.
 // It processes all files with a .csv extension in the specified directory.
 func BatchConvert(inputDir, outputDir string) (int, error) {
-	log.WithFields(logrus.Fields{
-		"inputDir":  inputDir,
-		"outputDir": outputDir,
-	}).Info("Starting batch conversion of Visa Debit CSV files")
+	log.WithFields(
+		logging.Field{Key: "inputDir", Value: inputDir},
+		logging.Field{Key: "outputDir", Value: outputDir},
+	).Info("Starting batch conversion of Visa Debit CSV files")
 
 	// Check if input directory exists
 	inputInfo, err := os.Stat(inputDir)
@@ -337,7 +341,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Validate if file is in Visa Debit CSV format
 		valid, err := ValidateFormat(inputFile)
 		if err != nil {
-			log.WithError(err).WithField("file", inputFile).Warning("Error validating file format, skipping")
+			log.WithError(err).WithField("file", inputFile).Warn("Error validating file format, skipping")
 			continue
 		}
 		if !valid {
@@ -352,7 +356,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Convert the file
 		err = ConvertToCSV(inputFile, outputFile)
 		if err != nil {
-			log.WithError(err).WithField("file", inputFile).Warning("Error converting file, skipping")
+			log.WithError(err).WithField("file", inputFile).Warn("Error converting file, skipping")
 			continue
 		}
 

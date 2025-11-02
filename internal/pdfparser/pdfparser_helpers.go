@@ -11,12 +11,19 @@ import (
 	"time"
 	"unicode"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/shopspring/decimal"
 )
+
+// getDefaultLogger returns a default logger for backward compatibility
+func getDefaultLogger() logging.Logger {
+	return logging.NewLogrusAdapter("info", "text")
+}
+
+// log provides backward compatibility for existing log references
+var log = getDefaultLogger()
 
 // Define extractTextFromPDF as a variable holding a function
 var extractTextFromPDF = extractTextFromPDFImpl
@@ -41,7 +48,7 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 
 	// Remove the temporary file
 	if err := os.Remove(tempFile); err != nil {
-		log.WithError(err).Warn("Failed to remove temporary file")
+		getDefaultLogger().WithError(err).Warn("Failed to remove temporary file")
 	}
 
 	return string(output), nil
@@ -49,11 +56,13 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 
 // parseTransactions parses transaction data from PDF text content
 func parseTransactions(lines []string) ([]models.Transaction, error) {
-	var transactions []models.Transaction
+	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
+	transactions := make([]models.Transaction, 0, 50)
 	var currentTx models.Transaction
 	var description strings.Builder
 	var merchant string
-	seen := make(map[string]bool)
+	// Pre-allocate map with size hint for duplicate detection
+	seen := make(map[string]bool, 50)
 
 	inTransaction := false
 	isVisecaFormat := false
@@ -65,7 +74,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			strings.Contains(line, "Détails") && strings.Contains(line, "Monnaie") &&
 			strings.Contains(line, "Montant") {
 			isVisecaFormat = true
-			log.Debug("Detected Viseca PDF format - header pattern matched")
+			getDefaultLogger().Debug("Detected Viseca PDF format - header pattern matched")
 			break
 		}
 
@@ -312,8 +321,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Create the transaction using TransactionBuilder
 		builder := models.NewTransactionBuilder().
-			WithDateFromTime(formatDate(txDate)).
-			WithValueDateFromTime(formatDate(valueDate)).
+			WithDatetime(formatDate(txDate)).
+			WithValueDatetime(formatDate(valueDate)).
 			WithDescription(description).
 			WithAmountFromString(amount, "CHF").
 			WithOriginalAmount(models.ParseAmount(originalAmount), originalCurrency)
@@ -381,23 +390,9 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		}
 
 		// Try to categorize the transaction
-		isDebtor := tx.CreditDebit == models.TransactionTypeDebit
-
-		// Create a categorizer.Transaction
-		catTx := categorizer.Transaction{
-			PartyName: tx.Payee,
-			IsDebtor:  isDebtor,
-			Amount:    fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-			Date:      tx.Date.Format("02.01.2006"),
-			Info:      tx.Description,
-		}
-
-		// Try to categorize
-		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-			tx.Category = category.Name
-			log.Debug("Categorized transaction",
-				logging.Field{Key: "category", Value: tx.Category})
-		}
+		// Note: Categorization is now handled by the categorizer component
+		// through dependency injection, not directly in the parser
+		tx.Category = models.CategoryUncategorized
 
 		// Add transaction to list
 		transactions = append(transactions, tx)
@@ -415,59 +410,66 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 // finalizeTransaction finalizes a transaction and adds it to the list of transactions
 func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction) {
-	// Set description and clean it
-	tx.Description = cleanDescription(desc.String())
-
+	// Clean the description
+	cleanDesc := cleanDescription(desc.String())
+	
 	// Extract and set merchant/payee
-	if merchant != "" {
-		tx.Payee = merchant
-	} else {
-		tx.Payee = extractPayee(tx.Description)
+	payee := merchant
+	if payee == "" {
+		payee = extractPayee(cleanDesc)
 	}
 
 	// Set credit/debit indicator if not already set
-	if tx.CreditDebit == "" {
-		tx.CreditDebit = determineCreditDebit(tx.Description)
+	creditDebit := tx.CreditDebit
+	if creditDebit == "" {
+		creditDebit = determineCreditDebit(cleanDesc)
 	}
 
-	// Fill in empty fields with placeholders to avoid null values
-	if tx.ValueDate.IsZero() {
-		tx.ValueDate = tx.Date
+	// Use TransactionBuilder to construct the final transaction
+	builder := models.NewTransactionBuilder().
+		WithDatetime(tx.Date).
+		WithAmount(tx.Amount, "CHF"). // Default to CHF for PDF statements
+		WithDescription(cleanDesc).
+		WithPayee(payee, "").
+		WithCategory(models.CategoryUncategorized)
+
+	// Set value date if available, otherwise use transaction date
+	if !tx.ValueDate.IsZero() {
+		builder = builder.WithValueDatetime(tx.ValueDate)
+	} else {
+		builder = builder.WithValueDatetime(tx.Date)
+	}
+
+	// Set transaction direction
+	if creditDebit == models.TransactionTypeCredit {
+		builder = builder.AsCredit()
+	} else {
+		builder = builder.AsDebit()
+	}
+
+	// Build the final transaction
+	finalTx, err := builder.Build()
+	if err != nil {
+		// Fallback to original transaction if builder fails
+		tx.Description = cleanDesc
+		tx.Payee = payee
+		tx.CreditDebit = creditDebit
+		if tx.ValueDate.IsZero() {
+			tx.ValueDate = tx.Date
+		}
+		if tx.Category == "" {
+			tx.Category = models.CategoryUncategorized
+		}
+		finalTx = *tx
 	}
 
 	// Generate a unique key for deduplication
-	key := fmt.Sprintf("%s-%s-%s", tx.Date, tx.Description, tx.Amount.String())
+	key := fmt.Sprintf("%s-%s-%s", finalTx.Date.Format("2006-01-02"), finalTx.Description, finalTx.Amount.String())
 
 	// Only add if we haven't seen this transaction before
 	if !seen[key] {
 		seen[key] = true
-
-		// Try to categorize the transaction
-		if tx.Category == "" {
-			// Determine if the transaction is a debit or credit
-			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
-
-			// Create a categorizer.Transaction from our transaction data
-			catTx := categorizer.Transaction{
-				PartyName: func() string {
-					if isDebtor {
-						return tx.Payee
-					}
-					return tx.Payer
-				}(),
-				IsDebtor: isDebtor,
-				Amount:   fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-				Date:     tx.Date.Format("02.01.2006"),
-				Info:     tx.Description,
-			}
-
-			// Try to categorize using the categorizer
-			if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-				tx.Category = category.Name
-			}
-		}
-
-		*transactions = append(*transactions, *tx)
+		*transactions = append(*transactions, finalTx)
 	}
 }
 

@@ -15,9 +15,12 @@ type CodebaseScanner struct {
 }
 
 // NewCodebaseScanner creates a new instance of CodebaseScanner.
-func NewCodebaseScanner() *CodebaseScanner {
+func NewCodebaseScanner(logger logging.Logger) *CodebaseScanner {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	return &CodebaseScanner{
-		logger: logging.GetLogger().WithField("component", "CodebaseScanner"),
+		logger: logger.WithField("component", "CodebaseScanner"),
 	}
 }
 

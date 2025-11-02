@@ -1,16 +1,19 @@
 package parser
 
 import (
-	"fjacquet/camt-csv/internal/models"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"fjacquet/camt-csv/internal/logging"
+	"fjacquet/camt-csv/internal/models"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestConstitutionLoader_LoadConstitutionFiles_Valid(t *testing.T) {
-	loader := NewConstitutionLoader()
+	logger := logging.NewLogrusAdapter("info", "text")
+	loader := NewConstitutionLoader(logger)
 
 	// Create temporary valid constitution files
 	tempDir := t.TempDir()
@@ -54,7 +57,8 @@ principles:
 }
 
 func TestConstitutionLoader_LoadConstitutionFiles_InvalidYAML(t *testing.T) {
-	loader := NewConstitutionLoader()
+	logger := logging.NewLogrusAdapter("info", "text")
+	loader := NewConstitutionLoader(logger)
 
 	// Create a temporary invalid YAML file
 	tempDir := t.TempDir()
@@ -83,7 +87,8 @@ principles:
 }
 
 func TestConstitutionLoader_LoadConstitutionFiles_NonExistentFile(t *testing.T) {
-	loader := NewConstitutionLoader()
+	logger := logging.NewLogrusAdapter("info", "text")
+	loader := NewConstitutionLoader(logger)
 
 	_, err := loader.LoadConstitutionFiles([]string{"/non/existent/constitution.yaml"})
 	assert.Error(t, err)
@@ -91,7 +96,8 @@ func TestConstitutionLoader_LoadConstitutionFiles_NonExistentFile(t *testing.T) 
 }
 
 func TestConstitutionLoader_LoadConstitutionFiles_EmptyFiles(t *testing.T) {
-	loader := NewConstitutionLoader()
+	logger := logging.NewLogrusAdapter("info", "text")
+	loader := NewConstitutionLoader(logger)
 
 	principles, err := loader.LoadConstitutionFiles([]string{})
 	assert.NoError(t, err)

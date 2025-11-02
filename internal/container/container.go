@@ -67,7 +67,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	categoryStore := store.NewCategoryStore(
 		cfg.Categories.File,
 		cfg.Categories.CreditorsFile,
-		cfg.Categories.DebitorsFile,
+		cfg.Categories.DebtorsFile,
 	)
 	
 	// Create AI client (if enabled)

@@ -22,7 +22,7 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 		name             string
 		transaction      Transaction
 		creditorMappings map[string]string
-		debitorMappings  map[string]string
+		debtorMappings   map[string]string
 		expectedCategory string
 		expectedFound    bool
 		expectedError    bool
@@ -36,19 +36,19 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			creditorMappings: map[string]string{
 				"coop": models.CategoryGroceries,
 			},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			expectedCategory: models.CategoryGroceries,
 			expectedFound:    true,
 			expectedError:    false,
 		},
 		{
-			name: "debitor mapping found",
+			name: "debtor mapping found",
 			transaction: Transaction{
 				PartyName: "John Doe",
 				IsDebtor:  true,
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings: map[string]string{
+			debtorMappings: map[string]string{
 				"john doe": models.CategorySalary,
 			},
 			expectedCategory: models.CategorySalary,
@@ -64,7 +64,7 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			creditorMappings: map[string]string{
 				"migros": models.CategoryGroceries,
 			},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			expectedCategory: models.CategoryGroceries,
 			expectedFound:    true,
 			expectedError:    false,
@@ -78,18 +78,18 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			creditorMappings: map[string]string{
 				"coop": models.CategoryGroceries,
 			},
-			debitorMappings: map[string]string{},
-			expectedFound:   false,
-			expectedError:   false,
+			debtorMappings: map[string]string{},
+			expectedFound:  false,
+			expectedError:  false,
 		},
 		{
-			name: "no mapping found for debitor",
+			name: "no mapping found for debtor",
 			transaction: Transaction{
 				PartyName: "Unknown Person",
 				IsDebtor:  true,
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings: map[string]string{
+			debtorMappings: map[string]string{
 				"john doe": models.CategorySalary,
 			},
 			expectedFound: false,
@@ -104,9 +104,9 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			creditorMappings: map[string]string{
 				"coop": models.CategoryGroceries,
 			},
-			debitorMappings: map[string]string{},
-			expectedFound:   false,
-			expectedError:   false,
+			debtorMappings: map[string]string{},
+			expectedFound:  false,
+			expectedError:  false,
 		},
 		{
 			name: "whitespace only party name",
@@ -117,32 +117,32 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			creditorMappings: map[string]string{
 				"coop": models.CategoryGroceries,
 			},
-			debitorMappings: map[string]string{},
-			expectedFound:   false,
-			expectedError:   false,
+			debtorMappings: map[string]string{},
+			expectedFound:  false,
+			expectedError:  false,
 		},
 		{
-			name: "wrong mapping type - debitor transaction with creditor mapping",
+			name: "wrong mapping type - debtor transaction with creditor mapping",
 			transaction: Transaction{
 				PartyName: "COOP",
-				IsDebtor:  true, // This is a debitor transaction
+				IsDebtor:  true, // This is a debtor transaction
 			},
 			creditorMappings: map[string]string{
 				"coop": models.CategoryGroceries, // But mapping is in creditor
 			},
-			debitorMappings: map[string]string{},
-			expectedFound:   false, // Should not find it
-			expectedError:   false,
+			debtorMappings: map[string]string{},
+			expectedFound:  false, // Should not find it
+			expectedError:  false,
 		},
 		{
-			name: "wrong mapping type - creditor transaction with debitor mapping",
+			name: "wrong mapping type - creditor transaction with debtor mapping",
 			transaction: Transaction{
 				PartyName: "John Doe",
 				IsDebtor:  false, // This is a creditor transaction
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings: map[string]string{
-				"john doe": models.CategorySalary, // But mapping is in debitor
+			debtorMappings: map[string]string{
+				"john doe": models.CategorySalary, // But mapping is in debtor
 			},
 			expectedFound: false, // Should not find it
 			expectedError: false,
@@ -154,7 +154,7 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			// Create mock store
 			mockStore := &store.MockCategoryStore{
 				CreditorMappings: tt.creditorMappings,
-				DebitorMappings:  tt.debitorMappings,
+				DebtorMappings:   tt.debtorMappings,
 			}
 
 			// Create mock logger
@@ -188,7 +188,7 @@ func TestDirectMappingStrategy_UpdateMappings(t *testing.T) {
 	// Create mock store
 	mockStore := &store.MockCategoryStore{
 		CreditorMappings: map[string]string{},
-		DebitorMappings:  map[string]string{},
+		DebtorMappings:   map[string]string{},
 	}
 
 	// Create mock logger
@@ -212,8 +212,8 @@ func TestDirectMappingStrategy_UpdateMappings(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, models.CategoryShopping, category.Name)
 
-	// Test updating debitor mapping
-	strategy.UpdateDebitorMapping("New Person", models.CategorySalary)
+	// Test updating debtor mapping
+	strategy.UpdateDebtorMapping("New Person", models.CategorySalary)
 
 	// Test categorization with updated mapping
 	transaction = Transaction{
@@ -233,7 +233,7 @@ func TestDirectMappingStrategy_ReloadMappings(t *testing.T) {
 		CreditorMappings: map[string]string{
 			"initial store": models.CategoryShopping,
 		},
-		DebitorMappings: map[string]string{
+		DebtorMappings: map[string]string{
 			"initial person": models.CategorySalary,
 		},
 	}
@@ -260,7 +260,7 @@ func TestDirectMappingStrategy_ReloadMappings(t *testing.T) {
 	mockStore.CreditorMappings = map[string]string{
 		"updated store": models.CategoryGroceries,
 	}
-	mockStore.DebitorMappings = map[string]string{
+	mockStore.DebtorMappings = map[string]string{
 		"updated person": models.CategoryTransport,
 	}
 

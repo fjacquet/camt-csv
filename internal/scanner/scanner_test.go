@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"os"
 	"path/filepath"
@@ -10,7 +11,8 @@ import (
 )
 
 func TestCodebaseScanner_ScanPaths_File(t *testing.T) {
-	scanner := NewCodebaseScanner()
+	logger := logging.NewLogrusAdapter("info", "text")
+	scanner := NewCodebaseScanner(logger)
 
 	// Create a temporary file
 	tempDir := t.TempDir()
@@ -28,7 +30,8 @@ func TestCodebaseScanner_ScanPaths_File(t *testing.T) {
 }
 
 func TestCodebaseScanner_ScanPaths_Directory(t *testing.T) {
-	scanner := NewCodebaseScanner()
+	logger := logging.NewLogrusAdapter("info", "text")
+	scanner := NewCodebaseScanner(logger)
 
 	// Create a temporary directory with multiple files
 	tempDir := t.TempDir()
@@ -68,7 +71,8 @@ func TestCodebaseScanner_ScanPaths_Directory(t *testing.T) {
 }
 
 func TestCodebaseScanner_ScanPaths_NonExistentPath(t *testing.T) {
-	scanner := NewCodebaseScanner()
+	logger := logging.NewLogrusAdapter("info", "text")
+	scanner := NewCodebaseScanner(logger)
 
 	_, err := scanner.ScanPaths([]string{"/non/existent/path"})
 	assert.Error(t, err)
@@ -76,7 +80,8 @@ func TestCodebaseScanner_ScanPaths_NonExistentPath(t *testing.T) {
 }
 
 func TestCodebaseScanner_ScanPaths_MixedPaths(t *testing.T) {
-	scanner := NewCodebaseScanner()
+	logger := logging.NewLogrusAdapter("info", "text")
+	scanner := NewCodebaseScanner(logger)
 
 	// Create a temporary file and a directory with a file
 	tempDir := t.TempDir()
@@ -116,7 +121,8 @@ func TestCodebaseScanner_ScanPaths_MixedPaths(t *testing.T) {
 }
 
 func TestCodebaseScanner_ScanPaths_EmptyPaths(t *testing.T) {
-	scanner := NewCodebaseScanner()
+	logger := logging.NewLogrusAdapter("info", "text")
+	scanner := NewCodebaseScanner(logger)
 
 	sections, err := scanner.ScanPaths([]string{})
 	assert.NoError(t, err)

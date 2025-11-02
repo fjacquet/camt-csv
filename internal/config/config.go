@@ -101,32 +101,7 @@ func GetGeminiAPIKey() string {
 	return GetEnv("GEMINI_API_KEY", "")
 }
 
-// GetGlobalConfig returns the global configuration instance, initializing it if necessary
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-//
-// Migration example:
-//   // Old way (deprecated)
-//   config := config.GetGlobalConfig()
-//
-//   // New way (recommended)
-//   container, err := container.NewContainer(config)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   config := container.GetConfig()
-func GetGlobalConfig() *Config {
-	configOnce.Do(func() {
-		var err error
-		globalConfig, err = InitializeConfig()
-		if err != nil {
-			Logger.Fatalf("Failed to initialize configuration: %v", err)
-		}
-		// Update global logger with new configuration
-		Logger = ConfigureLoggingFromConfig(globalConfig)
-	})
-	return globalConfig
-}
+
 
 // InitializeGlobalConfig explicitly initializes the global configuration
 // This is useful for testing or when you want to ensure config is loaded early
@@ -140,52 +115,4 @@ func InitializeGlobalConfig() error {
 	return nil
 }
 
-// Legacy compatibility functions - these will be deprecated in future versions
 
-// GetCSVDelimiter returns the CSV delimiter from configuration
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func GetCSVDelimiter() string {
-	config := GetGlobalConfig()
-	return config.CSV.Delimiter
-}
-
-// GetLogLevel returns the log level from configuration
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func GetLogLevel() string {
-	config := GetGlobalConfig()
-	return config.Log.Level
-}
-
-// GetLogFormat returns the log format from configuration
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func GetLogFormat() string {
-	config := GetGlobalConfig()
-	return config.Log.Format
-}
-
-// IsAIEnabled returns whether AI categorization is enabled
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func IsAIEnabled() bool {
-	config := GetGlobalConfig()
-	return config.AI.Enabled
-}
-
-// GetAIModel returns the AI model name
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func GetAIModel() string {
-	config := GetGlobalConfig()
-	return config.AI.Model
-}
-
-// GetAIRequestsPerMinute returns the AI requests per minute limit
-// Deprecated: Use dependency injection with container.NewContainer instead.
-// This function will be removed in v2.0.0.
-func GetAIRequestsPerMinute() int {
-	config := GetGlobalConfig()
-	return config.AI.RequestsPerMinute
-}

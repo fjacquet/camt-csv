@@ -25,13 +25,7 @@ const (
 	Debit             ParserType = "debit"
 )
 
-// GetParser returns a new instance of the appropriate parser for the given type.
-// It acts as a factory for creating Parser implementations.
-// Deprecated: Use GetParserWithLogger instead for dependency injection.
-func GetParser(parserType ParserType) (models.Parser, error) {
-	logger := logging.GetLogger()
-	return GetParserWithLogger(parserType, logger)
-}
+
 
 // GetParserWithLogger returns a new instance of the appropriate parser for the given type
 // with the provided logger for dependency injection.

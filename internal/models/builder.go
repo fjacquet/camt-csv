@@ -7,35 +7,31 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	
-	"fjacquet/camt-csv/internal/dateutils"
 )
 
-// TransactionBuilder provides a fluent API for constructing transactions
+// TransactionBuilder provides fluent API for transaction construction
 type TransactionBuilder struct {
 	tx  Transaction
 	err error
 }
 
-// NewTransactionBuilder creates a new TransactionBuilder with default values
+// NewTransactionBuilder creates a new TransactionBuilder with sensible defaults
 func NewTransactionBuilder() *TransactionBuilder {
 	return &TransactionBuilder{
 		tx: Transaction{
-			// Set default values
-			Status:      StatusCompleted,
-			Currency:    "CHF", // Default currency
-			Category:    CategoryUncategorized,
-			CreditDebit: TransactionTypeDebit, // Default to debit
-			DebitFlag:   true,
-			Amount:      decimal.Zero,
-			Debit:       decimal.Zero,
-			Credit:      decimal.Zero,
-			Fees:        decimal.Zero,
-			AmountExclTax: decimal.Zero,
-			AmountTax:   decimal.Zero,
-			TaxRate:     decimal.Zero,
-			OriginalAmount: decimal.Zero,
-			ExchangeRate: decimal.NewFromInt(1),
+			Number:      uuid.New().String(), // Generate unique ID
+			Status:      StatusCompleted,     // Default status
+			Currency:    "CHF",               // Default currency
+			Category:    CategoryUncategorized, // Default category
+			Amount:      decimal.Zero,        // Default amount
+			Debit:       decimal.Zero,        // Default debit
+			Credit:      decimal.Zero,        // Default credit
+			Fees:        decimal.Zero,        // Default fees
+			AmountExclTax: decimal.Zero,      // Default amount excluding tax
+			AmountTax:   decimal.Zero,        // Default tax amount
+			TaxRate:     decimal.Zero,        // Default tax rate
+			OriginalAmount: decimal.Zero,     // Default original amount
+			ExchangeRate: decimal.Zero,       // Default exchange rate
 		},
 	}
 }
@@ -58,64 +54,96 @@ func (b *TransactionBuilder) WithBookkeepingNumber(number string) *TransactionBu
 	return b
 }
 
-// WithDate sets the transaction date from a string in DD.MM.YYYY format
+// WithStatus sets the transaction status
+func (b *TransactionBuilder) WithStatus(status string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.Status = status
+	return b
+}
+
+// WithDate sets the transaction date from a string in YYYY-MM-DD format
 func (b *TransactionBuilder) WithDate(dateStr string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	if dateStr == "" {
-		b.err = errors.New("date cannot be empty")
-		return b
-	}
-	
-	// Parse the date string to time.Time using dateutils
-	parsedDate, err := dateutils.ParseDateString(dateStr)
+	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		b.err = fmt.Errorf("invalid date format: %w", err)
-		return b
-	}
-	b.tx.Date = parsedDate
-	return b
-}
-
-// WithDateFromTime sets the transaction date from a time.Time
-func (b *TransactionBuilder) WithDateFromTime(date time.Time) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	if date.IsZero() {
-		b.err = errors.New("date cannot be zero")
+		b.err = fmt.Errorf("invalid date format '%s': %w", dateStr, err)
 		return b
 	}
 	b.tx.Date = date
 	return b
 }
 
-// WithValueDate sets the value date from a string in DD.MM.YYYY format
+// WithDatetime sets the transaction date from a time.Time
+func (b *TransactionBuilder) WithDatetime(date time.Time) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.Date = date
+	return b
+}
+
+// WithValueDate sets the value date from a string in YYYY-MM-DD format
 func (b *TransactionBuilder) WithValueDate(dateStr string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	if dateStr != "" {
-		// Parse the date string to time.Time using dateutils
-		parsedDate, err := dateutils.ParseDateString(dateStr)
-		if err != nil {
-			b.err = fmt.Errorf("invalid value date format: %w", err)
-			return b
-		}
-		b.tx.ValueDate = parsedDate
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		b.err = fmt.Errorf("invalid value date format '%s': %w", dateStr, err)
+		return b
 	}
+	b.tx.ValueDate = date
 	return b
 }
 
-// WithValueDateFromTime sets the value date from a time.Time
-func (b *TransactionBuilder) WithValueDateFromTime(valueDate time.Time) *TransactionBuilder {
+// WithValueDatetime sets the value date from a time.Time
+func (b *TransactionBuilder) WithValueDatetime(date time.Time) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	if !valueDate.IsZero() {
-		b.tx.ValueDate = valueDate
+	b.tx.ValueDate = date
+	return b
+}
+
+// WithDateFromDatetime sets the transaction date from a datetime string (YYYY-MM-DD HH:MM:SS)
+func (b *TransactionBuilder) WithDateFromDatetime(datetimeStr string) *TransactionBuilder {
+	if b.err != nil {
+		return b
 	}
+	// Try parsing as datetime first
+	date, err := time.Parse("2006-01-02 15:04:05", datetimeStr)
+	if err != nil {
+		// If that fails, try parsing as date only
+		date, err = time.Parse("2006-01-02", datetimeStr)
+		if err != nil {
+			b.err = fmt.Errorf("invalid datetime format '%s': %w", datetimeStr, err)
+			return b
+		}
+	}
+	b.tx.Date = date
+	return b
+}
+
+// WithValueDateFromDatetime sets the value date from a datetime string (YYYY-MM-DD HH:MM:SS)
+func (b *TransactionBuilder) WithValueDateFromDatetime(datetimeStr string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	// Try parsing as datetime first
+	date, err := time.Parse("2006-01-02 15:04:05", datetimeStr)
+	if err != nil {
+		// If that fails, try parsing as date only
+		date, err = time.Parse("2006-01-02", datetimeStr)
+		if err != nil {
+			b.err = fmt.Errorf("invalid datetime format '%s': %w", datetimeStr, err)
+			return b
+		}
+	}
+	b.tx.ValueDate = date
 	return b
 }
 
@@ -125,42 +153,31 @@ func (b *TransactionBuilder) WithAmount(amount decimal.Decimal, currency string)
 		return b
 	}
 	b.tx.Amount = amount
-	if currency != "" {
-		b.tx.Currency = currency
-	}
+	b.tx.Currency = currency
 	return b
 }
 
-// WithAmountFromFloat sets the transaction amount from a float64 value
+// WithAmountFromFloat sets the transaction amount from float64 and currency
 func (b *TransactionBuilder) WithAmountFromFloat(amount float64, currency string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
 	b.tx.Amount = decimal.NewFromFloat(amount)
-	if currency != "" {
-		b.tx.Currency = currency
-	}
+	b.tx.Currency = currency
 	return b
 }
 
-// WithAmountFromString sets the transaction amount from a string
+// WithAmountFromString sets the transaction amount from string and currency
 func (b *TransactionBuilder) WithAmountFromString(amountStr, currency string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	amount := ParseAmount(amountStr)
-	b.tx.Amount = amount
-	if currency != "" {
-		b.tx.Currency = currency
-	}
-	return b
-}
-
-// WithCurrency sets the currency
-func (b *TransactionBuilder) WithCurrency(currency string) *TransactionBuilder {
-	if b.err != nil {
+	amount, err := decimal.NewFromString(amountStr)
+	if err != nil {
+		b.err = fmt.Errorf("invalid amount string '%s': %w", amountStr, err)
 		return b
 	}
+	b.tx.Amount = amount
 	b.tx.Currency = currency
 	return b
 }
@@ -183,7 +200,7 @@ func (b *TransactionBuilder) WithRemittanceInfo(info string) *TransactionBuilder
 	return b
 }
 
-// WithPayer sets the payer information
+// WithPayer sets the payer name and IBAN
 func (b *TransactionBuilder) WithPayer(name, iban string) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -195,20 +212,19 @@ func (b *TransactionBuilder) WithPayer(name, iban string) *TransactionBuilder {
 	return b
 }
 
-// WithPayee sets the payee information
+// WithPayee sets the payee name and IBAN
 func (b *TransactionBuilder) WithPayee(name, iban string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
 	b.tx.Payee = name
-	b.tx.Recipient = name // Set recipient for compatibility
 	if iban != "" {
 		b.tx.PartyIBAN = iban
 	}
 	return b
 }
 
-// WithPartyName sets the party name (generic counterparty)
+// WithPartyName sets the party name (counterparty)
 func (b *TransactionBuilder) WithPartyName(name string) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -217,21 +233,12 @@ func (b *TransactionBuilder) WithPartyName(name string) *TransactionBuilder {
 	return b
 }
 
-// WithPartyIBAN sets the party IBAN
+// WithPartyIBAN sets the party IBAN (counterparty)
 func (b *TransactionBuilder) WithPartyIBAN(iban string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
 	b.tx.PartyIBAN = iban
-	return b
-}
-
-// WithStatus sets the transaction status
-func (b *TransactionBuilder) WithStatus(status string) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.Status = status
 	return b
 }
 
@@ -289,7 +296,7 @@ func (b *TransactionBuilder) WithType(transactionType string) *TransactionBuilde
 	return b
 }
 
-// WithFund sets the fund
+// WithFund sets the fund name
 func (b *TransactionBuilder) WithFund(fund string) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -325,7 +332,7 @@ func (b *TransactionBuilder) WithFees(fees decimal.Decimal) *TransactionBuilder 
 	return b
 }
 
-// WithFeesFromFloat sets the transaction fees from a float64
+// WithFeesFromFloat sets the transaction fees from float64
 func (b *TransactionBuilder) WithFeesFromFloat(fees float64) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -334,7 +341,16 @@ func (b *TransactionBuilder) WithFeesFromFloat(fees float64) *TransactionBuilder
 	return b
 }
 
-// WithOriginalAmount sets the original amount and currency for foreign exchange transactions
+// WithIBAN sets the IBAN
+func (b *TransactionBuilder) WithIBAN(iban string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.IBAN = iban
+	return b
+}
+
+// WithOriginalAmount sets the original amount and currency for foreign currency transactions
 func (b *TransactionBuilder) WithOriginalAmount(amount decimal.Decimal, currency string) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -344,7 +360,7 @@ func (b *TransactionBuilder) WithOriginalAmount(amount decimal.Decimal, currency
 	return b
 }
 
-// WithExchangeRate sets the exchange rate
+// WithExchangeRate sets the exchange rate for currency conversion
 func (b *TransactionBuilder) WithExchangeRate(rate decimal.Decimal) *TransactionBuilder {
 	if b.err != nil {
 		return b
@@ -353,8 +369,8 @@ func (b *TransactionBuilder) WithExchangeRate(rate decimal.Decimal) *Transaction
 	return b
 }
 
-// WithTaxInfo sets tax-related information
-func (b *TransactionBuilder) WithTaxInfo(amountExclTax, amountTax, taxRate decimal.Decimal) *TransactionBuilder {
+// WithTax sets the tax-related fields
+func (b *TransactionBuilder) WithTax(amountExclTax, amountTax, taxRate decimal.Decimal) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
@@ -362,6 +378,11 @@ func (b *TransactionBuilder) WithTaxInfo(amountExclTax, amountTax, taxRate decim
 	b.tx.AmountTax = amountTax
 	b.tx.TaxRate = taxRate
 	return b
+}
+
+// WithTaxInfo sets the tax-related fields (alias for WithTax for backward compatibility)
+func (b *TransactionBuilder) WithTaxInfo(amountExclTax, amountTax, taxRate decimal.Decimal) *TransactionBuilder {
+	return b.WithTax(amountExclTax, amountTax, taxRate)
 }
 
 // AsDebit sets the transaction as a debit (outgoing money)
@@ -384,19 +405,23 @@ func (b *TransactionBuilder) AsCredit() *TransactionBuilder {
 	return b
 }
 
-// Build validates the transaction and returns the final Transaction
+// Build validates and constructs the final Transaction
 func (b *TransactionBuilder) Build() (Transaction, error) {
 	if b.err != nil {
-		return Transaction{}, fmt.Errorf("builder error: %w", b.err)
+		return Transaction{}, b.err
 	}
 	
 	// Validate required fields
 	if b.tx.Date.IsZero() {
-		return Transaction{}, errors.New("date is required")
+		return Transaction{}, errors.New("transaction date is required")
 	}
 	
-	if b.tx.Amount.IsZero() && b.tx.Fees.IsZero() {
-		return Transaction{}, errors.New("amount or fees must be non-zero")
+	if b.tx.Amount.IsZero() && b.tx.Debit.IsZero() && b.tx.Credit.IsZero() {
+		return Transaction{}, errors.New("transaction amount is required")
+	}
+	
+	if b.tx.Currency == "" {
+		return Transaction{}, errors.New("currency is required")
 	}
 	
 	// Populate derived fields
@@ -407,44 +432,49 @@ func (b *TransactionBuilder) Build() (Transaction, error) {
 
 // populateDerivedFields sets derived fields based on the transaction data
 func (b *TransactionBuilder) populateDerivedFields() {
-	// Set Name field based on transaction direction and parties
+	// Set value date to transaction date if not specified
+	if b.tx.ValueDate.IsZero() {
+		b.tx.ValueDate = b.tx.Date
+	}
+	
+	// Determine transaction direction if not explicitly set
+	if b.tx.CreditDebit == "" {
+		if b.tx.Amount.IsNegative() {
+			b.tx.CreditDebit = TransactionTypeDebit
+			b.tx.DebitFlag = true
+		} else {
+			b.tx.CreditDebit = TransactionTypeCredit
+			b.tx.DebitFlag = false
+		}
+	}
+	
+	// Update name from parties
 	b.tx.UpdateNameFromParties()
 	
-	// Set Recipient from Payee for compatibility
+	// Update recipient from payee
 	b.tx.UpdateRecipientFromPayee()
 	
-	// Update debit/credit amounts based on the main amount and direction
+	// Update debit/credit amounts
 	b.tx.UpdateDebitCreditAmounts()
 	
-	// Update investment type from legacy field if needed
+	// Update investment type from legacy field
 	b.tx.UpdateInvestmentTypeFromLegacyField()
 	
 	// Set PartyName if not already set
 	if b.tx.PartyName == "" {
 		b.tx.PartyName = b.tx.GetPartyName()
 	}
-	
-	// Set value date to transaction date if not set
-	if b.tx.ValueDate.IsZero() {
-		b.tx.ValueDate = b.tx.Date
-	}
-	
-	// Generate a unique number if not set
-	if b.tx.Number == "" {
-		b.tx.Number = uuid.New().String()
-	}
 }
 
-// Reset clears the builder state and returns a new builder
+// Reset clears the builder state and returns a new builder with defaults
 func (b *TransactionBuilder) Reset() *TransactionBuilder {
 	return NewTransactionBuilder()
 }
 
 // Clone creates a copy of the current builder state
 func (b *TransactionBuilder) Clone() *TransactionBuilder {
-	newBuilder := &TransactionBuilder{
-		tx:  b.tx, // This creates a copy of the struct
+	return &TransactionBuilder{
+		tx:  b.tx,
 		err: b.err,
 	}
-	return newBuilder
 }

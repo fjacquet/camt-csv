@@ -6,7 +6,7 @@ Last updated: 2025-10-12
 - Go 1.22+ + spf13/cobra, spf13/viper, github.com/sirupsen/logrus, gopkg.in/yaml.v3 (001-review-the-codebase)
 - Files (for constitution definitions and generated reports) (001-review-the-codebase)
 - Go 1.22+ + `spf13/cobra`, `spf13/viper`, `github.com/sirupsen/logrus`, `gopkg.in/yaml.v3`, `go/ast`, `go/parser`, `go/token`, `github.com/stretchr/testify`, `github.com/shopspring/decimal`, `github.com/gocarina/gocsv`, `github.com/joho/godotenv` (002-enahance-the-codebase)
-- Files (constitution definitions, generated reports), YAML files (categories, creditors, debitors) (002-enahance-the-codebase)
+- Files (constitution definitions, generated reports), YAML files (categories, creditors, debtors) (002-enahance-the-codebase)
 
 - Go 1.22+ + `go/ast`, `go/parser`, `go/token` (for Go code analysis); `gopkg.in/yaml.v3` (for parsing constitution/config); `github.com/sirupsen/logrus` (for logging); `spf13/cobra`, `spf13/viper` (for CLI and config).
 

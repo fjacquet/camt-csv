@@ -248,14 +248,8 @@ func TestConvertFields_Empty(t *testing.T) {
 	assert.Len(t, logrusFields, 0)
 }
 
-func TestGetLogger(t *testing.T) {
-	logger := GetLogger()
-	require.NotNil(t, logger)
-	
-	adapter, ok := logger.(*LogrusAdapter)
-	require.True(t, ok)
-	assert.NotNil(t, adapter.logger)
-}
+// TestGetLogger removed - we no longer use global logger functions
+// All loggers are now injected through constructors
 
 func TestLogrusAdapter_ChainedCalls(t *testing.T) {
 	logrusLogger := logrus.New()

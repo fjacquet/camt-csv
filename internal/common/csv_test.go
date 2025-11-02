@@ -6,12 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/store"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +42,8 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.NoError(t, err, "Failed to write test CSV file")
 
 	// Test reading the CSV file
-	rows, err := ReadCSVFile[TestCSVRow](testCSVPath)
+	logger := logging.NewLogrusAdapter("info", "text")
+	rows, err := ReadCSVFile[TestCSVRow](testCSVPath, logger)
 	assert.NoError(t, err, "ReadCSVFile should not return an error")
 	assert.Len(t, rows, 4, "ReadCSVFile should read all 4 rows including empty row")
 
@@ -67,34 +65,14 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.Equal(t, "", rows[2].Country)
 
 	// Test with a non-existent file
-	_, err = ReadCSVFile[TestCSVRow]("non-existent-file.csv")
+	_, err = ReadCSVFile[TestCSVRow]("non-existent-file.csv", logger)
 	assert.Error(t, err, "ReadCSVFile should return an error for a non-existent file")
 }
 
-func setupTestCategorizer(t *testing.T) {
-	t.Helper()
-	tempDir := t.TempDir()
-	categoriesFile := filepath.Join(tempDir, "categories.yaml")
-	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
-	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
-		t.Fatalf("Failed to write categories file: %v", err)
-	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write creditors file: %v", err)
-	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write debitors file: %v", err)
-	}
-	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
-	categorizer.SetTestCategoryStore(store)
-	t.Cleanup(func() {
-		categorizer.SetTestCategoryStore(nil)
-	})
-}
+// setupTestCategorizer removed - categorizer now uses dependency injection
+// Tests should create their own categorizer instances as needed
 
 func TestWriteTransactionsToCSV(t *testing.T) {
-	setupTestCategorizer(t)
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "csv-test")
 	assert.NoError(t, err, "Failed to create temp directory")
@@ -202,6 +180,7 @@ func TestExportTransactionsToCSV(t *testing.T) {
 	transactions := []models.Transaction{
 		{
 			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+			ValueDate:   time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description: "Test Debit",
 			Amount:      models.ParseAmount("123.45"),
 			Currency:    "CHF",
@@ -209,6 +188,7 @@ func TestExportTransactionsToCSV(t *testing.T) {
 		},
 		{
 			Date:        time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
+			ValueDate:   time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description: "Test Credit",
 			Amount:      models.ParseAmount("-67.89"),
 			Currency:    "EUR",
@@ -231,25 +211,12 @@ func TestExportTransactionsToCSV(t *testing.T) {
 	assert.Contains(t, csvStr, "Currency")
 
 	// Check transaction data is present
+	// Note: Now using custom MarshalCSV method, so dates are in DD.MM.YYYY format
 	assert.Contains(t, csvStr, "01.01.2023")
 	assert.Contains(t, csvStr, "Test Debit")
 	assert.Contains(t, csvStr, "123.45")
 	assert.Contains(t, csvStr, "CHF")
 }
 
-func TestSetLogger(t *testing.T) {
-	// Create a custom logger
-	customLogger := logrus.New()
-	customLogger.SetLevel(logrus.WarnLevel)
-
-	// Set the custom logger
-	SetLogger(logging.NewLogrusAdapterFromLogger(customLogger))
-
-	// Verify that the logger was set (we can't easily test the level with the interface)
-	assert.NotNil(t, log, "Logger should be set")
-
-	// Test with nil logger (should not change the current logger)
-	originalLogger := log
-	SetLogger(nil)
-	assert.Equal(t, originalLogger, log, "SetLogger with nil should not change the logger")
-}
+// TestSetLogger removed - common package no longer uses global logging
+// Logging is now handled through dependency injection

@@ -35,11 +35,11 @@ func TestNewContainer(t *testing.T) {
 				Categories: struct {
 					File          string `mapstructure:"file" yaml:"file"`
 					CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
-					DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+					DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 				}{
 					File:          "categories.yaml",
 					CreditorsFile: "creditors.yaml",
-					DebitorsFile:  "debitors.yaml",
+					DebtorsFile:   "debtors.yaml",
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
@@ -67,11 +67,11 @@ func TestNewContainer(t *testing.T) {
 				Categories: struct {
 					File          string `mapstructure:"file" yaml:"file"`
 					CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
-					DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+					DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 				}{
 					File:          "categories.yaml",
 					CreditorsFile: "creditors.yaml",
-					DebitorsFile:  "debitors.yaml",
+					DebtorsFile:   "debtors.yaml",
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
@@ -141,11 +141,11 @@ func TestContainer_GetParser(t *testing.T) {
 		Categories: struct {
 			File          string `mapstructure:"file" yaml:"file"`
 			CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
-			DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+			DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 		}{
 			File:          "categories.yaml",
 			CreditorsFile: "creditors.yaml",
-			DebitorsFile:  "debitors.yaml",
+			DebtorsFile:   "debtors.yaml",
 		},
 		AI: struct {
 			Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
@@ -232,11 +232,11 @@ func TestContainer_ConvenienceMethods(t *testing.T) {
 		Categories: struct {
 			File          string `mapstructure:"file" yaml:"file"`
 			CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
-			DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+			DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 		}{
 			File:          "categories.yaml",
 			CreditorsFile: "creditors.yaml",
-			DebitorsFile:  "debitors.yaml",
+			DebtorsFile:   "debtors.yaml",
 		},
 		AI: struct {
 			Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`

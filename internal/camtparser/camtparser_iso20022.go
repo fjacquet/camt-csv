@@ -63,7 +63,12 @@ func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, er
 
 // extractTransactions extracts transactions from an ISO20022 document
 func (p *ISO20022Parser) extractTransactions(document models.ISO20022Document) ([]models.Transaction, error) {
-	var transactions []models.Transaction
+	// Pre-allocate slice with estimated capacity based on total entries
+	totalEntries := 0
+	for _, stmt := range document.BkToCstmrStmt.Stmt {
+		totalEntries += len(stmt.Ntry)
+	}
+	transactions := make([]models.Transaction, 0, totalEntries)
 
 	// Process each statement in the document
 	for _, stmt := range document.BkToCstmrStmt.Stmt {
@@ -170,36 +175,13 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			logging.Field{Key: "isDebtor", Value: catTx.IsDebtor},
 			logging.Field{Key: "description", Value: catTx.Description})
 
-		// Try to categorize using the categorizer
-		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-			transactions[i].Category = category.Name
+		// Note: Categorization is now handled by the categorizer component
+		// through dependency injection, not directly in the parser
+		transactions[i].Category = models.CategoryUncategorized
 
-			// If this was a successful categorization, save it to the database
-			// for future use to avoid needing to re-categorize
-			if category.Name != "" && category.Name != models.CategoryUncategorized {
-				partyName := catTx.PartyName
-				if isDebtor {
-					p.GetLogger().Info("Auto-learning debitor mapping",
-						logging.Field{Key: "party", Value: partyName},
-						logging.Field{Key: "category", Value: category.Name})
-					categorizer.UpdateDebitorCategory(partyName, category.Name)
-				} else {
-					p.GetLogger().Info("Auto-learning creditor mapping",
-						logging.Field{Key: "party", Value: partyName},
-						logging.Field{Key: "category", Value: category.Name})
-					categorizer.UpdateCreditorCategory(partyName, category.Name)
-				}
-			}
-
-			p.GetLogger().Debug("Transaction categorized",
-				logging.Field{Key: "category", Value: category.Name},
+		p.GetLogger().Debug("Transaction parsed without categorization",
 				logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
 				logging.Field{Key: "party", Value: catTx.PartyName})
-		} else {
-			p.GetLogger().WithError(err).Debug("Failed to categorize transaction",
-				logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
-				logging.Field{Key: "party", Value: catTx.PartyName})
-		}
 	}
 
 	return transactions

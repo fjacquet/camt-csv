@@ -3,6 +3,7 @@ package report
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"testing"
 
@@ -10,7 +11,8 @@ import (
 )
 
 func TestReportGenerator_GenerateReport_JSON(t *testing.T) {
-	generator := NewReportGenerator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	generator := NewReportGenerator(logger)
 
 	// Create a sample report
 	section := models.CodebaseSection{
@@ -51,7 +53,8 @@ func TestReportGenerator_GenerateReport_JSON(t *testing.T) {
 }
 
 func TestReportGenerator_GenerateReport_XML(t *testing.T) {
-	generator := NewReportGenerator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	generator := NewReportGenerator(logger)
 
 	// Create a sample report
 	section := models.CodebaseSection{
@@ -95,7 +98,8 @@ func TestReportGenerator_GenerateReport_XML(t *testing.T) {
 }
 
 func TestReportGenerator_GenerateReport_UnsupportedFormat(t *testing.T) {
-	generator := NewReportGenerator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	generator := NewReportGenerator(logger)
 	report := models.NewComplianceReport([]models.CodebaseSection{}, []models.ConstitutionPrinciple{})
 
 	_, err := generator.GenerateReport(report, "csv")
@@ -104,7 +108,8 @@ func TestReportGenerator_GenerateReport_UnsupportedFormat(t *testing.T) {
 }
 
 func TestReportGenerator_GenerateReport_EmptyReport(t *testing.T) {
-	generator := NewReportGenerator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	generator := NewReportGenerator(logger)
 	report := models.NewComplianceReport([]models.CodebaseSection{}, []models.ConstitutionPrinciple{})
 
 	jsonBytes, err := generator.GenerateReport(report, "json")

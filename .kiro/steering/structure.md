@@ -43,7 +43,7 @@ camt-csv/
 ├── database/              # Configuration data files
 │   ├── categories.yaml    # Category definitions and keywords
 │   ├── creditors.yaml     # Creditor-to-category mappings
-│   └── debitors.yaml      # Debitor-to-category mappings
+│   └── debtors.yaml       # Debtor-to-category mappings
 ├── samples/               # Sample input files for testing
 │   ├── camt053/          # CAMT.053 XML samples
 │   ├── pdf/              # PDF samples
@@ -88,7 +88,7 @@ type Parser interface {
 
 ### Categorization Flow
 
-1. **Direct Mapping**: Check `creditors.yaml` / `debitors.yaml` for exact matches
+1. **Direct Mapping**: Check `creditors.yaml` / `debtors.yaml` for exact matches
 2. **Keyword Matching**: Search `categories.yaml` for keyword patterns
 3. **AI Fallback**: Query Gemini API (if enabled)
 4. **Auto-Learning**: Save successful AI categorizations to YAML files

@@ -72,8 +72,8 @@ func batchFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	// Get CAMT parser from factory
-	parser, err := factory.GetParser(factory.CAMT)
+	// Get CAMT parser from factory with logger
+	parser, err := factory.GetParserWithLogger(factory.CAMT, logger)
 	if err != nil {
 		logger.Fatalf("Failed to get CAMT parser: %v", err)
 	}

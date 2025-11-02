@@ -8,14 +8,14 @@ import (
 type MockCategoryStore struct {
 	Categories       []models.CategoryConfig
 	CreditorMappings map[string]string
-	DebitorMappings  map[string]string
+	DebtorMappings   map[string]string
 	
 	// Error flags for testing error conditions
 	LoadCategoriesError       error
 	LoadCreditorMappingsError error
-	LoadDebitorMappingsError  error
+	LoadDebtorMappingsError   error
 	SaveCreditorMappingsError error
-	SaveDebitorMappingsError  error
+	SaveDebtorMappingsError   error
 }
 
 // LoadCategories returns the mock categories.
@@ -42,17 +42,17 @@ func (m *MockCategoryStore) LoadCreditorMappings() (map[string]string, error) {
 	return result, nil
 }
 
-// LoadDebitorMappings returns the mock debitor mappings.
-func (m *MockCategoryStore) LoadDebitorMappings() (map[string]string, error) {
-	if m.LoadDebitorMappingsError != nil {
-		return nil, m.LoadDebitorMappingsError
+// LoadDebtorMappings returns the mock debtor mappings.
+func (m *MockCategoryStore) LoadDebtorMappings() (map[string]string, error) {
+	if m.LoadDebtorMappingsError != nil {
+		return nil, m.LoadDebtorMappingsError
 	}
-	if m.DebitorMappings == nil {
+	if m.DebtorMappings == nil {
 		return make(map[string]string), nil
 	}
 	// Return a copy to avoid external modifications
 	result := make(map[string]string)
-	for k, v := range m.DebitorMappings {
+	for k, v := range m.DebtorMappings {
 		result[k] = v
 	}
 	return result, nil
@@ -73,17 +73,17 @@ func (m *MockCategoryStore) SaveCreditorMappings(mappings map[string]string) err
 	return nil
 }
 
-// SaveDebitorMappings updates the mock debitor mappings.
-func (m *MockCategoryStore) SaveDebitorMappings(mappings map[string]string) error {
-	if m.SaveDebitorMappingsError != nil {
-		return m.SaveDebitorMappingsError
+// SaveDebtorMappings updates the mock debtor mappings.
+func (m *MockCategoryStore) SaveDebtorMappings(mappings map[string]string) error {
+	if m.SaveDebtorMappingsError != nil {
+		return m.SaveDebtorMappingsError
 	}
-	if m.DebitorMappings == nil {
-		m.DebitorMappings = make(map[string]string)
+	if m.DebtorMappings == nil {
+		m.DebtorMappings = make(map[string]string)
 	}
 	// Update the mock mappings
 	for k, v := range mappings {
-		m.DebitorMappings[k] = v
+		m.DebtorMappings[k] = v
 	}
 	return nil
 }
@@ -92,3 +92,4 @@ func (m *MockCategoryStore) SaveDebitorMappings(mappings map[string]string) erro
 func (m *MockCategoryStore) FindConfigFile(filename string) (string, error) {
 	return "/mock/path/" + filename, nil
 }
+

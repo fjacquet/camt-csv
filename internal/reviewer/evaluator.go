@@ -20,9 +20,12 @@ type AutomatedPrincipleEvaluator struct {
 }
 
 // NewAutomatedPrincipleEvaluator creates a new instance of AutomatedPrincipleEvaluator.
-func NewAutomatedPrincipleEvaluator() *AutomatedPrincipleEvaluator {
+func NewAutomatedPrincipleEvaluator(logger logging.Logger) *AutomatedPrincipleEvaluator {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	return &AutomatedPrincipleEvaluator{
-		logger: logging.GetLogger().WithField("component", "AutomatedPrincipleEvaluator"),
+		logger: logger.WithField("component", "AutomatedPrincipleEvaluator"),
 	}
 }
 

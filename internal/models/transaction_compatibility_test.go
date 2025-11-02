@@ -288,7 +288,7 @@ func TestTransaction_ConversionRoundTrip(t *testing.T) {
 func TestTransaction_BuilderCompatibility(t *testing.T) {
 	// Test that TransactionBuilder can create transactions compatible with legacy methods
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
+		WithDate("2025-01-15").
 		WithAmountFromFloat(100.50, "CHF").
 		WithDescription("Test transaction").
 		WithPayer("John Doe", "CH1234567890").

@@ -76,28 +76,7 @@ func ParseAmount(amountStr string) decimal.Decimal {
 	return dec
 }
 
-// GetAmountAsFloat returns the Amount as a float64
-// DEPRECATED: This method is maintained for backward compatibility only.
-// Use direct decimal operations instead for financial calculations.
-// Migration: Use t.Amount.Float64() directly or better yet, use decimal operations.
-func (t *Transaction) GetAmountAsFloat() float64 {
-	f, _ := t.Amount.Float64()
-	return f
-}
 
-// GetPayee returns the payee name for backward compatibility
-// DEPRECATED: Use t.Payee directly or consider using GetCounterparty() for direction-aware party access.
-// Migration: Access t.Payee field directly or use GetCounterparty() for better semantics.
-func (t *Transaction) GetPayee() string {
-	return t.Payee
-}
-
-// GetPayer returns the payer name for backward compatibility
-// DEPRECATED: Use t.Payer directly or consider using GetCounterparty() for direction-aware party access.
-// Migration: Access t.Payer field directly or use GetCounterparty() for better semantics.
-func (t *Transaction) GetPayer() string {
-	return t.Payer
-}
 
 // GetCounterparty returns the relevant party name based on transaction direction
 // For debits, returns the payee (who receives the money)
@@ -109,112 +88,45 @@ func (t *Transaction) GetCounterparty() string {
 	return t.Payer
 }
 
-// ToTransactionCore converts the legacy Transaction to the new TransactionCore format
-// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
-// Migration: Use NewTransactionBuilder() to create transactions in the new format.
-func (t *Transaction) ToTransactionCore() TransactionCore {
-	return TransactionCore{
-		ID:          t.Number,
-		Date:        t.Date,
-		ValueDate:   t.ValueDate,
-		Amount:      NewMoney(t.Amount, t.Currency),
-		Description: t.Description,
-		Status:      t.Status,
-		Reference:   t.Reference,
-	}
+// GetPayee returns the payee name for backward compatibility
+func (t *Transaction) GetPayee() string {
+	return t.Payee
 }
 
-// ToTransactionWithParties converts the legacy Transaction to TransactionWithParties format
-// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
-// Migration: Use NewTransactionBuilder() to create transactions in the new format.
-func (t *Transaction) ToTransactionWithParties() TransactionWithParties {
-	core := t.ToTransactionCore()
-	
-	// Determine direction
-	var direction TransactionDirection
-	if t.IsDebit() {
-		direction = DirectionDebit
-	} else if t.IsCredit() {
-		direction = DirectionCredit
-	} else {
-		direction = DirectionUnknown
-	}
-	
-	return TransactionWithParties{
-		TransactionCore: core,
-		Payer:          NewParty(t.Payer, t.PartyIBAN),
-		Payee:          NewParty(t.Payee, t.PartyIBAN),
-		Direction:      direction,
-	}
+// GetPayer returns the payer name for backward compatibility
+func (t *Transaction) GetPayer() string {
+	return t.Payer
 }
 
-// ToCategorizedTransaction converts the legacy Transaction to CategorizedTransaction format
-// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
-// Migration: Use NewTransactionBuilder() to create transactions in the new format.
-func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
-	twp := t.ToTransactionWithParties()
-	
-	return CategorizedTransaction{
-		TransactionWithParties: twp,
-		Category:              t.Category,
-		Type:                  t.Type,
-		Fund:                  t.Fund,
-	}
-}
-
-// FromTransactionCore populates the legacy Transaction from a TransactionCore
-// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
-// Migration: Use NewTransactionBuilder() to create transactions in the new format.
-func (t *Transaction) FromTransactionCore(core TransactionCore) {
-	t.Number = core.ID
-	t.Date = core.Date
-	t.ValueDate = core.ValueDate
-	t.Amount = core.Amount.Amount
-	t.Currency = core.Amount.Currency
-	t.Description = core.Description
-	t.Status = core.Status
-	t.Reference = core.Reference
-}
-
-// FromCategorizedTransaction populates the legacy Transaction from a CategorizedTransaction
-// DEPRECATED: This is a migration helper. New code should use TransactionBuilder.
-// Migration: Use NewTransactionBuilder() to create transactions in the new format.
-func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
-	// Populate from core
-	t.FromTransactionCore(ct.TransactionCore)
-	
-	// Set party information
-	t.Payer = ct.Payer.Name
-	t.Payee = ct.Payee.Name
-	t.PartyIBAN = ct.GetCounterpartyIBAN()
-	t.PartyName = ct.GetCounterpartyName()
-	
-	// Set direction-based fields
-	if ct.Direction == DirectionDebit {
-		t.CreditDebit = TransactionTypeDebit
-		t.DebitFlag = true
-	} else if ct.Direction == DirectionCredit {
-		t.CreditDebit = TransactionTypeCredit
-		t.DebitFlag = false
-	}
-	
-	// Set categorization
-	t.Category = ct.Category
-	t.Type = ct.Type
-	t.Fund = ct.Fund
-	
-	// Update derived fields
-	t.UpdateNameFromParties()
-	t.UpdateRecipientFromPayee()
-	t.UpdateDebitCreditAmounts()
-}
-
-// GetOriginalAmountAsFloat returns the OriginalAmount as a float64
-// DEPRECATED: This method is maintained for backward compatibility only.
-func (t *Transaction) GetOriginalAmountAsFloat() float64 {
-	f, _ := t.OriginalAmount.Float64()
+// GetAmountAsFloat returns the amount as float64 for backward compatibility
+// Deprecated: Use GetAmountAsDecimal() instead for precise calculations
+func (t *Transaction) GetAmountAsFloat() float64 {
+	f, _ := t.Amount.Float64()
 	return f
 }
+
+// GetDebitAsFloat returns the debit amount as float64 for backward compatibility
+// Deprecated: Use GetDebitAsDecimal() instead for precise calculations
+func (t *Transaction) GetDebitAsFloat() float64 {
+	f, _ := t.Debit.Float64()
+	return f
+}
+
+// GetCreditAsFloat returns the credit amount as float64 for backward compatibility
+// Deprecated: Use GetCreditAsDecimal() instead for precise calculations
+func (t *Transaction) GetCreditAsFloat() float64 {
+	f, _ := t.Credit.Float64()
+	return f
+}
+
+// GetFeesAsFloat returns the fees as float64 for backward compatibility
+// Deprecated: Use GetFeesAsDecimal() instead for precise calculations
+func (t *Transaction) GetFeesAsFloat() float64 {
+	f, _ := t.Fees.Float64()
+	return f
+}
+
+
 
 // GetAmountAsDecimal returns the Amount as a decimal.Decimal for precise calculations
 // This is the recommended way to access the Amount field for financial calculations
@@ -354,10 +266,10 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 		t.formatDateForCSV(t.Date),
 		t.formatDateForCSV(t.ValueDate),
 		t.Name,
-		t.Description,
-		t.RemittanceInfo,
 		t.PartyName,
 		t.PartyIBAN,
+		t.Description,
+		t.RemittanceInfo,
 		t.Amount.StringFixed(2),
 		t.CreditDebit,
 		fmt.Sprintf("%t", t.DebitFlag),
@@ -483,4 +395,143 @@ func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 	return time.Parse("02.01.2006", dateStr)
+}
+
+// ToTransactionCore converts the Transaction to a TransactionCore
+func (t *Transaction) ToTransactionCore() TransactionCore {
+	return TransactionCore{
+		ID:          t.Number,
+		Date:        t.Date,
+		ValueDate:   t.ValueDate,
+		Amount:      NewMoney(t.Amount, t.Currency),
+		Description: t.Description,
+		Status:      t.Status,
+		Reference:   t.Reference,
+	}
+}
+
+// ToTransactionWithParties converts the Transaction to a TransactionWithParties
+func (t *Transaction) ToTransactionWithParties() TransactionWithParties {
+	direction := DirectionUnknown
+	if t.IsDebit() {
+		direction = DirectionDebit
+	} else if t.IsCredit() {
+		direction = DirectionCredit
+	}
+
+	// For backward compatibility, both parties get the same IBAN from PartyIBAN
+	// This matches the test expectation where PartyIBAN represents the counterparty's IBAN
+	return TransactionWithParties{
+		TransactionCore: t.ToTransactionCore(),
+		Payer:           NewParty(t.Payer, t.PartyIBAN),
+		Payee:           NewParty(t.Payee, t.PartyIBAN),
+		Direction:       direction,
+	}
+}
+
+// ToCategorizedTransaction converts the Transaction to a CategorizedTransaction
+func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
+	return CategorizedTransaction{
+		TransactionWithParties: t.ToTransactionWithParties(),
+		Category:               t.Category,
+		Type:                   t.Type,
+		Fund:                   t.Fund,
+	}
+}
+
+// FromTransactionCore populates the Transaction from a TransactionCore
+func (t *Transaction) FromTransactionCore(core TransactionCore) {
+	t.Number = core.ID
+	t.Date = core.Date
+	t.ValueDate = core.ValueDate
+	t.Amount = core.Amount.Amount
+	t.Currency = core.Amount.Currency
+	t.Description = core.Description
+	t.Status = core.Status
+	t.Reference = core.Reference
+}
+
+// FromCategorizedTransaction populates the Transaction from a CategorizedTransaction
+func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
+	// Populate from core
+	t.FromTransactionCore(ct.TransactionCore)
+	
+	// Set party information
+	t.Payer = ct.Payer.Name
+	t.Payee = ct.Payee.Name
+	
+	// Set direction and related fields
+	if ct.Direction == DirectionDebit {
+		t.CreditDebit = TransactionTypeDebit
+		t.DebitFlag = true
+		t.PartyIBAN = ct.Payee.IBAN // For debit, PartyIBAN is payee's IBAN
+		t.PartyName = ct.Payee.Name // For debit, PartyName is payee's name
+	} else if ct.Direction == DirectionCredit {
+		t.CreditDebit = TransactionTypeCredit
+		t.DebitFlag = false
+		t.PartyIBAN = ct.Payer.IBAN // For credit, PartyIBAN is payer's IBAN
+		t.PartyName = ct.Payer.Name // For credit, PartyName is payer's name
+	}
+	
+	// Set categorization
+	t.Category = ct.Category
+	t.Type = ct.Type
+	t.Fund = ct.Fund
+	
+	// Populate derived fields
+	t.UpdateNameFromParties()
+	t.UpdateRecipientFromPayee()
+	t.UpdateDebitCreditAmounts()
+}
+
+// NewTransactionFromBuilder creates a Transaction using the builder pattern
+// This provides a more readable way to construct transactions
+func NewTransactionFromBuilder() *TransactionBuilder {
+	return NewTransactionBuilder()
+}
+
+// ToBuilder converts an existing Transaction to a TransactionBuilder for modification
+// Deprecated: This method is provided for backward compatibility during migration
+func (t *Transaction) ToBuilder() *TransactionBuilder {
+	builder := NewTransactionBuilder()
+	
+	// Copy all fields from the transaction to the builder
+	builder.tx = *t
+	
+	return builder
+}
+
+// SetPayerInfo sets both payer name and IBAN for backward compatibility
+// Deprecated: Use TransactionBuilder.WithPayer() for new code
+func (t *Transaction) SetPayerInfo(name, iban string) {
+	t.Payer = name
+	if iban != "" {
+		t.PartyIBAN = iban
+	}
+}
+
+// SetPayeeInfo sets both payee name and IBAN for backward compatibility
+// Deprecated: Use TransactionBuilder.WithPayee() for new code
+func (t *Transaction) SetPayeeInfo(name, iban string) {
+	t.Payee = name
+	if iban != "" {
+		t.PartyIBAN = iban
+	}
+}
+
+// SetAmountFromFloat sets the amount from a float64 value for backward compatibility
+// Deprecated: Use TransactionBuilder.WithAmountFromFloat() or SetAmountFromDecimal() for new code
+func (t *Transaction) SetAmountFromFloat(amount float64, currency string) {
+	t.Amount = decimal.NewFromFloat(amount)
+	t.Currency = currency
+}
+
+// GetTransactionDirection returns the transaction direction as TransactionDirection enum
+func (t *Transaction) GetTransactionDirection() TransactionDirection {
+	if t.IsDebit() {
+		return DirectionDebit
+	} else if t.IsCredit() {
+		return DirectionCredit
+	}
+	return DirectionUnknown
 }

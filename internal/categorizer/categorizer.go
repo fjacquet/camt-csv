@@ -7,7 +7,6 @@ package categorizer
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -15,9 +14,6 @@ import (
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/store"
-
-	"github.com/sirupsen/logrus"
 )
 
 //------------------------------------------------------------------------------
@@ -49,14 +45,15 @@ type Categorizer struct {
 	isDirtyDebitors  bool // Track if debitorMappings has been modified and needs to be saved
 	store            CategoryStoreInterface
 	logger           logging.Logger
-	aiClient         AIClient // New field for AIClient interface
+	
+	// Lazy initialization for AI client
+	aiClient     AIClient // New field for AIClient interface
+	aiClientOnce sync.Once
+	aiFactory    func() AIClient
 }
 
-// Global singleton instance - simple approach for a CLI tool
-// Deprecated: Use dependency injection with NewCategorizer instead.
-// This will be removed in v2.0.0.
-var defaultCategorizer *Categorizer
-var log = logging.GetLogger()
+
+// Note: log variable removed as part of dependency injection refactoring
 
 // Configuration interface for dependency injection
 type Config interface {
@@ -69,28 +66,18 @@ type Config interface {
 	GetCategorizationConfidenceThreshold() float64
 }
 
-// SetLogger allows setting a custom logger
-func SetLogger(logger logging.Logger) {
-	if logger != nil {
-		log = logger
 
-		// Update default categorizer if it exists
-		if defaultCategorizer != nil {
-			defaultCategorizer.logger = logging.NewLogrusAdapterFromLogger(logrus.New())
-		}
-	}
-}
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, and logger.
 func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger) *Categorizer {
 	if logger == nil {
-		logger = logging.GetLogger()
+		logger = logging.NewLogrusAdapter("info", "text")
 	}
 
 	c := &Categorizer{
-		categories:       []models.CategoryConfig{},
-		creditorMappings: make(map[string]string),
-		debitorMappings:  make(map[string]string),
+		categories:       make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		creditorMappings: make(map[string]string, 100),        // Pre-allocate with size hint
+		debitorMappings:  make(map[string]string, 100),        // Pre-allocate with size hint
 		configMutex:      sync.RWMutex{},
 		isDirtyCreditors: false,
 		isDirtyDebitors:  false,
@@ -119,17 +106,37 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 	if err != nil {
 		c.logger.WithError(err).Warn("Failed to load creditor mappings")
 	} else {
+		// Pre-allocate with known size and normalize keys to lowercase for case-insensitive lookup
+		if len(creditorMappings) > len(c.creditorMappings) {
+			// Expand map if needed
+			newMap := make(map[string]string, len(creditorMappings))
+			for k, v := range c.creditorMappings {
+				newMap[k] = v
+			}
+			c.creditorMappings = newMap
+		}
+		
 		// Normalize keys to lowercase for case-insensitive lookup
 		for key, value := range creditorMappings {
 			c.creditorMappings[strings.ToLower(key)] = value
 		}
 	}
 
-	// Load debitor mappings
-	debitorMappings, err := c.store.LoadDebitorMappings()
+	// Load debtor mappings
+	debitorMappings, err := c.store.LoadDebtorMappings()
 	if err != nil {
-		c.logger.WithError(err).Warn("Failed to load debitor mappings")
+		c.logger.WithError(err).Warn("Failed to load debtor mappings")
 	} else {
+		// Pre-allocate with known size and normalize keys to lowercase for case-insensitive lookup
+		if len(debitorMappings) > len(c.debitorMappings) {
+			// Expand map if needed
+			newMap := make(map[string]string, len(debitorMappings))
+			for k, v := range c.debitorMappings {
+				newMap[k] = v
+			}
+			c.debitorMappings = newMap
+		}
+		
 		// Normalize keys to lowercase for case-insensitive lookup
 		for key, value := range debitorMappings {
 			c.debitorMappings[strings.ToLower(key)] = value
@@ -139,105 +146,36 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 	return c
 }
 
-// initCategorizer initializes the default categorizer instance
-// Deprecated: Use dependency injection with NewCategorizer instead.
-// This function will be removed in v2.0.0.
-func initCategorizer() {
-	// Only initialize once
-	if defaultCategorizer == nil {
-		// Create a default GeminiClient and CategoryStore
-		defaultLogger := logging.GetLogger()
-		defaultAIClient := NewGeminiClient(defaultLogger) // Assuming NewGeminiClient exists
-		defaultStore := &store.CategoryStore{
-			CategoriesFile: "categories.yaml",
-			CreditorsFile:  "creditors.yaml",
-			DebitorsFile:   "debitors.yaml",
-		}
-
-		defaultCategorizer = NewCategorizer(defaultAIClient, defaultStore, defaultLogger)
+// getAIClient returns the AI client, initializing it lazily if needed.
+// This uses sync.Once to ensure thread-safe initialization.
+func (c *Categorizer) getAIClient() AIClient {
+	if c.aiClient != nil {
+		return c.aiClient
 	}
-}
-
-// SetTestCategoryStore allows tests to inject a test CategoryStore.
-// This should only be used in tests!
-func SetTestCategoryStore(store CategoryStoreInterface) {
-	// If store is nil, reset to default categorizer
-	if store == nil {
-		defaultCategorizer = nil
-		return
-	}
-
-	// For test environments, create a fresh test categorizer
-	defaultLogger := logging.GetLogger()
-	defaultAIClient := NewGeminiClient(defaultLogger) // Assuming NewGeminiClient exists
-	defaultCategorizer = NewCategorizer(defaultAIClient, store, defaultLogger)
-
-	// Always set test mode in tests to prevent external API calls
-	if err := os.Setenv("TEST_MODE", "true"); err != nil {
-		// Log error but continue - this is not critical
-		log.WithError(err).Warn("Failed to set TEST_MODE environment variable")
-	}
-}
-
-// CategorizeTransaction categorizes a transaction using the default categorizer
-// This is a package-level function that uses the default categorizer
-// Deprecated: Use NewCategorizer with dependency injection instead.
-// This function will be removed in v2.0.0.
-//
-// Migration example:
-//   // Old way (deprecated)
-//   category, err := categorizer.CategorizeTransaction(transaction)
-//
-//   // New way (recommended)
-//   container, err := container.NewContainer(config)
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   category, err := container.Categorizer.CategorizeTransaction(transaction)
-func CategorizeTransaction(transaction Transaction) (models.Category, error) {
-	initCategorizer()
-
-	// Safety check
-	if defaultCategorizer == nil {
-		return models.Category{}, fmt.Errorf("categorizer not initialized")
-	}
-
-	// Get the actual categorization
-	category, err := defaultCategorizer.CategorizeTransaction(transaction)
-
-	// If we successfully found a category via AI, let's immediately save it to the database
-	// so we don't need to recategorize similar transactions in the future
-	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
-		// Auto-learn this categorization by saving it to the appropriate database
-		if transaction.IsDebtor {
-			defaultCategorizer.logger.WithFields(
-				logging.Field{Key: "party", Value: transaction.PartyName},
-				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning debitor mapping")
-			defaultCategorizer.updateDebitorCategory(transaction.PartyName, category.Name)
-			// Force immediate save to disk
-			if err := defaultCategorizer.SaveDebitorsToYAML(); err != nil {
-				defaultCategorizer.logger.WithError(err).Warn("Failed to save debitor mapping")
-			} else {
-				defaultCategorizer.logger.Debug("Successfully saved new debitor mapping to disk")
+	
+	if c.aiFactory != nil {
+		c.aiClientOnce.Do(func() {
+			if c.aiClient == nil {
+				c.aiClient = c.aiFactory()
+				c.logger.Debug("Lazy-initialized AI client")
 			}
-		} else {
-			defaultCategorizer.logger.WithFields(
-				logging.Field{Key: "party", Value: transaction.PartyName},
-				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning creditor mapping")
-			defaultCategorizer.updateCreditorCategory(transaction.PartyName, category.Name)
-			// Force immediate save to disk
-			if err := defaultCategorizer.SaveCreditorsToYAML(); err != nil {
-				defaultCategorizer.logger.WithError(err).Warn("Failed to save creditor mapping")
-			} else {
-				defaultCategorizer.logger.Debug("Successfully saved new creditor mapping to disk")
-			}
-		}
+		})
 	}
-
-	return category, err
+	
+	return c.aiClient
 }
+
+// SetAIClientFactory sets a factory function for lazy AI client initialization.
+// This allows expensive AI client creation to be deferred until actually needed.
+func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
+	c.aiFactory = factory
+}
+
+
+
+
+
+
 
 // CategorizeTransactionWithCategorizer categorizes a transaction using the provided categorizer instance.
 // This function provides a migration path from the global singleton pattern to dependency injection.
@@ -390,7 +328,7 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	// Update the DirectMappingStrategy as well
 	for _, strategy := range c.strategies {
 		if directMapping, ok := strategy.(*DirectMappingStrategy); ok {
-			directMapping.UpdateDebitorMapping(partyName, categoryName)
+			directMapping.UpdateDebtorMapping(partyName, categoryName)
 			break
 		}
 	}
@@ -403,7 +341,7 @@ func (c *Categorizer) SaveDebitorsToYAML() error {
 	if !c.isDirtyDebitors {
 		return nil
 	}
-	if err := c.store.SaveDebitorMappings(c.debitorMappings); err != nil {
+	if err := c.store.SaveDebtorMappings(c.debitorMappings); err != nil {
 		return err
 	}
 	c.isDirtyDebitors = false
@@ -444,27 +382,14 @@ func (c *Categorizer) SaveCreditorsToYAML() error {
 	return nil
 }
 
-// UpdateDebitorCategory updates a debitor category mapping using the default categorizer
-// Deprecated: Use dependency injection with NewCategorizer instead.
-// This function will be removed in v2.0.0.
-func UpdateDebitorCategory(partyName, categoryName string) {
-	initCategorizer()
-	defaultCategorizer.updateDebitorCategory(partyName, categoryName)
-}
 
-// UpdateCreditorCategory updates a creditor category mapping using the default categorizer
-// Deprecated: Use dependency injection with NewCategorizer instead.
-// This function will be removed in v2.0.0.
-func UpdateCreditorCategory(partyName, categoryName string) {
-	initCategorizer()
-	defaultCategorizer.updateCreditorCategory(partyName, categoryName)
-}
 
 // categorizeWithGemini attempts to categorize a transaction using the AI client
 // Deprecated: This method is now handled by AIStrategy. It's kept for backward compatibility.
 func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Category, error) {
-	// If no AI client is available, return uncategorized
-	if c.aiClient == nil {
+	// Get AI client with lazy initialization
+	aiClient := c.getAIClient()
+	if aiClient == nil {
 		return models.Category{
 			Name:        models.CategoryUncategorized,
 			Description: "AI categorization not available",
@@ -489,7 +414,7 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 
 	// Use the AI client to categorize
 	ctx := context.Background()
-	categorizedTransaction, err := c.aiClient.Categorize(ctx, modelTransaction)
+	categorizedTransaction, err := aiClient.Categorize(ctx, modelTransaction)
 	if err != nil {
 		c.logger.WithError(err).WithField("party", transaction.PartyName).Warn("AI categorization error for transaction")
 		return models.Category{
@@ -505,220 +430,4 @@ func (c *Categorizer) categorizeWithGemini(transaction Transaction) (models.Cate
 	}, nil
 }
 
-//------------------------------------------------------------------------------
-// DEPRECATED CATEGORIZATION METHODS (kept for backward compatibility)
-//------------------------------------------------------------------------------
 
-// categorizeByCreditorMapping attempts to categorize a transaction using the creditor mapping database
-// Deprecated: This method is now handled by DirectMappingStrategy. It's kept for backward compatibility.
-func (c *Categorizer) categorizeByCreditorMapping(transaction Transaction) (models.Category, bool) {
-	if transaction.IsDebtor {
-		return models.Category{}, false
-	}
-
-	// Convert to lowercase for case-insensitive lookup
-	partyNameLower := strings.ToLower(transaction.PartyName)
-
-	c.configMutex.RLock()
-	categoryName, found := c.creditorMappings[partyNameLower]
-	c.configMutex.RUnlock()
-
-	if !found {
-		return models.Category{}, false
-	}
-
-	// Create a new Category with name and description
-	return models.Category{
-		Name:        categoryName,
-		Description: categoryDescriptionFromName(categoryName),
-	}, true
-}
-
-// categorizeByDebitorMapping attempts to categorize a transaction using the debitor mapping database
-// Deprecated: This method is now handled by DirectMappingStrategy. It's kept for backward compatibility.
-func (c *Categorizer) categorizeByDebitorMapping(transaction Transaction) (models.Category, bool) {
-	if !transaction.IsDebtor {
-		return models.Category{}, false
-	}
-
-	// Convert to lowercase for case-insensitive lookup
-	partyNameLower := strings.ToLower(transaction.PartyName)
-
-	c.configMutex.RLock()
-	categoryName, found := c.debitorMappings[partyNameLower]
-	c.configMutex.RUnlock()
-
-	if !found {
-		return models.Category{}, false
-	}
-
-	// Create a new Category with name and description
-	return models.Category{
-		Name:        categoryName,
-		Description: categoryDescriptionFromName(categoryName),
-	}, true
-}
-
-// categorizeLocallyByKeywords attempts to categorize a transaction using the local keyword database
-// Deprecated: This method is now handled by KeywordStrategy. It's kept for backward compatibility.
-func (c *Categorizer) categorizeLocallyByKeywords(transaction Transaction) (models.Category, bool) {
-	partyName := strings.ToUpper(transaction.PartyName)
-	description := strings.ToUpper(transaction.Info)
-
-	// Maps of keyword patterns to categories
-	// These are ordered from most specific to most general
-	merchantCategories := map[string]string{
-		// Transfers & Banking - add additional keywords to detect transfers
-		"VIRT BANC": "Virements",
-		"VIR TWINT": "Virements",
-		"VIRT":      "Virements",
-		"TRANSFERT": "Virements",
-		"ORDRE LSV": "Virements",
-		"TWINT":     "Virements", // CR TWINT
-		"CR TWINT":  "Virements",
-		"BCV-NET":   "Virements",
-		"TRANSFER":  "Virements",
-		"IMPOTS":    "Virements",
-		"FLORENCE":  "Virements", // Common family transfers
-		"JACQUET":   "Virements", // Common family transfers
-
-		// Supermarkets
-		"COOP":       models.CategoryGroceries,
-		"MIGROS":     models.CategoryGroceries,
-		"ALDI":       models.CategoryGroceries,
-		"LIDL":       models.CategoryGroceries,
-		"DENNER":     models.CategoryGroceries,
-		"MANOR":      models.CategoryShopping,
-		"MIGROLINO":  models.CategoryGroceries,
-		"KIOSK":      models.CategoryGroceries,
-		"MINERALOEL": models.CategoryGroceries,
-
-		// Restaurants & Food
-		"PIZZERIA":    models.CategoryRestaurants,
-		"CAFE":        models.CategoryRestaurants,
-		"RESTAURANT":  models.CategoryRestaurants,
-		"SUSHI":       models.CategoryRestaurants,
-		"KEBAB":       models.CategoryRestaurants,
-		"BOUCHERIE":   models.CategoryGroceries,
-		"BOULANGERIE": models.CategoryGroceries,
-		"RAMEN":       models.CategoryRestaurants,
-		"KAMUY":       models.CategoryRestaurants,
-		"MINESTRONE":  models.CategoryRestaurants,
-
-		// Leisure
-		"PISCINE":  "Loisirs",
-		"SPA":      "Loisirs",
-		"CINEMA":   "Loisirs",
-		"PILATUS":  "Loisirs",
-		"TOTEM":    "Sport",
-		"ESCALADE": "Sport",
-
-		// Shops
-		"OCHSNER":       models.CategoryShopping,
-		"SPORT":         models.CategoryShopping,
-		"MAMMUT":        models.CategoryShopping,
-		"MULLER":        models.CategoryShopping,
-		"BAZAR":         models.CategoryShopping,
-		"INTERDISCOUNT": models.CategoryShopping,
-		"IKEA":          "Mobilier",
-		"PAYOT":         models.CategoryShopping,
-		"CALIDA":        models.CategoryShopping,
-		"DIGITAL":       models.CategoryShopping,
-		"RHB":           models.CategoryShopping,
-		"WEBSHOP":       models.CategoryShopping,
-		"POST":          models.CategoryShopping,
-
-		// Services
-		"PRESSING":     "Services",
-		"777-PRESSING": "Services",
-		"5ASEC":        "Services",
-
-		// Cash withdrawals
-		"RETRAIT":    models.CategoryWithdrawals,
-		"ATM":        models.CategoryWithdrawals,
-		"WITHDRAWAL": models.CategoryWithdrawals,
-
-		// Utilities and telecom
-		"ROMANDE ENERGIE": "Utilités",
-		"WINGO":           "Services",
-
-		// Transportation
-		"SBB":        models.CategoryTransport,
-		"CFF":        models.CategoryTransport,
-		"MOBILITY":   "Voiture",
-		"PAYBYPHONE": models.CategoryTransport,
-
-		// Insurance
-		"ASSURANCE": "Assurances",
-		"VAUDOISE":  "Assurances",
-		"GENERALI":  "Assurances",
-		"AVENIR":    "Assurance Maladie",
-
-		// Financial
-		"SELMA_FEE": "Frais Bancaires",
-		"CEMBRAPAY": "Services",
-		"VISECA":    "Abonnements",
-
-		// Housing
-		"PUBLICA": "Logement",
-		"ASLOCA":  "Logement",
-
-		// Companies
-		"DELL": "Virements",
-	}
-
-	// Match bank transaction codes to categories
-	txCodeCategories := map[string]string{
-		models.BankCodeCashWithdrawal: models.CategoryWithdrawals, // Cash withdrawals
-		models.BankCodePOS:            models.CategoryShopping,    // Point of sale debit
-		models.BankCodeCreditCard:     models.CategoryShopping,    // Credit card payment
-		models.BankCodeInternalCredit: models.CategoryTransfers,   // Internal credit transfer
-		models.BankCodeDirectDebit:    models.CategoryTransfers,   // Direct debit
-		"RDDT":                       models.CategoryTransfers,   // Direct debit
-		"AUTT":                       models.CategoryTransfers,   // Automatic transfer
-		"RCDT":                       models.CategoryTransfers,   // Received credit transfer
-		"PMNT":                       models.CategoryTransfers,   // Payment
-		"RMDR":                       "Services",                 // Reminders
-	}
-
-	// First try to match merchant name
-	for keyword, category := range merchantCategories {
-		if strings.Contains(partyName, keyword) || strings.Contains(description, keyword) {
-			return models.Category{
-				Name:        category,
-				Description: categoryDescriptionFromName(category),
-			}, true
-		}
-	}
-
-	// Try to detect transaction types from bank codes
-	for bankCode, category := range txCodeCategories {
-		// Check if bank code appears in transaction info
-		if strings.Contains(transaction.Info, bankCode) {
-			return models.Category{
-				Name:        category,
-				Description: categoryDescriptionFromName(category),
-			}, true
-		}
-	}
-
-	// Look for credit cards and cash withdrawals
-	if transaction.IsDebtor {
-		// Special case for Unknown Payee for card payments - don't default to Salaire
-		if strings.Contains(partyName, "UNKNOWN PAYEE") || partyName == "UNKNOWN PAYEE" {
-			// If it looks like a card payment or cash withdrawal
-			if strings.Contains(description, "PMT CARTE") ||
-				strings.Contains(description, "PMT TWINT") ||
-				strings.Contains(description, "RETRAIT") ||
-				strings.Contains(description, "WITHDRAWAL") {
-				return models.Category{
-					Name:        models.CategoryShopping,
-					Description: categoryDescriptionFromName(models.CategoryShopping),
-				}, true
-			}
-		}
-	}
-
-	// No match found
-	return models.Category{}, false
-}

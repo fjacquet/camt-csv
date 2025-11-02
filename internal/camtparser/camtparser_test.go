@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
@@ -15,7 +16,7 @@ import (
 
 func TestSetLogger(t *testing.T) {
 	// Create a new logger
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 
 	// Create adapter with logger
 	adapter := NewAdapter(logger)
@@ -135,15 +136,16 @@ func TestParseFile(t *testing.T) {
 	}()
 
 	// Test parsing
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "Failed to parse CAMT.053 XML file")
 	assert.Equal(t, 1, len(transactions), "Expected 1 transaction")
 
 	// Verify transaction
-	assert.Equal(t, "15.01.2025", transactions[0].Date)
-	assert.Equal(t, "15.01.2025", transactions[0].ValueDate)
+	expectedDate := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, expectedDate, transactions[0].Date)
+	assert.Equal(t, expectedDate, transactions[0].ValueDate)
 	assert.Equal(t, "Invoice 123", transactions[0].RemittanceInfo)
 	assert.Equal(t, models.ParseAmount("120.00"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
@@ -170,7 +172,7 @@ func TestConvertToCSV(t *testing.T) {
 	csvFile := filepath.Join(tempDir, "output.csv")
 
 	// Convert XML to CSV
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	err = adapter.ConvertToCSV(xmlFile, csvFile)
 	assert.NoError(t, err)
@@ -180,7 +182,7 @@ func TestConvertToCSV(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Expected CSV content (comma-separated) - updated to match actual parser output
-	expectedCSV := "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo,Amount,CreditDebit,IsDebit,Debit,Credit,Currency,AmountExclTax,AmountTax,TaxRate,Recipient,InvestmentType,Number,Category,Type,Fund,NumberOfShares,Fees,IBAN,EntryReference,Reference,AccountServicer,BankTxCode,OriginalCurrency,OriginalAmount,ExchangeRate\n,,01.01.2023,02.01.2023,Test Payee,Test Payee,,,Test Transaction,100,DBIT,true,100,0,EUR,0,0,0,Test Payee,,,Miscellaneous,,,0,0,,,BK123,,,,0,0\n"
+	expectedCSV := "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo,Amount,CreditDebit,IsDebit,Debit,Credit,Currency,AmountExclTax,AmountTax,TaxRate,Recipient,InvestmentType,Number,Category,Type,Fund,NumberOfShares,Fees,IBAN,EntryReference,Reference,AccountServicer,BankTxCode,OriginalCurrency,OriginalAmount,ExchangeRate\n,,01.01.2023,02.01.2023,Test Payee,Test Payee,,,Test Transaction,100.00,DBIT,true,100.00,0.00,EUR,0.00,0.00,0.00,Test Payee,,,Uncategorized,,,0,0.00,,,BK123,,,,0.00,0.00\n"
 
 	assert.Equal(t, expectedCSV, string(csvContent))
 }

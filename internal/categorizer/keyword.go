@@ -19,7 +19,7 @@ type KeywordStrategy struct {
 // NewKeywordStrategy creates a new KeywordStrategy instance.
 func NewKeywordStrategy(store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
 	strategy := &KeywordStrategy{
-		categories: []models.CategoryConfig{},
+		categories: make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
 		store:      store,
 		logger:     logger,
 	}

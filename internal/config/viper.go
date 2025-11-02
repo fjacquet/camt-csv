@@ -60,7 +60,7 @@ type Config struct {
 	Categories struct {
 		File          string `mapstructure:"file" yaml:"file"`
 		CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
-		DebitorsFile  string `mapstructure:"debitors_file" yaml:"debitors_file"`
+		DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 	} `mapstructure:"categories" yaml:"categories"`
 
 	Constitution struct {
@@ -155,7 +155,7 @@ func setDefaults(v *viper.Viper) {
 	// Categories defaults
 	v.SetDefault("categories.file", "categories.yaml")
 	v.SetDefault("categories.creditors_file", "creditors.yaml")
-	v.SetDefault("categories.debitors_file", "debitors.yaml")
+	v.SetDefault("categories.debtors_file", "debtors.yaml")
 
 	// Constitution defaults
 	v.SetDefault("constitution.file_paths", []string{})

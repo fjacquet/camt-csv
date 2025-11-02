@@ -443,15 +443,9 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
 
-			// Apply categorization
-
-			category, err := categorizer.CategorizeTransaction(catTransaction)
-
-			if err == nil && category.Name != "" {
-
-				transaction.Category = category.Name
-
-			}
+			// Note: Categorization is now handled by the categorizer component
+			// through dependency injection, not directly in the parser
+			transaction.Category = models.CategoryUncategorized
 
 			transactions = append(transactions, transaction)
 

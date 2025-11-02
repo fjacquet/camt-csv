@@ -22,15 +22,15 @@ func NewTestCategoryStore(dir string) *CategoryStore {
 	return &CategoryStore{
 		CategoriesFile: filepath.Join(dir, "categories.yaml"),
 		CreditorsFile:  filepath.Join(dir, "creditors.yaml"),
-		DebitorsFile:   filepath.Join(dir, "debitors.yaml"),
+		DebtorsFile:    filepath.Join(dir, "debtors.yaml"),
 	}
 }
 
 func TestNewCategoryStore(t *testing.T) {
-	store := NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml")
+	store := NewCategoryStore("categories.yaml", "creditors.yaml", "debtors.yaml")
 	assert.Equal(t, "categories.yaml", store.CategoriesFile)
 	assert.Equal(t, "creditors.yaml", store.CreditorsFile)
-	assert.Equal(t, "debitors.yaml", store.DebitorsFile)
+	assert.Equal(t, "debtors.yaml", store.DebtorsFile)
 }
 
 func TestFindConfigFile(t *testing.T) {
@@ -105,7 +105,7 @@ func TestLoadAndSaveCreditorMappings(t *testing.T) {
 	store := NewCategoryStore(
 		filepath.Join(tempDir, "categories.yaml"),
 		creditorsFile,
-		filepath.Join(tempDir, "debitors.yaml"),
+		filepath.Join(tempDir, "debtors.yaml"),
 	)
 
 	mappings, err := store.LoadCreditorMappings()
@@ -124,36 +124,36 @@ func TestLoadAndSaveCreditorMappings(t *testing.T) {
 	assert.Equal(t, "CHARLIE_LLC", newMappings["Charlie"])
 }
 
-func TestLoadAndSaveDebitorMappings(t *testing.T) {
+func TestLoadAndSaveDebtorMappings(t *testing.T) {
 	tempDir := t.TempDir()
-	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
+	debtorsFile := filepath.Join(tempDir, "debtors.yaml")
 
 	// Create initial mappings
 	initialMappings := map[string]string{"Company X": "INCOME_SALARY", "Company Y": "INCOME_BONUS"}
 	data, err := yaml.Marshal(initialMappings)
 	assert.NoError(t, err)
-	err = os.WriteFile(debitorsFile, data, models.PermissionConfigFile)
+	err = os.WriteFile(debtorsFile, data, models.PermissionConfigFile)
 	assert.NoError(t, err)
 
 	// Load the mappings
 	store := NewCategoryStore(
 		filepath.Join(tempDir, "categories.yaml"),
 		filepath.Join(tempDir, "creditors.yaml"),
-		debitorsFile,
+		debtorsFile,
 	)
 
-	mappings, err := store.LoadDebitorMappings()
+	mappings, err := store.LoadDebtorMappings()
 	assert.NoError(t, err)
 	assert.Equal(t, "INCOME_SALARY", mappings["Company X"])
 	assert.Equal(t, "INCOME_BONUS", mappings["Company Y"])
 
 	// Add a new mapping and save
 	mappings["Company Z"] = "INCOME_FREELANCE"
-	err = store.SaveDebitorMappings(mappings)
+	err = store.SaveDebtorMappings(mappings)
 	assert.NoError(t, err)
 
 	// Reload and verify
-	newMappings, err := store.LoadDebitorMappings()
+	newMappings, err := store.LoadDebtorMappings()
 	assert.NoError(t, err)
 	assert.Equal(t, "INCOME_FREELANCE", newMappings["Company Z"])
 }

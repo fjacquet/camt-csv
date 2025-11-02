@@ -31,7 +31,7 @@ func TestCategorizeTransactionWithCategorizer(t *testing.T) {
 	testStore := &store.CategoryStore{
 		CategoriesFile: "testdata/categories.yaml",
 		CreditorsFile:  "testdata/creditors.yaml",
-		DebitorsFile:   "testdata/debitors.yaml",
+		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
 	
@@ -94,7 +94,7 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 	testStore := &store.CategoryStore{
 		CategoriesFile: "testdata/categories.yaml",
 		CreditorsFile:  "testdata/creditors.yaml",
-		DebitorsFile:   "testdata/debitors.yaml",
+		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
 	
@@ -125,7 +125,7 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 	testStore := &store.CategoryStore{
 		CategoriesFile: "testdata/categories.yaml",
 		CreditorsFile:  "testdata/creditors.yaml",
-		DebitorsFile:   "testdata/debitors.yaml",
+		DebtorsFile:    "testdata/debtors.yaml",
 	}
 	testLogger := logging.NewLogrusAdapter("debug", "text")
 	

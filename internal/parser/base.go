@@ -34,8 +34,8 @@ type BaseParser struct {
 //   - BaseParser: A new BaseParser instance ready for embedding
 func NewBaseParser(logger logging.Logger) BaseParser {
 	if logger == nil {
-		// Use the default logger from the logging package if none provided
-		logger = logging.GetLogger()
+		// Use a default logger if none provided
+		logger = logging.NewLogrusAdapter("info", "text")
 	}
 	
 	return BaseParser{

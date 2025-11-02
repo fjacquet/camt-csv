@@ -17,7 +17,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 		name             string
 		transaction      Transaction
 		creditorMappings map[string]string
-		debitorMappings  map[string]string
+		debtorMappings   map[string]string
 		categories       []models.CategoryConfig
 		aiResponse       string
 		expectedCategory string
@@ -34,13 +34,13 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			creditorMappings: map[string]string{
 				"coop store": models.CategoryGroceries,
 			},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories:       []models.CategoryConfig{},
 			expectedCategory: models.CategoryGroceries,
 			expectedStrategy: "DirectMapping",
 		},
 		{
-			name: "direct mapping strategy wins - debitor",
+			name: "direct mapping strategy wins - debtor",
 			transaction: Transaction{
 				PartyName: "John Doe",
 				IsDebtor:  true,
@@ -48,7 +48,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Date:      "2025-01-15",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings: map[string]string{
+			debtorMappings: map[string]string{
 				"john doe": models.CategorySalary,
 			},
 			categories:       []models.CategoryConfig{},
@@ -65,7 +65,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Info:      "MIGROS purchase",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories: []models.CategoryConfig{
 				{
 					Name:     models.CategoryGroceries,
@@ -85,7 +85,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Info:      "Train ticket",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories:       []models.CategoryConfig{},
 			expectedCategory: models.CategoryTransport,
 			expectedStrategy: "Keyword",
@@ -100,7 +100,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Info:      "Coffee purchase",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories:       []models.CategoryConfig{},
 			aiResponse:       models.CategoryRestaurants,
 			expectedCategory: models.CategoryRestaurants,
@@ -116,7 +116,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Info:      "Unknown transaction",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories:       []models.CategoryConfig{},
 			aiResponse:       models.CategoryUncategorized,
 			expectedCategory: models.CategoryUncategorized,
@@ -131,7 +131,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 				Date:      "2025-01-15",
 			},
 			creditorMappings: map[string]string{},
-			debitorMappings:  map[string]string{},
+			debtorMappings:   map[string]string{},
 			categories:       []models.CategoryConfig{},
 			expectedCategory: models.CategoryUncategorized,
 			expectedStrategy: "", // No strategy is tried
@@ -144,7 +144,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			mockStore := &store.MockCategoryStore{
 				Categories:       tt.categories,
 				CreditorMappings: tt.creditorMappings,
-				DebitorMappings:  tt.debitorMappings,
+				DebtorMappings:   tt.debtorMappings,
 			}
 
 			// Create mock AI client
@@ -203,7 +203,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 		CreditorMappings: map[string]string{
 			"coop restaurant": models.CategoryGroceries, // Direct mapping should win
 		},
-		DebitorMappings: map[string]string{},
+		DebtorMappings: map[string]string{},
 	}
 
 	// AI would return a different category
@@ -238,7 +238,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	// Create a mock store that will cause DirectMapping to fail
 	mockStore := &store.MockCategoryStore{
 		LoadCreditorMappingsError: assert.AnError,
-		LoadDebitorMappingsError:  assert.AnError,
+		LoadDebtorMappingsError:   assert.AnError,
 		Categories: []models.CategoryConfig{
 			{
 				Name:     models.CategoryGroceries,
@@ -308,14 +308,14 @@ func TestCategorizer_BackwardCompatibility(t *testing.T) {
 			expected: models.CategoryGroceries,
 		},
 		{
-			name: "debitor mapping",
+			name: "debtor mapping",
 			transaction: Transaction{
 				PartyName: "Employer Corp",
 				IsDebtor:  true,
 			},
 			setupStore: func() *store.MockCategoryStore {
 				return &store.MockCategoryStore{
-					DebitorMappings: map[string]string{
+					DebtorMappings: map[string]string{
 						"employer corp": models.CategorySalary,
 					},
 				}

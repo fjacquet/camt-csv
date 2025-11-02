@@ -13,7 +13,7 @@ import (
 	"github.com/gocarina/gocsv"
 )
 
-var log = logging.GetLogger()
+// Note: Removed global logger in favor of dependency injection
 
 // Global CSV delimiter - can be configured via centralized config or environment variable
 var Delimiter rune = ','
@@ -32,40 +32,35 @@ func SetDelimiter(delim rune) {
 	gocsv.TagSeparator = fmt.Sprintf("%c", delim)
 }
 
-// SetLogger allows setting a configured logger
-func SetLogger(logger logging.Logger) {
-	if logger == nil {
-		return // Don't change the logger if nil is passed
-	}
-	log = logger
-}
-
 // ReadCSVFile reads CSV data into a slice of structs using gocsv
 // This is a generic function that can be used by any parser
 // TCSVRow is the struct type that maps to the CSV columns
-func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
-	log.WithField("file", filePath).Info("Reading CSV file")
+func ReadCSVFile[TCSVRow any](filePath string, logger logging.Logger) ([]TCSVRow, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.WithField("file", filePath).Info("Reading CSV file")
 
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to open CSV file")
+		logger.WithError(err).Error("Failed to open CSV file")
 		return nil, fmt.Errorf("error opening CSV file: %w", err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file")
+			logger.WithError(err).Warn("Failed to close file")
 		}
 	}()
 
 	// Parse the CSV into structs
 	var rows []TCSVRow
 	if err := gocsv.UnmarshalFile(file, &rows); err != nil {
-		log.WithError(err).Error("Failed to parse CSV file")
+		logger.WithError(err).Error("Failed to parse CSV file")
 		return nil, fmt.Errorf("error parsing CSV file: %w", err)
 	}
 
-	log.WithField("count", len(rows)).Info("Successfully read CSV data")
+	logger.WithField("count", len(rows)).Info("Successfully read CSV data")
 	return rows, nil
 }
 
@@ -79,11 +74,19 @@ func ReadCSVFile[TCSVRow any](filePath string) ([]TCSVRow, error) {
 // Returns:
 // - error: nil on success, or an error describing what went wrong
 func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
+	return WriteTransactionsToCSVWithLogger(transactions, csvFile, nil)
+}
+
+// WriteTransactionsToCSVWithLogger writes transactions to a CSV file with a logger
+func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	if transactions == nil {
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
-	log.WithFields(
+	logger.WithFields(
 		logging.Field{Key: "file", Value: csvFile},
 		logging.Field{Key: "count", Value: len(transactions)},
 	).Info("Writing transactions to CSV file")
@@ -91,19 +94,19 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(csvFile)
 	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
-		log.WithError(err).Error("Failed to create directory")
+		logger.WithError(err).Error("Failed to create directory")
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
 	// Create the file
 	file, err := os.Create(csvFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to create CSV file")
+		logger.WithError(err).Error("Failed to create CSV file")
 		return fmt.Errorf("error creating CSV file: %w", err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file")
+			logger.WithError(err).Warn("Failed to close file")
 		}
 	}()
 
@@ -140,13 +143,40 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 	csvWriter := csv.NewWriter(file)
 	csvWriter.Comma = Delimiter
 
-	// Marshal the transactions
-	if err := gocsv.MarshalCSV(transactions, gocsv.NewSafeCSVWriter(csvWriter)); err != nil {
-		log.WithError(err).Error("Failed to marshal transactions to CSV")
-		return fmt.Errorf("error writing CSV data: %w", err)
+	// Write header manually to ensure correct order
+	header := []string{
+		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN", 
+		"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit", "Currency",
+		"AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType", "Number", "Category",
+		"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
+		"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
+	}
+	if err := csvWriter.Write(header); err != nil {
+		logger.WithError(err).Error("Failed to write CSV header")
+		return fmt.Errorf("error writing CSV header: %w", err)
 	}
 
-	log.WithFields(
+	// Write each transaction using custom MarshalCSV method
+	for _, transaction := range transactions {
+		record, err := transaction.MarshalCSV()
+		if err != nil {
+			logger.WithError(err).Error("Failed to marshal transaction to CSV")
+			return fmt.Errorf("error marshaling transaction: %w", err)
+		}
+		if err := csvWriter.Write(record); err != nil {
+			logger.WithError(err).Error("Failed to write CSV record")
+			return fmt.Errorf("error writing CSV record: %w", err)
+		}
+	}
+
+	// Flush the writer
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		logger.WithError(err).Error("Failed to flush CSV writer")
+		return fmt.Errorf("error flushing CSV writer: %w", err)
+	}
+
+	logger.WithFields(
 		logging.Field{Key: "file", Value: csvFile},
 		logging.Field{Key: "count", Value: len(transactions)},
 	).Info("Successfully wrote transactions to CSV file")
@@ -156,18 +186,26 @@ func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) e
 
 // ExportTransactionsToCSV exports a slice of transactions to a CSV file
 func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
+	return ExportTransactionsToCSVWithLogger(transactions, csvFile, nil)
+}
+
+// ExportTransactionsToCSVWithLogger exports transactions with a logger
+func ExportTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	if transactions == nil {
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
 
-	log.WithFields(
+	logger.WithFields(
 		logging.Field{Key: "count", Value: len(transactions)},
 		logging.Field{Key: "file", Value: csvFile},
 		logging.Field{Key: "delimiter", Value: string(Delimiter)},
 	).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
 
 	// Use the primary function for writing transactions to ensure consistency
-	return WriteTransactionsToCSV(transactions, csvFile)
+	return WriteTransactionsToCSVWithLogger(transactions, csvFile, logger)
 }
 
 // GeneralizedConvertToCSV is a utility function that combines parsing and writing to CSV
@@ -178,7 +216,21 @@ func GeneralizedConvertToCSV(
 	parseFunc func(string) ([]models.Transaction, error),
 	validateFunc func(string) (bool, error),
 ) error {
-	log.WithFields(
+	return GeneralizedConvertToCSVWithLogger(inputFile, outputFile, parseFunc, validateFunc, nil)
+}
+
+// GeneralizedConvertToCSVWithLogger converts with a logger
+func GeneralizedConvertToCSVWithLogger(
+	inputFile string,
+	outputFile string,
+	parseFunc func(string) ([]models.Transaction, error),
+	validateFunc func(string) (bool, error),
+	logger logging.Logger,
+) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.WithFields(
 		logging.Field{Key: "input_file", Value: inputFile},
 		logging.Field{Key: "output_file", Value: outputFile},
 	).Info("Converting file to CSV")
@@ -206,11 +258,11 @@ func GeneralizedConvertToCSV(
 	}
 
 	// Write transactions to CSV
-	if err := WriteTransactionsToCSV(transactions, outputFile); err != nil {
+	if err := WriteTransactionsToCSVWithLogger(transactions, outputFile, logger); err != nil {
 		return fmt.Errorf("error writing transactions to CSV: %w", err)
 	}
 
-	log.WithFields(
+	logger.WithFields(
 		logging.Field{Key: "input_file", Value: inputFile},
 		logging.Field{Key: "output_file", Value: outputFile},
 		logging.Field{Key: "count", Value: len(transactions)},

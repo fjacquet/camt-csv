@@ -343,7 +343,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 ### How Categorization Works
 
 1. **Direct Mapping Check**:
-   - Checks `database/creditors.yaml` and `database/debitors.yaml`
+   - Checks `database/creditors.yaml` and `database/debtors.yaml`
    - Exact, case-insensitive matches
    - Fastest method for known transactions
 
@@ -381,7 +381,7 @@ categories:
 
 ```bash
 cat database/creditors.yaml  # For money received
-cat database/debitors.yaml   # For money spent
+cat database/debtors.yaml    # For money spent
 ```
 
 ### Categorization Best Practices

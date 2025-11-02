@@ -4,37 +4,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func setupTestCategorizer(t *testing.T) {
-	t.Helper()
-	tempDir := t.TempDir()
-	categoriesFile := filepath.Join(tempDir, "categories.yaml")
-	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
-	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
-		t.Fatalf("Failed to write categories file: %v", err)
-	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write creditors file: %v", err)
-	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write debitors file: %v", err)
-	}
-	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
-	categorizer.SetTestCategoryStore(store)
-	t.Cleanup(func() {
-		categorizer.SetTestCategoryStore(nil)
-	})
+	// The new categorizer system uses dependency injection and doesn't require global setup
+	// Tests that need categorization should create their own categorizer instances
 }
 
 func TestParseFile_InvalidFormat(t *testing.T) {
@@ -70,7 +52,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
@@ -109,7 +91,7 @@ func TestParseFile(t *testing.T) {
 	}()
 
 	// Test parsing the file
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "ParseFile should not return an error for valid input")
@@ -117,14 +99,16 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
 
 	if len(transactions) > 0 {
-		assert.Equal(t, "01.01.2023", transactions[0].Date, "Date should be formatted as DD.MM.YYYY")
+		expectedDate1, _ := time.Parse("2006-01-02", "2023-01-01")
+		assert.Equal(t, expectedDate1, transactions[0].Date, "Date should be parsed correctly")
 		assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
 		assert.Equal(t, models.ParseAmount("-247.90"), transactions[0].Amount)
 		assert.Equal(t, "CHF", transactions[0].Currency)
 		assert.Equal(t, 2, transactions[0].NumberOfShares)
 	}
 	if len(transactions) > 1 {
-		assert.Equal(t, "02.01.2023", transactions[1].Date, "Date should be formatted as DD.MM.YYYY")
+		expectedDate2, _ := time.Parse("2006-01-02", "2023-01-02")
+		assert.Equal(t, expectedDate2, transactions[1].Date, "Date should be parsed correctly")
 		assert.Contains(t, transactions[1].Description, "ISHARES CORE S&P 500 UCITS ETF")
 		assert.Equal(t, models.ParseAmount("452.22"), transactions[1].Amount)
 		assert.Equal(t, "CHF", transactions[1].Currency)
@@ -199,10 +183,12 @@ func TestWriteToCSV(t *testing.T) {
 	outputFile := filepath.Join(tempDir, "transactions.csv")
 
 	// Create test transactions
+	date1, _ := time.Parse("2006-01-02", "2023-01-15")
+	date2, _ := time.Parse("2006-01-02", "2023-01-20")
 	transactions := []models.Transaction{
 		{
-			Date:           "2023-01-15",
-			ValueDate:      "2023-01-15",
+			Date:           date1,
+			ValueDate:      date1,
 			Description:    "Monthly dividend",
 			Amount:         models.ParseAmount("-100.00"),
 			Currency:       "CHF",
@@ -210,8 +196,8 @@ func TestWriteToCSV(t *testing.T) {
 			Fund:           "Global Fund",
 		},
 		{
-			Date:           "2023-01-20",
-			ValueDate:      "2023-01-20",
+			Date:           date2,
+			ValueDate:      date2,
 			Description:    "Quarterly distribution",
 			Amount:         models.ParseAmount("1000.00"),
 			Currency:       "CHF",

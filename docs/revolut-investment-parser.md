@@ -104,7 +104,7 @@ type Parser interface {
 
 Investment transactions are categorized using the existing hybrid approach:
 
-1. Direct mapping from YAML databases (`creditors.yaml`, `debitors.yaml`)
+1. Direct mapping from YAML databases (`creditors.yaml`, `debtors.yaml`)
 2. Keyword matching from `categories.yaml`
 3. AI fallback using Google Gemini API (when enabled)
 

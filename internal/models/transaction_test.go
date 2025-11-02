@@ -2,9 +2,11 @@ package models
 
 import (
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 
@@ -128,4 +130,129 @@ func TestUpdateInvestmentTypeFromLegacyField(t *testing.T) {
 		tx.UpdateInvestmentTypeFromLegacyField()
 		assert.Equal(t, "", tx.Investment)
 	})
+}
+
+func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
+	tx := Transaction{
+		Amount: decimal.NewFromFloat(100.50),
+		Debit:  decimal.NewFromFloat(100.50),
+		Credit: decimal.Zero,
+		Fees:   decimal.NewFromFloat(5.25),
+	}
+	
+	// Test deprecated float methods
+	assert.Equal(t, 100.50, tx.GetAmountAsFloat())
+	assert.Equal(t, 100.50, tx.GetDebitAsFloat())
+	assert.Equal(t, 0.0, tx.GetCreditAsFloat())
+	assert.Equal(t, 5.25, tx.GetFeesAsFloat())
+}
+
+func TestTransaction_SetPayerInfo(t *testing.T) {
+	tx := Transaction{}
+	tx.SetPayerInfo("John Doe", "CH1234567890")
+	
+	assert.Equal(t, "John Doe", tx.Payer)
+	assert.Equal(t, "CH1234567890", tx.PartyIBAN)
+}
+
+func TestTransaction_SetPayeeInfo(t *testing.T) {
+	tx := Transaction{}
+	tx.SetPayeeInfo("Acme Corp", "CH0987654321")
+	
+	assert.Equal(t, "Acme Corp", tx.Payee)
+	assert.Equal(t, "CH0987654321", tx.PartyIBAN)
+}
+
+func TestTransaction_SetAmountFromFloat(t *testing.T) {
+	tx := Transaction{}
+	tx.SetAmountFromFloat(123.45, "EUR")
+	
+	assert.True(t, decimal.NewFromFloat(123.45).Equal(tx.Amount))
+	assert.Equal(t, "EUR", tx.Currency)
+}
+
+func TestTransaction_GetTransactionDirection(t *testing.T) {
+	tests := []struct {
+		name     string
+		tx       Transaction
+		expected TransactionDirection
+	}{
+		{
+			name: "debit transaction",
+			tx: Transaction{
+				CreditDebit: TransactionTypeDebit,
+				DebitFlag:   true,
+			},
+			expected: DirectionDebit,
+		},
+		{
+			name: "credit transaction",
+			tx: Transaction{
+				CreditDebit: TransactionTypeCredit,
+				DebitFlag:   false,
+			},
+			expected: DirectionCredit,
+		},
+		{
+			name: "unknown transaction",
+			tx: Transaction{
+				CreditDebit: "UNKNOWN",
+				DebitFlag:   false,
+				Amount:      decimal.Zero,
+			},
+			expected: DirectionUnknown,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.tx.GetTransactionDirection())
+		})
+	}
+}
+
+func TestTransaction_ToBuilder(t *testing.T) {
+	original := Transaction{
+		Number:      "TXN-001",
+		Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+		Amount:      decimal.NewFromFloat(100.50),
+		Currency:    "CHF",
+		Description: "Test transaction",
+		Payer:       "John Doe",
+		Payee:       "Acme Corp",
+	}
+	
+	builder := original.ToBuilder()
+	
+	// Verify the builder has the same data
+	assert.Equal(t, original.Number, builder.tx.Number)
+	assert.Equal(t, original.Date, builder.tx.Date)
+	assert.True(t, original.Amount.Equal(builder.tx.Amount))
+	assert.Equal(t, original.Currency, builder.tx.Currency)
+	assert.Equal(t, original.Description, builder.tx.Description)
+	assert.Equal(t, original.Payer, builder.tx.Payer)
+	assert.Equal(t, original.Payee, builder.tx.Payee)
+	
+	// Modify through builder and build
+	modified, err := builder.WithDescription("Modified description").Build()
+	require.NoError(t, err)
+	
+	assert.Equal(t, "Modified description", modified.Description)
+	assert.Equal(t, original.Number, modified.Number) // Other fields should remain
+}
+
+func TestNewTransactionFromBuilder(t *testing.T) {
+	builder := NewTransactionFromBuilder()
+	
+	assert.NotNil(t, builder)
+	assert.IsType(t, &TransactionBuilder{}, builder)
+	
+	// Should be able to build a transaction
+	tx, err := builder.
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(100), "CHF").
+		Build()
+	
+	require.NoError(t, err)
+	assert.NotEmpty(t, tx.Number)
 }

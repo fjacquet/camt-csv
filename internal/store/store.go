@@ -27,15 +27,15 @@ func SetLogger(logger *logrus.Logger) {
 type CategoryStore struct {
 	CategoriesFile string
 	CreditorsFile  string
-	DebitorsFile   string
+	DebtorsFile    string
 }
 
 // NewCategoryStore creates a new store for category-related data
-func NewCategoryStore(categoriesFile, creditorsFile, debitorsFile string) *CategoryStore {
+func NewCategoryStore(categoriesFile, creditorsFile, debtorsFile string) *CategoryStore {
 	return &CategoryStore{
 		CategoriesFile: categoriesFile,
 		CreditorsFile:  creditorsFile,
-		DebitorsFile:   debitorsFile,
+		DebtorsFile:    debtorsFile,
 	}
 }
 
@@ -164,34 +164,34 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 	return mappings, nil
 }
 
-// LoadDebitorMappings loads debitor mappings from YAML
-func (s *CategoryStore) LoadDebitorMappings() (map[string]string, error) {
-	filename := s.DebitorsFile
+// LoadDebtorMappings loads debtor mappings from YAML
+func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
+	filename := s.DebtorsFile
 	if filename == "" {
-		filename = "debitors.yaml"
+		filename = "debtors.yaml"
 	}
 
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Debitor mappings file not found: %s", filename)
+			log.Warnf("Debtor mappings file not found: %s", filename)
 			return map[string]string{}, nil
 		}
-		return nil, fmt.Errorf("error resolving debitor mappings file: %w", err)
+		return nil, fmt.Errorf("error resolving debtor mappings file: %w", err)
 	}
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading debitor mappings file: %w", err)
+		return nil, fmt.Errorf("error reading debtor mappings file: %w", err)
 	}
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
-		log.WithError(err).Warnf("Failed to unmarshal debitor mappings from %s", filePath)
-		return nil, fmt.Errorf("error parsing debitor mappings: %w", err)
+		log.WithError(err).Warnf("Failed to unmarshal debtor mappings from %s", filePath)
+		return nil, fmt.Errorf("error parsing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Loaded %d debitor mappings from %s", len(mappings), filePath)
+	log.Debugf("Loaded %d debtor mappings from %s", len(mappings), filePath)
 	return mappings, nil
 }
 
@@ -237,17 +237,17 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 	return nil
 }
 
-// SaveDebitorMappings saves debitor mappings to YAML
-func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
-	filename := s.DebitorsFile
+// SaveDebtorMappings saves debtor mappings to YAML
+func (s *CategoryStore) SaveDebtorMappings(mappings map[string]string) error {
+	filename := s.DebtorsFile
 	if filename == "" {
-		filename = "debitors.yaml"
+		filename = "debtors.yaml"
 	}
 
 	// Find the existing file or use standard locations
 	filePath, err := s.FindConfigFile(filename)
 	if err != nil && err != os.ErrNotExist {
-		return fmt.Errorf("error resolving debitor mappings file: %w", err)
+		return fmt.Errorf("error resolving debtor mappings file: %w", err)
 	}
 
 	// If file not found, use the database directory by default
@@ -268,13 +268,15 @@ func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
 
 	data, err := yaml.Marshal(mappings)
 	if err != nil {
-		return fmt.Errorf("error marshaling debitor mappings: %w", err)
+		return fmt.Errorf("error marshaling debtor mappings: %w", err)
 	}
 
 	if err := os.WriteFile(filePath, data, models.PermissionConfigFile); err != nil {
-		return fmt.Errorf("error writing debitor mappings: %w", err)
+		return fmt.Errorf("error writing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Saved %d debitor mappings to %s", len(mappings), filePath)
+	log.Debugf("Saved %d debtor mappings to %s", len(mappings), filePath)
 	return nil
 }
+
+

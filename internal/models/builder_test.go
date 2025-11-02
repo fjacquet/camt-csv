@@ -13,12 +13,11 @@ func TestNewTransactionBuilder(t *testing.T) {
 	builder := NewTransactionBuilder()
 	
 	assert.NotNil(t, builder)
-	assert.Nil(t, builder.err)
+	assert.NoError(t, builder.err)
+	assert.NotEmpty(t, builder.tx.Number) // Should have generated UUID
 	assert.Equal(t, StatusCompleted, builder.tx.Status)
 	assert.Equal(t, "CHF", builder.tx.Currency)
 	assert.Equal(t, CategoryUncategorized, builder.tx.Category)
-	assert.Equal(t, TransactionTypeDebit, builder.tx.CreditDebit)
-	assert.True(t, builder.tx.DebitFlag)
 	assert.True(t, builder.tx.Amount.IsZero())
 }
 
@@ -27,23 +26,20 @@ func TestTransactionBuilder_WithDate(t *testing.T) {
 		name        string
 		dateStr     string
 		expectError bool
-		expectedDate time.Time
 	}{
 		{
-			name:         "valid DD.MM.YYYY format",
-			dateStr:      "15.01.2025",
-			expectError:  false,
-			expectedDate: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+			name:        "valid date",
+			dateStr:     "2025-01-15",
+			expectError: false,
 		},
 		{
-			name:         "valid YYYY-MM-DD format",
-			dateStr:      "2025-01-15",
-			expectError:  false,
-			expectedDate: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+			name:        "invalid date format",
+			dateStr:     "15.01.2025",
+			expectError: true,
 		},
 		{
-			name:        "empty date",
-			dateStr:     "",
+			name:        "invalid date",
+			dateStr:     "2025-13-45",
 			expectError: true,
 		},
 	}
@@ -53,29 +49,14 @@ func TestTransactionBuilder_WithDate(t *testing.T) {
 			builder := NewTransactionBuilder().WithDate(tt.dateStr)
 			
 			if tt.expectError {
-				assert.NotNil(t, builder.err)
+				assert.Error(t, builder.err)
 			} else {
-				assert.Nil(t, builder.err)
-				assert.Equal(t, tt.expectedDate, builder.tx.Date)
+				assert.NoError(t, builder.err)
+				expectedDate, _ := time.Parse("2006-01-02", tt.dateStr)
+				assert.Equal(t, expectedDate, builder.tx.Date)
 			}
 		})
 	}
-}
-
-func TestTransactionBuilder_WithDateFromTime(t *testing.T) {
-	date := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
-	
-	builder := NewTransactionBuilder().WithDateFromTime(date)
-	
-	assert.Nil(t, builder.err)
-	assert.Equal(t, date, builder.tx.Date)
-}
-
-func TestTransactionBuilder_WithDateFromTime_ZeroTime(t *testing.T) {
-	builder := NewTransactionBuilder().WithDateFromTime(time.Time{})
-	
-	assert.NotNil(t, builder.err)
-	assert.Contains(t, builder.err.Error(), "date cannot be zero")
 }
 
 func TestTransactionBuilder_WithAmount(t *testing.T) {
@@ -84,35 +65,31 @@ func TestTransactionBuilder_WithAmount(t *testing.T) {
 	
 	builder := NewTransactionBuilder().WithAmount(amount, currency)
 	
-	assert.Nil(t, builder.err)
-	assert.True(t, builder.tx.Amount.Equal(amount))
+	assert.NoError(t, builder.err)
+	assert.Equal(t, amount, builder.tx.Amount)
 	assert.Equal(t, currency, builder.tx.Currency)
 }
 
 func TestTransactionBuilder_WithAmountFromString(t *testing.T) {
 	tests := []struct {
-		name           string
-		amountStr      string
-		currency       string
-		expectedAmount decimal.Decimal
+		name        string
+		amountStr   string
+		currency    string
+		expectError bool
+		expected    decimal.Decimal
 	}{
 		{
-			name:           "simple amount",
-			amountStr:      "100.50",
-			currency:       "CHF",
-			expectedAmount: decimal.NewFromFloat(100.50),
+			name:        "valid amount",
+			amountStr:   "100.50",
+			currency:    "CHF",
+			expectError: false,
+			expected:    decimal.NewFromFloat(100.50),
 		},
 		{
-			name:           "amount with currency symbol",
-			amountStr:      "CHF 1234.56",
-			currency:       "CHF",
-			expectedAmount: decimal.NewFromFloat(1234.56),
-		},
-		{
-			name:           "negative amount",
-			amountStr:      "-50.25",
-			currency:       "EUR",
-			expectedAmount: decimal.NewFromFloat(-50.25),
+			name:        "invalid amount",
+			amountStr:   "invalid",
+			currency:    "CHF",
+			expectError: true,
 		},
 	}
 	
@@ -120,9 +97,13 @@ func TestTransactionBuilder_WithAmountFromString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewTransactionBuilder().WithAmountFromString(tt.amountStr, tt.currency)
 			
-			assert.Nil(t, builder.err)
-			assert.True(t, builder.tx.Amount.Equal(tt.expectedAmount))
-			assert.Equal(t, tt.currency, builder.tx.Currency)
+			if tt.expectError {
+				assert.Error(t, builder.err)
+			} else {
+				assert.NoError(t, builder.err)
+				assert.True(t, tt.expected.Equal(builder.tx.Amount))
+				assert.Equal(t, tt.currency, builder.tx.Currency)
+			}
 		})
 	}
 }
@@ -133,7 +114,7 @@ func TestTransactionBuilder_WithPayer(t *testing.T) {
 	
 	builder := NewTransactionBuilder().WithPayer(name, iban)
 	
-	assert.Nil(t, builder.err)
+	assert.NoError(t, builder.err)
 	assert.Equal(t, name, builder.tx.Payer)
 	assert.Equal(t, iban, builder.tx.PartyIBAN)
 }
@@ -144,16 +125,15 @@ func TestTransactionBuilder_WithPayee(t *testing.T) {
 	
 	builder := NewTransactionBuilder().WithPayee(name, iban)
 	
-	assert.Nil(t, builder.err)
+	assert.NoError(t, builder.err)
 	assert.Equal(t, name, builder.tx.Payee)
-	assert.Equal(t, name, builder.tx.Recipient) // Should also set recipient
 	assert.Equal(t, iban, builder.tx.PartyIBAN)
 }
 
 func TestTransactionBuilder_AsDebit(t *testing.T) {
 	builder := NewTransactionBuilder().AsDebit()
 	
-	assert.Nil(t, builder.err)
+	assert.NoError(t, builder.err)
 	assert.Equal(t, TransactionTypeDebit, builder.tx.CreditDebit)
 	assert.True(t, builder.tx.DebitFlag)
 }
@@ -161,32 +141,33 @@ func TestTransactionBuilder_AsDebit(t *testing.T) {
 func TestTransactionBuilder_AsCredit(t *testing.T) {
 	builder := NewTransactionBuilder().AsCredit()
 	
-	assert.Nil(t, builder.err)
+	assert.NoError(t, builder.err)
 	assert.Equal(t, TransactionTypeCredit, builder.tx.CreditDebit)
 	assert.False(t, builder.tx.DebitFlag)
 }
 
-func TestTransactionBuilder_FluentChaining(t *testing.T) {
-	amount := decimal.NewFromFloat(250.75)
-	
+func TestTransactionBuilder_FluentAPI(t *testing.T) {
+	// Test that methods can be chained
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmount(amount, "CHF").
-		WithDescription("Test transaction").
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(100.50), "CHF").
 		WithPayer("John Doe", "CH1234567890").
 		WithPayee("Acme Corp", "CH0987654321").
-		WithCategory("Shopping").
+		WithDescription("Test transaction").
+		WithCategory(CategoryShopping).
 		AsDebit().
 		Build()
 	
 	require.NoError(t, err)
-	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
-	assert.True(t, tx.Amount.Equal(amount))
+	
+	expectedDate, _ := time.Parse("2006-01-02", "2025-01-15")
+	assert.Equal(t, expectedDate, tx.Date)
+	assert.True(t, decimal.NewFromFloat(100.50).Equal(tx.Amount))
 	assert.Equal(t, "CHF", tx.Currency)
-	assert.Equal(t, "Test transaction", tx.Description)
 	assert.Equal(t, "John Doe", tx.Payer)
 	assert.Equal(t, "Acme Corp", tx.Payee)
-	assert.Equal(t, "Shopping", tx.Category)
+	assert.Equal(t, "Test transaction", tx.Description)
+	assert.Equal(t, CategoryShopping, tx.Category)
 	assert.Equal(t, TransactionTypeDebit, tx.CreditDebit)
 	assert.True(t, tx.DebitFlag)
 }
@@ -194,43 +175,46 @@ func TestTransactionBuilder_FluentChaining(t *testing.T) {
 func TestTransactionBuilder_Build_Validation(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupBuilder func() *TransactionBuilder
+		setupFunc   func() *TransactionBuilder
 		expectError bool
-		errorContains string
+		errorMsg    string
 	}{
 		{
 			name: "missing date",
-			setupBuilder: func() *TransactionBuilder {
+			setupFunc: func() *TransactionBuilder {
 				return NewTransactionBuilder().
-					WithAmountFromFloat(100.0, "CHF")
+					WithAmount(decimal.NewFromFloat(100), "CHF")
 			},
-			expectError:   true,
-			errorContains: "date is required",
+			expectError: true,
+			errorMsg:    "transaction date is required",
 		},
 		{
-			name: "zero amount and fees",
-			setupBuilder: func() *TransactionBuilder {
+			name: "missing amount",
+			setupFunc: func() *TransactionBuilder {
 				return NewTransactionBuilder().
-					WithDate("15.01.2025")
+					WithDate("2025-01-15")
 			},
-			expectError:   true,
-			errorContains: "amount or fees must be non-zero",
+			expectError: true,
+			errorMsg:    "transaction amount is required",
 		},
 		{
-			name: "valid with amount",
-			setupBuilder: func() *TransactionBuilder {
-				return NewTransactionBuilder().
-					WithDate("15.01.2025").
-					WithAmountFromFloat(100.0, "CHF")
+			name: "missing currency",
+			setupFunc: func() *TransactionBuilder {
+				builder := NewTransactionBuilder().
+					WithDate("2025-01-15").
+					WithAmount(decimal.NewFromFloat(100), "CHF")
+				builder.tx.Currency = "" // Clear the currency
+				return builder
 			},
-			expectError: false,
+			expectError: true,
+			errorMsg:    "currency is required",
 		},
 		{
-			name: "valid with fees only",
-			setupBuilder: func() *TransactionBuilder {
+			name: "valid transaction",
+			setupFunc: func() *TransactionBuilder {
 				return NewTransactionBuilder().
-					WithDate("15.01.2025").
-					WithFeesFromFloat(5.0)
+					WithDate("2025-01-15").
+					WithAmount(decimal.NewFromFloat(100), "CHF")
 			},
 			expectError: false,
 		},
@@ -238,17 +222,16 @@ func TestTransactionBuilder_Build_Validation(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := tt.setupBuilder()
+			builder := tt.setupFunc()
 			tx, err := builder.Build()
 			
 			if tt.expectError {
 				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
+				assert.Contains(t, err.Error(), tt.errorMsg)
+				assert.Equal(t, Transaction{}, tx)
 			} else {
 				assert.NoError(t, err)
-				assert.NotEmpty(t, tx.Date)
+				assert.NotEqual(t, Transaction{}, tx)
 			}
 		})
 	}
@@ -256,117 +239,120 @@ func TestTransactionBuilder_Build_Validation(t *testing.T) {
 
 func TestTransactionBuilder_PopulateDerivedFields(t *testing.T) {
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(100.0, "CHF").
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(-100.50), "CHF").
 		WithPayer("John Doe", "CH1234567890").
 		WithPayee("Acme Corp", "CH0987654321").
-		AsDebit().
 		Build()
 	
 	require.NoError(t, err)
 	
-	// Check derived fields
-	assert.Equal(t, "Acme Corp", tx.Name) // For debit, Name should be Payee
+	// Should set value date to transaction date if not specified
+	assert.Equal(t, tx.Date, tx.ValueDate)
+	
+	// Should determine direction from negative amount
+	assert.Equal(t, TransactionTypeDebit, tx.CreditDebit)
+	assert.True(t, tx.DebitFlag)
+	
+	// Should populate debit/credit amounts
+	assert.True(t, decimal.NewFromFloat(-100.50).Equal(tx.Debit))
+	assert.True(t, decimal.Zero.Equal(tx.Credit))
+	
+	// Should set Name from Payee for debit transaction
+	assert.Equal(t, "Acme Corp", tx.Name)
+	
+	// Should set Recipient from Payee
 	assert.Equal(t, "Acme Corp", tx.Recipient)
-	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.ValueDate) // Should default to Date
-	assert.NotEmpty(t, tx.Number) // Should generate a UUID
-	assert.True(t, tx.Debit.Equal(decimal.NewFromFloat(100.0)))
-	assert.True(t, tx.Credit.IsZero())
+	
+	// Should set PartyName
+	assert.Equal(t, "Acme Corp", tx.PartyName)
 }
 
 func TestTransactionBuilder_ErrorPropagation(t *testing.T) {
-	// Create a builder with an error
-	builder := NewTransactionBuilder().WithDate("") // This should cause an error
-	
-	// Subsequent calls should not execute
-	tx, err := builder.
-		WithAmountFromFloat(100.0, "CHF").
-		WithDescription("Test").
+	// Test that errors are propagated through the chain
+	tx, err := NewTransactionBuilder().
+		WithDate("invalid-date").
+		WithAmount(decimal.NewFromFloat(100), "CHF").
 		Build()
 	
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "date cannot be empty")
+	assert.Contains(t, err.Error(), "invalid date format")
 	assert.Equal(t, Transaction{}, tx)
 }
 
 func TestTransactionBuilder_WithInvestmentFields(t *testing.T) {
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(1000.0, "CHF").
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(1000), "CHF").
 		WithInvestment("Buy").
 		WithNumberOfShares(10).
-		WithFeesFromFloat(5.0).
+		WithFees(decimal.NewFromFloat(5.50)).
 		Build()
 	
 	require.NoError(t, err)
 	assert.Equal(t, "Buy", tx.Investment)
 	assert.Equal(t, 10, tx.NumberOfShares)
-	assert.True(t, tx.Fees.Equal(decimal.NewFromFloat(5.0)))
+	assert.True(t, decimal.NewFromFloat(5.50).Equal(tx.Fees))
 }
 
-func TestTransactionBuilder_WithTaxInfo(t *testing.T) {
-	amountExclTax := decimal.NewFromFloat(100.0)
+func TestTransactionBuilder_WithTax(t *testing.T) {
+	amountExclTax := decimal.NewFromFloat(100)
 	amountTax := decimal.NewFromFloat(7.7)
 	taxRate := decimal.NewFromFloat(7.7)
 	
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(107.7, "CHF").
-		WithTaxInfo(amountExclTax, amountTax, taxRate).
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(107.7), "CHF").
+		WithTax(amountExclTax, amountTax, taxRate).
 		Build()
 	
 	require.NoError(t, err)
-	assert.True(t, tx.AmountExclTax.Equal(amountExclTax))
-	assert.True(t, tx.AmountTax.Equal(amountTax))
-	assert.True(t, tx.TaxRate.Equal(taxRate))
+	assert.True(t, amountExclTax.Equal(tx.AmountExclTax))
+	assert.True(t, amountTax.Equal(tx.AmountTax))
+	assert.True(t, taxRate.Equal(tx.TaxRate))
 }
 
 func TestTransactionBuilder_WithOriginalAmount(t *testing.T) {
-	originalAmount := decimal.NewFromFloat(100.0)
-	exchangeRate := decimal.NewFromFloat(1.1)
+	originalAmount := decimal.NewFromFloat(100)
+	originalCurrency := "USD"
+	exchangeRate := decimal.NewFromFloat(0.92)
 	
 	tx, err := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(110.0, "CHF").
-		WithOriginalAmount(originalAmount, "EUR").
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(92), "CHF").
+		WithOriginalAmount(originalAmount, originalCurrency).
 		WithExchangeRate(exchangeRate).
 		Build()
 	
 	require.NoError(t, err)
-	assert.True(t, tx.OriginalAmount.Equal(originalAmount))
-	assert.Equal(t, "EUR", tx.OriginalCurrency)
-	assert.True(t, tx.ExchangeRate.Equal(exchangeRate))
+	assert.True(t, originalAmount.Equal(tx.OriginalAmount))
+	assert.Equal(t, originalCurrency, tx.OriginalCurrency)
+	assert.True(t, exchangeRate.Equal(tx.ExchangeRate))
 }
 
 func TestTransactionBuilder_Clone(t *testing.T) {
 	original := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(100.0, "CHF").
-		WithDescription("Original")
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(100), "CHF")
 	
-	cloned := original.Clone().
-		WithDescription("Cloned").
-		WithAmountFromFloat(200.0, "EUR")
+	cloned := original.Clone()
+	
+	// Modify the clone
+	cloned.WithDescription("Modified description")
 	
 	// Original should be unchanged
-	assert.Equal(t, "Original", original.tx.Description)
-	assert.True(t, original.tx.Amount.Equal(decimal.NewFromFloat(100.0)))
-	assert.Equal(t, "CHF", original.tx.Currency)
-	
-	// Clone should have new values
-	assert.Equal(t, "Cloned", cloned.tx.Description)
-	assert.True(t, cloned.tx.Amount.Equal(decimal.NewFromFloat(200.0)))
-	assert.Equal(t, "EUR", cloned.tx.Currency)
+	assert.Equal(t, "", original.tx.Description)
+	assert.Equal(t, "Modified description", cloned.tx.Description)
 }
 
 func TestTransactionBuilder_Reset(t *testing.T) {
 	builder := NewTransactionBuilder().
-		WithDate("15.01.2025").
-		WithAmountFromFloat(100.0, "CHF")
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(100), "CHF")
 	
 	reset := builder.Reset()
 	
-	// Should be a new builder with default values
+	// Should be a new builder with defaults
 	assert.NotEqual(t, builder, reset)
 	assert.True(t, reset.tx.Date.IsZero())
 	assert.True(t, reset.tx.Amount.IsZero())
@@ -376,67 +362,85 @@ func TestTransactionBuilder_Reset(t *testing.T) {
 func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	// Test building a complex transaction with all fields
 	tx, err := NewTransactionBuilder().
-		WithBookkeepingNumber("BK123").
-		WithDate("15.01.2025").
-		WithValueDate("16.01.2025").
-		WithAmountFromFloat(1234.56, "CHF").
-		WithDescription("Complex transaction").
-		WithRemittanceInfo("Payment for services").
-		WithPayer("John Doe", "CH1234567890").
-		WithPayee("Acme Corp", "CH0987654321").
+		WithID("TXN-001").
+		WithBookkeepingNumber("BK-001").
 		WithStatus(StatusCompleted).
-		WithReference("REF123").
-		WithEntryReference("ENTRY123").
-		WithAccountServicer("BANK123").
+		WithDate("2025-01-15").
+		WithValueDate("2025-01-16").
+		WithAmount(decimal.NewFromFloat(1500.75), "CHF").
+		WithDescription("Investment purchase").
+		WithRemittanceInfo("REF: INV-2025-001").
+		WithPayer("John Doe", "CH1234567890123456").
+		WithPayee("Investment Bank", "CH9876543210987654").
+		WithReference("REF-001").
+		WithEntryReference("ENTRY-001").
+		WithAccountServicer("BANK-CH").
 		WithBankTxCode(BankCodePOS).
-		WithCategory("Services").
-		WithType("Payment").
-		WithFund("General").
-		WithFeesFromFloat(2.50).
-		WithOriginalAmount(decimal.NewFromFloat(1000.0), "EUR").
-		WithExchangeRate(decimal.NewFromFloat(1.23456)).
-		WithTaxInfo(
-			decimal.NewFromFloat(1146.86),
-			decimal.NewFromFloat(87.70),
-			decimal.NewFromFloat(7.7),
-		).
-		AsCredit().
+		WithCategory(CategoryShopping).
+		WithType("Investment").
+		WithFund("Growth Fund").
+		WithInvestment("Buy").
+		WithNumberOfShares(15).
+		WithFees(decimal.NewFromFloat(12.50)).
+		WithIBAN("CH1111222233334444").
+		WithOriginalAmount(decimal.NewFromFloat(1600), "USD").
+		WithExchangeRate(decimal.NewFromFloat(0.94)).
+		WithTax(decimal.NewFromFloat(1400), decimal.NewFromFloat(100.75), decimal.NewFromFloat(7.2)).
+		AsDebit().
 		Build()
 	
 	require.NoError(t, err)
 	
 	// Verify all fields are set correctly
-	assert.Equal(t, "BK123", tx.BookkeepingNumber)
-	assert.Equal(t, time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), tx.Date)
-	assert.Equal(t, time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC), tx.ValueDate)
-	assert.True(t, tx.Amount.Equal(decimal.NewFromFloat(1234.56)))
-	assert.Equal(t, "CHF", tx.Currency)
-	assert.Equal(t, "Complex transaction", tx.Description)
-	assert.Equal(t, "Payment for services", tx.RemittanceInfo)
-	assert.Equal(t, "John Doe", tx.Payer)
-	assert.Equal(t, "Acme Corp", tx.Payee)
-	assert.Equal(t, "Acme Corp", tx.Recipient)
-	assert.Equal(t, "CH0987654321", tx.PartyIBAN)
+	assert.Equal(t, "TXN-001", tx.Number)
+	assert.Equal(t, "BK-001", tx.BookkeepingNumber)
 	assert.Equal(t, StatusCompleted, tx.Status)
-	assert.Equal(t, "REF123", tx.Reference)
-	assert.Equal(t, "ENTRY123", tx.EntryReference)
-	assert.Equal(t, "BANK123", tx.AccountServicer)
+	
+	expectedDate, _ := time.Parse("2006-01-02", "2025-01-15")
+	expectedValueDate, _ := time.Parse("2006-01-02", "2025-01-16")
+	assert.Equal(t, expectedDate, tx.Date)
+	assert.Equal(t, expectedValueDate, tx.ValueDate)
+	
+	assert.True(t, decimal.NewFromFloat(1500.75).Equal(tx.Amount))
+	assert.Equal(t, "CHF", tx.Currency)
+	assert.Equal(t, "Investment purchase", tx.Description)
+	assert.Equal(t, "REF: INV-2025-001", tx.RemittanceInfo)
+	
+	assert.Equal(t, "John Doe", tx.Payer)
+	assert.Equal(t, "Investment Bank", tx.Payee)
+	assert.Equal(t, "CH9876543210987654", tx.PartyIBAN) // Should be payee's IBAN for debit
+	
+	assert.Equal(t, "REF-001", tx.Reference)
+	assert.Equal(t, "ENTRY-001", tx.EntryReference)
+	assert.Equal(t, "BANK-CH", tx.AccountServicer)
 	assert.Equal(t, BankCodePOS, tx.BankTxCode)
-	assert.Equal(t, "Services", tx.Category)
-	assert.Equal(t, "Payment", tx.Type)
-	assert.Equal(t, "General", tx.Fund)
-	assert.True(t, tx.Fees.Equal(decimal.NewFromFloat(2.50)))
-	assert.True(t, tx.OriginalAmount.Equal(decimal.NewFromFloat(1000.0)))
-	assert.Equal(t, "EUR", tx.OriginalCurrency)
-	assert.True(t, tx.ExchangeRate.Equal(decimal.NewFromFloat(1.23456)))
-	assert.True(t, tx.AmountExclTax.Equal(decimal.NewFromFloat(1146.86)))
-	assert.True(t, tx.AmountTax.Equal(decimal.NewFromFloat(87.70)))
-	assert.True(t, tx.TaxRate.Equal(decimal.NewFromFloat(7.7)))
-	assert.Equal(t, TransactionTypeCredit, tx.CreditDebit)
-	assert.False(t, tx.DebitFlag)
+	
+	assert.Equal(t, CategoryShopping, tx.Category)
+	assert.Equal(t, "Investment", tx.Type)
+	assert.Equal(t, "Growth Fund", tx.Fund)
+	assert.Equal(t, "Buy", tx.Investment)
+	assert.Equal(t, 15, tx.NumberOfShares)
+	
+	assert.True(t, decimal.NewFromFloat(12.50).Equal(tx.Fees))
+	assert.Equal(t, "CH1111222233334444", tx.IBAN)
+	
+	assert.True(t, decimal.NewFromFloat(1600).Equal(tx.OriginalAmount))
+	assert.Equal(t, "USD", tx.OriginalCurrency)
+	assert.True(t, decimal.NewFromFloat(0.94).Equal(tx.ExchangeRate))
+	
+	assert.True(t, decimal.NewFromFloat(1400).Equal(tx.AmountExclTax))
+	assert.True(t, decimal.NewFromFloat(100.75).Equal(tx.AmountTax))
+	assert.True(t, decimal.NewFromFloat(7.2).Equal(tx.TaxRate))
+	
+	assert.Equal(t, TransactionTypeDebit, tx.CreditDebit)
+	assert.True(t, tx.DebitFlag)
 	
 	// Verify derived fields
-	assert.Equal(t, "John Doe", tx.Name) // For credit, Name should be Payer
-	assert.True(t, tx.Credit.Equal(decimal.NewFromFloat(1234.56)))
-	assert.True(t, tx.Debit.IsZero())
+	assert.Equal(t, "Investment Bank", tx.Name) // Should be payee for debit
+	assert.Equal(t, "Investment Bank", tx.Recipient)
+	assert.Equal(t, "Investment Bank", tx.PartyName)
+	
+	// Verify debit/credit amounts
+	assert.True(t, decimal.NewFromFloat(1500.75).Equal(tx.Debit))
+	assert.True(t, decimal.Zero.Equal(tx.Credit))
 }

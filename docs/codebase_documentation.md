@@ -20,7 +20,7 @@ The project follows a clean separation of concerns:
 
 * **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command typically orchestrates calls to the `internal/` packages.
 * **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include dependency injection, logging abstraction, and elimination of global state.
-* **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debitors).
+* **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debtors).
 * **`samples/`**: Provides example input files for various formats.
 
 ```bash
@@ -65,7 +65,7 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 
 * **`internal/`**: 
   * **`camtparser/`**: Parses CAMT.053 XML files. Embeds `BaseParser` and implements the `parser.Parser` interface.
-  * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debitor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
+  * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debtor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
   * **`common/`**: Provides shared utilities, including CSV reading/writing (`csv.go`) and a generalized conversion function (`GeneralizedConvertToCSV`).
   * **`config/`**: Handles application configuration using Viper, supporting hierarchical configuration from files, environment variables, and CLI flags.
   * **`currencyutils/`**: Utility functions for currency parsing, formatting, and calculations (e.g., tax amounts).
@@ -80,14 +80,14 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * **`revolutparser/`**: Parses Revolut CSV export files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`revolutinvestmentparser/`**: Parses Revolut investment transaction CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface. Handles investment-specific transaction types like BUY, DIVIDEND, and CASH TOP-UP.
   * **`selmaparser/`**: Parses Selma investment CSV files, with specific logic for handling investment-related transactions and stamp duty. Embeds `BaseParser` and implements the `parser.Parser` interface.
-  * **`store/`**: Manages loading and saving categorization data (categories, creditors, debitors) from YAML files.
+  * **`store/`**: Manages loading and saving categorization data (categories, creditors, debtors) from YAML files.
   * **`textutils/`**: Utilities for text extraction and manipulation.
   * **`xmlutils/`**: Utilities for XML processing (e.g., XPath, constants).
 
 * **`database/`**: 
   * `categories.yaml`: Defines custom transaction categories and associated keywords for local matching.
   * `creditors.yaml`: Stores mappings from creditor names to categories.
-  * `debitors.yaml`: Stores mappings from debitor names to categories.
+  * `debtors.yaml`: Stores mappings from debtor names to categories.
 
 ### 4. Standardized Parser Architecture
 

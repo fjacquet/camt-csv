@@ -7,7 +7,9 @@ import "fjacquet/camt-csv/internal/models"
 type CategoryStoreInterface interface {
 	LoadCategories() ([]models.CategoryConfig, error)
 	LoadCreditorMappings() (map[string]string, error)
-	LoadDebitorMappings() (map[string]string, error)
+	LoadDebtorMappings() (map[string]string, error)
 	SaveCreditorMappings(mappings map[string]string) error
-	SaveDebitorMappings(mappings map[string]string) error
+	SaveDebtorMappings(mappings map[string]string) error
+	
+
 }

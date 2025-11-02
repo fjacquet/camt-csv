@@ -28,7 +28,7 @@ type CommonFlags struct {
 
 var (
 	// Log is the shared logger instance for commands - will be updated with config
-	Log = logging.GetLogger()
+	Log = logging.NewLogrusAdapter("info", "text")
 
 	// Global configuration instance
 	AppConfig *config.Config
@@ -54,9 +54,8 @@ It also provides transaction categorization based on the party's name.`,
 			// Initialize container with dependency injection
 			initializeContainer()
 			
-			// Set the configured logger for all parsers
-			// This will propagate our centralized logging configuration to each package
-			common.SetLogger(Log)
+			// Note: Logger is now injected through dependency injection container
+			// Individual parsers receive loggers through their constructors
 
 			// Set CSV delimiter from configuration
 			commonDelim := []rune(AppConfig.CSV.Delimiter)[0]

@@ -27,10 +27,13 @@ type RevolutInvestmentCSVRow struct {
 	FXRate        string `csv:"FX Rate"`
 }
 
-var logger = logging.GetLogger()
+// Note: Removed global logger in favor of dependency injection
 
 // Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
-func Parse(r io.Reader) ([]models.Transaction, error) {
+func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	logger.Info("Parsing Revolut investment CSV from reader")
 
 	reader := csv.NewReader(r)
@@ -88,7 +91,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 			FXRate:        record[7],
 		}
 
-		transaction, err := convertRowToTransaction(row)
+		transaction, err := convertRowToTransaction(row, logger)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "row", Value: i + 2})
@@ -104,7 +107,10 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 }
 
 // convertRowToTransaction converts a RevolutInvestmentCSVRow to a models.Transaction using TransactionBuilder
-func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, error) {
+func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger) (models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	// Parse FX rate
 	var fxRate decimal.Decimal
 	if row.FXRate != "" {
@@ -121,12 +127,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 
 	// Start building the transaction
 	builder := models.NewTransactionBuilder().
-		WithDateFromTime(formatDate(row.Date)).
-		WithValueDateFromTime(formatDate(row.Date)).
+		WithDatetime(formatDate(row.Date)).
+		WithValueDatetime(formatDate(row.Date)).
 		WithInvestment(row.Ticker).
 		WithFund(row.Ticker).
 		WithType(row.Type).
-		WithCurrency(row.Currency).
 		WithOriginalAmount(decimal.Zero, row.Currency).
 		WithExchangeRate(fxRate)
 
@@ -287,6 +292,13 @@ func formatDate(dateStr string) time.Time {
 
 // WriteToCSV writes transactions to a CSV file
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
+	return WriteToCSVWithLogger(transactions, csvFile, nil)
+}
+
+func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	logger.Info("Writing transactions to CSV file",
 		logging.Field{Key: "count", Value: len(transactions)},
 		logging.Field{Key: "file", Value: csvFile})
@@ -335,6 +347,13 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 // ConvertToCSV converts a Revolut investment CSV file to the standardized format
 func ConvertToCSV(inputFile, outputFile string) error {
+	return ConvertToCSVWithLogger(inputFile, outputFile, nil)
+}
+
+func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	logger.Info("Converting Revolut investment CSV file",
 		logging.Field{Key: "input", Value: inputFile},
 		logging.Field{Key: "output", Value: outputFile})
@@ -350,7 +369,7 @@ func ConvertToCSV(inputFile, outputFile string) error {
 		}
 	}()
 
-	transactions, err := Parse(file)
+	transactions, err := Parse(file, logger)
 	if err != nil {
 		return fmt.Errorf("failed to parse input file: %w", err)
 	}

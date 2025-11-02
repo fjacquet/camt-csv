@@ -142,8 +142,4 @@ func (l *LogrusAdapter) GetLogrusLogger() *logrus.Logger {
 	return l.logger
 }
 
-// GetLogger returns a default logger instance for backward compatibility.
-// Deprecated: Use dependency injection with NewLogrusAdapter instead.
-func GetLogger() Logger {
-	return NewLogrusAdapter("info", "text")
-}
+

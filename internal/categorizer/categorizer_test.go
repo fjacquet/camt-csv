@@ -43,7 +43,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 	mockStore := &store.CategoryStore{
 		CategoriesFile: "testdata/categories.yaml",
 		CreditorsFile:  "testdata/creditors.yaml",
-		DebitorsFile:   "testdata/debitors.yaml",
+		DebtorsFile:    "testdata/debtors.yaml",
 	}
 
 	// Create a new logger for the categorizer

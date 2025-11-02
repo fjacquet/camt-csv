@@ -39,7 +39,7 @@ func TestParseFile(t *testing.T) {
 		}
 	}()
 
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	logger := logging.GetLogger()
+	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	require.Error(t, err)
@@ -109,7 +109,8 @@ func TestConvertRowToTransaction(t *testing.T) {
 		FXRate:        "1.0722",
 	}
 
-	txn, err := convertRowToTransaction(row)
+	logger := logging.NewLogrusAdapter("info", "text")
+	txn, err := convertRowToTransaction(row, logger)
 	require.NoError(t, err)
 
 	assert.Equal(t, 2025, txn.Date.Year())
