@@ -6,7 +6,6 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/scanner"
 	"fmt"
-
 )
 
 // Reviewer orchestrates the codebase review process.
@@ -19,9 +18,12 @@ type Reviewer struct {
 
 // NewReviewer creates a new instance of Reviewer.
 // It takes a CodebaseScanner, ConstitutionLoader, and PrincipleEvaluator as dependencies.
-func NewReviewer(codebaseScanner *scanner.CodebaseScanner, constitutionLoader *parser.ConstitutionLoader, principleEvaluator PrincipleEvaluator) *Reviewer {
+func NewReviewer(codebaseScanner *scanner.CodebaseScanner, constitutionLoader *parser.ConstitutionLoader, principleEvaluator PrincipleEvaluator, logger logging.Logger) *Reviewer {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	return &Reviewer{
-		logger:             logging.GetLogger().WithField("component", "Reviewer"),
+		logger:             logger.WithField("component", "Reviewer"),
 		codebaseScanner:    codebaseScanner,
 		constitutionLoader: constitutionLoader,
 		principleEvaluator: principleEvaluator,

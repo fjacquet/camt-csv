@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
 
 // RevolutInvestmentCSVRow represents a single row in a Revolut investment CSV file
@@ -27,14 +27,13 @@ type RevolutInvestmentCSVRow struct {
 	FXRate        string `csv:"FX Rate"`
 }
 
-var logger *logrus.Logger
-
-func init() {
-	logger = logrus.New()
-}
+// Note: Removed global logger in favor of dependency injection
 
 // Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
-func Parse(r io.Reader) ([]models.Transaction, error) {
+func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	logger.Info("Parsing Revolut investment CSV from reader")
 
 	reader := csv.NewReader(r)
@@ -76,7 +75,8 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	// Process each row (skip header)
 	for i, record := range records[1:] {
 		if len(record) < 8 {
-			logger.Warnf("Skipping row %d: insufficient columns", i+2)
+			logger.Warn("Skipping row: insufficient columns",
+				logging.Field{Key: "row", Value: i + 2})
 			continue
 		}
 
@@ -91,56 +91,71 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 			FXRate:        record[7],
 		}
 
-		transaction, err := convertRowToTransaction(row)
+		transaction, err := convertRowToTransaction(row, logger)
 		if err != nil {
-			logger.Warnf("Failed to convert row %d to transaction: %v", i+2, err)
+			logger.WithError(err).Warn("Failed to convert row to transaction",
+				logging.Field{Key: "row", Value: i + 2})
 			continue
 		}
 
 		transactions = append(transactions, transaction)
 	}
 
-	logger.Infof("Successfully parsed %d transactions from Revolut investment CSV", len(transactions))
+	logger.Info("Successfully parsed transactions from Revolut investment CSV",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
-// convertRowToTransaction converts a RevolutInvestmentCSVRow to a models.Transaction
-func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, error) {
-	var transaction models.Transaction
-
-	// Parse date
-	transaction.Date = formatDate(row.Date)
-	transaction.ValueDate = transaction.Date
-
-	// Set investment details
-	transaction.Investment = row.Ticker
-	transaction.Fund = row.Ticker
-	transaction.Type = row.Type
-
-	// Parse currency
-	transaction.Currency = row.Currency
-	transaction.OriginalCurrency = row.Currency
-
+// convertRowToTransaction converts a RevolutInvestmentCSVRow to a models.Transaction using TransactionBuilder
+func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger) (models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	// Parse FX rate
+	var fxRate decimal.Decimal
 	if row.FXRate != "" {
-		if fxRate, err := decimal.NewFromString(row.FXRate); err == nil {
-			transaction.ExchangeRate = fxRate
-		} else {
-			logger.Warnf("Failed to parse FX rate '%s': %v", row.FXRate, err)
+		var err error
+		fxRate, err = decimal.NewFromString(row.FXRate)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to parse FX rate",
+				logging.Field{Key: "fxRate", Value: row.FXRate})
+			fxRate = decimal.NewFromInt(1) // Default to 1
 		}
+	} else {
+		fxRate = decimal.NewFromInt(1)
 	}
 
+	// Start building the transaction
+	builder := models.NewTransactionBuilder().
+		WithDatetime(formatDate(row.Date)).
+		WithValueDatetime(formatDate(row.Date)).
+		WithInvestment(row.Ticker).
+		WithFund(row.Ticker).
+		WithType(row.Type).
+		WithOriginalAmount(decimal.Zero, row.Currency).
+		WithExchangeRate(fxRate)
+
+	// Set party name
+	partyName := "Revolut Investment"
+	if row.Ticker != "" {
+		partyName = fmt.Sprintf("Revolut Investment - %s", row.Ticker)
+	}
+	builder = builder.WithPartyName(partyName)
+
 	// Handle different transaction types
-	logger.Debugf("Processing transaction type: '%s'", row.Type)
+	logger.Debug("Processing transaction type",
+		logging.Field{Key: "type", Value: row.Type})
+
 	switch {
 	case strings.Contains(row.Type, "BUY"):
-		logger.Debugf("Processing BUY transaction")
+		logger.Debug("Processing BUY transaction")
+
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				transaction.NumberOfShares = int(quantity.IntPart())
+				builder = builder.WithNumberOfShares(int(quantity.IntPart()))
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Quantity",
 					RawDataSnippet: row.Quantity,
@@ -149,16 +164,13 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		// Parse price per share
+		// Parse price per share for tax info
 		if row.PricePerShare != "" {
-			priceStr := strings.TrimPrefix(row.PricePerShare, "€")
-			priceStr = strings.TrimPrefix(priceStr, "$")
-			priceStr = strings.TrimPrefix(priceStr, "£")
-			priceStr = strings.ReplaceAll(priceStr, ",", "")
+			priceStr := cleanAmountString(row.PricePerShare)
 			if price, err := decimal.NewFromString(priceStr); err == nil {
-				transaction.AmountExclTax = price
+				builder = builder.WithTaxInfo(price, decimal.Zero, decimal.Zero)
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Price per share",
 					RawDataSnippet: row.PricePerShare,
@@ -169,18 +181,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 
 		// Parse total amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// For buy transactions, this is typically a debit
-				transaction.DebitFlag = true
-				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debugf("Set CreditDebit to DBIT for BUY transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsDebit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -189,25 +194,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)
+		builder = builder.WithDescription(fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)).
+			WithPayee(partyName, "")
 
 	case strings.Contains(row.Type, "DIVIDEND"):
-		logger.Debugf("Processing DIVIDEND transaction")
+		logger.Debug("Processing DIVIDEND transaction")
+
 		// Parse dividend amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Dividends are typically credits
-				transaction.DebitFlag = false
-				transaction.CreditDebit = models.TransactionTypeCredit
-				transaction.Credit = amount
-				logger.Debugf("Set CreditDebit to CRDT for DIVIDEND transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsCredit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -216,25 +215,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = fmt.Sprintf("Dividend from %s", row.Ticker)
+		builder = builder.WithDescription(fmt.Sprintf("Dividend from %s", row.Ticker)).
+			WithPayer(partyName, "")
 
 	case strings.Contains(row.Type, "CASH TOP-UP"):
-		logger.Debugf("Processing CASH TOP-UP transaction")
+		logger.Debug("Processing CASH TOP-UP transaction")
+
 		// Parse cash top-up amount
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Cash top-ups are typically credits
-				transaction.DebitFlag = false
-				transaction.CreditDebit = models.TransactionTypeCredit
-				transaction.Credit = amount
-				logger.Debugf("Set CreditDebit to CRDT for CASH TOP-UP transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsCredit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -243,24 +236,19 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 			}
 		}
 
-		transaction.Description = "Cash top-up to investment account"
+		builder = builder.WithDescription("Cash top-up to investment account").
+			WithPayer(partyName, "")
 
 	default:
-		logger.Debugf("Processing default transaction")
+		logger.Debug("Processing default transaction")
+
 		// Handle other transaction types
 		if row.TotalAmount != "" {
-			amountStr := strings.TrimPrefix(row.TotalAmount, "€")
-			amountStr = strings.TrimPrefix(amountStr, "$")
-			amountStr = strings.TrimPrefix(amountStr, "£")
-			amountStr = strings.ReplaceAll(amountStr, ",", "")
+			amountStr := cleanAmountString(row.TotalAmount)
 			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				transaction.Amount = amount
-				// Default to debit for unknown transaction types
-				transaction.DebitFlag = true
-				transaction.CreditDebit = models.TransactionTypeDebit
-				logger.Debugf("Set CreditDebit to DBIT for default transaction")
+				builder = builder.WithAmount(amount, row.Currency).AsDebit()
 			} else {
-				return transaction, &parsererror.DataExtractionError{
+				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
 					FieldName:      "Total Amount",
 					RawDataSnippet: row.TotalAmount,
@@ -268,40 +256,52 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow) (models.Transaction, e
 				}
 			}
 		}
-		transaction.Description = fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)
+
+		builder = builder.WithDescription(fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)).
+			WithPayee(partyName, "")
 	}
 
-	// Set party name
-	if row.Ticker != "" {
-		transaction.PartyName = fmt.Sprintf("Revolut Investment - %s", row.Ticker)
-	} else {
-		transaction.PartyName = "Revolut Investment"
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("error building transaction: %w", err)
 	}
-
-	// Set name
-	transaction.Name = transaction.PartyName
-
-	// Update derived fields
-	transaction.UpdateNameFromParties()
-	transaction.UpdateDebitCreditAmounts()
 
 	return transaction, nil
 }
 
-// formatDate standardizes the date format
-func formatDate(dateStr string) string {
+// cleanAmountString removes currency symbols and formatting from amount strings
+func cleanAmountString(amountStr string) string {
+	cleaned := strings.TrimPrefix(amountStr, "€")
+	cleaned = strings.TrimPrefix(cleaned, "$")
+	cleaned = strings.TrimPrefix(cleaned, "£")
+	cleaned = strings.ReplaceAll(cleaned, ",", "")
+	return cleaned
+}
+
+// formatDate parses the date string and returns time.Time
+func formatDate(dateStr string) time.Time {
 	// Parse ISO format date
 	if t, err := time.Parse(time.RFC3339Nano, dateStr); err == nil {
-		return t.Format("02.01.2006") // Return as DD.MM.YYYY
+		return t
 	}
 
-	// If parsing fails, return original string
-	return dateStr
+	// If parsing fails, return zero time
+	return time.Time{}
 }
 
 // WriteToCSV writes transactions to a CSV file
 func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	logger.Infof("Writing %d transactions to CSV file: %s", len(transactions), csvFile)
+	return WriteToCSVWithLogger(transactions, csvFile, nil)
+}
+
+func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Writing transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	file, err := os.Create(csvFile)
 	if err != nil {
@@ -309,7 +309,7 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			logger.Warnf("Failed to close file: %v", closeErr)
+			logger.WithError(closeErr).Warn("Failed to close file")
 		}
 	}()
 
@@ -332,7 +332,7 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 	for _, transaction := range transactions {
 		record, err := transaction.MarshalCSV()
 		if err != nil {
-			logger.Warnf("Failed to marshal transaction: %v", err)
+			logger.WithError(err).Warn("Failed to marshal transaction")
 			continue
 		}
 
@@ -347,7 +347,16 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 // ConvertToCSV converts a Revolut investment CSV file to the standardized format
 func ConvertToCSV(inputFile, outputFile string) error {
-	logger.Infof("Converting Revolut investment CSV file from '%s' to '%s'", inputFile, outputFile)
+	return ConvertToCSVWithLogger(inputFile, outputFile, nil)
+}
+
+func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Converting Revolut investment CSV file",
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
 	file, err := os.Open(inputFile)
@@ -356,11 +365,11 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logger.Warnf("Failed to close file: %v", err)
+			logger.WithError(err).Warn("Failed to close file")
 		}
 	}()
 
-	transactions, err := Parse(file)
+	transactions, err := Parse(file, logger)
 	if err != nil {
 		return fmt.Errorf("failed to parse input file: %w", err)
 	}

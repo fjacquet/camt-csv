@@ -150,7 +150,7 @@ func (t *Transaction) Validate() error
 type Categorizer interface {
     CategorizeTransaction(tx CategorizeTransaction) (*Category, error)
     UpdateCreditorCategory(creditor, category string) error
-    UpdateDebitorCategory(debitor, category string) error
+    UpdateDebtorCategory(debtor, category string) error
     SetTestCategoryStore(store *CategoryStore)
 }
 ```
@@ -171,7 +171,7 @@ type CategorizeTransaction struct {
 
 **Algorithm**:
 
-1. **Direct Mapping**: Check exact match in creditor/debitor mappings
+1. **Direct Mapping**: Check exact match in creditor/debtor mappings
 2. **Keyword Matching**: Match against category keywords
 3. **AI Fallback**: Use Gemini API if enabled and previous steps fail
 

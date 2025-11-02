@@ -6,21 +6,32 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ## Core Design Principles
 
-### 1. **Interface-Driven Design**
+### 1. **Interface-Driven Design with Segregated Interfaces**
 
-**Principle**: All parsers implement a common interface to ensure consistency and interchangeability.
+**Principle**: All parsers implement segregated interfaces that separate concerns and provide only the capabilities they need.
 
 **Implementation**:
 
-- All parser packages (camtparser, revolutparser, selmaparser, pdfparser) implement the standardized `parser.Parser` interface
-- Common interface method: `Parse(r io.Reader)`
-- This allows the main application to work with any parser without knowing implementation details
+- **Core Interfaces**: `Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`
+- **BaseParser Foundation**: All parsers embed `BaseParser` struct for common functionality
+- **Composition over Inheritance**: Parsers compose interfaces rather than inheriting from large base classes
+- **Single Responsibility per Interface**: Each interface has one clear purpose
+
+**Example**:
+```go
+type MyParser struct {
+    parser.BaseParser  // Provides logging and CSV writing
+    // parser-specific fields
+}
+```
 
 **Benefits**:
 
-- Easy to add new financial data formats
-- Consistent API across all parsers
-- Simplified testing and maintenance
+- Easy to add new financial data formats following established patterns
+- Eliminates code duplication through BaseParser
+- Consistent API across all parsers with shared functionality
+- Simplified testing with common test utilities
+- Interface segregation principle compliance
 
 ### 2. **Single Responsibility Principle**
 
@@ -46,21 +57,118 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 **Implementation**:
 
-- Logger injection through constructors (replacing global logger pattern)
-- Components depend on `logging.Logger` interface rather than concrete implementations
-- Categorizer injection for transaction classification
-- Store injection for configuration management
-- Test-specific dependency injection in test suites
+- **Container Pattern**: Central `Container` struct manages all application dependencies
+- **Logger Injection**: All parsers receive logger through `BaseParser` constructor
+- **Interface Dependencies**: Components depend on `logging.Logger` interface rather than concrete implementations
+- **PDF Extractor Injection**: PDF parser uses `PDFExtractor` interface for testability
+- **Categorizer Injection**: Transaction classification through injected categorizer with strategy dependencies
+- **Store Injection**: Configuration management through injected store
+- **AI Client Injection**: Optional AI client for categorization with lazy initialization
+- **Test-specific Injection**: Mock dependencies in test suites
+
+**Container Pattern Example:**
+```go
+type Container struct {
+    Logger      logging.Logger
+    Config      *config.Config
+    Store       *store.CategoryStore
+    AIClient    categorizer.AIClient
+    Categorizer *categorizer.Categorizer
+    Parsers     map[parser.ParserType]parser.FullParser
+}
+
+func NewContainer(cfg *config.Config) (*Container, error) {
+    logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
+    store := store.NewCategoryStore(cfg.Categories.File, cfg.Categories.CreditorsFile, cfg.Categories.DebtorsFile)
+    
+    var aiClient categorizer.AIClient
+    if cfg.AI.Enabled {
+        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger)
+    }
+    
+    cat := categorizer.NewCategorizer(store, aiClient, logger)
+    
+    return &Container{
+        Logger:      logger,
+        Config:      cfg,
+        Store:       store,
+        AIClient:    aiClient,
+        Categorizer: cat,
+    }, nil
+}
+```
+
+**Parser Injection Example:**
+```go
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+```
 
 **Benefits**:
 
+- Complete elimination of global mutable state
 - Improved testability with mock dependencies
-- Elimination of global mutable state
 - Runtime configuration flexibility
 - Cleaner separation between components
 - Easier unit testing without shared state
+- Consistent dependency management through BaseParser
+- Centralized dependency lifecycle management
+- Explicit dependency relationships
 
-### 4. **Fail-Fast with Graceful Degradation**
+### 4. **Strategy Pattern for Extensibility**
+
+**Principle**: Use the Strategy pattern to enable pluggable algorithms and easy extension of functionality.
+
+**Implementation**:
+
+- **Categorization Strategies**: Multiple algorithms for transaction categorization
+- **Strategy Interface**: Common interface for all categorization approaches
+- **Priority-Based Execution**: Strategies executed in order of efficiency and accuracy
+- **Independent Testing**: Each strategy can be tested in isolation
+
+**Strategy Interface:**
+```go
+type CategorizationStrategy interface {
+    Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
+    Name() string
+}
+```
+
+**Strategy Implementations:**
+- **DirectMappingStrategy**: Exact name matches from YAML files (fastest)
+- **KeywordStrategy**: Pattern matching from configuration (local processing)
+- **AIStrategy**: AI-based categorization with auto-learning (optional)
+
+**Orchestration:**
+```go
+func (c *Categorizer) Categorize(ctx context.Context, tx Transaction) (Category, error) {
+    for _, strategy := range c.strategies {
+        category, found, err := strategy.Categorize(ctx, tx)
+        if err != nil {
+            c.logger.Warn("Strategy failed", 
+                logging.Field{Key: "strategy", Value: strategy.Name()})
+            continue
+        }
+        if found {
+            return category, nil
+        }
+    }
+    return UncategorizedCategory, nil
+}
+```
+
+**Benefits**:
+
+- Easy addition of new categorization algorithms
+- Independent testing and optimization of each strategy
+- Clear separation of concerns between strategies
+- Flexible priority ordering and configuration
+- Improved maintainability through focused implementations
+
+### 5. **Fail-Fast with Graceful Degradation**
 
 **Principle**: Detect errors early but provide meaningful fallbacks when possible.
 
@@ -70,6 +178,7 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 - Early return on invalid file formats
 - Graceful handling of malformed data with logging
 - Default values for missing optional fields
+- Custom error types with detailed context
 
 **Benefits**:
 
@@ -77,7 +186,7 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 - System stability under adverse conditions
 - Easier debugging with detailed logging
 
-### 5. **Immutable Data Structures**
+### 6. **Immutable Data Structures**
 
 **Principle**: Core data models are designed to be immutable where possible.
 
@@ -93,28 +202,37 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 - Predictable behavior
 - Reduced bugs from unexpected state changes
 
-### 6. **Comprehensive Logging & Observability**
+### 7. **Comprehensive Logging & Observability**
 
 **Principle**: All significant operations are logged with appropriate detail levels using a framework-agnostic abstraction.
 
 **Implementation**:
 
-- Logging abstraction layer (`logging.Logger` interface) decouples application from specific frameworks
-- Dependency injection of logger instances through constructors
-- Structured logging with consistent field names from `internal/logging/constants.go`
-- Different log levels (Debug, Info, Warn, Error) for different scenarios
-- Context-rich log messages with relevant metadata using `WithField`, `WithFields`, and `WithError`
-- Default implementation uses `LogrusAdapter` wrapping logrus
+- **Logging Abstraction Layer**: `logging.Logger` interface decouples application from specific frameworks
+- **Dependency Injection**: Logger instances injected through constructors via `BaseParser`
+- **Structured Logging**: Consistent field names using `logging.Field` struct for key-value pairs
+- **Multiple Log Levels**: Debug, Info, Warn, Error, Fatal with appropriate usage
+- **Context-Rich Messages**: Metadata using `WithField`, `WithFields`, and `WithError` methods
+- **Default Implementation**: `LogrusAdapter` wrapping logrus with JSON and text formatters
+- **Test Support**: Mock logger implementations for unit testing
+
+**Example**:
+```go
+logger.Info("Processing transaction", 
+    logging.Field{Key: "file", Value: filename},
+    logging.Field{Key: "count", Value: len(transactions)})
+```
 
 **Benefits**:
 
-- Easy troubleshooting and debugging
+- Easy troubleshooting and debugging with structured data
 - Production monitoring capabilities
 - Audit trail for financial data processing
 - Improved testability with mock loggers
 - Flexibility to change logging implementations without modifying business logic
+- Consistent logging patterns across all parsers through `BaseParser`
 
-### 7. **Test-Driven Quality Assurance**
+### 8. **Test-Driven Quality Assurance**
 
 **Principle**: Comprehensive testing ensures reliability and prevents regressions.
 
@@ -150,20 +268,39 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ### 9. **Error Handling & Recovery**
 
-**Principle**: Errors should be handled gracefully with clear communication to users.
+**Principle**: Errors should be handled gracefully with clear communication to users using standardized error types.
 
 **Implementation**:
 
-- Custom error types for different failure scenarios
-- Detailed error messages with context
-- Partial success handling (process what you can)
-- Resource cleanup in error scenarios
+- **Custom Error Types**: Comprehensive error types in `internal/parsererror/`
+  - `ParseError`: General parsing failures with parser, field, and value context
+  - `ValidationError`: Format validation failures with file path and reason
+  - `CategorizationError`: Transaction categorization failures with strategy context
+  - `InvalidFormatError`: Files not matching expected format with content snippets
+  - `DataExtractionError`: Field extraction failures with raw data context
+- **Error Wrapping**: Proper error context using `fmt.Errorf` with `%w` verb
+- **Error Inspection**: Use of `errors.Is` and `errors.As` for error type checking
+- **Graceful Degradation**: Log warnings for recoverable issues, return errors for unrecoverable ones
+- **Resource Cleanup**: Proper cleanup in error scenarios with `defer` statements
+
+**Example**:
+```go
+if err != nil {
+    return nil, &parsererror.ParseError{
+        Parser: "CAMT",
+        Field:  "amount",
+        Value:  rawValue,
+        Err:    err,
+    }
+}
+```
 
 **Benefits**:
 
-- Better user experience
-- System resilience
-- Easier troubleshooting
+- Better user experience with detailed error context
+- System resilience through graceful degradation
+- Easier troubleshooting with structured error information
+- Consistent error handling patterns across all parsers
 
 ### 10. **Performance & Resource Management**
 
@@ -230,10 +367,48 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 ### Adding New Parsers
 
-1. Implement the `parser.Parser` interface
-2. Follow the established error handling patterns
-3. Include comprehensive tests
-4. Document format-specific considerations
+1. **Create Parser Package**: Create `internal/<format>parser/` directory
+2. **Embed BaseParser**: Struct should embed `parser.BaseParser` for common functionality
+3. **Implement Interfaces**: Implement `parser.Parser` interface (minimum requirement)
+4. **Constructor Pattern**: Use `NewMyParser(logger logging.Logger)` constructor accepting logger
+5. **Error Handling**: Use custom error types from `internal/parsererror/`
+6. **Constants Usage**: Use constants from `internal/models/constants.go` instead of magic strings
+7. **Structured Logging**: Use injected logger with structured fields
+8. **Testing**: Include comprehensive tests with mock dependencies
+9. **Documentation**: Document format-specific considerations and usage examples
+
+**Example Structure**:
+```go
+type MyParser struct {
+    parser.BaseParser
+    // format-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+
+func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+    p.GetLogger().Info("Starting parse operation")
+    
+    // Use constants instead of magic strings
+    transaction.CreditDebit = models.TransactionTypeDebit
+    
+    // Use custom error types with context
+    if err != nil {
+        return nil, &parsererror.ParseError{
+            Parser: "MyParser",
+            Field:  "amount",
+            Value:  rawValue,
+            Err:    err,
+        }
+    }
+    
+    return transactions, nil
+}
+```
 
 ### Extending Functionality
 

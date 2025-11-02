@@ -45,5 +45,5 @@ Thumbs.db
 .DS_Store
 go.mod
 database/creditors.yaml
-database/debitors.yaml
+database/debtors.yaml
 .DS_Store

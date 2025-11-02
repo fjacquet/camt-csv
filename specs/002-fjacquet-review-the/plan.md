@@ -13,7 +13,7 @@ This feature aims to enhance the codebase by centralizing parser creation logic 
 
 **Language/Version**: Go 1.22+
 **Primary Dependencies**: `spf13/cobra`, `spf13/viper`, `github.com/sirupsen/logrus`, `gopkg.in/yaml.v3`, `go/ast`, `go/parser`, `go/token`, `github.com/stretchr/testify`, `github.com/shopspring/decimal`, `github.com/gocarina/gocsv`, `github.com/joho/godotenv`
-**Storage**: Files (constitution definitions, generated reports), YAML files (categories, creditors, debitors)
+**Storage**: Files (constitution definitions, generated reports), YAML files (categories, creditors, debtors)
 **Testing**: `go test` with `github.com/stretchr/testify`
 **Target Platform**: Linux server
 **Project Type**: Single project (Go CLI application)

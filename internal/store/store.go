@@ -1,4 +1,15 @@
-// Package store provides functionality for storing and retrieving application data.
+// Package store provides functionality for storing and retrieving application configuration data.
+// It manages YAML-based configuration files for categories, creditor mappings, and debtor mappings
+// used by the transaction categorization system.
+//
+// The store supports flexible file location resolution, checking multiple standard locations
+// and providing fallback mechanisms for configuration files. It handles both loading existing
+// configurations and saving updated mappings back to disk.
+//
+// Configuration files supported:
+//   - categories.yaml: Category definitions with keywords for pattern matching
+//   - creditors.yaml: Direct mappings from creditor names to categories
+//   - debtors.yaml: Direct mappings from debtor names to categories
 package store
 
 import (
@@ -23,23 +34,53 @@ func SetLogger(logger *logrus.Logger) {
 	}
 }
 
-// CategoryStore manages loading and saving of category data
+// CategoryStore manages loading and saving of category-related configuration data.
+// It provides a centralized interface for accessing category definitions, creditor mappings,
+// and debtor mappings from YAML files with intelligent file location resolution.
+//
+// The store supports both absolute and relative file paths, with automatic resolution
+// of configuration files in standard locations including the current directory,
+// config subdirectories, and user home directory.
 type CategoryStore struct {
-	CategoriesFile string
-	CreditorsFile  string
-	DebitorsFile   string
+	CategoriesFile string // Path to the categories configuration file
+	CreditorsFile  string // Path to the creditor mappings file
+	DebtorsFile    string // Path to the debtor mappings file
 }
 
-// NewCategoryStore creates a new store for category-related data
-func NewCategoryStore(categoriesFile, creditorsFile, debitorsFile string) *CategoryStore {
+// NewCategoryStore creates a new CategoryStore instance with the specified file paths.
+// If empty strings are provided for any file path, default filenames will be used
+// during file operations (categories.yaml, creditors.yaml, debtors.yaml).
+//
+// Parameters:
+//   - categoriesFile: Path to the categories configuration file
+//   - creditorsFile: Path to the creditor mappings file
+//   - debtorsFile: Path to the debtor mappings file
+//
+// Returns:
+//   - *CategoryStore: A new store instance ready for use
+func NewCategoryStore(categoriesFile, creditorsFile, debtorsFile string) *CategoryStore {
 	return &CategoryStore{
 		CategoriesFile: categoriesFile,
 		CreditorsFile:  creditorsFile,
-		DebitorsFile:   debitorsFile,
+		DebtorsFile:    debtorsFile,
 	}
 }
 
-// FindConfigFile looks for a configuration file in standard locations
+// FindConfigFile looks for a configuration file in standard locations.
+// It searches in the following order:
+//  1. Current directory
+//  2. ./config/ subdirectory
+//  3. ./database/ subdirectory
+//  4. User home directory under .config/camt-csv/
+//
+// If the filename is an absolute path, it checks that path directly.
+//
+// Parameters:
+//   - filename: Name or path of the configuration file to find
+//
+// Returns:
+//   - string: Full path to the found configuration file
+//   - error: os.ErrNotExist if file is not found, or other error if path resolution fails
 func (s *CategoryStore) FindConfigFile(filename string) (string, error) {
 	// Check if it's an absolute path
 	if filepath.IsAbs(filename) {
@@ -91,7 +132,13 @@ func (s *CategoryStore) resolveConfigFile(filename string) (string, error) {
 	return path, nil
 }
 
-// LoadCategories loads categories from the YAML file
+// LoadCategories loads category definitions from the configured YAML file.
+// It supports both structured format (with a "categories" key) and simple list format
+// for backward compatibility. If the file is not found, returns an empty slice without error.
+//
+// Returns:
+//   - []models.CategoryConfig: Slice of category configurations loaded from the file
+//   - error: Any error encountered during file reading or YAML parsing
 func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 	filename := s.CategoriesFile
 	if filename == "" {
@@ -133,7 +180,13 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 	return config.Categories, nil
 }
 
-// LoadCreditorMappings loads creditor mappings from YAML
+// LoadCreditorMappings loads creditor-to-category mappings from the configured YAML file.
+// These mappings provide direct associations between creditor names and their assigned categories,
+// enabling fast categorization without pattern matching or AI inference.
+//
+// Returns:
+//   - map[string]string: Map of creditor names to category names
+//   - error: Any error encountered during file reading or YAML parsing
 func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 	filename := s.CreditorsFile
 	if filename == "" {
@@ -164,38 +217,56 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 	return mappings, nil
 }
 
-// LoadDebitorMappings loads debitor mappings from YAML
-func (s *CategoryStore) LoadDebitorMappings() (map[string]string, error) {
-	filename := s.DebitorsFile
+// LoadDebtorMappings loads debtor-to-category mappings from the configured YAML file.
+// These mappings provide direct associations between debtor names and their assigned categories,
+// enabling fast categorization without pattern matching or AI inference.
+//
+// Returns:
+//   - map[string]string: Map of debtor names to category names
+//   - error: Any error encountered during file reading or YAML parsing
+func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
+	filename := s.DebtorsFile
 	if filename == "" {
-		filename = "debitors.yaml"
+		filename = "debtors.yaml"
 	}
 
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Debitor mappings file not found: %s", filename)
+			log.Warnf("Debtor mappings file not found: %s", filename)
 			return map[string]string{}, nil
 		}
-		return nil, fmt.Errorf("error resolving debitor mappings file: %w", err)
+		return nil, fmt.Errorf("error resolving debtor mappings file: %w", err)
 	}
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading debitor mappings file: %w", err)
+		return nil, fmt.Errorf("error reading debtor mappings file: %w", err)
 	}
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
-		log.WithError(err).Warnf("Failed to unmarshal debitor mappings from %s", filePath)
-		return nil, fmt.Errorf("error parsing debitor mappings: %w", err)
+		log.WithError(err).Warnf("Failed to unmarshal debtor mappings from %s", filePath)
+		return nil, fmt.Errorf("error parsing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Loaded %d debitor mappings from %s", len(mappings), filePath)
+	log.Debugf("Loaded %d debtor mappings from %s", len(mappings), filePath)
 	return mappings, nil
 }
 
-// SaveCreditorMappings saves creditor mappings to YAML
+// SaveCreditorMappings saves creditor-to-category mappings to the configured YAML file.
+// If the file doesn't exist, it creates it in the database directory. The method ensures
+// the parent directory exists before writing and uses appropriate file permissions.
+//
+// This method is typically called by the auto-learning feature when AI categorization
+// successfully categorizes a transaction, allowing future transactions from the same
+// creditor to be categorized instantly.
+//
+// Parameters:
+//   - mappings: Map of creditor names to category names to save
+//
+// Returns:
+//   - error: Any error encountered during file writing or directory creation
 func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 	filename := s.CreditorsFile
 	if filename == "" {
@@ -237,17 +308,29 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 	return nil
 }
 
-// SaveDebitorMappings saves debitor mappings to YAML
-func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
-	filename := s.DebitorsFile
+// SaveDebtorMappings saves debtor-to-category mappings to the configured YAML file.
+// If the file doesn't exist, it creates it in the database directory. The method ensures
+// the parent directory exists before writing and uses appropriate file permissions.
+//
+// This method is typically called by the auto-learning feature when AI categorization
+// successfully categorizes a transaction, allowing future transactions from the same
+// debtor to be categorized instantly.
+//
+// Parameters:
+//   - mappings: Map of debtor names to category names to save
+//
+// Returns:
+//   - error: Any error encountered during file writing or directory creation
+func (s *CategoryStore) SaveDebtorMappings(mappings map[string]string) error {
+	filename := s.DebtorsFile
 	if filename == "" {
-		filename = "debitors.yaml"
+		filename = "debtors.yaml"
 	}
 
 	// Find the existing file or use standard locations
 	filePath, err := s.FindConfigFile(filename)
 	if err != nil && err != os.ErrNotExist {
-		return fmt.Errorf("error resolving debitor mappings file: %w", err)
+		return fmt.Errorf("error resolving debtor mappings file: %w", err)
 	}
 
 	// If file not found, use the database directory by default
@@ -268,13 +351,13 @@ func (s *CategoryStore) SaveDebitorMappings(mappings map[string]string) error {
 
 	data, err := yaml.Marshal(mappings)
 	if err != nil {
-		return fmt.Errorf("error marshaling debitor mappings: %w", err)
+		return fmt.Errorf("error marshaling debtor mappings: %w", err)
 	}
 
 	if err := os.WriteFile(filePath, data, models.PermissionConfigFile); err != nil {
-		return fmt.Errorf("error writing debitor mappings: %w", err)
+		return fmt.Errorf("error writing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Saved %d debitor mappings to %s", len(mappings), filePath)
+	log.Debugf("Saved %d debtor mappings to %s", len(mappings), filePath)
 	return nil
 }

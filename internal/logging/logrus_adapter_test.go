@@ -53,11 +53,11 @@ func TestNewLogrusAdapter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := NewLogrusAdapter(tt.level, tt.format)
 			require.NotNil(t, logger)
-			
+
 			adapter, ok := logger.(*LogrusAdapter)
 			require.True(t, ok, "logger should be a LogrusAdapter")
 			assert.Equal(t, tt.expectLevel, adapter.logger.Level)
-			
+
 			// Check formatter type
 			if tt.format == "json" {
 				_, ok := adapter.logger.Formatter.(*logrus.JSONFormatter)
@@ -74,19 +74,19 @@ func TestNewLogrusAdapterFromLogger(t *testing.T) {
 	t.Run("with existing logger", func(t *testing.T) {
 		existingLogger := logrus.New()
 		existingLogger.SetLevel(logrus.DebugLevel)
-		
+
 		logger := NewLogrusAdapterFromLogger(existingLogger)
 		require.NotNil(t, logger)
-		
+
 		adapter, ok := logger.(*LogrusAdapter)
 		require.True(t, ok)
 		assert.Equal(t, existingLogger, adapter.logger)
 	})
-	
+
 	t.Run("with nil logger creates new one", func(t *testing.T) {
 		logger := NewLogrusAdapterFromLogger(nil)
 		require.NotNil(t, logger)
-		
+
 		adapter, ok := logger.(*LogrusAdapter)
 		require.True(t, ok)
 		assert.NotNil(t, adapter.logger)
@@ -95,11 +95,11 @@ func TestNewLogrusAdapterFromLogger(t *testing.T) {
 
 func TestLogrusAdapter_LoggingMethods(t *testing.T) {
 	tests := []struct {
-		name     string
-		logFunc  func(Logger, string, ...Field)
-		level    logrus.Level
-		message  string
-		fields   []Field
+		name    string
+		logFunc func(Logger, string, ...Field)
+		level   logrus.Level
+		message string
+		fields  []Field
 	}{
 		{
 			name:    "Debug with fields",
@@ -141,16 +141,16 @@ func TestLogrusAdapter_LoggingMethods(t *testing.T) {
 			logrusLogger.SetFormatter(&logrus.TextFormatter{
 				DisableTimestamp: true,
 			})
-			
+
 			logger := NewLogrusAdapterFromLogger(logrusLogger)
-			
+
 			// Call the logging method
 			tt.logFunc(logger, tt.message, tt.fields...)
-			
+
 			// Verify output contains message
 			output := buf.String()
 			assert.Contains(t, output, tt.message)
-			
+
 			// Verify output contains field key and value
 			if len(tt.fields) > 0 {
 				assert.Contains(t, output, tt.fields[0].Key)
@@ -167,13 +167,13 @@ func TestLogrusAdapter_WithError(t *testing.T) {
 	logrusLogger.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: true,
 	})
-	
+
 	logger := NewLogrusAdapterFromLogger(logrusLogger)
 	testErr := errors.New("test error")
-	
+
 	loggerWithError := logger.WithError(testErr)
 	loggerWithError.Error("error occurred")
-	
+
 	output := buf.String()
 	assert.Contains(t, output, "error occurred")
 	assert.Contains(t, output, "test error")
@@ -187,12 +187,12 @@ func TestLogrusAdapter_WithField(t *testing.T) {
 	logrusLogger.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: true,
 	})
-	
+
 	logger := NewLogrusAdapterFromLogger(logrusLogger)
-	
+
 	loggerWithField := logger.WithField("user", "john")
 	loggerWithField.Info("user action")
-	
+
 	output := buf.String()
 	assert.Contains(t, output, "user action")
 	assert.Contains(t, output, "user")
@@ -207,18 +207,18 @@ func TestLogrusAdapter_WithFields(t *testing.T) {
 	logrusLogger.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: true,
 	})
-	
+
 	logger := NewLogrusAdapterFromLogger(logrusLogger)
-	
+
 	fields := []Field{
 		{Key: "user", Value: "john"},
 		{Key: "action", Value: "login"},
 		{Key: "ip", Value: "192.168.1.1"},
 	}
-	
+
 	loggerWithFields := logger.WithFields(fields...)
 	loggerWithFields.Info("user logged in")
-	
+
 	output := buf.String()
 	assert.Contains(t, output, "user logged in")
 	assert.Contains(t, output, "user")
@@ -233,9 +233,9 @@ func TestConvertFields(t *testing.T) {
 		{Key: "key2", Value: 42},
 		{Key: "key3", Value: true},
 	}
-	
+
 	logrusFields := convertFields(fields)
-	
+
 	assert.Len(t, logrusFields, 3)
 	assert.Equal(t, "value1", logrusFields["key1"])
 	assert.Equal(t, 42, logrusFields["key2"])
@@ -248,14 +248,8 @@ func TestConvertFields_Empty(t *testing.T) {
 	assert.Len(t, logrusFields, 0)
 }
 
-func TestGetLogger(t *testing.T) {
-	logger := GetLogger()
-	require.NotNil(t, logger)
-	
-	adapter, ok := logger.(*LogrusAdapter)
-	require.True(t, ok)
-	assert.NotNil(t, adapter.logger)
-}
+// TestGetLogger removed - we no longer use global logger functions
+// All loggers are now injected through constructors
 
 func TestLogrusAdapter_ChainedCalls(t *testing.T) {
 	logrusLogger := logrus.New()
@@ -265,17 +259,17 @@ func TestLogrusAdapter_ChainedCalls(t *testing.T) {
 	logrusLogger.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: true,
 	})
-	
+
 	logger := NewLogrusAdapterFromLogger(logrusLogger)
 	testErr := errors.New("test error")
-	
+
 	// Chain multiple WithField calls
 	logger.
 		WithField("user", "alice").
 		WithField("action", "delete").
 		WithError(testErr).
 		Error("operation failed")
-	
+
 	output := buf.String()
 	assert.Contains(t, output, "operation failed")
 	assert.Contains(t, output, "user")

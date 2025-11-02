@@ -1,6 +1,6 @@
-# Mailtag Project Documentation
+# CAMT-CSV Project Documentation
 
-This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, architecture, core functionalities, adherence to functional programming principles, testing strategy, and dependency management.
+This document provides a comprehensive overview of the `camt-csv` project, detailing its purpose, modern architecture built on dependency injection principles, core functionalities, adherence to functional programming principles, comprehensive testing strategy, and dependency management. The project has undergone significant architectural improvements while maintaining full backward compatibility.
 
 ## 1. Project Overview
 
@@ -16,11 +16,19 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 
 **High-Level Architecture:**
 
-The project follows a clean separation of concerns:
+The project follows a clean separation of concerns built on dependency injection principles:
 
-* **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command typically orchestrates calls to the `internal/` packages.
-* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation.
-* **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debitors).
+* **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command receives dependencies through a `Container` instance, eliminating global state.
+* **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include:
+  - **Dependency Injection**: All components receive dependencies through constructors
+  - **Logging Abstraction**: Framework-agnostic `logging.Logger` interface with `LogrusAdapter` implementation
+  - **Interface Segregation**: Parsers implement segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`)
+  - **Strategy Pattern**: Categorization uses pluggable strategies (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`)
+  - **Builder Pattern**: Transaction construction with validation and type safety
+  - **Enhanced Backward Compatibility**: Direction-based methods (`GetPayee()`, `GetPayer()`, `GetCounterparty()`) for seamless migration
+  - **Custom Error Types**: Comprehensive error hierarchy with proper context and wrapping
+  - **Constants-Based Design**: Complete elimination of magic strings and numbers
+* **`database/`**: Stores YAML configuration files for categorization rules (categories, creditors, debtors).
 * **`samples/`**: Provides example input files for various formats.
 
 ```bash
@@ -46,68 +54,152 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 ### 3. Key Modules and Their Responsibilities
 
 * **`cmd/`**: 
+  * `analyze/analyze.go`: CLI command for codebase analysis and compliance checking.
   * `batch/batch.go`: Handles batch conversion of multiple files.
   * `camt/convert.go`: CLI command for CAMT.053 XML conversion.
   * `categorize/categorize.go`: CLI command for categorizing transactions.
   * `common/process.go`: Common processing logic for CLI commands.
   * `debit/convert.go`: CLI command for Debit CSV conversion.
+  * `implement/implement.go`: CLI command for implementing development tasks.
   * `pdf/convert.go`: CLI command for PDF statement conversion.
+  * `review/review.go`: CLI command for codebase compliance review.
   * `revolut/convert.go`: CLI command for Revolut CSV conversion.
+  * `revolut-investment/convert.go`: CLI command for Revolut investment CSV conversion.
   * `root/root.go`: Defines the root Cobra command for the CLI.
   * `selma/convert.go`: CLI command for Selma CSV conversion.
+  * `tasks/tasks.go`: CLI command for task management and tracking.
 
 * **`main.go`**: Main entry point for the CLI application.
 
 * **`internal/`**: 
-  * **`camtparser/`**: Parses CAMT.053 XML files. Implements the `parser.Parser` interface.
-  * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debitor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
+  * **`camtparser/`**: Parses CAMT.053 XML files. Embeds `BaseParser` and implements the `parser.Parser` interface.
+  * **`categorizer/`**: Core logic for transaction categorization. Manages local keyword matching, creditor/debtor mappings, and integrates with the Gemini AI for fallback categorization. It also handles rate limiting for AI calls.
   * **`common/`**: Provides shared utilities, including CSV reading/writing (`csv.go`) and a generalized conversion function (`GeneralizedConvertToCSV`).
-  * **`config/`**: Handles application configuration, primarily loading environment variables.
+  * **`config/`**: Handles application configuration using Viper, supporting hierarchical configuration from files, environment variables, and CLI flags.
   * **`currencyutils/`**: Utility functions for currency parsing, formatting, and calculations (e.g., tax amounts).
   * **`dateutils/`**: Utility functions for date parsing, formatting, and business day calculations.
-  * **`debitparser/`**: Parses generic debit CSV files. Implements the `parser.Parser` interface.
+  * **`debitparser/`**: Parses generic debit CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface.
   * **`fileutils/`**: General file system utilities.
-  * **`logging/`**: Centralized logging setup using `logrus`.
-  * **`models/`**: Defines the core data structures, most notably the `models.Transaction` struct, which represents a standardized financial transaction. It includes methods for amount parsing, date formatting, and deriving transaction properties.
-  * **`parser/`**: Defines the `parser.Parser` interface, which all specific parsers must implement, ensuring a consistent API. It also provides a `DefaultParser` for common functionalities.
-  * **`parsererror/`**: Defines custom error types for parsing operations.
-  * **`pdfparser/`**: Parses PDF bank statements, including specialized logic for Viseca credit card statements. Implements the `parser.Parser` interface.
-  * **`revolutparser/`**: Parses Revolut CSV export files. Implements the `parser.Parser` interface.
-  * **`selmaparser/`**: Parses Selma investment CSV files, with specific logic for handling investment-related transactions and stamp duty. Implements the `parser.Parser` interface.
-  * **`store/`**: Manages loading and saving categorization data (categories, creditors, debitors) from YAML files.
+  * **`container/`**: Manages dependency injection with the `Container` struct that creates and wires all application dependencies, eliminating global state and improving testability.
+  * **`logging/`**: Framework-agnostic logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation. Provides structured logging with `Field` struct for key-value pairs, enabling dependency injection and easier testing with mock loggers.
+  * **`models/`**: Defines the core data structures with decomposed transaction types (`TransactionCore`, `TransactionWithParties`, `CategorizedTransaction`, `Transaction`). Includes `TransactionBuilder` for fluent construction with validation, `Money` and `Party` value objects, and comprehensive constants in `constants.go` to eliminate magic strings and numbers throughout the codebase.
+  * **`parser/`**: Defines segregated parser interfaces following Interface Segregation Principle (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality including logging and CSV writing.
+  * **`parsererror/`**: Defines comprehensive custom error types for parsing operations, including `ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, and `DataExtractionError` with proper error wrapping and context.
+  * **`pdfparser/`**: Parses PDF bank statements with dependency injection for PDF extraction. Embeds `BaseParser` and implements the `parser.Parser` interface. Includes specialized logic for Viseca credit card statements.
+  * **`revolutparser/`**: Parses Revolut CSV export files. Embeds `BaseParser` and implements the `parser.Parser` interface.
+  * **`revolutinvestmentparser/`**: Parses Revolut investment transaction CSV files. Embeds `BaseParser` and implements the `parser.Parser` interface. Handles investment-specific transaction types like BUY, DIVIDEND, and CASH TOP-UP.
+  * **`selmaparser/`**: Parses Selma investment CSV files, with specific logic for handling investment-related transactions and stamp duty. Embeds `BaseParser` and implements the `parser.Parser` interface.
+  * **`store/`**: Manages loading and saving categorization data (categories, creditors, debtors) from YAML files.
   * **`textutils/`**: Utilities for text extraction and manipulation.
   * **`xmlutils/`**: Utilities for XML processing (e.g., XPath, constants).
 
 * **`database/`**: 
   * `categories.yaml`: Defines custom transaction categories and associated keywords for local matching.
   * `creditors.yaml`: Stores mappings from creditor names to categories.
-  * `debitors.yaml`: Stores mappings from debitor names to categories.
+  * `debtors.yaml`: Stores mappings from debtor names to categories.
 
 ### 4. Standardized Parser Architecture
 
-The project employs a highly standardized parser architecture, making it easy to add new financial data sources. This is achieved through the `parser.Parser` interface defined in `internal/parser/parser.go`.
+The project employs a highly standardized parser architecture built around segregated interfaces and a common base implementation, making it easy to add new financial data sources while eliminating code duplication.
 
-**`parser.Parser` Interface:**
+**Core Parser Interfaces:**
 
-All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `selmaparser`, `debitparser`) must implement the following method:
+The architecture is built on several segregated interfaces defined in `internal/parser/parser.go`:
 
-* `Parse(r io.Reader) ([]models.Transaction, error)`: Parses a source file and extracts a slice of `models.Transaction` objects.
+* **`Parser`**: Core parsing interface with `Parse(r io.Reader) ([]models.Transaction, error)` method
+* **`Validator`**: Interface for format validation with `ValidateFormat(filePath string) (bool, error)` method  
+* **`CSVConverter`**: Interface for CSV conversion with `ConvertToCSV(inputFile, outputFile string) error` method
+* **`LoggerConfigurable`**: Interface for logger management with `SetLogger(logger logging.Logger)` method
+* **`FullParser`**: Composite interface combining all capabilities for parsers that need complete functionality
 
-This streamlined interface focuses on the core responsibility of a parser: to read from an `io.Reader` and produce a standardized `Transaction` slice. Other functionalities like file I/O, validation, and CSV writing are handled by common utility functions, promoting separation of concerns and code reuse.
+**BaseParser Foundation:**
+
+All parser implementations embed the `BaseParser` struct from `internal/parser/base.go`, which provides:
+
+* **Common Logger Management**: Implements `LoggerConfigurable` interface with `SetLogger()` and `GetLogger()` methods
+* **Shared CSV Writing**: Provides `WriteToCSV()` method using the common CSV writer from `internal/common`
+* **Consistent Initialization**: `NewBaseParser(logger)` constructor ensures proper setup
+* **Framework-Agnostic Logging**: Uses `logging.Logger` interface for dependency injection
+
+**Parser Implementation Pattern:**
+
+```go
+type MyParser struct {
+    parser.BaseParser
+    // parser-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+
+func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+    p.GetLogger().Info("Starting parse operation")
+    // implementation using structured logging
+}
+```
+
+This architecture eliminates code duplication while maintaining the flexibility to add parser-specific functionality. All concrete parser implementations (e.g., `camtparser`, `pdfparser`, `revolutparser`, `revolutinvestmentparser`, `selmaparser`, `debitparser`) follow this pattern.
+
+**Error Handling:**
+
+The parser architecture includes comprehensive error handling with custom error types defined in `internal/parsererror/`:
+
+* **`ParseError`**: For general parsing failures with context
+* **`ValidationError`**: For format validation failures  
+* **`InvalidFormatError`**: For files that don't match expected format
+* **`DataExtractionError`**: For failures extracting specific data fields
+* **`CategorizationError`**: For transaction categorization failures
+
+**Constants and Magic String Elimination:**
+
+All parsers use constants from `internal/models/constants.go` instead of magic strings:
+
+* Transaction types: `TransactionTypeDebit`, `TransactionTypeCredit`
+* Categories: `CategoryUncategorized`, `CategorySalary`, etc.
+* Bank codes: `BankCodeCashWithdrawal`, `BankCodePOS`, etc.
+* File permissions: `PermissionConfigFile`, `PermissionDirectory`
 
 ### 5. Transaction Categorization
 
-Transaction categorization is a core feature, implemented in `internal/categorizer/`. It uses a multi-stage, hybrid approach:
+Transaction categorization is a core feature, implemented in `internal/categorizer/` using the Strategy pattern. It uses a three-tier approach with dependency injection:
 
-1. **Direct Mapping (Exact Match):** The system first checks `creditorMappings` and `debitorMappings` (loaded from `database/creditors.yaml` and `database/debitors.yaml`). These provide exact, case-insensitive matches for known payees/payers to specific categories. This is the fastest and most efficient method for recurring transactions.
-2. **Local Keyword Matching:** If no direct mapping is found, the `categorizeLocallyByKeywords` function attempts to match transaction descriptions and party names against keywords defined in `database/categories.yaml`. This method is also fast and avoids API calls.
-3. **AI-Based Categorization (Fallback):** If local matching fails and AI categorization is enabled (`ai.enabled: true` in your configuration), the system falls back to using the Google Gemini API.
-    * A prompt is constructed with transaction details and a list of allowed categories.
-    * The Gemini model (`ai.model`, default `gemini-2.0-flash`) is queried.
-    * A rate limiter (`ai.requests_per_minute`) is implemented to prevent exceeding API quotas.
-    * Successful AI categorizations are *automatically saved* to the `creditors.yaml` or `debitors.yaml` files, effectively "learning" new mappings and reducing future AI calls for similar transactions.
+**Strategy Pattern Implementation:**
+```go
+type CategorizationStrategy interface {
+    Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
+    Name() string
+}
 
-**Customization:** Users can customize categories and keyword rules by editing `database/categories.yaml`. New creditor/debitor mappings are automatically learned and saved by the application.
+type Categorizer struct {
+    strategies []CategorizationStrategy
+    store      *store.CategoryStore
+    logger     logging.Logger
+}
+```
+
+**Three-Tier Strategy Approach:**
+
+1. **DirectMappingStrategy:** Exact, case-insensitive matches from `database/creditors.yaml` and `database/debtors.yaml`. This is the fastest method for recurring transactions, providing instant recognition of known payees/payers.
+
+2. **KeywordStrategy:** Pattern matching against keywords defined in `database/categories.yaml`. Uses configurable keyword rules for transaction descriptions and party names. This method is fast and avoids API calls while handling variations in transaction descriptions.
+
+3. **AIStrategy:** Google Gemini API fallback for unknown transactions when AI categorization is enabled (`ai.enabled: true`). Features include:
+   * Context-aware prompts with transaction details and allowed categories
+   * Configurable model selection (`ai.model`, default `gemini-2.0-flash`)
+   * Rate limiting (`ai.requests_per_minute`) to prevent API quota exceeded
+   * Auto-learning: Successful AI categorizations are automatically saved to YAML files
+   * Lazy initialization with `sync.Once` for optimal performance
+
+**Dependency Injection:**
+The categorizer receives all dependencies through its constructor, eliminating global state:
+```go
+categorizer := categorizer.NewCategorizer(store, aiClient, logger)
+```
+
+**Customization:** Users can customize categories and keyword rules by editing `database/categories.yaml`. New creditor/debtor mappings are automatically learned and saved by the application, creating a self-improving system.
 
 ### 6. Testing Strategy
 

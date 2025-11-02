@@ -79,7 +79,7 @@ inclusion: always
 
 Three-tier approach (in order):
 
-1. **Direct Mapping**: Exact matches from `database/creditors.yaml` and `database/debitors.yaml`
+1. **Direct Mapping**: Exact matches from `database/creditors.yaml` and `database/debtors.yaml`
 2. **Keyword Matching**: Local rules from `database/categories.yaml`
 3. **AI Fallback**: Google Gemini API (optional, with auto-learning)
 

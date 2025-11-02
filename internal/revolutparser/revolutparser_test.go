@@ -4,8 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/stretchr/testify/assert"
@@ -36,14 +38,15 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	}()
 
 	// Test parsing
-	adapter := NewAdapter()
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	assert.NoError(t, err, "Failed to parse Revolut CSV file")
 	assert.Equal(t, 4, len(transactions), "Expected 4 transactions")
 
 	// Verify first transaction
-	assert.Equal(t, "02.01.2025", transactions[0].Date)
-	assert.Equal(t, "01.01.2025", transactions[0].ValueDate)
+	assert.Equal(t, "02.01.2025", transactions[0].Date.Format("02.01.2006"))
+	assert.Equal(t, "01.01.2025", transactions[0].ValueDate.Format("02.01.2006"))
 	assert.Equal(t, "Transfert to CHF Vacances", transactions[0].Description) // Updated to match actual code behavior
 	assert.Equal(t, models.ParseAmount("2.50"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
@@ -51,8 +54,8 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	assert.Equal(t, models.StatusCompleted, transactions[0].Status)
 
 	// Verify second transaction
-	assert.Equal(t, "03.01.2025", transactions[1].Date)
-	assert.Equal(t, "02.01.2025", transactions[1].ValueDate)
+	assert.Equal(t, "03.01.2025", transactions[1].Date.Format("02.01.2006"))
+	assert.Equal(t, "02.01.2025", transactions[1].ValueDate.Format("02.01.2006"))
 	assert.Equal(t, "Boreal Coffee Shop", transactions[1].Description)
 	assert.Equal(t, models.ParseAmount("57.50"), transactions[1].Amount)
 	assert.Equal(t, models.TransactionTypeDebit, transactions[1].CreditDebit)
@@ -69,8 +72,8 @@ func TestWriteToCSV(t *testing.T) {
 	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:        "02.01.2025",
-			ValueDate:   "02.01.2025",
+			Date:        time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
+			ValueDate:   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description: "To CHF Vacances",
 			Amount:      models.ParseAmount("2.50"),
 			Currency:    "CHF",
@@ -78,8 +81,8 @@ func TestWriteToCSV(t *testing.T) {
 			Status:      models.StatusCompleted,
 		},
 		{
-			Date:        "02.01.2025",
-			ValueDate:   "02.01.2025",
+			Date:        time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
+			ValueDate:   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description: "Boreal Coffee Shop",
 			Amount:      models.ParseAmount("57.50"),
 			Currency:    "CHF",
@@ -125,7 +128,8 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }

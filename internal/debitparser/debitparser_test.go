@@ -4,27 +4,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/store"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSetLogger(t *testing.T) {
-	// Create a test logger
-	testLogger := logrus.New()
-	testLogger.SetLevel(logrus.DebugLevel)
-
-	// Set the logger
-	SetLogger(testLogger)
-
-	// Verify that the package logger was updated
-	if log.Level != logrus.DebugLevel {
-		t.Error("SetLogger did not correctly update the logger")
-	}
+	// This test is no longer relevant since we use dependency injection for loggers
+	// The Parse function now accepts a logger parameter
+	logger := logging.NewLogrusAdapter("debug", "text")
+	assert.NotNil(t, logger)
 }
 
 func TestValidateFormat(t *testing.T) {
@@ -92,7 +84,9 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	}
 
 	// Check the first transaction
-	assert.Equal(t, "15.04.2025", transactions[0].Date)
+	assert.Equal(t, 2025, transactions[0].Date.Year())
+	assert.Equal(t, time.April, transactions[0].Date.Month())
+	assert.Equal(t, 15, transactions[0].Date.Day())
 	assert.Equal(t, "RATP", transactions[0].Description)
 	assert.Equal(t, models.ParseAmount("4.21"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
@@ -100,25 +94,8 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 }
 
 func setupTestCategorizer(t *testing.T) {
-	t.Helper()
-	tempDir := t.TempDir()
-	categoriesFile := filepath.Join(tempDir, "categories.yaml")
-	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
-	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
-		t.Fatalf("Failed to write categories file: %v", err)
-	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write creditors file: %v", err)
-	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write debitors file: %v", err)
-	}
-	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
-	categorizer.SetTestCategoryStore(store)
-	t.Cleanup(func() {
-		categorizer.SetTestCategoryStore(nil)
-	})
+	// The new categorizer system uses dependency injection and doesn't require global setup
+	// Tests that need categorization should create their own categorizer instances
 }
 
 func TestWriteToCSV(t *testing.T) {

@@ -1,6 +1,7 @@
 package reviewer
 
 import (
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"testing"
 
@@ -8,7 +9,8 @@ import (
 )
 
 func TestAutomatedPrincipleEvaluator_Evaluate_Compliant(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path:    "/test/file.go",
@@ -31,7 +33,8 @@ func TestAutomatedPrincipleEvaluator_Evaluate_Compliant(t *testing.T) {
 }
 
 func TestAutomatedPrincipleEvaluator_Evaluate_NonCompliant(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path:    "/test/file.go",
@@ -54,7 +57,8 @@ func TestAutomatedPrincipleEvaluator_Evaluate_NonCompliant(t *testing.T) {
 }
 
 func TestAutomatedPrincipleEvaluator_Evaluate_NotAutomated(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path:    "/test/file.go",
@@ -76,7 +80,8 @@ func TestAutomatedPrincipleEvaluator_Evaluate_NotAutomated(t *testing.T) {
 }
 
 func TestAutomatedPrincipleEvaluator_Evaluate_InvalidPattern(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path:    "/test/file.go",
@@ -98,7 +103,8 @@ func TestAutomatedPrincipleEvaluator_Evaluate_InvalidPattern(t *testing.T) {
 }
 
 func TestAutomatedPrincipleEvaluator_Evaluate_NonFileSection(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path: "/test/dir",
@@ -119,7 +125,8 @@ func TestAutomatedPrincipleEvaluator_Evaluate_NonFileSection(t *testing.T) {
 }
 
 func TestAutomatedPrincipleEvaluator_Evaluate_EmptyPattern(t *testing.T) {
-	evaluator := NewAutomatedPrincipleEvaluator()
+	logger := logging.NewLogrusAdapter("info", "text")
+	evaluator := NewAutomatedPrincipleEvaluator(logger)
 
 	section := models.CodebaseSection{
 		Path:    "/test/file.go",

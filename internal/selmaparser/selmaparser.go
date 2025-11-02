@@ -62,8 +62,12 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	reader.FieldsPerRecord = -1 // allow variable number of fields
 	header, err := reader.Read()
 	if err != nil {
-		log.WithError(err).Error("Failed to read Selma CSV header")
-		return nil, err
+		return nil, &parsererror.ParseError{
+			Parser: "Selma",
+			Field:  "CSV header",
+			Value:  "header row",
+			Err:    err,
+		}
 	}
 
 	// Map header fields to struct fields
@@ -158,16 +162,35 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 		}
 	}
 
-	transaction := models.Transaction{
-		BookkeepingNumber: "",
-		Date:              row.Date, // Keep original YYYY-MM-DD format
-		ValueDate:         row.Date, // Use same date for ValueDate for Selma
-		Description:       row.Description,
-		Amount:            amount,
-		Currency:          row.Currency,
-		NumberOfShares:    shares,
-		Fund:              row.Fund,
-		CreditDebit:       determineCreditDebit(row.Description, row.Amount),
+	// Determine transaction direction
+	creditDebit := determineCreditDebit(row.Description, row.Amount)
+	isDebit := creditDebit == models.TransactionTypeDebit
+
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithDate(row.Date).
+		WithValueDate(row.Date).
+		WithDescription(row.Description).
+		WithAmount(amount, row.Currency).
+		WithNumberOfShares(shares).
+		WithFund(row.Fund)
+
+	// Set transaction direction
+	if isDebit {
+		builder = builder.AsDebit()
+	} else {
+		builder = builder.AsCredit()
+	}
+
+	// Build the transaction
+	transaction, err := builder.Build()
+	if err != nil {
+		return models.Transaction{}, &parsererror.DataExtractionError{
+			FilePath:       "(from reader)",
+			FieldName:      "Transaction",
+			RawDataSnippet: fmt.Sprintf("Date: %s, Amount: %s", row.Date, row.Amount),
+			Msg:            fmt.Sprintf("failed to build transaction: %v", err),
+		}
 	}
 
 	return transaction, nil
@@ -289,8 +312,10 @@ func validateFormat(r io.Reader) (bool, error) {
 
 	for _, required := range requiredHeaders {
 		if !headerMap[required] {
-			log.WithField("missing_header", required).Debug("Missing required header")
-			return false, fmt.Errorf("input file is not in a valid format")
+			return false, &parsererror.ValidationError{
+				FilePath: "(from reader)",
+				Reason:   fmt.Sprintf("missing required header: %s", required),
+			}
 		}
 	}
 

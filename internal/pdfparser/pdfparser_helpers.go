@@ -11,12 +11,19 @@ import (
 	"time"
 	"unicode"
 
-	"fjacquet/camt-csv/internal/categorizer"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
+
+// getDefaultLogger returns a default logger for backward compatibility
+func getDefaultLogger() logging.Logger {
+	return logging.NewLogrusAdapter("info", "text")
+}
+
+// log provides backward compatibility for existing log references
+var log = getDefaultLogger()
 
 // Define extractTextFromPDF as a variable holding a function
 var extractTextFromPDF = extractTextFromPDFImpl
@@ -30,20 +37,18 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFile) // #nosec G204 -- Expected subprocess for PDF text extraction
 	err := cmd.Run()
 	if err != nil {
-		logrus.WithError(err).Error("Failed to run pdftotext command")
 		return "", fmt.Errorf("error running pdftotext: %w", err)
 	}
 
 	// Read the extracted text
 	output, err := os.ReadFile(tempFile)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to read text output")
 		return "", fmt.Errorf("error reading extracted text: %w", err)
 	}
 
 	// Remove the temporary file
 	if err := os.Remove(tempFile); err != nil {
-		log.WithError(err).Warn("Failed to remove temporary file")
+		getDefaultLogger().WithError(err).Warn("Failed to remove temporary file")
 	}
 
 	return string(output), nil
@@ -51,11 +56,13 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 
 // parseTransactions parses transaction data from PDF text content
 func parseTransactions(lines []string) ([]models.Transaction, error) {
-	var transactions []models.Transaction
+	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
+	transactions := make([]models.Transaction, 0, 50)
 	var currentTx models.Transaction
 	var description strings.Builder
 	var merchant string
-	seen := make(map[string]bool)
+	// Pre-allocate map with size hint for duplicate detection
+	seen := make(map[string]bool, 50)
 
 	inTransaction := false
 	isVisecaFormat := false
@@ -67,7 +74,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			strings.Contains(line, "Détails") && strings.Contains(line, "Monnaie") &&
 			strings.Contains(line, "Montant") {
 			isVisecaFormat = true
-			logrus.Debug("Detected Viseca PDF format - header pattern matched")
+			getDefaultLogger().Debug("Detected Viseca PDF format - header pattern matched")
 			break
 		}
 
@@ -75,7 +82,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		if strings.Contains(line, "Visa Gold") || strings.Contains(line, "Visa Platinum") ||
 			strings.Contains(line, "Mastercard") || strings.Contains(line, "XXXX") {
 			isVisecaFormat = true
-			logrus.Debug("Detected Viseca PDF format - card pattern matched")
+			log.Debug("Detected Viseca PDF format - card pattern matched")
 			break
 		}
 
@@ -83,12 +90,13 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		if strings.Contains(line, "Montant total dernier relevé") ||
 			strings.Contains(line, "Votre paiement - Merci") {
 			isVisecaFormat = true
-			logrus.Debug("Detected Viseca PDF format - statement pattern matched")
+			log.Debug("Detected Viseca PDF format - statement pattern matched")
 			break
 		}
 	}
 
-	logrus.WithField("isVisecaFormat", isVisecaFormat).Debug("Format detection result")
+	log.Debug("Format detection result",
+		logging.Field{Key: "isVisecaFormat", Value: isVisecaFormat})
 
 	// For Viseca format, use a specialized transaction extraction approach
 	if isVisecaFormat {
@@ -111,17 +119,18 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		// Identify transaction start by date pattern (DD.MM.YY or similar)
 		datePattern := regexp.MustCompile(`^\d{2}\.\d{2}\.\d{2,4}`)
 		if datePattern.MatchString(trimmedLine) {
-			logrus.WithField("line", trimmedLine).Debug("Found potential transaction start")
+			log.Debug("Found potential transaction start",
+				logging.Field{Key: "line", Value: trimmedLine})
 
 			// Finalize previous transaction if we're in one
 			if inTransaction {
-				logrus.Debug("Finalizing previous transaction")
+				log.Debug("Finalizing previous transaction")
 				finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
 			}
 
 			// Start a new transaction
 			inTransaction = true
-			currentTx = models.Transaction{}
+			currentTx = models.Transaction{} // Keep minimal struct for temporary storage during parsing
 			description.Reset()
 			// merchant would be empty string here, but we don't need to assign it
 
@@ -129,7 +138,8 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			fields := strings.Fields(trimmedLine)
 			if len(fields) > 0 {
 				currentTx.Date = formatDate(fields[0])
-				logrus.WithField("date", currentTx.Date).Debug("Extracted transaction date")
+				log.Debug("Extracted transaction date",
+					logging.Field{Key: "date", Value: currentTx.Date.Format("02.01.2006")})
 
 				// Try to extract value date if present
 				if len(fields) > 1 && datePattern.MatchString(fields[1]) {
@@ -152,7 +162,8 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			merchant = extractMerchant(trimmedLine)
 		} else if inTransaction {
 			// Continuing a transaction - append to description
-			logrus.WithField("line", trimmedLine).Debug("Continuing transaction with line")
+			log.Debug("Continuing transaction with line",
+				logging.Field{Key: "line", Value: trimmedLine})
 			description.WriteString(" ")
 			description.WriteString(trimmedLine)
 
@@ -171,7 +182,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 
 	// Finalize the last transaction if needed
 	if inTransaction {
-		logrus.Debug("Finalizing last transaction")
+		log.Debug("Finalizing last transaction")
 		finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
 	}
 
@@ -181,20 +192,23 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 	// Remove duplicates
 	transactions = deduplicateTransactions(transactions)
 
-	logrus.WithField("count", len(transactions)).Info("Extracted transactions from PDF")
+	log.Info("Extracted transactions from PDF",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
 // parseVisecaTransactions is a specialized parser for Viseca credit card statements
 func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
-	logrus.WithField("lineCount", len(lines)).Debug("Processing Viseca PDF with specialized parser")
+	log.Debug("Processing Viseca PDF with specialized parser",
+		logging.Field{Key: "lineCount", Value: len(lines)})
 
 	var transactions []models.Transaction
 	var currentCategory string
 
 	// For debugging, dump the first few lines
 	for i := 0; i < min(20, len(lines)); i++ {
-		logrus.WithField("line", lines[i]).Debug("Sample line from PDF")
+		log.Debug("Sample line from PDF",
+			logging.Field{Key: "line", Value: lines[i]})
 	}
 
 	// Process lines
@@ -206,7 +220,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Skip Viseca header lines
 		if strings.Contains(line, "Date de") || (strings.Contains(line, "Date") && strings.Contains(line, "valeur") && strings.Contains(line, "Détails") && strings.Contains(line, "Montant")) {
-			logrus.Debug("Skipping header line")
+			log.Debug("Skipping header line")
 			continue
 		}
 
@@ -226,7 +240,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			// Store it to potentially attach to the previous transaction
 			if strings.TrimSpace(line) != "" && !strings.Contains(line, "XXXX") {
 				currentCategory = strings.TrimSpace(line)
-				logrus.WithField("category", currentCategory).Debug("Found potential category line")
+				log.Debug("Found potential category line",
+					logging.Field{Key: "category", Value: currentCategory})
 			}
 			continue
 		}
@@ -237,7 +252,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		dateValuePattern := regexp.MustCompile(`^(\d{2}\.\d{2}\.\d{2,4})(?:\s+(\d{2}\.\d{2}\.\d{2,4}))?`)
 		dateValueMatch := dateValuePattern.FindStringSubmatch(line)
 		if len(dateValueMatch) < 2 || dateValueMatch[1] == "" {
-			logrus.WithField("line", line).Debug("Invalid transaction line format - missing date")
+			log.Debug("Invalid transaction line format - missing date",
+				logging.Field{Key: "line", Value: line})
 			continue
 		}
 
@@ -254,7 +270,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Check for "Montant total" or "Votre paiement" lines - these are summaries, not transactions
 		if strings.Contains(remainingLine, "Montant total") ||
 			strings.Contains(remainingLine, "Votre paiement") {
-			logrus.WithField("line", line).Debug("Skipping summary line")
+			log.Debug("Skipping summary line",
+				logging.Field{Key: "line", Value: line})
 			continue
 		}
 
@@ -264,7 +281,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		amountMatch := amountPattern.FindStringSubmatch(remainingLine)
 
 		if len(amountMatch) < 2 {
-			logrus.WithField("line", line).Debug("Could not extract amount from transaction line")
+			log.Debug("Could not extract amount from transaction line",
+				logging.Field{Key: "line", Value: line})
 			continue
 		}
 
@@ -278,7 +296,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Extract description (everything between dates and amount)
 		descriptionEndPos := strings.LastIndex(remainingLine, amount)
 		if descriptionEndPos <= 0 {
-			logrus.WithField("line", line).Debug("Could not determine description boundaries")
+			log.Debug("Could not determine description boundaries",
+				logging.Field{Key: "line", Value: line})
 			continue
 		}
 
@@ -295,35 +314,39 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			description = strings.Replace(description, currencyMatch[0], "", 1)
 			description = strings.TrimSpace(description)
 
-			logrus.WithFields(logrus.Fields{
-				"currency": originalCurrency,
-				"amount":   originalAmount,
-			}).Debug("Found foreign currency transaction")
+			log.Debug("Found foreign currency transaction",
+				logging.Field{Key: "currency", Value: originalCurrency},
+				logging.Field{Key: "amount", Value: originalAmount})
 		}
 
-		// Create the transaction
-		tx := models.Transaction{
-			Date:             formatDate(txDate),
-			ValueDate:        formatDate(valueDate),
-			Description:      description,
-			Payee:            description,
-			Amount:           models.ParseAmount(amount),
-			Currency:         "CHF",
-			OriginalCurrency: originalCurrency,
-			OriginalAmount:   models.ParseAmount(originalAmount),
-		}
+		// Create the transaction using TransactionBuilder
+		builder := models.NewTransactionBuilder().
+			WithDatetime(formatDate(txDate)).
+			WithValueDatetime(formatDate(valueDate)).
+			WithDescription(description).
+			WithAmountFromString(amount, "CHF").
+			WithOriginalAmount(models.ParseAmount(originalAmount), originalCurrency)
 
-		// Set credit/debit indicator
+		// Set transaction direction and parties
 		if isCredit {
-			tx.CreditDebit = models.TransactionTypeCredit
+			builder = builder.AsCredit().WithPayer(description, "")
 		} else {
-			tx.CreditDebit = models.TransactionTypeDebit
+			builder = builder.AsDebit().WithPayee(description, "")
+		}
+
+		// Build the transaction
+		tx, err := builder.Build()
+		if err != nil {
+			log.WithError(err).Warn("Failed to build transaction, skipping",
+				logging.Field{Key: "description", Value: description})
+			continue
 		}
 
 		// Attach category if we have one
 		if currentCategory != "" {
 			tx.Description = tx.Description + " - " + currentCategory
-			logrus.WithField("category", currentCategory).Debug("Added category to transaction")
+			log.Debug("Added category to transaction",
+				logging.Field{Key: "category", Value: currentCategory})
 			currentCategory = "" // Reset for next transaction
 		}
 
@@ -349,7 +372,8 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 				if len(exchangeRateMatch) > 1 {
 					tx.ExchangeRate = models.ParseAmount(exchangeRateMatch[1])
 					exchangeRateFound = true
-					logrus.WithField("exchangeRate", tx.ExchangeRate.String()).Debug("Found exchange rate")
+					log.Debug("Found exchange rate",
+						logging.Field{Key: "exchangeRate", Value: tx.ExchangeRate.String()})
 				}
 			}
 
@@ -359,98 +383,93 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 				if len(feeMatch) > 1 {
 					tx.Fees = models.ParseAmount(feeMatch[1])
 					processingFeeFound = true
-					logrus.WithField("fees", tx.Fees.String()).Debug("Found processing fees")
+					log.Debug("Found processing fees",
+						logging.Field{Key: "fees", Value: tx.Fees.String()})
 				}
 			}
 		}
 
 		// Try to categorize the transaction
-		isDebtor := tx.CreditDebit == models.TransactionTypeDebit
-
-		// Create a categorizer.Transaction
-		catTx := categorizer.Transaction{
-			PartyName: tx.Payee,
-			IsDebtor:  isDebtor,
-			Amount:    fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-			Date:      tx.Date,
-			Info:      tx.Description,
-		}
-
-		// Try to categorize
-		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-			tx.Category = category.Name
-			logrus.WithField("category", tx.Category).Debug("Categorized transaction")
-		}
+		// Note: Categorization is now handled by the categorizer component
+		// through dependency injection, not directly in the parser
+		tx.Category = models.CategoryUncategorized
 
 		// Add transaction to list
 		transactions = append(transactions, tx)
-		logrus.WithFields(logrus.Fields{
-			"date":        tx.Date,
-			"description": tx.Description,
-			"amount":      tx.Amount.String(),
-		}).Debug("Added transaction")
+		log.Debug("Added transaction",
+			logging.Field{Key: "date", Value: tx.Date},
+			logging.Field{Key: "description", Value: tx.Description},
+			logging.Field{Key: "amount", Value: tx.Amount.String()})
 	}
 
 	// Log the number of transactions found
-	logrus.WithField("count", len(transactions)).Info("Extracted transactions from Viseca PDF")
+	log.Info("Extracted transactions from Viseca PDF",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
 // finalizeTransaction finalizes a transaction and adds it to the list of transactions
 func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction) {
-	// Set description and clean it
-	tx.Description = cleanDescription(desc.String())
+	// Clean the description
+	cleanDesc := cleanDescription(desc.String())
 
 	// Extract and set merchant/payee
-	if merchant != "" {
-		tx.Payee = merchant
-	} else {
-		tx.Payee = extractPayee(tx.Description)
+	payee := merchant
+	if payee == "" {
+		payee = extractPayee(cleanDesc)
 	}
 
 	// Set credit/debit indicator if not already set
-	if tx.CreditDebit == "" {
-		tx.CreditDebit = determineCreditDebit(tx.Description)
+	creditDebit := tx.CreditDebit
+	if creditDebit == "" {
+		creditDebit = determineCreditDebit(cleanDesc)
 	}
 
-	// Fill in empty fields with placeholders to avoid null values
-	if tx.ValueDate == "" {
-		tx.ValueDate = tx.Date
+	// Use TransactionBuilder to construct the final transaction
+	builder := models.NewTransactionBuilder().
+		WithDatetime(tx.Date).
+		WithAmount(tx.Amount, "CHF"). // Default to CHF for PDF statements
+		WithDescription(cleanDesc).
+		WithPayee(payee, "").
+		WithCategory(models.CategoryUncategorized)
+
+	// Set value date if available, otherwise use transaction date
+	if !tx.ValueDate.IsZero() {
+		builder = builder.WithValueDatetime(tx.ValueDate)
+	} else {
+		builder = builder.WithValueDatetime(tx.Date)
+	}
+
+	// Set transaction direction
+	if creditDebit == models.TransactionTypeCredit {
+		builder = builder.AsCredit()
+	} else {
+		builder = builder.AsDebit()
+	}
+
+	// Build the final transaction
+	finalTx, err := builder.Build()
+	if err != nil {
+		// Fallback to original transaction if builder fails
+		tx.Description = cleanDesc
+		tx.Payee = payee
+		tx.CreditDebit = creditDebit
+		if tx.ValueDate.IsZero() {
+			tx.ValueDate = tx.Date
+		}
+		if tx.Category == "" {
+			tx.Category = models.CategoryUncategorized
+		}
+		finalTx = *tx
 	}
 
 	// Generate a unique key for deduplication
-	key := fmt.Sprintf("%s-%s-%s", tx.Date, tx.Description, tx.Amount.String())
+	key := fmt.Sprintf("%s-%s-%s", finalTx.Date.Format("2006-01-02"), finalTx.Description, finalTx.Amount.String())
 
 	// Only add if we haven't seen this transaction before
 	if !seen[key] {
 		seen[key] = true
-
-		// Try to categorize the transaction
-		if tx.Category == "" {
-			// Determine if the transaction is a debit or credit
-			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
-
-			// Create a categorizer.Transaction from our transaction data
-			catTx := categorizer.Transaction{
-				PartyName: func() string {
-					if isDebtor {
-						return tx.Payee
-					}
-					return tx.Payer
-				}(),
-				IsDebtor: isDebtor,
-				Amount:   fmt.Sprintf("%s %s", tx.Amount.String(), tx.Currency),
-				Date:     tx.Date,
-				Info:     tx.Description,
-			}
-
-			// Try to categorize using the categorizer
-			if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-				tx.Category = category.Name
-			}
-		}
-
-		*transactions = append(*transactions, *tx)
+		*transactions = append(*transactions, finalTx)
 	}
 }
 
@@ -597,10 +616,8 @@ func extractMerchant(description string) string {
 // sortTransactions sorts transactions by date
 func sortTransactions(transactions []models.Transaction) {
 	sort.Slice(transactions, func(i, j int) bool {
-		// Parse dates for comparison
-		dateI, _ := time.Parse("02.01.2006", transactions[i].Date)
-		dateJ, _ := time.Parse("02.01.2006", transactions[j].Date)
-		return dateI.Before(dateJ)
+		// Compare time.Time values directly
+		return transactions[i].Date.Before(transactions[j].Date)
 	})
 }
 
@@ -698,8 +715,8 @@ func determineCreditDebit(description string) string {
 	return models.TransactionTypeDebit
 }
 
-// formatDate formats a date string to a standard format
-func formatDate(date string) string {
+// formatDate parses a date string and returns time.Time
+func formatDate(date string) time.Time {
 	// Remove any non-digit or dot characters
 	re := regexp.MustCompile(`[^\d.]`)
 	date = re.ReplaceAllString(date, "")
@@ -723,13 +740,12 @@ func formatDate(date string) string {
 		}
 	}
 
-	// If we failed to parse any format, just return the original
+	// If we failed to parse any format, return zero time
 	if err != nil {
-		return date
+		return time.Time{}
 	}
 
-	// Return in the standard DD.MM.YYYY format
-	return t.Format("02.01.2006")
+	return t
 }
 
 // min returns the smaller of x or y

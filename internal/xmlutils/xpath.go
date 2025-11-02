@@ -76,6 +76,10 @@ func GetOrEmpty(slice []string, index int) string {
 
 // CleanText removes unnecessary whitespace and newlines from XML text content
 func CleanText(text string) string {
+	// Use strings.Builder for efficient string operations
+	var builder strings.Builder
+	builder.Grow(len(text)) // Pre-allocate capacity
+
 	// Replace multiple spaces, tabs, and newlines with a single space
 	text = strings.ReplaceAll(text, "\n", " ")
 	text = strings.ReplaceAll(text, "\t", " ")
@@ -83,9 +87,15 @@ func CleanText(text string) string {
 	// Remove leading/trailing spaces
 	text = strings.TrimSpace(text)
 
-	// Replace multiple consecutive spaces with a single space
-	for strings.Contains(text, "  ") {
-		text = strings.ReplaceAll(text, "  ", " ")
+	// Replace multiple consecutive spaces with a single space more efficiently
+	words := strings.Fields(text) // This automatically handles multiple spaces
+	if len(words) > 0 {
+		builder.WriteString(words[0])
+		for i := 1; i < len(words); i++ {
+			builder.WriteByte(' ')
+			builder.WriteString(words[i])
+		}
+		text = builder.String()
 	}
 
 	// Remove excessive whitespace

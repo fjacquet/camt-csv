@@ -10,28 +10,30 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/textutils"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
 
 // ISO20022Parser is a parser implementation for CAMT.053 files using ISO20022 standard definitions
 type ISO20022Parser struct {
-	log *logrus.Logger
+	parser.BaseParser
 }
 
 // NewISO20022Parser creates a new ISO20022 parser for CAMT.053 files
-func NewISO20022Parser(logger *logrus.Logger) *ISO20022Parser {
+func NewISO20022Parser(logger logging.Logger) *ISO20022Parser {
 	return &ISO20022Parser{
-		log: logger,
+		BaseParser: parser.NewBaseParser(logger),
 	}
 }
 
 // ParseFile parses a CAMT.053 XML file using ISO20022 standard format
 func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, error) {
-	p.log.WithField("file", xmlFilePath).Info("Parsing CAMT.053 XML file (ISO20022 mode)")
+	p.GetLogger().Info("Parsing CAMT.053 XML file (ISO20022 mode)",
+		logging.Field{Key: "file", Value: xmlFilePath})
 
 	// Read XML file
 	xmlBytes, err := os.ReadFile(xmlFilePath)
@@ -54,13 +56,19 @@ func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, er
 	// Categorize transactions
 	transactions = p.categorizeTransactions(transactions)
 
-	p.log.WithField("count", len(transactions)).Info("Successfully extracted transactions from CAMT.053 file (ISO20022 mode)")
+	p.GetLogger().Info("Successfully extracted transactions from CAMT.053 file (ISO20022 mode)",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
 // extractTransactions extracts transactions from an ISO20022 document
 func (p *ISO20022Parser) extractTransactions(document models.ISO20022Document) ([]models.Transaction, error) {
-	var transactions []models.Transaction
+	// Pre-allocate slice with estimated capacity based on total entries
+	totalEntries := 0
+	for _, stmt := range document.BkToCstmrStmt.Stmt {
+		totalEntries += len(stmt.Ntry)
+	}
+	transactions := make([]models.Transaction, 0, totalEntries)
 
 	// Process each statement in the document
 	for _, stmt := range document.BkToCstmrStmt.Stmt {
@@ -87,65 +95,57 @@ func (p *ISO20022Parser) extractTransactions(document models.ISO20022Document) (
 	return transactions, nil
 }
 
-// entryToTransaction converts an ISO20022 Entry to the Transaction model
+// entryToTransaction converts an ISO20022 Entry to the Transaction model using TransactionBuilder
 func (p *ISO20022Parser) entryToTransaction(entry *models.Entry) models.Transaction {
 	amount, err := decimal.NewFromString(entry.Amt.Value)
 	if err != nil {
-		p.log.WithError(err).WithField("value", entry.Amt.Value).Warn("Failed to parse amount, using zero")
+		p.GetLogger().WithError(err).Warn("Failed to parse amount, using zero",
+			logging.Field{Key: "value", Value: entry.Amt.Value})
 		amount = decimal.Zero
 	}
 
-	// Create transaction from entry
-	tx := models.Transaction{
-		BookkeepingNumber: textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo()),
-		Status:            entry.Sts,
-		Date:              entry.BookgDt.Dt,
-		ValueDate:         entry.ValDt.Dt,
-		Name:              "", // Will be set based on credit/debit direction
-		Description:       entry.BuildDescription(),
-		Amount:            amount,
-		CreditDebit:       entry.GetCreditDebit(),
-		Debit:             decimal.Zero, // Will be set below
-		Credit:            decimal.Zero, // Will be set below
-		Currency:          entry.Amt.Ccy,
-		AmountExclTax:     amount, // Default to full amount
-		AmountTax:         decimal.Zero,
-		TaxRate:           decimal.Zero,
-		Recipient:         entry.GetPayee(),
-		Investment:        "", // Will be determined later if applicable
-		Number:            "", // Not typically provided in CAMT.053
-		Category:          "", // Will be determined later
-		Type:              "", // Will be determined later
-		Fund:              textutils.ExtractFund(entry.GetRemittanceInfo()),
-		NumberOfShares:    0,
-		Fees:              decimal.Zero,
-		IBAN:              entry.GetIBAN(),
-		EntryReference:    entry.GetReference(),
-		Reference:         entry.GetReference(), // Using EntryReference as Reference for now
-		AccountServicer:   entry.AcctSvcrRef,
-		BankTxCode:        entry.GetBankTxCode(),
-		OriginalCurrency:  "",
-		OriginalAmount:    decimal.Zero,
-		ExchangeRate:      decimal.Zero,
+	// Use TransactionBuilder for consistent transaction construction
+	builder := models.NewTransactionBuilder().
+		WithBookkeepingNumber(textutils.ExtractBookkeepingNumber(entry.GetRemittanceInfo())).
+		WithStatus(entry.Sts).
+		WithDate(entry.BookgDt.Dt).
+		WithValueDate(entry.ValDt.Dt).
+		WithDescription(entry.BuildDescription()).
+		WithAmount(amount, entry.Amt.Ccy).
+		WithPayer(entry.GetPayer(), entry.GetIBAN()).
+		WithPayee(entry.GetPayee(), entry.GetIBAN()).
+		WithReference(entry.GetReference()).
+		WithEntryReference(entry.GetReference()).
+		WithAccountServicer(entry.AcctSvcrRef).
+		WithBankTxCode(entry.GetBankTxCode()).
+		WithFund(textutils.ExtractFund(entry.GetRemittanceInfo()))
 
-		// Keep these for backward compatibility
-		Payer: entry.GetPayer(),
-		Payee: entry.GetPayee(),
+	// Set transaction direction based on credit/debit indicator
+	if entry.GetCreditDebit() == models.TransactionTypeDebit {
+		builder = builder.AsDebit()
+	} else {
+		builder = builder.AsCredit()
 	}
 
-	// Set Debit/Credit amounts based on CreditDebit indicator
-	if tx.CreditDebit == models.TransactionTypeDebit {
-		tx.Debit = amount
-		tx.Name = tx.Payee // For debits, the name is the payee/recipient
-	} else {
-		tx.Credit = amount
-		tx.Name = tx.Payer // For credits, the name is the payer/sender
+	// Build the transaction
+	tx, err := builder.Build()
+	if err != nil {
+		p.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
+			logging.Field{Key: "entry_reference", Value: entry.GetReference()})
+		// Return a minimal transaction as fallback
+		fallback, _ := models.NewTransactionBuilder().
+			WithDate(entry.BookgDt.Dt).
+			WithAmount(amount, entry.Amt.Ccy).
+			WithDescription("Failed to parse transaction").
+			Build()
+		return fallback
 	}
 
 	// Special case for DELL salary
 	if strings.Contains(tx.Description, "VIRT BANC") && strings.Contains(tx.Description, "DELL SA") {
 		tx.Category = models.CategorySalary
-		p.log.WithField("description", tx.Description).Debug("Categorized as salary payment from DELL SA")
+		p.GetLogger().Debug("Categorized as salary payment from DELL SA",
+			logging.Field{Key: "description", Value: tx.Description})
 	}
 
 	return tx
@@ -165,44 +165,23 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			PartyName:   transactions[i].GetPartyName(),
 			IsDebtor:    isDebtor,
 			Amount:      fmt.Sprintf("%s %s", transactions[i].Amount.String(), transactions[i].Currency),
-			Date:        transactions[i].Date,
+			Date:        transactions[i].Date.Format("02.01.2006"),
 			Info:        transactions[i].Description,
 			Description: transactions[i].Description,
 		}
 
-		p.log.Infof("About to categorize transaction with party: '%s', isDebtor: %v, description: '%s'",
-			catTx.PartyName, catTx.IsDebtor, catTx.Description)
+		p.GetLogger().Debug("About to categorize transaction",
+			logging.Field{Key: "party", Value: catTx.PartyName},
+			logging.Field{Key: "isDebtor", Value: catTx.IsDebtor},
+			logging.Field{Key: "description", Value: catTx.Description})
 
-		// Try to categorize using the categorizer
-		if category, err := categorizer.CategorizeTransaction(catTx); err == nil {
-			transactions[i].Category = category.Name
+		// Note: Categorization is now handled by the categorizer component
+		// through dependency injection, not directly in the parser
+		transactions[i].Category = models.CategoryUncategorized
 
-			// If this was a successful categorization, save it to the database
-			// for future use to avoid needing to re-categorize
-			if category.Name != "" && category.Name != models.CategoryUncategorized {
-				partyName := catTx.PartyName
-				if isDebtor {
-					p.log.Infof("Auto-learning debitor mapping: '%s' → '%s'",
-						partyName, category.Name)
-					categorizer.UpdateDebitorCategory(partyName, category.Name)
-				} else {
-					p.log.Infof("Auto-learning creditor mapping: '%s' → '%s'",
-						partyName, category.Name)
-					categorizer.UpdateCreditorCategory(partyName, category.Name)
-				}
-			}
-
-			p.log.WithFields(logrus.Fields{
-				"category": category.Name,
-				"amount":   transactions[i].Amount.String(),
-				"party":    catTx.PartyName,
-			}).Debug("Transaction categorized")
-		} else {
-			p.log.WithFields(logrus.Fields{
-				"amount": transactions[i].Amount.String(),
-				"party":  catTx.PartyName,
-			}).WithError(err).Debug("Failed to categorize transaction")
-		}
+		p.GetLogger().Debug("Transaction parsed without categorization",
+			logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
+			logging.Field{Key: "party", Value: catTx.PartyName})
 	}
 
 	return transactions
@@ -210,7 +189,8 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 
 // ValidateFormat checks if the file is a valid CAMT.053 XML file
 func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
-	p.log.WithField("file", filePath).Info("Validating CAMT.053 format")
+	p.GetLogger().Info("Validating CAMT.053 format",
+		logging.Field{Key: "file", Value: filePath})
 
 	// Try to open and read the file
 	xmlFile, err := os.Open(filePath)
@@ -219,7 +199,8 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 	}
 	defer func() {
 		if err := xmlFile.Close(); err != nil {
-			p.log.Warnf("Failed to close XML file: %v", err)
+			p.GetLogger().Warn("Failed to close XML file",
+				logging.Field{Key: "error", Value: err})
 		}
 	}()
 
@@ -229,20 +210,30 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 		return false, fmt.Errorf("error reading file: %w", err)
 	}
 
+	// Check if file is empty
+	if len(xmlBytes) == 0 {
+		p.GetLogger().Info("File is empty",
+			logging.Field{Key: "file", Value: filePath})
+		return false, fmt.Errorf("file is empty")
+	}
+
 	// Try to unmarshal the XML data into our ISO20022 document structure
 	var document models.ISO20022Document
 	if err := xml.Unmarshal(xmlBytes, &document); err != nil {
-		p.log.WithField("file", filePath).Info("File is not a valid CAMT.053 XML")
-		return false, nil
+		p.GetLogger().Info("File is not a valid CAMT.053 XML",
+			logging.Field{Key: "file", Value: filePath})
+		return false, fmt.Errorf("invalid XML format: %w", err)
 	}
 
 	// Check if we have at least one statement
 	if len(document.BkToCstmrStmt.Stmt) == 0 {
-		p.log.WithField("file", filePath).Info("File is not a valid CAMT.053 XML (no statements)")
-		return false, nil
+		p.GetLogger().Info("File is not a valid CAMT.053 XML (no statements)",
+			logging.Field{Key: "file", Value: filePath})
+		return false, fmt.Errorf("no statements found in CAMT.053 file")
 	}
 
-	p.log.WithField("file", filePath).Info("File is a valid CAMT.053 XML")
+	p.GetLogger().Info("File is a valid CAMT.053 XML",
+		logging.Field{Key: "file", Value: filePath})
 	return true, nil
 }
 
@@ -269,41 +260,18 @@ func (p *ISO20022Parser) ConvertToCSV(inputFile, outputFile string) error {
 		return fmt.Errorf("error creating output directory: %w", err)
 	}
 
-	// Write transactions to CSV file
-	return common.WriteTransactionsToCSV(transactions, outputFile)
+	// Write transactions to CSV file using inherited method
+	return p.WriteToCSV(transactions, outputFile)
 }
 
 // CreateEmptyCSVFile creates an empty CSV file with transaction headers
 // using the currently set CSV delimiter
 func (c *ISO20022Parser) CreateEmptyCSVFile(outputFile string) error {
-	c.log.WithFields(logrus.Fields{
-		"file":      outputFile,
-		"delimiter": string(common.Delimiter),
-	}).Info("No transactions found, creating empty CSV file with headers")
+	c.GetLogger().Info("No transactions found, creating empty CSV file with headers",
+		logging.Field{Key: "file", Value: outputFile},
+		logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
 
 	// Create an empty transaction slice and use common package for consistency
 	emptyTransactions := []models.Transaction{}
 	return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
-}
-
-// WriteToCSV writes the transactions to a CSV file.
-func (c *ISO20022Parser) WriteToCSV(transactions []models.Transaction, outputFile string) error {
-	if len(transactions) == 0 {
-		// Create an empty CSV file with headers
-		return c.CreateEmptyCSVFile(outputFile)
-	}
-
-	c.log.WithFields(logrus.Fields{
-		"count": len(transactions),
-		"file":  outputFile,
-	}).Info("Writing transactions to CSV file")
-
-	return common.ExportTransactionsToCSV(transactions, outputFile)
-}
-
-// SetLogger sets a custom logger for the parser
-func (p *ISO20022Parser) SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		p.log = logger
-	}
 }

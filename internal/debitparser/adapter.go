@@ -5,27 +5,26 @@ import (
 	"io"
 	"os"
 
-	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-
-	"github.com/sirupsen/logrus"
+	"fjacquet/camt-csv/internal/parser"
 )
 
 // Adapter implements the models.Parser interface for Visa Debit CSV files.
 type Adapter struct {
-	logger *logrus.Logger
+	parser.BaseParser
 }
 
 // NewAdapter creates a new adapter for the debitparser.
-func NewAdapter() models.Parser {
+func NewAdapter(logger logging.Logger) *Adapter {
 	return &Adapter{
-		logger: logrus.New(),
+		BaseParser: parser.NewBaseParser(logger),
 	}
 }
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
-	return Parse(r)
+	return Parse(r, a.GetLogger())
 }
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
@@ -36,7 +35,8 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close input file %s", inputFile)
+			a.GetLogger().WithError(err).Warn("Failed to close input file",
+				logging.Field{Key: "file", Value: inputFile})
 		}
 	}()
 
@@ -46,16 +46,6 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	}
 
 	return a.WriteToCSV(transactions, outputFile)
-}
-
-// WriteToCSV implements models.Parser.WriteToCSV
-func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-}
-
-// SetLogger implements models.Parser.SetLogger
-func (a *Adapter) SetLogger(logger *logrus.Logger) {
-	a.logger = logger
 }
 
 // ValidateFormat checks if a file is a valid Visa Debit CSV file.

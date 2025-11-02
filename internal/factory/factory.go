@@ -1,10 +1,11 @@
-package parser
+package factory
 
 import (
 	"fmt"
 
 	"fjacquet/camt-csv/internal/camtparser"
 	"fjacquet/camt-csv/internal/debitparser"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/pdfparser"
 	"fjacquet/camt-csv/internal/revolutinvestmentparser"
@@ -24,22 +25,22 @@ const (
 	Debit             ParserType = "debit"
 )
 
-// GetParser returns a new instance of the appropriate parser for the given type.
-// It acts as a factory for creating Parser implementations.
-func GetParser(parserType ParserType) (models.Parser, error) {
+// GetParserWithLogger returns a new instance of the appropriate parser for the given type
+// with the provided logger for dependency injection.
+func GetParserWithLogger(parserType ParserType, logger logging.Logger) (models.Parser, error) {
 	switch parserType {
 	case CAMT:
-		return camtparser.NewAdapter(), nil
+		return camtparser.NewAdapter(logger), nil
 	case PDF:
-		return pdfparser.NewAdapter(), nil
+		return pdfparser.NewAdapter(logger, nil), nil
 	case Revolut:
-		return revolutparser.NewAdapter(), nil
+		return revolutparser.NewAdapter(logger), nil
 	case RevolutInvestment:
-		return revolutinvestmentparser.NewAdapter(), nil
+		return revolutinvestmentparser.NewAdapter(logger), nil
 	case Selma:
-		return selmaparser.NewAdapter(), nil
+		return selmaparser.NewAdapter(logger), nil
 	case Debit:
-		return debitparser.NewAdapter(), nil
+		return debitparser.NewAdapter(logger), nil
 	default:
 		return nil, fmt.Errorf("unknown parser type: %s", parserType)
 	}

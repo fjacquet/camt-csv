@@ -5,27 +5,31 @@ import (
 	"io"
 	"os"
 
-	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-
-	"github.com/sirupsen/logrus"
+	"fjacquet/camt-csv/internal/parser"
 )
 
 // Adapter implements the models.Parser interface for PDF bank statements.
 type Adapter struct {
-	logger *logrus.Logger
+	parser.BaseParser
+	extractor PDFExtractor
 }
 
-// NewAdapter creates a new adapter for the pdfparser.
-func NewAdapter() models.Parser {
+// NewAdapter creates a new adapter for the pdfparser with dependency injection.
+func NewAdapter(logger logging.Logger, extractor PDFExtractor) *Adapter {
+	if extractor == nil {
+		extractor = NewRealPDFExtractor()
+	}
 	return &Adapter{
-		logger: logrus.New(),
+		BaseParser: parser.NewBaseParser(logger),
+		extractor:  extractor,
 	}
 }
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
-	return Parse(r)
+	return ParseWithExtractor(r, a.extractor, a.GetLogger())
 }
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
@@ -36,7 +40,8 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close input file %s", inputFile)
+			a.GetLogger().WithError(err).Warn("Failed to close input file",
+				logging.Field{Key: "file", Value: inputFile})
 		}
 	}()
 
@@ -48,19 +53,19 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 	return a.WriteToCSV(transactions, outputFile)
 }
 
-// WriteToCSV implements models.Parser.WriteToCSV
-func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-}
-
-// SetLogger implements models.Parser.SetLogger
-func (a *Adapter) SetLogger(logger *logrus.Logger) {
-	a.logger = logger
-}
-
 // ValidateFormat checks if a file is a valid PDF file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
-	return validateFormat(file)
+	a.GetLogger().Info("Validating PDF format",
+		logging.Field{Key: "file", Value: file})
+
+	// Try to extract text as a validation check using the injected extractor
+	_, err := a.extractor.ExtractText(file)
+	if err != nil {
+		a.GetLogger().WithError(err).Error("PDF validation failed")
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // BatchConvert is not implemented for this parser.

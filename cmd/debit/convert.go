@@ -4,7 +4,7 @@ package debit
 import (
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/container"
 
 	"github.com/spf13/cobra"
 )
@@ -23,10 +23,18 @@ func debitFunc(cmd *cobra.Command, args []string) {
 	logger.Infof("Input file: %s", root.SharedFlags.Input)
 	logger.Infof("Output file: %s", root.SharedFlags.Output)
 
-	p, err := parser.GetParser(parser.Debit)
+	// Get container from root command context
+	appContainer := root.GetContainer()
+	if appContainer == nil {
+		logger.Fatal("Container not initialized")
+	}
+
+	// Get parser from container
+	p, err := appContainer.GetParser(container.Debit)
 	if err != nil {
 		logger.Fatalf("Error getting Debit parser: %v", err)
 	}
+
 	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Debit to CSV conversion completed successfully!")
 }

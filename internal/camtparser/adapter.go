@@ -12,21 +12,22 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/html/charset"
 )
 
 // Adapter implements the models.Parser interface for CAMT.053 XML files.
 type Adapter struct {
-	logger *logrus.Logger
+	parser.BaseParser
 }
 
 // NewAdapter creates a new adapter for the camtparser.
-func NewAdapter() models.Parser {
+func NewAdapter(logger logging.Logger) *Adapter {
 	return &Adapter{
-		logger: logrus.New(),
+		BaseParser: parser.NewBaseParser(logger),
 	}
 }
 
@@ -204,255 +205,195 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			// Format the dates as DD.MM.YYYY
 
+			var parsedBookingDate, parsedValueDate time.Time
+
 			if bookingDateParsed, err := time.Parse("2006-01-02", bookingDate); err == nil {
-
-				bookingDate = bookingDateParsed.Format("02.01.2006")
-
+				parsedBookingDate = bookingDateParsed
 			}
 
 			if valueDateParsed, err := time.Parse("2006-01-02", valueDate); err == nil {
-
-				valueDate = valueDateParsed.Format("02.01.2006")
-
+				parsedValueDate = valueDateParsed
 			}
 
-			// Create transaction
+			// Create transaction using TransactionBuilder
+			builder := models.NewTransactionBuilder().
+				WithID(""). // Don't generate UUID, keep empty like original
+				WithDatetime(parsedBookingDate).
+				WithValueDatetime(parsedValueDate).
+				WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
+				WithAccountServicer(entry.AccountServicer.Ref).
+				WithStatus(entry.Status.Status)
 
-			transaction := models.Transaction{
-
-				Date: bookingDate,
-
-				ValueDate: valueDate,
-
-				Amount: models.ParseAmount(entry.Amount.Value),
-
-				Currency: entry.Amount.Currency,
-
-				CreditDebit: entry.CreditDebit.Indicator,
-
-				AccountServicer: entry.AccountServicer.Ref,
-
-				Status: entry.Status.Status,
+			// Set transaction direction
+			if entry.CreditDebit.Indicator == models.TransactionTypeDebit {
+				builder = builder.AsDebit()
+			} else {
+				builder = builder.AsCredit()
 			}
 
 			// Add details from transaction details if available
-
 			txDetails := entry.EntryDetails.TransactionDetails
 
 			// Set description from AddtlNtryInf or RemittanceInfo
+			description := ""
 
 			if entry.AdditionalInfo.Info != "" {
-
-				transaction.Description = entry.AdditionalInfo.Info
-
-			} else if transaction.RemittanceInfo != "" {
-
+				description = entry.AdditionalInfo.Info
+			} else if txDetails.RemittanceInfo.Ustrd != "" {
 				// Use RemittanceInfo as Description if there's no AddtlNtryInf
-
-				transaction.Description = transaction.RemittanceInfo
-
+				description = txDetails.RemittanceInfo.Ustrd
 			}
 
+			if description != "" {
+				builder = builder.WithDescription(description)
+			}
+
+			// Always set RemittanceInfo from the XML field if present
+			if txDetails.RemittanceInfo.Ustrd != "" {
+				builder = builder.WithRemittanceInfo(txDetails.RemittanceInfo.Ustrd)
+			}
+
+			// Handle party name extraction and special cases
+			var partyName string
+			var transactionType string
+
 			// Handle special case for ORDRE LSV + transactions
-
-			if strings.Contains(transaction.Description, "ORDRE LSV +") {
-
+			if strings.Contains(description, "ORDRE LSV +") {
 				// For LSV+ transactions, get the creditor name from related parties if available
-
-				cdtrName := ""
-
 				if len(txDetails.RelatedParties.Creditor.Name) > 0 {
-
-					cdtrName = txDetails.RelatedParties.Creditor.Name
-
-					// Set PartyName and Name to the creditor name
-
-					transaction.PartyName = cdtrName
-
-					transaction.Name = cdtrName
-
-					transaction.Type = "Virement"
-
+					partyName = txDetails.RelatedParties.Creditor.Name
+					transactionType = "Virement"
 				}
-
 			} else {
-
 				// Extract PartyName from Description if it starts with specific prefixes
-
-				if transaction.Description != "" {
-
-					extractedName := extractPartyNameFromDescription(transaction.Description)
-
+				if description != "" {
+					extractedName := extractPartyNameFromDescription(description)
 					if extractedName != "" {
-
-						transaction.PartyName = extractedName
-
+						partyName = extractedName
 					}
-
 				}
 
 				// If PartyName is still empty, try to get debtor name from related parties if available
-
-				if transaction.PartyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
-
-					transaction.PartyName = txDetails.RelatedParties.Debtor.Name
-
+				if partyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
+					partyName = txDetails.RelatedParties.Debtor.Name
 				}
-
-				// Check for IBAN in related parties and accounts
-
-				// Try multiple possible paths for finding the IBAN
-
-				if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Debtor.Account.IBAN
-
-				} else if txDetails.RelatedParties.Creditor.Account.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Creditor.Account.IBAN
-
-				} else if txDetails.RelatedParties.DebtorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.DebtorAccount.IBAN
-
-				} else if txDetails.RelatedParties.CreditorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.CreditorAccount.IBAN
-
-				} else if txDetails.RelatedAccounts.DebtorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedAccounts.DebtorAccount.IBAN
-
-				} else if txDetails.RelatedAccounts.CreditorAccount.IBAN != "" {
-
-					transaction.PartyIBAN = txDetails.RelatedAccounts.CreditorAccount.IBAN
-
-				} else if txDetails.RelatedParties.Debtor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Debtor.Account.ID) {
-
-					// Some CAMT files store IBAN in the ID field
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Debtor.Account.ID
-
-				} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
-
-					transaction.PartyIBAN = txDetails.RelatedParties.Creditor.Account.ID
-
-				}
-
-				// Set transaction Type based on description prefix
-
-				transactionType := setTransactionTypeFromDescription(transaction.Description)
-
-				if transactionType != "" {
-
-					transaction.Type = transactionType
-
-				}
-
 			}
 
-			// Get remittance info
+			if partyName != "" {
+				builder = builder.WithPartyName(partyName)
+			}
 
-			if txDetails.RemittanceInfo.Ustrd != "" {
+			if transactionType != "" {
+				builder = builder.WithType(transactionType)
+			}
 
-				transaction.RemittanceInfo = txDetails.RemittanceInfo.Ustrd
+			// Check for IBAN in related parties and accounts
+			// Try multiple possible paths for finding the IBAN
+			var partyIBAN string
+			if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.Debtor.Account.IBAN
+			} else if txDetails.RelatedParties.Creditor.Account.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.Creditor.Account.IBAN
+			} else if txDetails.RelatedParties.DebtorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.DebtorAccount.IBAN
+			} else if txDetails.RelatedParties.CreditorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedParties.CreditorAccount.IBAN
+			} else if txDetails.RelatedAccounts.DebtorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedAccounts.DebtorAccount.IBAN
+			} else if txDetails.RelatedAccounts.CreditorAccount.IBAN != "" {
+				partyIBAN = txDetails.RelatedAccounts.CreditorAccount.IBAN
+			} else if txDetails.RelatedParties.Debtor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Debtor.Account.ID) {
+				// Some CAMT files store IBAN in the ID field
+				partyIBAN = txDetails.RelatedParties.Debtor.Account.ID
+			} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
+				partyIBAN = txDetails.RelatedParties.Creditor.Account.ID
+			}
 
+			if partyIBAN != "" {
+				builder = builder.WithPartyIBAN(partyIBAN)
+			}
+
+			// Set transaction Type based on description prefix if not already set
+			if transactionType == "" {
+				transactionType = setTransactionTypeFromDescription(description)
+				if transactionType != "" {
+					builder = builder.WithType(transactionType)
+				}
 			}
 
 			// Get reference information
-
+			var reference string
 			if txDetails.References.MsgId != "" {
-
-				transaction.Reference = txDetails.References.MsgId
-
+				reference = txDetails.References.MsgId
 			} else if txDetails.References.EndToEndId != "" {
-
-				transaction.Reference = txDetails.References.EndToEndId
-
+				reference = txDetails.References.EndToEndId
 			} else if txDetails.References.TxId != "" {
-
-				transaction.Reference = txDetails.References.TxId
-
+				reference = txDetails.References.TxId
 			} else if txDetails.References.AcctSvcrRef != "" {
+				reference = txDetails.References.AcctSvcrRef
+			}
 
-				transaction.Reference = txDetails.References.AcctSvcrRef
+			if reference != "" {
+				builder = builder.WithReference(reference)
+			}
 
+			// Build the transaction
+			transaction, err := builder.Build()
+			if err != nil {
+				// Log error and create a minimal fallback transaction
+				a.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
+					logging.Field{Key: "entry_reference", Value: reference})
+
+				fallback, _ := models.NewTransactionBuilder().
+					WithDatetime(parsedBookingDate).
+					WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
+					WithDescription("Failed to parse transaction").
+					Build()
+				transaction = fallback
 			}
 
 			// Set Name from PartyName and also update Payee/Payer fields to ensure
-
 			// that UpdateNameFromParties won't override our Name during export
-
 			if transaction.Name == "" {
-
 				transaction.Name = transaction.PartyName
-
 			}
 
 			if transaction.IsDebit() {
-
 				transaction.Payee = transaction.PartyName
-
 			} else {
-
 				transaction.Payer = transaction.PartyName
-
 			}
 
 			// Update derived fields
-
 			transaction.UpdateDebitCreditAmounts()
 
 			// Categorize the transaction
-
 			catTransaction := categorizer.Transaction{
-
-				PartyName: transaction.PartyName,
-
-				IsDebtor: transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
-
-				Amount: transaction.Amount.String(),
-
-				Date: transaction.Date,
-
-				Info: transaction.RemittanceInfo,
-
+				PartyName:   transaction.PartyName,
+				IsDebtor:    transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
+				Amount:      transaction.Amount.String(),
+				Date:        transaction.Date.Format("02.01.2006"),
+				Info:        transaction.RemittanceInfo,
 				Description: transaction.Description,
 			}
 
 			// If PartyName is empty, use Description or RemittanceInfo to help with categorization
-
 			if catTransaction.PartyName == "" {
-
 				// Try to use Description as PartyName if available
-
 				if transaction.Description != "" {
-
 					catTransaction.PartyName = transaction.Description
-
 				} else if transaction.RemittanceInfo != "" {
-
 					// Otherwise use RemittanceInfo
-
 					catTransaction.PartyName = transaction.RemittanceInfo
-
 				}
-
 			}
 
 			// Clean PartyName by removing payment method prefixes before categorization
-
 			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
 
-			// Apply categorization
-
-			category, err := categorizer.CategorizeTransaction(catTransaction)
-
-			if err == nil && category.Name != "" {
-
-				transaction.Category = category.Name
-
-			}
+			// Note: Categorization is now handled by the categorizer component
+			// through dependency injection, not directly in the parser
+			transaction.Category = models.CategoryUncategorized
 
 			transactions = append(transactions, transaction)
 
@@ -482,7 +423,8 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 		if err := file.Close(); err != nil {
 
-			logrus.Warnf("Failed to close file: %v", err)
+			a.GetLogger().Warn("Failed to close file",
+				logging.Field{Key: "error", Value: err})
 
 		}
 
@@ -502,12 +444,9 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	if len(transactions) == 0 {
 
-		logrus.WithFields(logrus.Fields{
-
-			"file": csvFile,
-
-			"delimiter": string(common.Delimiter),
-		}).Info("No transactions found, created empty CSV file with headers")
+		a.GetLogger().Info("No transactions found, created empty CSV file with headers",
+			logging.Field{Key: "file", Value: csvFile},
+			logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
 
 		emptyTransactions := []models.Transaction{}
 
@@ -517,12 +456,9 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	// Write the transactions to the CSV file
 
-	logrus.WithFields(logrus.Fields{
-
-		"count": len(transactions),
-
-		"file": csvFile,
-	}).Info("Writing transactions to CSV file")
+	a.GetLogger().Info("Writing transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	// Create the directory if it doesn't exist
 
@@ -540,117 +476,29 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	}
 
-	logrus.WithFields(logrus.Fields{
-
-		"count": len(transactions),
-
-		"file": csvFile,
-	}).Info("Successfully wrote transactions to CSV file")
+	a.GetLogger().Info("Successfully wrote transactions to CSV file",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "file", Value: csvFile})
 
 	return nil
-
-}
-
-// WriteToCSV implements models.Parser.WriteToCSV
-
-func (a *Adapter) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-
-}
-
-// SetLogger implements models.Parser.SetLogger
-
-func (a *Adapter) SetLogger(logger *logrus.Logger) {
-
-	a.logger = logger
 
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
 
 func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
-
-	a.logger.WithField("file", xmlFile).Info("Validating CAMT.053 format")
-
-	// Check if file exists
-
-	if _, err := os.Stat(xmlFile); os.IsNotExist(err) {
-
-		return false, fmt.Errorf("file does not exist: %s", xmlFile)
-
-	}
-
-	// Open the file
-
-	file, err := os.Open(xmlFile)
-
-	if err != nil {
-
-		return false, err
-
-	}
-
-	defer func() {
-		if err := file.Close(); err != nil {
-			a.logger.WithError(err).Warnf("Failed to close file %s during format validation", xmlFile)
-		}
-	}()
-
-	// Read enough bytes to check for XML header and CAMT053 identifiers
-
-	buffer := make([]byte, 4096)
-
-	n, err := file.Read(buffer)
-
-	if err != nil && err != io.EOF {
-
-		return false, err
-
-	}
-
-	xmlHeader := string(buffer[:n])
-
-	// Basic checks for XML format
-
-	if !strings.Contains(xmlHeader, "<?xml") {
-
-		return false, nil
-
-	}
-
-	// Check for CAMT.053 specific elements (simplified for quick validation)
-
-	isCamt := strings.Contains(xmlHeader, "Document") &&
-
-		(strings.Contains(xmlHeader, "BkToCstmrStmt") ||
-
-			strings.Contains(xmlHeader, "camt.053"))
-
-	if isCamt {
-
-		a.logger.WithField("file", xmlFile).Info("File is a valid CAMT.053 XML")
-
-	} else {
-
-		a.logger.WithField("file", xmlFile).Info("File is not a valid CAMT.053 XML")
-
-	}
-
-	return isCamt, nil
-
+	// Create a parser instance and use its ValidateFormat method
+	parser := NewISO20022Parser(a.GetLogger())
+	return parser.ValidateFormat(xmlFile)
 }
 
 // BatchConvert converts all XML files in a directory to CSV files.
 
 func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
-	a.logger.WithFields(logrus.Fields{
-
-		"inputDir": inputDir,
-
-		"outputDir": outputDir,
-	}).Info("Batch converting CAMT.053 XML files")
+	a.GetLogger().Info("Batch converting CAMT.053 XML files",
+		logging.Field{Key: "inputDir", Value: inputDir},
+		logging.Field{Key: "outputDir", Value: outputDir})
 
 	// Ensure output directory exists
 
@@ -692,7 +540,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if err != nil {
 
-			a.logger.WithError(err).WithField("file", inputFile).Error("Error validating file format")
+			a.GetLogger().WithError(err).Error("Error validating file format",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -700,7 +549,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if !isValid {
 
-			a.logger.WithField("file", inputFile).Debug("Skipping non-CAMT.053 file")
+			a.GetLogger().Debug("Skipping non-CAMT.053 file",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -710,7 +560,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		if err := a.ConvertToCSV(inputFile, outputFile); err != nil {
 
-			a.logger.WithError(err).WithField("file", inputFile).Error("Failed to convert file")
+			a.GetLogger().WithError(err).Error("Failed to convert file",
+				logging.Field{Key: "file", Value: inputFile})
 
 			continue
 
@@ -720,7 +571,8 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 	}
 
-	a.logger.WithField("count", count).Info("Batch conversion completed")
+	a.GetLogger().Info("Batch conversion completed",
+		logging.Field{Key: "count", Value: count})
 
 	return count, nil
 

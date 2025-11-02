@@ -14,9 +14,12 @@ type ReportGenerator struct {
 }
 
 // NewReportGenerator creates a new instance of ReportGenerator.
-func NewReportGenerator() *ReportGenerator {
+func NewReportGenerator(logger logging.Logger) *ReportGenerator {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	return &ReportGenerator{
-		logger: logging.GetLogger().WithField("component", "ReportGenerator"),
+		logger: logger.WithField("component", "ReportGenerator"),
 	}
 }
 

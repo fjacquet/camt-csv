@@ -19,11 +19,15 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 ### Key Features
 
 - **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
-- **Intelligent Categorization**: Hybrid approach using local keyword matching and AI fallback
+- **Smart Categorization**: Three-tier strategy pattern using direct mapping, keyword matching, and AI fallback with auto-learning
+- **Dependency Injection Architecture**: Clean architecture with explicit dependencies, eliminating global state
 - **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
-- **Batch Processing**: Process multiple files at once
-- **Investment Support**: Dedicated parser for Revolut investment transactions
-- **Extensible Architecture**: Easy to add new file formats
+- **Batch Processing**: Process multiple files at once with automatic format detection
+- **Investment Support**: Dedicated parser for Revolut investment transactions with specialized categorization
+- **Extensible Architecture**: Standardized parser interfaces with BaseParser foundation and segregated interfaces
+- **Comprehensive Error Handling**: Custom error types with detailed context and proper error wrapping
+- **Framework-Agnostic Logging**: Structured logging abstraction with dependency injection and configurable backends
+- **Performance Optimized**: String operations optimization, lazy initialization, and pre-allocation for efficient processing
 
 ## Installation
 
@@ -120,6 +124,7 @@ All CAMT-CSV commands follow this pattern:
 | `camt` | Convert CAMT.053 XML files | XML bank statements |
 | `pdf` | Convert PDF bank statements | PDF files |
 | `revolut` | Process Revolut CSV exports | Revolut CSV format |
+| `revolut-investment` | Process Revolut investment transactions | Revolut investment CSV format |
 | `selma` | Process Selma investment files | Selma CSV format |
 | `debit` | Process generic debit CSV files | Generic CSV format |
 | `batch` | Process multiple files | Directory of files |
@@ -143,6 +148,12 @@ All CAMT-CSV commands follow this pattern:
 
    ```bash
    ./camt-csv revolut -i revolut_export.csv -o processed.csv
+   ```
+
+4. **Process Revolut investment transactions:**
+
+   ```bash
+   ./camt-csv revolut-investment -i investment_export.csv -o processed.csv
    ```
 
 ## Advanced Features
@@ -276,6 +287,28 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 ./camt-csv revolut -i revolut_export.csv -o processed.csv
 ```
 
+### Revolut Investment CSV Files
+
+**Description**: Processes Revolut investment transaction CSV exports
+**Features**:
+
+- Investment transaction categorization (BUY, DIVIDEND, CASH TOP-UP)
+- Share quantity and price tracking
+- Multi-currency support with FX rate handling
+- Automatic debit/credit classification
+- Investment-specific metadata (ticker, fund information)
+
+**Supported Transaction Types**:
+- **BUY**: Stock purchases with quantity and price per share
+- **DIVIDEND**: Dividend payments from holdings
+- **CASH TOP-UP**: Cash deposits to investment account
+
+**Example Usage**:
+
+```bash
+./camt-csv revolut-investment -i investment_export.csv -o processed.csv
+```
+
 ### Selma Investment CSV
 
 **Description**: Processes Selma investment platform exports
@@ -311,20 +344,33 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 
 ### How Categorization Works
 
-1. **Direct Mapping Check**:
-   - Checks `database/creditors.yaml` and `database/debitors.yaml`
-   - Exact, case-insensitive matches
-   - Fastest method for known transactions
+CAMT-CSV uses a sophisticated **Strategy Pattern** with three-tier categorization:
 
-2. **Keyword Matching**:
-   - Uses rules from `database/categories.yaml`
+1. **Direct Mapping Strategy** (Fastest):
+   - Checks `database/creditors.yaml` and `database/debtors.yaml`
+   - Exact, case-insensitive matches for known payees/payers
+   - Instant recognition for recurring transactions
+   - No processing overhead
+
+2. **Keyword Strategy** (Local Processing):
+   - Uses pattern matching rules from `database/categories.yaml`
    - Matches against transaction descriptions and party names
-   - No API calls required
+   - Configurable keyword patterns and rules
+   - No API calls required, fully local processing
 
-3. **AI Categorization**:
+3. **AI Strategy** (Optional Fallback):
    - Fallback to Gemini AI when local methods fail
-   - Analyzes transaction context
-   - Automatically learns new patterns
+   - Context-aware analysis of transaction details
+   - Automatically learns new patterns and saves to YAML files
+   - Rate limiting to prevent API quota exceeded
+   - Lazy initialization for optimal performance
+
+### Strategy Pattern Benefits
+
+- **Independent Testing**: Each strategy can be tested and optimized separately
+- **Easy Extension**: New categorization algorithms can be added as strategies
+- **Flexible Configuration**: Strategies can be enabled/disabled or reordered
+- **Performance Optimization**: Strategies execute in order of efficiency
 
 ### Managing Categories
 
@@ -350,8 +396,10 @@ categories:
 
 ```bash
 cat database/creditors.yaml  # For money received
-cat database/debitors.yaml   # For money spent
+cat database/debtors.yaml    # For money spent (renamed from debitors.yaml)
 ```
+
+**Migration Note**: The debtor mapping file has been renamed from `debitors.yaml` to `debtors.yaml` for standard English spelling. The application maintains backward compatibility with the old filename, but it's recommended to rename your existing file.
 
 ### Categorization Best Practices
 
@@ -380,12 +428,14 @@ sudo apt-get install poppler-utils
 
 #### 2. "Invalid file format"
 
-**Problem**: File not recognized
+**Problem**: File not recognized or validation fails
 **Solutions**:
 
 - Verify file format matches command (XML for `camt`, PDF for `pdf`, etc.)
 - Check file isn't corrupted
 - Try with a sample file first
+- Look for specific error details in the error message (enhanced error types provide detailed context)
+- Check for `ParseError`, `ValidationError`, or `InvalidFormatError` in the output
 
 #### 3. "API quota exceeded"
 
@@ -411,6 +461,45 @@ Enable detailed logging for troubleshooting by setting the log level as a CLI fl
 
 ```bash
 ./camt-csv --log-level debug camt -i input.xml -o output.csv
+```
+
+### Understanding Error Messages
+
+CAMT-CSV provides detailed error messages with context to help troubleshoot issues:
+
+#### Parse Errors
+```
+CAMT: failed to parse amount='invalid': strconv.ParseFloat: parsing "invalid": invalid syntax
+```
+- **Parser**: Which parser encountered the error
+- **Field**: What field failed to parse
+- **Value**: The actual value that caused the issue
+
+#### Validation Errors
+```
+validation failed for /path/to/file.xml: not a valid CAMT.053 XML document
+```
+- **File Path**: The file that failed validation
+- **Reason**: Why validation failed
+
+#### Data Extraction Errors
+```
+data extraction failed in file '/path/to/file.pdf' for field 'amount': unable to parse currency. Reason: no currency symbol found
+```
+- **File Path**: The file where extraction failed
+- **Field**: Which field couldn't be extracted
+- **Reason**: Detailed explanation of the failure
+
+### Logging Configuration
+
+Configure logging output format and level:
+
+```bash
+# JSON format for structured logging
+./camt-csv --log-format json --log-level info camt -i input.xml -o output.csv
+
+# Text format for human-readable output
+./camt-csv --log-format text --log-level debug camt -i input.xml -o output.csv
 ```
 
 ### Getting Help
@@ -493,7 +582,25 @@ head -5 output/transactions.csv
     ./camt-csv camt -i statement.xml -o categorized.csv
     ```
 
-### Example 5: Debugging Failed Processing
+### Example 5: Processing Revolut Investment Transactions
+
+```bash
+# Process Revolut investment CSV with detailed transaction categorization
+./camt-csv revolut-investment -i revolut_investment_export.csv -o investment_transactions.csv
+
+# View the processed investment transactions
+head -10 investment_transactions.csv
+```
+
+**Sample Input (Revolut Investment CSV)**:
+```csv
+Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate
+2024-01-15T10:30:00.000Z,AAPL,BUY,10,$150.00,$1500.00,USD,1.0
+2024-01-20T09:15:00.000Z,AAPL,DIVIDEND,,,$25.50,USD,1.0
+2024-01-25T14:45:00.000Z,,CASH TOP-UP,,,$1000.00,USD,1.0
+```
+
+### Example 6: Debugging Failed Processing
 
 ```bash
 # Process with detailed logging enabled via CLI flag

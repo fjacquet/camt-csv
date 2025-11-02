@@ -4,18 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
-	// Set up logging for tests
-	logger = logrus.New()
-	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+	// Tests will use the default logger
 	os.Exit(m.Run())
 }
 
@@ -40,15 +39,20 @@ func TestParseFile(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
 	transactions, err := adapter.Parse(file)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 3)
 
 	// Check first transaction (CASH TOP-UP)
 	txn1 := transactions[0]
-	assert.Equal(t, "30.05.2025", txn1.Date)
-	assert.Equal(t, "30.05.2025", txn1.ValueDate)
+	assert.Equal(t, 2025, txn1.Date.Year())
+	assert.Equal(t, time.May, txn1.Date.Month())
+	assert.Equal(t, 30, txn1.Date.Day())
+	assert.Equal(t, 2025, txn1.ValueDate.Year())
+	assert.Equal(t, time.May, txn1.ValueDate.Month())
+	assert.Equal(t, 30, txn1.ValueDate.Day())
 	assert.Equal(t, "Revolut Investment", txn1.PartyName)
 	assert.Equal(t, "Cash top-up to investment account", txn1.Description)
 	assert.Equal(t, "EUR", txn1.Currency)
@@ -58,7 +62,9 @@ func TestParseFile(t *testing.T) {
 
 	// Check second transaction (BUY)
 	txn2 := transactions[1]
-	assert.Equal(t, "30.05.2025", txn2.Date)
+	assert.Equal(t, 2025, txn2.Date.Year())
+	assert.Equal(t, time.May, txn2.Date.Month())
+	assert.Equal(t, 30, txn2.Date.Day())
 	assert.Equal(t, "2B7K", txn2.Investment)
 	assert.Equal(t, "2B7K", txn2.Fund)
 	assert.Equal(t, "BUY - MARKET", txn2.Type)
@@ -85,7 +91,8 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(file)
 	require.Error(t, err)
 }
@@ -102,10 +109,13 @@ func TestConvertRowToTransaction(t *testing.T) {
 		FXRate:        "1.0722",
 	}
 
-	txn, err := convertRowToTransaction(row)
+	logger := logging.NewLogrusAdapter("info", "text")
+	txn, err := convertRowToTransaction(row, logger)
 	require.NoError(t, err)
 
-	assert.Equal(t, "30.05.2025", txn.Date)
+	assert.Equal(t, 2025, txn.Date.Year())
+	assert.Equal(t, time.May, txn.Date.Month())
+	assert.Equal(t, 30, txn.Date.Day())
 	assert.Equal(t, "2B7K", txn.Investment)
 	assert.Equal(t, "BUY - MARKET", txn.Type)
 	assert.Equal(t, "EUR", txn.Currency)
@@ -114,17 +124,19 @@ func TestConvertRowToTransaction(t *testing.T) {
 
 func TestFormatDate(t *testing.T) {
 	formatted := formatDate("2025-05-30T10:31:05.452Z")
-	assert.Equal(t, "30.05.2025", formatted)
+	assert.Equal(t, 2025, formatted.Year())
+	assert.Equal(t, time.May, formatted.Month())
+	assert.Equal(t, 30, formatted.Day())
 
 	// Test with invalid date
 	invalid := formatDate("invalid-date")
-	assert.Equal(t, "invalid-date", invalid)
+	assert.True(t, invalid.IsZero()) // Should return zero time for invalid date
 }
 
 func TestWriteToCSV(t *testing.T) {
 	transactions := []models.Transaction{
 		{
-			Date:           "30.05.2025",
+			Date:           time.Date(2025, 5, 30, 0, 0, 0, 0, time.UTC),
 			Description:    "Test transaction",
 			Amount:         models.ParseAmount("100"),
 			Currency:       "EUR",

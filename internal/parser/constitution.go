@@ -15,9 +15,12 @@ type ConstitutionLoader struct {
 }
 
 // NewConstitutionLoader creates a new instance of ConstitutionLoader.
-func NewConstitutionLoader() *ConstitutionLoader {
+func NewConstitutionLoader(logger logging.Logger) *ConstitutionLoader {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
 	return &ConstitutionLoader{
-		logger: logging.GetLogger().WithField("component", "ConstitutionLoader"),
+		logger: logger.WithField("component", "ConstitutionLoader"),
 	}
 }
 

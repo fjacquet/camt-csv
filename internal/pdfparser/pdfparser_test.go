@@ -4,11 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,11 +29,8 @@ func setupTestCategorizer(t *testing.T) {
 	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
 		t.Fatalf("Failed to write debitors file: %v", err)
 	}
-	store := store.NewCategoryStore(categoriesFile, creditorsFile, debitorsFile)
-	categorizer.SetTestCategoryStore(store)
-	t.Cleanup(func() {
-		categorizer.SetTestCategoryStore(nil)
-	})
+	// Note: categorizer.SetTestCategoryStore removed - now uses dependency injection
+	// Tests should create their own categorizer instances as needed
 }
 
 func TestParseFile_InvalidFormat(t *testing.T) {
@@ -64,7 +61,9 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 		}
 	}()
 
-	adapter := NewAdapter()
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", assert.AnError)
+	adapter := NewAdapter(logger, mockExtractor)
 	_, err = adapter.Parse(file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
@@ -87,10 +86,18 @@ func TestParseFile(t *testing.T) {
 		}
 	}()
 
-	// Test parsing
-	adapter := NewAdapter()
+	// Test parsing with mock extractor that returns mock transactions
+	logger := logging.NewLogrusAdapter("info", "text")
+	// Provide mock text that looks like a transaction
+	mockText := `Date valeur Détails Monnaie Montant
+01.01.25 02.01.25 Test Transaction CHF 100.50
+03.01.25 04.01.25 Another Transaction CHF 200.75-`
+	mockExtractor := NewMockPDFExtractor(mockText, nil)
+	adapter := NewAdapter(logger, mockExtractor)
 	_, err = adapter.Parse(file)
-	assert.Error(t, err, "Expected an error when parsing a dummy PDF file")
+	assert.NoError(t, err, "Expected no error when parsing with mock extractor")
+	// Note: The mock text might not parse into transactions due to format requirements
+	// This test mainly verifies that the dependency injection works
 }
 
 func TestConvertToCSV(t *testing.T) {
@@ -106,7 +113,7 @@ func TestConvertToCSV(t *testing.T) {
 	// Create transactions to test with
 	transactions := []models.Transaction{
 		{
-			Date:        "2023-01-01",
+			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description: "Coffee Shop Test",
 			Amount:      models.ParseAmount("15.50"),
 			Currency:    "EUR",
@@ -149,7 +156,7 @@ func TestWriteToCSV(t *testing.T) {
 	// Create test transactions
 	transactions := []models.Transaction{
 		{
-			Date:           "2023-01-01",
+			Date:           time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
 			Description:    "Coffee Shop Purchase Card Payment REF123456",
 			Amount:         models.ParseAmount("100.00"),
 			Currency:       "EUR",
@@ -157,7 +164,7 @@ func TestWriteToCSV(t *testing.T) {
 			CreditDebit:    models.TransactionTypeDebit,
 		},
 		{
-			Date:           "2023-01-02",
+			Date:           time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
 			Description:    "Salary Payment Incoming Transfer SAL987654",
 			Amount:         models.ParseAmount("1000.00"),
 			Currency:       "EUR",

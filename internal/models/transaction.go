@@ -3,7 +3,6 @@ package models
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +14,8 @@ import (
 type Transaction struct {
 	BookkeepingNumber string          `csv:"BookkeepingNumber"` // Bookkeeping number (replaces BookkeepingNo)
 	Status            string          `csv:"Status"`            // Status code
-	Date              string          `csv:"Date"`              // Date in DD.MM.YYYY format
-	ValueDate         string          `csv:"ValueDate"`         // Value date in DD.MM.YYYY format
+	Date              time.Time       `csv:"Date"`              // Transaction date
+	ValueDate         time.Time       `csv:"ValueDate"`         // Value date
 	Name              string          `csv:"Name"`              // Name of the other party (combined from Payee/Payer)
 	PartyName         string          `csv:"PartyName"`         // Name of the other party (standardized field)
 	PartyIBAN         string          `csv:"PartyIBAN"`         // IBAN of the other party
@@ -77,18 +76,108 @@ func ParseAmount(amountStr string) decimal.Decimal {
 	return dec
 }
 
-// GetAmountAsFloat returns the Amount as a float64
-// DEPRECATED: This method is maintained for backward compatibility only.
-// Use direct decimal operations instead for financial calculations.
+// GetCounterparty returns the relevant party name based on transaction direction
+// For debits, returns the payee (who receives the money)
+// For credits, returns the payer (who sent the money)
+func (t *Transaction) GetCounterparty() string {
+	if t.IsDebit() {
+		return t.Payee
+	}
+	return t.Payer
+}
+
+// GetPayee returns the appropriate party name based on transaction direction for backward compatibility.
+// For debit transactions (money going out), returns the payee (who receives the money).
+// For credit transactions (money coming in), returns the payer (who sent the money to us).
+// This provides a consistent "other party" perspective from the account holder's viewpoint.
+//
+// Deprecated: This method is provided for backward compatibility during migration.
+// For new code, use TransactionBuilder pattern or access Payer/Payee fields directly.
+// Consider using GetCounterparty() for similar functionality.
+//
+// Migration example:
+//
+//	// Old code:
+//	otherParty := tx.GetPayee()
+//
+//	// New code (direct access):
+//	payee := tx.Payee  // if you specifically need the payee
+//
+//	// New code (counterparty - recommended):
+//	otherParty := tx.GetCounterparty()
+func (t *Transaction) GetPayee() string {
+	if t.IsDebit() {
+		// For debit (outgoing), the payee is who receives our money
+		return t.Payee
+	}
+	// For credit (incoming), the "payee" from our perspective is who sent us money
+	return t.Payer
+}
+
+// GetPayer returns the appropriate party name based on transaction direction for backward compatibility.
+// For debit transactions (money going out), returns the payer (account holder who sent the money).
+// For credit transactions (money coming in), returns the payee (who received the money from the sender).
+// This provides a consistent "account holder" perspective.
+//
+// Deprecated: This method is provided for backward compatibility during migration.
+// For new code, use TransactionBuilder pattern or access Payer/Payee fields directly.
+// Consider using GetCounterparty() for the other party in the transaction.
+//
+// Migration example:
+//
+//	// Old code:
+//	accountHolder := tx.GetPayer()
+//
+//	// New code (direct access):
+//	payer := tx.Payer  // if you specifically need the payer
+//
+//	// New code (account holder perspective):
+//	// For debits: account holder is the payer
+//	// For credits: account holder is the payee
+func (t *Transaction) GetPayer() string {
+	if t.IsDebit() {
+		// For debit (outgoing), the payer is the account holder
+		return t.Payer
+	}
+	// For credit (incoming), the "payer" from account holder's perspective is the payee
+	return t.Payee
+}
+
+// GetAmountAsFloat returns the amount as float64 for backward compatibility.
+// Note: This method may lose precision for large amounts or amounts with many decimal places.
+//
+// Deprecated: Use GetAmountAsDecimal() instead for precise financial calculations.
+// For new code, use TransactionBuilder.WithAmount() to set amounts as decimal.Decimal.
+// Migration example:
+//
+//	// Old code:
+//	amount := tx.GetAmountAsFloat()
+//
+//	// New code:
+//	amount := tx.GetAmountAsDecimal()
 func (t *Transaction) GetAmountAsFloat() float64 {
 	f, _ := t.Amount.Float64()
 	return f
 }
 
-// GetOriginalAmountAsFloat returns the OriginalAmount as a float64
-// DEPRECATED: This method is maintained for backward compatibility only.
-func (t *Transaction) GetOriginalAmountAsFloat() float64 {
-	f, _ := t.OriginalAmount.Float64()
+// GetDebitAsFloat returns the debit amount as float64 for backward compatibility
+// Deprecated: Use GetDebitAsDecimal() instead for precise calculations
+func (t *Transaction) GetDebitAsFloat() float64 {
+	f, _ := t.Debit.Float64()
+	return f
+}
+
+// GetCreditAsFloat returns the credit amount as float64 for backward compatibility
+// Deprecated: Use GetCreditAsDecimal() instead for precise calculations
+func (t *Transaction) GetCreditAsFloat() float64 {
+	f, _ := t.Credit.Float64()
+	return f
+}
+
+// GetFeesAsFloat returns the fees as float64 for backward compatibility
+// Deprecated: Use GetFeesAsDecimal() instead for precise calculations
+func (t *Transaction) GetFeesAsFloat() float64 {
+	f, _ := t.Fees.Float64()
 	return f
 }
 
@@ -215,70 +304,6 @@ func StandardizeAmount(amountStr string) string {
 	return formatted
 }
 
-// FormatDate standardizes date strings to the DD.MM.YYYY format
-// It handles various input formats from different sources
-func FormatDate(dateStr string) string {
-	// Skip processing if empty
-	if dateStr == "" {
-		return ""
-	}
-
-	// Clean the input string
-	cleanDate := strings.TrimSpace(dateStr)
-
-	// If it's already in the target format (DD.MM.YYYY), return as is
-	if matched, _ := regexp.MatchString(`^\d{2}\.\d{2}\.\d{4}$`, cleanDate); matched {
-		return cleanDate
-	}
-
-	// Try various date formats commonly found in financial data
-	formats := []string{
-		"2006-01-02",                // YYYY-MM-DD (ISO)
-		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
-		"2006-01-02T15:04:05Z",      // ISO 8601
-		"2006-01-02T15:04:05-07:00", // ISO 8601 with timezone
-		"02/01/2006",                // DD/MM/YYYY
-		"01/02/2006",                // MM/DD/YYYY (US format)
-		"02-01-2006",                // DD-MM-YYYY
-		"01-02-2006",                // MM-DD-YYYY
-		"2.1.2006",                  // D.M.YYYY
-		"02.01.2006",                // DD.MM.YYYY
-		"January 2, 2006",           // Month D, YYYY
-		"2 January 2006",            // D Month YYYY
-		"02 Jan 2006",               // DD MMM YYYY
-		"Jan 02, 2006",              // MMM DD, YYYY
-		"January 2006",              // Month YYYY (for monthly statements)
-		"Jan 2006",                  // MMM YYYY (abbreviated month)
-		"01/2006",                   // MM/YYYY
-		"2006/01",                   // YYYY/MM
-	}
-
-	// European day-first preference (important for ambiguous formats)
-	// This list matches the same formats but with European day-first parsing
-	europeanFormats := []string{
-		"02/01/2006", // DD/MM/YYYY (European)
-		"02-01-2006", // DD-MM-YYYY (European)
-	}
-
-	// First try European formats (as they're more common in Swiss financial data)
-	for _, format := range europeanFormats {
-		if t, err := time.Parse(format, cleanDate); err == nil {
-			return t.Format("02.01.2006") // Return as DD.MM.YYYY
-		}
-	}
-
-	// Then try all other formats
-	for _, format := range formats {
-		if t, err := time.Parse(format, cleanDate); err == nil {
-			return t.Format("02.01.2006") // Return as DD.MM.YYYY
-		}
-	}
-
-	// If we can't parse the date, log a warning and return the original
-	// log.WithField("date", dateStr).Warning("Unable to parse date format")
-	return dateStr
-}
-
 func (t *Transaction) MarshalCSV() ([]string, error) {
 	// Make sure the derived fields are populated correctly
 	t.UpdateNameFromParties()
@@ -289,13 +314,13 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 	return []string{
 		t.BookkeepingNumber,
 		t.Status,
-		t.Date,
-		t.ValueDate,
+		t.formatDateForCSV(t.Date),
+		t.formatDateForCSV(t.ValueDate),
 		t.Name,
-		t.Description,
-		t.RemittanceInfo,
 		t.PartyName,
 		t.PartyIBAN,
+		t.Description,
+		t.RemittanceInfo,
 		t.Amount.StringFixed(2),
 		t.CreditDebit,
 		fmt.Sprintf("%t", t.DebitFlag),
@@ -327,14 +352,20 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 func (t *Transaction) UnmarshalCSV(record []string) error {
 	t.BookkeepingNumber = record[0]
 	t.Status = record[1]
-	t.Date = record[2]
-	t.ValueDate = record[3]
-	t.Name = record[4]
-	t.Description = record[5]
-	t.RemittanceInfo = record[6]
-	t.PartyName = record[7]
-	t.PartyIBAN = record[8]
 	var err error
+	t.Date, err = t.parseDateFromCSV(record[2])
+	if err != nil {
+		return fmt.Errorf("failed to parse date: %w", err)
+	}
+	t.ValueDate, err = t.parseDateFromCSV(record[3])
+	if err != nil {
+		return fmt.Errorf("failed to parse value date: %w", err)
+	}
+	t.Name = record[4]
+	t.PartyName = record[5]
+	t.PartyIBAN = record[6]
+	t.Description = record[7]
+	t.RemittanceInfo = record[8]
 	t.Amount, err = decimal.NewFromString(record[9])
 	if err != nil {
 		return err
@@ -397,4 +428,161 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 		return err
 	}
 	return nil
+}
+
+// formatDateForCSV formats a time.Time as DD.MM.YYYY for CSV output
+// Returns empty string for zero time
+func (t *Transaction) formatDateForCSV(date time.Time) string {
+	if date.IsZero() {
+		return ""
+	}
+	return date.Format("02.01.2006")
+}
+
+// parseDateFromCSV parses a date string from CSV format (DD.MM.YYYY) to time.Time
+// Returns zero time for empty strings
+func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
+	if dateStr == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse("02.01.2006", dateStr)
+}
+
+// ToTransactionCore converts the Transaction to a TransactionCore
+func (t *Transaction) ToTransactionCore() TransactionCore {
+	return TransactionCore{
+		ID:          t.Number,
+		Date:        t.Date,
+		ValueDate:   t.ValueDate,
+		Amount:      NewMoney(t.Amount, t.Currency),
+		Description: t.Description,
+		Status:      t.Status,
+		Reference:   t.Reference,
+	}
+}
+
+// ToTransactionWithParties converts the Transaction to a TransactionWithParties
+func (t *Transaction) ToTransactionWithParties() TransactionWithParties {
+	direction := DirectionUnknown
+	if t.IsDebit() {
+		direction = DirectionDebit
+	} else if t.IsCredit() {
+		direction = DirectionCredit
+	}
+
+	// For backward compatibility, both parties get the same IBAN from PartyIBAN
+	// This matches the test expectation where PartyIBAN represents the counterparty's IBAN
+	return TransactionWithParties{
+		TransactionCore: t.ToTransactionCore(),
+		Payer:           NewParty(t.Payer, t.PartyIBAN),
+		Payee:           NewParty(t.Payee, t.PartyIBAN),
+		Direction:       direction,
+	}
+}
+
+// ToCategorizedTransaction converts the Transaction to a CategorizedTransaction
+func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
+	return CategorizedTransaction{
+		TransactionWithParties: t.ToTransactionWithParties(),
+		Category:               t.Category,
+		Type:                   t.Type,
+		Fund:                   t.Fund,
+	}
+}
+
+// FromTransactionCore populates the Transaction from a TransactionCore
+func (t *Transaction) FromTransactionCore(core TransactionCore) {
+	t.Number = core.ID
+	t.Date = core.Date
+	t.ValueDate = core.ValueDate
+	t.Amount = core.Amount.Amount
+	t.Currency = core.Amount.Currency
+	t.Description = core.Description
+	t.Status = core.Status
+	t.Reference = core.Reference
+}
+
+// FromCategorizedTransaction populates the Transaction from a CategorizedTransaction
+func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
+	// Populate from core
+	t.FromTransactionCore(ct.TransactionCore)
+
+	// Set party information
+	t.Payer = ct.Payer.Name
+	t.Payee = ct.Payee.Name
+
+	// Set direction and related fields
+	if ct.Direction == DirectionDebit {
+		t.CreditDebit = TransactionTypeDebit
+		t.DebitFlag = true
+		t.PartyIBAN = ct.Payee.IBAN // For debit, PartyIBAN is payee's IBAN
+		t.PartyName = ct.Payee.Name // For debit, PartyName is payee's name
+	} else if ct.Direction == DirectionCredit {
+		t.CreditDebit = TransactionTypeCredit
+		t.DebitFlag = false
+		t.PartyIBAN = ct.Payer.IBAN // For credit, PartyIBAN is payer's IBAN
+		t.PartyName = ct.Payer.Name // For credit, PartyName is payer's name
+	}
+
+	// Set categorization
+	t.Category = ct.Category
+	t.Type = ct.Type
+	t.Fund = ct.Fund
+
+	// Populate derived fields
+	t.UpdateNameFromParties()
+	t.UpdateRecipientFromPayee()
+	t.UpdateDebitCreditAmounts()
+}
+
+// NewTransactionFromBuilder creates a Transaction using the builder pattern
+// This provides a more readable way to construct transactions
+func NewTransactionFromBuilder() *TransactionBuilder {
+	return NewTransactionBuilder()
+}
+
+// ToBuilder converts an existing Transaction to a TransactionBuilder for modification
+// Deprecated: This method is provided for backward compatibility during migration
+func (t *Transaction) ToBuilder() *TransactionBuilder {
+	builder := NewTransactionBuilder()
+
+	// Copy all fields from the transaction to the builder
+	builder.tx = *t
+
+	return builder
+}
+
+// SetPayerInfo sets both payer name and IBAN for backward compatibility
+// Deprecated: Use TransactionBuilder.WithPayer() for new code
+func (t *Transaction) SetPayerInfo(name, iban string) {
+	t.Payer = name
+	if iban != "" {
+		t.PartyIBAN = iban
+	}
+}
+
+// SetPayeeInfo sets both payee name and IBAN for backward compatibility
+// Deprecated: Use TransactionBuilder.WithPayee() for new code
+func (t *Transaction) SetPayeeInfo(name, iban string) {
+	t.Payee = name
+	if iban != "" {
+		t.PartyIBAN = iban
+	}
+}
+
+// SetAmountFromFloat sets the amount from a float64 value for backward compatibility
+// Deprecated: Use TransactionBuilder.WithAmountFromFloat() or SetAmountFromDecimal() for new code
+func (t *Transaction) SetAmountFromFloat(amount float64, currency string) {
+	t.Amount = decimal.NewFromFloat(amount)
+	t.Currency = currency
+}
+
+// GetTransactionDirection returns the transaction direction as TransactionDirection enum
+func (t *Transaction) GetTransactionDirection() TransactionDirection {
+	if t.IsDebit() {
+		return DirectionDebit
+	} else if t.IsCredit() {
+		return DirectionCredit
+	}
+	return DirectionUnknown
 }

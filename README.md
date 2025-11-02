@@ -9,15 +9,18 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ## ✨ Key Features
 
-- **Multi-format Support**: A flexible parser factory allows for easy extension to support new financial statement formats.
-- **Smart Categorization**: Hybrid approach using local rules + AI fallback with a testable `AIClient` interface.
-- **Hierarchical Configuration**: Viper-based config system with files, environment variables, and CLI flags.
-- **Batch Processing**: Handle multiple files at once.
-- **Codebase Compliance Review**: Automated checks against project constitution, identifying non-compliant areas and proposing corrective actions.
-- **Fast & Reliable**: Local processing with optional cloud AI.
-- **Speckit Workflow**: A suite of commands (`spec`, `plan`, `tasks`, `analyze`, `implement`) to streamline the software development lifecycle.
-- **Standardized Logging**: Consistent and structured logging for easier debugging and monitoring.
-- **Custom Errors**: Granular error types for robust error handling.
+- **Multi-format Support**: Extensible parser architecture with segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`) and `BaseParser` foundation for easy addition of new financial statement formats.
+- **Smart Categorization**: Three-tier hybrid approach using direct mapping, keyword matching, and AI fallback with strategy pattern implementation (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`).
+- **Dependency Injection Architecture**: Clean architecture with explicit dependencies through `Container` pattern, eliminating global state and improving testability.
+- **Framework-Agnostic Logging**: Structured logging abstraction (`logging.Logger` interface) with `LogrusAdapter` implementation for flexible logging backends and dependency injection.
+- **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation, type safety, and enhanced backward compatibility methods with direction-based logic (`GetPayee()`, `GetPayer()`, `GetCounterparty()`).
+- **Comprehensive Error Handling**: Custom error types (`ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, `DataExtractionError`) with detailed context and proper error wrapping.
+- **Hierarchical Configuration**: Viper-based config system supporting files, environment variables, and CLI flags with full backward compatibility.
+- **Investment Support**: Dedicated parser for Revolut investment transactions (BUY, DIVIDEND, CASH TOP-UP) with specialized categorization.
+- **Batch Processing**: Handle multiple files at once with automatic format detection.
+- **Performance Optimized**: String operations optimization with `strings.Builder`, lazy initialization with `sync.Once`, and pre-allocation for efficient processing.
+- **Constants-Based Design**: Complete elimination of magic strings and numbers through comprehensive constants in `internal/models/constants.go`.
+- **Comprehensive Testing**: Risk-based testing strategy with 100% coverage for critical paths (parsing, validation, categorization) and comprehensive coverage elsewhere.
 
 ## 🚀 Quick Start
 
@@ -94,26 +97,155 @@ See [Configuration Migration Guide](docs/configuration-migration-guide.md) for c
 - **[Codebase Documentation](docs/codebase_documentation.md)** - Technical architecture and development details
 - **[Design Principles](docs/design-principles.md)** - Core design philosophy and patterns
 
-## 🏗️ Supported Formats
+## 🏗️ Architecture & Supported Formats
 
-The application uses a parser factory to support multiple file formats. The following parsers are currently available:
+### Parser Architecture
 
-| Parser Type | Description |
-|---|---|
-| `camt` | ISO 20022 bank statements |
-| `pdf` | PDF bank statements (including Viseca) |
-| `revolut` | Revolut app exports |
-| `revolut-investment` | Revolut investment transactions |
-| `selma` | Investment platform data |
-| `debit` | Generic CSV debit transaction files |
+All parsers follow a standardized architecture built on dependency injection and interface segregation:
+
+```go
+// Segregated interfaces for specific capabilities
+type Parser interface {
+    Parse(r io.Reader) ([]models.Transaction, error)
+}
+
+type Validator interface {
+    ValidateFormat(filePath string) (bool, error)
+}
+
+type CSVConverter interface {
+    ConvertToCSV(inputFile, outputFile string) error
+}
+
+type LoggerConfigurable interface {
+    SetLogger(logger logging.Logger)
+}
+
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+}
+
+// BaseParser provides common functionality
+type MyParser struct {
+    parser.BaseParser  // Embedded for logging and CSV writing
+    // parser-specific fields
+}
+
+func NewMyParser(logger logging.Logger) *MyParser {
+    return &MyParser{
+        BaseParser: parser.NewBaseParser(logger),
+    }
+}
+```
+
+### Dependency Injection Container
+
+The application uses a centralized container for dependency management:
+
+```go
+// Create container with all dependencies
+container, err := container.NewContainer(config)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Access components through the container
+parser, err := container.GetParser(container.CAMT)
+categorizer := container.GetCategorizer()
+logger := container.GetLogger()
+
+// All dependencies are explicitly injected
+```
+
+### Transaction Builder Pattern
+
+Complex transactions are constructed using the builder pattern:
+
+```go
+tx, err := models.NewTransactionBuilder().
+    WithDate("2025-01-15").
+    WithAmount(decimal.NewFromFloat(100.50), "CHF").
+    WithPayer("John Doe", "CH1234567890").
+    WithPayee("Acme Corp", "CH0987654321").
+    AsDebit().
+    Build()
+```
+
+### Supported Formats
+
+| Parser Type | Description | Key Features |
+|---|---|---|
+| `camt` | ISO 20022 bank statements (CAMT.053 XML) | Multi-currency support, complete transaction details, party information |
+| `pdf` | PDF bank statements (Viseca, generic) | Text extraction with dependency injection, specialized Viseca parsing |
+| `revolut` | Revolut app CSV exports | Transaction state handling, fee processing, currency conversion |
+| `revolut-investment` | Revolut investment transactions | BUY/DIVIDEND/CASH TOP-UP categorization, share tracking |
+| `selma` | Investment platform CSV data | Investment categorization, stamp duty association |
+| `debit` | Generic CSV debit transactions | Flexible column mapping, date format detection |
 
 ## 🤖 Smart Categorization
 
-CAMT-CSV uses a three-tier approach for transaction categorization:
+CAMT-CSV uses a sophisticated three-tier strategy pattern for transaction categorization:
 
-1. **Direct Mapping** - Instant recognition of known payees
-2. **Keyword Matching** - Local rules from `database/categories.yaml`
-3. **AI Fallback** - Gemini AI for unknown transactions (optional)
+### Strategy Pattern Implementation
+
+The categorization system uses the Strategy pattern for modular, testable categorization:
+
+```go
+type CategorizationStrategy interface {
+    Categorize(ctx context.Context, tx Transaction) (Category, bool, error)
+    Name() string
+}
+
+type Categorizer struct {
+    strategies []CategorizationStrategy
+    store      *store.CategoryStore
+    logger     logging.Logger
+}
+
+// Strategies are executed in priority order:
+// 1. DirectMappingStrategy - Exact name matches (fastest)
+// 2. KeywordStrategy - Pattern matching (local)  
+// 3. AIStrategy - Gemini AI fallback (optional)
+
+// Usage with dependency injection
+categorizer := container.GetCategorizer()
+category, err := categorizer.CategorizeTransaction(transaction)
+```
+
+### Categorization Flow
+
+1. **Direct Mapping Strategy** - Instant recognition from `creditors.yaml`/`debtors.yaml` using exact name matching
+2. **Keyword Strategy** - Local pattern matching from `categories.yaml` using configurable keyword rules
+3. **AI Strategy** - Gemini AI for unknown transactions with auto-learning and rate limiting
+
+### Dependency Injection
+
+The categorizer uses dependency injection for all components:
+
+```go
+// Container manages all dependencies
+container, err := container.NewContainer(config)
+categorizer := container.Categorizer
+
+// Or create directly with dependencies
+categorizer := categorizer.NewCategorizer(store, aiClient, logger)
+```
+
+### Migration Note
+
+**Important**: Starting from version 2.0.0, the debtor mapping file has been renamed from `debitors.yaml` to `debtors.yaml` to follow standard English spelling conventions. If you have an existing `debitors.yaml` file, please rename it to `debtors.yaml`. The application will continue to work with the old filename for backward compatibility, but it's recommended to update your files.
+
+**Enhanced Backward Compatibility**: Version 2.0.0 introduces enhanced backward compatibility methods for the Transaction model:
+
+- `GetPayee()` - Returns appropriate party based on transaction direction (payee for debits, payer for credits)
+- `GetPayer()` - Returns appropriate party based on transaction direction (payer for debits, payee for credits)  
+- `GetCounterparty()` - Always returns the "other party" in the transaction (recommended for new code)
+- `GetAmountAsFloat()` - Continues to work but is deprecated in favor of `GetAmountAsDecimal()`
+
+These methods ensure existing code continues to work while providing a clear migration path to the new architecture. See the [Migration Guide](docs/MIGRATION_GUIDE_V2.md) for detailed migration instructions.
 
 ## 🛠️ Development
 
