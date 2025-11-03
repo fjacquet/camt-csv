@@ -24,15 +24,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Use the centralized logger from config package
-var log = config.Logger
-
-// SetLogger allows setting a custom logger
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
-}
+// Note: Global logger removed in favor of dependency injection.
+// All logging is now done through the logger passed to CategoryStore methods.
 
 // CategoryStore manages loading and saving of category-related configuration data.
 // It provides a centralized interface for accessing category definitions, creditor mappings,

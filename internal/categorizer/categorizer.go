@@ -25,11 +25,35 @@ func normalizeStringToLowerCategorizer(input string) string {
 	if input == "" {
 		return ""
 	}
-	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
-	builder := strings.Builder{}
-	builder.Grow(len(input))
-	builder.WriteString(strings.ToLower(input))
-	return builder.String()
+	
+	// Fast path for ASCII-only strings (common case)
+	if isASCII(input) {
+		// Performance optimization: Pre-allocate builder capacity to avoid reallocations
+		builder := strings.Builder{}
+		builder.Grow(len(input))
+		for i := 0; i < len(input); i++ {
+			c := input[i]
+			if c >= 'A' && c <= 'Z' {
+				builder.WriteByte(c + 32) // Convert to lowercase
+			} else {
+				builder.WriteByte(c)
+			}
+		}
+		return builder.String()
+	}
+	
+	// Fallback for Unicode strings
+	return strings.ToLower(input)
+}
+
+// isASCII checks if a string contains only ASCII characters
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 128 {
+			return false
+		}
+	}
+	return true
 }
 
 //------------------------------------------------------------------------------

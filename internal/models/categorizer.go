@@ -23,8 +23,9 @@ type CreditorsConfig struct {
 	Creditors map[string]string `yaml:"creditors"`
 }
 
-// DebitorsConfig represents the structure of the debitors YAML file (senders of payments)
-type DebitorsConfig struct {
+// DebtorsConfig represents the structure of the debtors YAML file (senders of payments)
+// Note: Field name kept as "debitors" for backward compatibility with existing YAML files
+type DebtorsConfig struct {
 	Debitors map[string]string `yaml:"debitors"`
 }
 

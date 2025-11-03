@@ -1,5 +1,7 @@
 package models
 
+import "os"
+
 // Transaction types
 const (
 	TransactionTypeDebit  = "DBIT"
@@ -13,73 +15,41 @@ const (
 	StatusFailed    = "FAILED"
 )
 
-// Categories
+// Category constants
 const (
 	CategoryUncategorized = "Uncategorized"
-	CategorySalary        = "Salaire"
-	CategoryGroceries     = "Alimentation"
-	CategoryTransport     = "Transports Publics"
+	CategorySalary        = "Salary"
+	CategoryFood          = "Food"
+	CategoryTransport     = "Transport"
 	CategoryShopping      = "Shopping"
-	CategoryRestaurants   = "Restaurants"
-	CategoryWithdrawals   = "Retraits"
-	CategoryTransfers     = "Virements"
-)
-
-// Bank transaction codes
-const (
-	BankCodeCashWithdrawal = "CWDL"
-	BankCodePOS            = "POSD"
-	BankCodeCreditCard     = "CCRD"
-	BankCodeInternalCredit = "ICDT"
-	BankCodeDirectDebit    = "DMCT"
 )
 
 // File permissions
 const (
-	PermissionConfigFile = 0600
-	PermissionDirectory  = 0750
-	PermissionReportFile = 0644
+	PermissionConfigFile  = 0600
+	PermissionDirectory   = 0750
+	PermissionExecutable  = 0755
 )
 
-// TransactionDirection represents debit or credit direction
-type TransactionDirection int
-
+// CSV formatting
 const (
-	DirectionUnknown TransactionDirection = iota
-	DirectionDebit
-	DirectionCredit
+	DefaultCSVDelimiter = ';'
+	DateFormatCSV       = "02.01.2006"
+	DecimalPlaces       = 2
 )
 
-// String returns the string representation of TransactionDirection
-func (td TransactionDirection) String() string {
-	switch td {
-	case DirectionDebit:
-		return "DEBIT"
-	case DirectionCredit:
-		return "CREDIT"
-	default:
-		return "UNKNOWN"
-	}
-}
+// Performance tuning constants
+const (
+	DefaultMapCapacity      = 100  // Default capacity for maps
+	DefaultSliceCapacity    = 50   // Default capacity for slices
+	MaxConcurrentOperations = 10   // Maximum concurrent operations
+	DefaultTimeoutSeconds   = 30   // Default timeout for operations
+)
 
-// IsDebit returns true if the direction is debit
-func (td TransactionDirection) IsDebit() bool {
-	return td == DirectionDebit
-}
-
-// IsCredit returns true if the direction is credit
-func (td TransactionDirection) IsCredit() bool {
-	return td == DirectionCredit
-}
-
-// FromString creates a TransactionDirection from a string
-func TransactionDirectionFromString(s string) TransactionDirection {
-	switch s {
-	case "DEBIT", TransactionTypeDebit:
-		return DirectionDebit
-	case "CREDIT", TransactionTypeCredit:
-		return DirectionCredit
-	default:
-		return DirectionUnknown
-	}
-}
+// Environment variable names
+const (
+	EnvLogLevel     = "LOG_LEVEL"
+	EnvLogFormat    = "LOG_FORMAT"
+	EnvGeminiAPIKey = "GEMINI_API_KEY"
+	EnvCSVDelimiter = "CSV_DELIMITER"
+)
