@@ -1,7 +1,16 @@
 package categorizer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -10,9 +19,32 @@ import (
 
 // GeminiClient implements the AIClient interface for interacting with the Google Gemini API.
 type GeminiClient struct {
-	// Add fields for Gemini API client, e.g., API key, HTTP client
-	// For now, we'll keep it simple as the actual API interaction is out of scope for this task.
-	log logging.Logger
+	apiKey     string
+	model      string
+	httpClient *http.Client
+	log        logging.Logger
+}
+
+// GeminiRequest represents the request structure for Gemini API
+type GeminiRequest struct {
+	Contents []GeminiContent `json:"contents"`
+}
+
+type GeminiContent struct {
+	Parts []GeminiPart `json:"parts"`
+}
+
+type GeminiPart struct {
+	Text string `json:"text"`
+}
+
+// GeminiResponse represents the response structure from Gemini API
+type GeminiResponse struct {
+	Candidates []GeminiCandidate `json:"candidates"`
+}
+
+type GeminiCandidate struct {
+	Content GeminiContent `json:"content"`
 }
 
 // NewGeminiClient creates a new instance of GeminiClient.
@@ -20,42 +52,226 @@ func NewGeminiClient(logger logging.Logger) *GeminiClient {
 	if logger == nil {
 		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
+
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		logger.Warn("GEMINI_API_KEY not set, AI categorization will fail")
+	}
+
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = "gemini-2.5-flash" // Default fallback
+		logger.WithField("model", model).Debug("GEMINI_MODEL not set, using default")
+	} else {
+		logger.WithField("model", model).Debug("Using GEMINI_MODEL from environment")
+	}
+
 	return &GeminiClient{
+		apiKey: apiKey,
+		model:  model,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 		log: logger,
 	}
 }
 
 // Categorize takes a context and a Transaction model, and returns the categorized Transaction
 // or an error if categorization fails.
-// This is a placeholder implementation. Actual Gemini API calls would go here.
 func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
-	c.log.WithFields(
-		logging.Field{Key: "operation", Value: "gemini_categorization"},
-		logging.Field{Key: "description", Value: transaction.Description},
-	).Debug("Attempting to categorize transaction using Gemini API (mocked)")
-
-	// Simulate API call and categorization logic
-	// In a real implementation, this would involve:
-	// 1. Constructing a prompt for the Gemini API based on transaction details.
-	// 2. Making an HTTP request to the Gemini API.
-	// 3. Parsing the API response to extract the category.
-	// 4. Handling potential API errors or rate limits.
-
-	// For demonstration, we'll assign a dummy category.
-	// In a real scenario, you might have more sophisticated logic or fallbacks.
-	if transaction.Description == "Coffee Shop" {
-		transaction.Category = "Food & Drink"
-	} else if transaction.Description == "Online Store" {
-		transaction.Category = "Shopping"
-	} else {
-		transaction.Category = "Uncategorized (AI)"
+	if c.apiKey == "" {
+		c.log.Debug("No API key available, skipping AI categorization")
+		transaction.Category = models.CategoryUncategorized
+		return transaction, nil
 	}
 
+	// Build the prompt for categorization
+	prompt := c.buildCategorizationPrompt(transaction)
+
 	c.log.WithFields(
 		logging.Field{Key: "operation", Value: "gemini_categorization"},
+		logging.Field{Key: "party_name", Value: transaction.PartyName},
 		logging.Field{Key: "description", Value: transaction.Description},
-		logging.Field{Key: "category", Value: transaction.Category},
-	).Debug("Transaction categorized by Gemini API (mocked)")
+	).Debug("Attempting to categorize transaction using Gemini API")
+
+	// Make the API call
+	category, err := c.callGeminiAPI(ctx, prompt)
+	if err != nil {
+		c.log.WithError(err).WithFields(
+			logging.Field{Key: "party_name", Value: transaction.PartyName},
+		).Warn("Failed to categorize transaction using Gemini API")
+		transaction.Category = models.CategoryUncategorized
+		return transaction, err
+	}
+
+	// Clean and validate the category
+	category = c.cleanCategory(category)
+	if category == "" || category == models.CategoryUncategorized {
+		c.log.WithFields(
+			logging.Field{Key: "party_name", Value: transaction.PartyName},
+			logging.Field{Key: "raw_category", Value: category},
+		).Debug("Gemini returned empty or uncategorized result")
+		transaction.Category = models.CategoryUncategorized
+	} else {
+		transaction.Category = category
+		c.log.WithFields(
+			logging.Field{Key: "party_name", Value: transaction.PartyName},
+			logging.Field{Key: "category", Value: category},
+		).Info("Transaction successfully categorized by Gemini API")
+	}
 
 	return transaction, nil
+}
+
+// buildCategorizationPrompt creates a prompt for the Gemini API to categorize the transaction
+func (c *GeminiClient) buildCategorizationPrompt(transaction models.Transaction) string {
+	prompt := fmt.Sprintf(`You are a financial transaction categorizer. Categorize this transaction into ONE of these categories:
+
+CATEGORIES:
+- Alimentation (food, groceries, restaurants)
+- Transports (public transport, taxis, parking)
+- Shopping (retail, clothing, electronics)
+- Services (utilities, phone, internet, professional services)
+- Loisirs (entertainment, sports, hobbies, theme parks)
+- Logement (rent, housing costs)
+- Santé (healthcare, pharmacy, medical)
+- Assurances (insurance)
+- Virements (transfers, bank operations)
+- Salaire (salary, income)
+- Restaurants (dining out, cafes)
+- Voiture (car expenses, fuel, maintenance)
+- Utilités (utilities, electricity, water)
+- Divertissement (entertainment, streaming, games)
+- Abonnements (subscriptions)
+- Retraits (cash withdrawals)
+- Frais Bancaires (bank fees)
+- Investissements (investments, trading)
+- Dons (donations, charity)
+- Taxes (taxes, government fees)
+- Enfants (children-related expenses)
+- Éducation (education, courses)
+- Voyages (travel, hotels)
+- Mobilier (furniture, home goods)
+- Sport (sports, fitness)
+- Bien-être (wellness, beauty)
+- Cadeaux (gifts)
+- Divers (miscellaneous)
+
+TRANSACTION:
+Party: %s
+Description: %s
+Amount: %s CHF
+
+RULES:
+1. Return ONLY the category name, nothing else
+2. If unsure, choose the most likely category
+3. For theme parks like Europa Park, use "Loisirs"
+4. For restaurants and food places, use "Alimentation" or "Restaurants"
+5. For shops and retail, use "Shopping"
+6. For transport and parking, use "Transports"
+
+Category:`, transaction.PartyName, transaction.Description, transaction.Amount.String())
+
+	return prompt
+}
+
+// callGeminiAPI makes the actual API call to Gemini
+func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string, error) {
+	// Construct the API URL using the configured model
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.model, c.apiKey)
+
+	// Create the request payload
+	request := GeminiRequest{
+		Contents: []GeminiContent{
+			{
+				Parts: []GeminiPart{
+					{Text: prompt},
+				},
+			},
+		},
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		c.log.WithFields(
+			logging.Field{Key: "status_code", Value: resp.StatusCode},
+			logging.Field{Key: "response_body", Value: string(body)},
+		).Error("Gemini API returned error")
+		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var geminiResp GeminiResponse
+	if err := json.Unmarshal(body, &geminiResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Extract the category from response
+	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("no content in API response")
+	}
+
+	category := geminiResp.Candidates[0].Content.Parts[0].Text
+	return strings.TrimSpace(category), nil
+}
+
+// cleanCategory cleans and validates the category returned by the API
+func (c *GeminiClient) cleanCategory(category string) string {
+	// Remove common prefixes/suffixes
+	category = strings.TrimSpace(category)
+	category = strings.TrimPrefix(category, "Category:")
+	category = strings.TrimPrefix(category, "category:")
+	category = strings.TrimSpace(category)
+
+	// Remove quotes if present
+	category = strings.Trim(category, `"'`)
+
+	// Handle common variations
+	switch strings.ToLower(category) {
+	case "food", "food & drink", "groceries", "supermarket":
+		return "Alimentation"
+	case "transport", "transportation", "travel":
+		return "Transports"
+	case "entertainment", "leisure", "theme park", "amusement":
+		return "Loisirs"
+	case "restaurant", "dining", "cafe", "coffee":
+		return "Restaurants"
+	case "retail", "store", "shopping":
+		return "Shopping"
+	case "utilities", "utility":
+		return "Utilités"
+	case "bank fees", "banking":
+		return "Frais Bancaires"
+	case "uncategorized", "unknown", "other":
+		return models.CategoryUncategorized
+	}
+
+	return category
 }

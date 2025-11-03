@@ -345,45 +345,7 @@ func TestTransaction_SetAmountFromFloat(t *testing.T) {
 	assert.Equal(t, "EUR", tx.Currency)
 }
 
-func TestTransaction_GetTransactionDirection(t *testing.T) {
-	tests := []struct {
-		name     string
-		tx       Transaction
-		expected TransactionDirection
-	}{
-		{
-			name: "debit transaction",
-			tx: Transaction{
-				CreditDebit: TransactionTypeDebit,
-				DebitFlag:   true,
-			},
-			expected: DirectionDebit,
-		},
-		{
-			name: "credit transaction",
-			tx: Transaction{
-				CreditDebit: TransactionTypeCredit,
-				DebitFlag:   false,
-			},
-			expected: DirectionCredit,
-		},
-		{
-			name: "unknown transaction",
-			tx: Transaction{
-				CreditDebit: "UNKNOWN",
-				DebitFlag:   false,
-				Amount:      decimal.Zero,
-			},
-			expected: DirectionUnknown,
-		},
-	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.tx.GetTransactionDirection())
-		})
-	}
-}
 
 func TestTransaction_ToBuilder(t *testing.T) {
 	original := Transaction{

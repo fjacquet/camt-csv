@@ -98,7 +98,15 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 		}
 	}
 
-	if !found {
+	// If not found or if the found category is a failed AI attempt, allow other strategies to try
+	if !found || categoryName == "Uncategorized (AI)" {
+		if found && categoryName == "Uncategorized (AI)" {
+			s.logger.WithFields(
+				logging.Field{Key: "strategy", Value: s.Name()},
+				logging.Field{Key: "party", Value: tx.PartyName},
+				logging.Field{Key: "category", Value: categoryName},
+			).Debug("Found previous failed AI attempt, allowing retry with other strategies")
+		}
 		return models.Category{}, false, nil
 	}
 

@@ -89,7 +89,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 				Info:        "Weekly groceries",
 				Description: "MIGROS",
 			},
-			expectedCategory: "Alimentation",
+			expectedCategory: "Groceries",
 			expectError:      false,
 		},
 		{

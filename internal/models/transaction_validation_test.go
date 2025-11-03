@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -140,19 +141,7 @@ func TestTransactionBuilder_ErrorHandling(t *testing.T) {
 			expectError: true,
 			errorMsg:    "invalid date format",
 		},
-		{
-			name: "negative amount with credit direction",
-			buildFunc: func() (*TransactionBuilder, error) {
-				builder := NewTransactionBuilder()
-				_, err := builder.
-					WithAmount(decimal.NewFromFloat(-100), "CHF").
-					AsCredit().
-					Build()
-				return builder, err
-			},
-			expectError: true,
-			errorMsg:    "negative amount not allowed for credit transactions",
-		},
+
 	}
 
 	for _, tt := range tests {

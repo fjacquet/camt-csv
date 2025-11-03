@@ -13,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/parsererror"
 	"fjacquet/camt-csv/internal/textutils"
 
 	"github.com/shopspring/decimal"

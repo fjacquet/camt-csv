@@ -391,9 +391,29 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 			// Clean PartyName by removing payment method prefixes before categorization
 			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
 
-			// Note: Categorization is now handled by the categorizer component
-			// through dependency injection, not directly in the parser
-			transaction.Category = models.CategoryUncategorized
+			// Categorize the transaction using the injected categorizer with auto-learning
+			if cat := a.GetCategorizer(); cat != nil {
+				if categorizerInstance, ok := cat.(*categorizer.Categorizer); ok {
+					category, err := categorizer.CategorizeTransactionWithCategorizer(categorizerInstance, catTransaction)
+					if err != nil {
+						a.GetLogger().WithError(err).WithFields(
+							logging.Field{Key: "party", Value: catTransaction.PartyName},
+						).Warn("Failed to categorize transaction")
+						transaction.Category = models.CategoryUncategorized
+					} else {
+						transaction.Category = category.Name
+						a.GetLogger().WithFields(
+							logging.Field{Key: "party", Value: catTransaction.PartyName},
+							logging.Field{Key: "category", Value: category.Name},
+						).Debug("Transaction categorized successfully")
+					}
+				} else {
+					a.GetLogger().Debug("Categorizer not available or wrong type")
+					transaction.Category = models.CategoryUncategorized
+				}
+			} else {
+				transaction.Category = models.CategoryUncategorized
+			}
 
 			transactions = append(transactions, transaction)
 

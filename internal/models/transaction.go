@@ -448,92 +448,7 @@ func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
 	return time.Parse("02.01.2006", dateStr)
 }
 
-// ToTransactionCore converts the Transaction to a TransactionCore
-func (t *Transaction) ToTransactionCore() TransactionCore {
-	return TransactionCore{
-		ID:          t.Number,
-		Date:        t.Date,
-		ValueDate:   t.ValueDate,
-		Amount:      NewMoney(t.Amount, t.Currency),
-		Description: t.Description,
-		Status:      t.Status,
-		Reference:   t.Reference,
-	}
-}
 
-// ToTransactionWithParties converts the Transaction to a TransactionWithParties
-func (t *Transaction) ToTransactionWithParties() TransactionWithParties {
-	direction := DirectionUnknown
-	if t.IsDebit() {
-		direction = DirectionDebit
-	} else if t.IsCredit() {
-		direction = DirectionCredit
-	}
-
-	// For backward compatibility, both parties get the same IBAN from PartyIBAN
-	// This matches the test expectation where PartyIBAN represents the counterparty's IBAN
-	return TransactionWithParties{
-		TransactionCore: t.ToTransactionCore(),
-		Payer:           NewParty(t.Payer, t.PartyIBAN),
-		Payee:           NewParty(t.Payee, t.PartyIBAN),
-		Direction:       direction,
-	}
-}
-
-// ToCategorizedTransaction converts the Transaction to a CategorizedTransaction
-func (t *Transaction) ToCategorizedTransaction() CategorizedTransaction {
-	return CategorizedTransaction{
-		TransactionWithParties: t.ToTransactionWithParties(),
-		Category:               t.Category,
-		Type:                   t.Type,
-		Fund:                   t.Fund,
-	}
-}
-
-// FromTransactionCore populates the Transaction from a TransactionCore
-func (t *Transaction) FromTransactionCore(core TransactionCore) {
-	t.Number = core.ID
-	t.Date = core.Date
-	t.ValueDate = core.ValueDate
-	t.Amount = core.Amount.Amount
-	t.Currency = core.Amount.Currency
-	t.Description = core.Description
-	t.Status = core.Status
-	t.Reference = core.Reference
-}
-
-// FromCategorizedTransaction populates the Transaction from a CategorizedTransaction
-func (t *Transaction) FromCategorizedTransaction(ct CategorizedTransaction) {
-	// Populate from core
-	t.FromTransactionCore(ct.TransactionCore)
-
-	// Set party information
-	t.Payer = ct.Payer.Name
-	t.Payee = ct.Payee.Name
-
-	// Set direction and related fields
-	if ct.Direction == DirectionDebit {
-		t.CreditDebit = TransactionTypeDebit
-		t.DebitFlag = true
-		t.PartyIBAN = ct.Payee.IBAN // For debit, PartyIBAN is payee's IBAN
-		t.PartyName = ct.Payee.Name // For debit, PartyName is payee's name
-	} else if ct.Direction == DirectionCredit {
-		t.CreditDebit = TransactionTypeCredit
-		t.DebitFlag = false
-		t.PartyIBAN = ct.Payer.IBAN // For credit, PartyIBAN is payer's IBAN
-		t.PartyName = ct.Payer.Name // For credit, PartyName is payer's name
-	}
-
-	// Set categorization
-	t.Category = ct.Category
-	t.Type = ct.Type
-	t.Fund = ct.Fund
-
-	// Populate derived fields
-	t.UpdateNameFromParties()
-	t.UpdateRecipientFromPayee()
-	t.UpdateDebitCreditAmounts()
-}
 
 // NewTransactionFromBuilder creates a Transaction using the builder pattern
 // This provides a more readable way to construct transactions
@@ -577,12 +492,4 @@ func (t *Transaction) SetAmountFromFloat(amount float64, currency string) {
 	t.Currency = currency
 }
 
-// GetTransactionDirection returns the transaction direction as TransactionDirection enum
-func (t *Transaction) GetTransactionDirection() TransactionDirection {
-	if t.IsDebit() {
-		return DirectionDebit
-	} else if t.IsCredit() {
-		return DirectionCredit
-	}
-	return DirectionUnknown
-}
+

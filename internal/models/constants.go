@@ -1,7 +1,5 @@
 package models
 
-import "os"
-
 // Transaction types
 const (
 	TransactionTypeDebit  = "DBIT"
@@ -20,8 +18,12 @@ const (
 	CategoryUncategorized = "Uncategorized"
 	CategorySalary        = "Salary"
 	CategoryFood          = "Food"
+	CategoryGroceries     = "Groceries"
+	CategoryRestaurants   = "Restaurants"
 	CategoryTransport     = "Transport"
 	CategoryShopping      = "Shopping"
+	CategoryWithdrawals   = "Withdrawals"
+	CategoryTransfers     = "Transfers"
 )
 
 // File permissions
@@ -44,6 +46,15 @@ const (
 	DefaultSliceCapacity    = 50   // Default capacity for slices
 	MaxConcurrentOperations = 10   // Maximum concurrent operations
 	DefaultTimeoutSeconds   = 30   // Default timeout for operations
+)
+
+// Bank transaction codes
+const (
+	BankCodeCashWithdrawal   = "CASH_WITHDRAWAL"
+	BankCodePOS              = "POS"
+	BankCodeCreditCard       = "CREDIT_CARD"
+	BankCodeInternalCredit   = "INTERNAL_CREDIT"
+	BankCodeDirectDebit      = "DIRECT_DEBIT"
 )
 
 // Environment variable names
