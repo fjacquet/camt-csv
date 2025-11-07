@@ -443,8 +443,9 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 		}
 
 		if !isValid {
-			log.Info("Not a valid Revolut CSV file, skipping",
-				logging.Field{Key: "file", Value: inputPath})
+			logger.Info("Not a valid Revolut CSV file, skipping",
+				logging.Field{Key: "file", Value: inputPath},
+				logging.Field{Key: "reason", Value: "validation_failed"})
 			if err := inputFile.Close(); err != nil {
 				log.WithError(err).Warn("Failed to close file after validation attempt",
 					logging.Field{Key: "file", Value: inputPath})

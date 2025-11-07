@@ -17,22 +17,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
-// Use the centralized logger from config package
-var log = config.Logger
-
-// SetLogger allows setting a custom logger
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
-}
+// Note: Global logger removed in favor of dependency injection.
+// All logging is now done through the logger passed to CategoryStore methods.
 
 // CategoryStore manages loading and saving of category-related configuration data.
 // It provides a centralized interface for accessing category definitions, creditor mappings,
@@ -125,7 +116,6 @@ func (s *CategoryStore) resolveConfigFile(filename string) (string, error) {
 
 	path, err := s.FindConfigFile(filename)
 	if err != nil {
-		log.Warnf("Configuration file not found: %s", filename)
 		return "", err
 	}
 
@@ -148,7 +138,6 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Categories file not found: %s", filename)
 			return []models.CategoryConfig{}, nil
 		}
 		return nil, fmt.Errorf("error resolving categories file: %w", err)
@@ -157,7 +146,6 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Categories file not found: %s", filePath)
 			return []models.CategoryConfig{}, nil
 		}
 		return nil, fmt.Errorf("error reading categories file: %w", err)
@@ -172,11 +160,10 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 		if err2 := yaml.Unmarshal(data, &categories); err2 != nil {
 			return nil, fmt.Errorf("error parsing categories file: %w", err)
 		}
-		log.Debugf("Loaded %d categories from %s using fallback", len(categories), filePath)
+
 		return categories, nil
 	}
 
-	log.Debugf("Loaded %d categories from %s", len(config.Categories), filePath)
 	return config.Categories, nil
 }
 
@@ -196,7 +183,6 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Creditor mappings file not found: %s", filename)
 			return map[string]string{}, nil
 		}
 		return nil, fmt.Errorf("error resolving creditor mappings file: %w", err)
@@ -209,11 +195,9 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
-		log.WithError(err).Warnf("Failed to unmarshal creditor mappings from %s", filePath)
 		return nil, fmt.Errorf("error parsing creditor mappings: %w", err)
 	}
 
-	log.Debugf("Loaded %d creditor mappings from %s", len(mappings), filePath)
 	return mappings, nil
 }
 
@@ -233,7 +217,6 @@ func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
 	filePath, err := s.resolveConfigFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnf("Debtor mappings file not found: %s", filename)
 			return map[string]string{}, nil
 		}
 		return nil, fmt.Errorf("error resolving debtor mappings file: %w", err)
@@ -246,11 +229,9 @@ func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
 
 	var mappings map[string]string
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
-		log.WithError(err).Warnf("Failed to unmarshal debtor mappings from %s", filePath)
 		return nil, fmt.Errorf("error parsing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Loaded %d debtor mappings from %s", len(mappings), filePath)
 	return mappings, nil
 }
 
@@ -304,7 +285,6 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error writing creditor mappings: %w", err)
 	}
 
-	log.Debugf("Saved %d creditor mappings to %s", len(mappings), filePath)
 	return nil
 }
 
@@ -358,6 +338,5 @@ func (s *CategoryStore) SaveDebtorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error writing debtor mappings: %w", err)
 	}
 
-	log.Debugf("Saved %d debtor mappings to %s", len(mappings), filePath)
 	return nil
 }

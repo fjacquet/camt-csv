@@ -21,7 +21,8 @@ import (
 // This follows the composition pattern and provides a foundation for
 // implementing the segregated parser interfaces.
 type BaseParser struct {
-	logger logging.Logger
+	logger      logging.Logger
+	categorizer interface{} // Using interface{} to avoid circular import
 }
 
 // NewBaseParser creates a new BaseParser instance with the provided logger.
@@ -61,6 +62,24 @@ func (b *BaseParser) SetLogger(logger logging.Logger) {
 //   - logging.Logger: The current logger instance
 func (b *BaseParser) GetLogger() logging.Logger {
 	return b.logger
+}
+
+// SetCategorizer implements the CategorizerConfigurable interface.
+// This method allows parsers to configure their categorizer instance.
+//
+// Parameters:
+//   - categorizer: The categorizer instance to use for transaction categorization
+func (b *BaseParser) SetCategorizer(categorizer interface{}) {
+	b.categorizer = categorizer
+}
+
+// GetCategorizer returns the current categorizer instance.
+// This is a helper method for parser implementations to access the categorizer.
+//
+// Returns:
+//   - interface{}: The current categorizer instance (nil if not set)
+func (b *BaseParser) GetCategorizer() interface{} {
+	return b.categorizer
 }
 
 // WriteToCSV provides common CSV writing functionality for all parsers.

@@ -198,4 +198,50 @@ This specification defines the requirements for refactoring the camt-csv codebas
 4. WHEN the refactoring is complete, THE System SHALL achieve comprehensive test coverage with 100% coverage for critical paths (parsing, categorization, data validation) and good coverage for remaining functionality
 5. WHEN test coverage is evaluated, THE System SHALL prioritize risk-based testing over arbitrary percentage targets
 
+### Requirement 16: Complete Transaction Model Decomposition
 
+**User Story:** As a developer, I want the Transaction model to be fully decomposed into focused components, so that it follows Single Responsibility Principle and is easier to maintain.
+
+#### Acceptance Criteria
+
+1. WHEN the System defines core transaction data, THE System SHALL separate essential fields into TransactionCore with ID, dates, amount, description, status, and reference
+2. WHEN the System handles party information, THE System SHALL use a separate Party value object with name and IBAN validation
+3. WHEN the System represents monetary values, THE System SHALL use Money value object with currency validation and arithmetic operations
+4. WHEN the System handles categorization data, THE System SHALL use composition to add categorization fields to base transaction types
+5. WHEN the decomposition is complete, THE Transaction struct SHALL compose these focused components rather than containing all fields directly
+
+### Requirement 17: Implement Comprehensive Validation Framework
+
+**User Story:** As a developer, I want a comprehensive validation framework for all data models, so that invalid data is caught early and errors are clear.
+
+#### Acceptance Criteria
+
+1. WHEN the System validates transactions, THE System SHALL check required fields, date ranges, amount validity, and currency codes
+2. WHEN the System validates party information, THE System SHALL validate IBAN format and ensure names are not empty
+3. WHEN the System validates monetary amounts, THE System SHALL ensure currency codes are valid and amounts are within reasonable ranges
+4. WHEN validation fails, THE System SHALL return structured validation errors with field names and specific reasons
+5. WHEN the TransactionBuilder builds a transaction, THE Builder SHALL run comprehensive validation before returning the result
+
+### Requirement 18: Optimize Performance in Critical Paths
+
+**User Story:** As a developer, I want optimized performance in frequently-executed code paths, so that the application processes large datasets efficiently.
+
+#### Acceptance Criteria
+
+1. WHEN string operations are performed in categorization hot paths, THE System SHALL use strings.Builder with pre-allocated capacity to minimize allocations
+2. WHEN processing large transaction datasets, THE System SHALL use concurrent processing with worker pools for datasets over 100 transactions
+3. WHEN maps and slices are created with known sizes, THE System SHALL pre-allocate capacity to avoid reallocations
+4. WHEN expensive operations like AI client initialization are needed, THE System SHALL use lazy initialization with sync.Once
+5. WHEN performance optimizations are implemented, THE System SHALL maintain identical functionality while improving throughput by at least 20%
+
+### Requirement 19: Enhance Error Context and Debugging
+
+**User Story:** As a developer, I want enhanced error context and debugging capabilities, so that issues are easier to diagnose and fix.
+
+#### Acceptance Criteria
+
+1. WHEN errors occur during parsing, THE System SHALL include file path, line number, and problematic data snippet in error messages
+2. WHEN categorization fails, THE System SHALL log which strategies were attempted and why they failed
+3. WHEN validation errors occur, THE System SHALL specify exactly which field failed validation and what the expected format is
+4. WHEN the System processes transactions in batches, THE System SHALL include batch information and progress in error messages
+5. WHEN debug logging is enabled, THE System SHALL provide detailed execution traces without exposing sensitive data

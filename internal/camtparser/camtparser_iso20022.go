@@ -13,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
+	"fjacquet/camt-csv/internal/parsererror"
 	"fjacquet/camt-csv/internal/textutils"
 
 	"github.com/shopspring/decimal"
@@ -44,7 +45,12 @@ func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, er
 	// Parse XML into ISO20022 document structure
 	var document models.ISO20022Document
 	if err := xml.Unmarshal(xmlBytes, &document); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal XML: %w", err)
+		return nil, &parsererror.ParseError{
+			Parser: "CAMT",
+			Field:  "XML document",
+			Value:  xmlFilePath,
+			Err:    fmt.Errorf("failed to unmarshal XML: %w", err),
+		}
 	}
 
 	// Extract transactions from document

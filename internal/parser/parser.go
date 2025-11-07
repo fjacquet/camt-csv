@@ -44,6 +44,14 @@ type LoggerConfigurable interface {
 	SetLogger(logger logging.Logger)
 }
 
+// CategorizerConfigurable defines the ability to configure categorization.
+// This allows parsers to accept categorizer instances for transaction categorization.
+type CategorizerConfigurable interface {
+	// SetCategorizer configures the categorizer instance for the parser.
+	// Parsers should use this categorizer for transaction categorization.
+	SetCategorizer(categorizer interface{})
+}
+
 // FullParser combines all parser capabilities into a single interface.
 // Use this interface when you need a parser with all available features.
 // Individual interfaces should be used when only specific capabilities are required.
@@ -52,4 +60,5 @@ type FullParser interface {
 	Validator
 	CSVConverter
 	LoggerConfigurable
+	CategorizerConfigurable
 }

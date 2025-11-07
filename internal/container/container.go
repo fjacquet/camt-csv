@@ -86,22 +86,34 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	parsers := make(map[ParserType]parser.FullParser)
 
 	// CAMT parser
-	parsers[CAMT] = camtparser.NewAdapter(logger)
+	camtParser := camtparser.NewAdapter(logger)
+	camtParser.SetCategorizer(cat)
+	parsers[CAMT] = camtParser
 
 	// PDF parser - needs special handling for extractor
-	parsers[PDF] = pdfparser.NewAdapter(logger, nil) // nil for real extractor
+	pdfParser := pdfparser.NewAdapter(logger, nil) // nil for real extractor
+	pdfParser.SetCategorizer(cat)
+	parsers[PDF] = pdfParser
 
 	// Revolut parser
-	parsers[Revolut] = revolutparser.NewAdapter(logger)
+	revolutParser := revolutparser.NewAdapter(logger)
+	revolutParser.SetCategorizer(cat)
+	parsers[Revolut] = revolutParser
 
 	// Revolut Investment parser
-	parsers[RevolutInvestment] = revolutinvestmentparser.NewAdapter(logger)
+	revolutInvestmentParser := revolutinvestmentparser.NewAdapter(logger)
+	revolutInvestmentParser.SetCategorizer(cat)
+	parsers[RevolutInvestment] = revolutInvestmentParser
 
 	// Selma parser
-	parsers[Selma] = selmaparser.NewAdapter(logger)
+	selmaParser := selmaparser.NewAdapter(logger)
+	selmaParser.SetCategorizer(cat)
+	parsers[Selma] = selmaParser
 
 	// Debit parser
-	parsers[Debit] = debitparser.NewAdapter(logger)
+	debitParser := debitparser.NewAdapter(logger)
+	debitParser.SetCategorizer(cat)
+	parsers[Debit] = debitParser
 
 	logger.Info("Container initialized successfully",
 		logging.Field{Key: "parsers_count", Value: len(parsers)},
