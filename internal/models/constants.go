@@ -28,9 +28,9 @@ const (
 
 // File permissions
 const (
-	PermissionConfigFile  = 0600
-	PermissionDirectory   = 0750
-	PermissionExecutable  = 0755
+	PermissionConfigFile = 0600
+	PermissionDirectory  = 0750
+	PermissionExecutable = 0755
 )
 
 // CSV formatting
@@ -42,19 +42,19 @@ const (
 
 // Performance tuning constants
 const (
-	DefaultMapCapacity      = 100  // Default capacity for maps
-	DefaultSliceCapacity    = 50   // Default capacity for slices
-	MaxConcurrentOperations = 10   // Maximum concurrent operations
-	DefaultTimeoutSeconds   = 30   // Default timeout for operations
+	DefaultMapCapacity      = 100 // Default capacity for maps
+	DefaultSliceCapacity    = 50  // Default capacity for slices
+	MaxConcurrentOperations = 10  // Maximum concurrent operations
+	DefaultTimeoutSeconds   = 30  // Default timeout for operations
 )
 
 // Bank transaction codes
 const (
-	BankCodeCashWithdrawal   = "CASH_WITHDRAWAL"
-	BankCodePOS              = "POS"
-	BankCodeCreditCard       = "CREDIT_CARD"
-	BankCodeInternalCredit   = "INTERNAL_CREDIT"
-	BankCodeDirectDebit      = "DIRECT_DEBIT"
+	BankCodeCashWithdrawal = "CASH_WITHDRAWAL"
+	BankCodePOS            = "POS"
+	BankCodeCreditCard     = "CREDIT_CARD"
+	BankCodeInternalCredit = "INTERNAL_CREDIT"
+	BankCodeDirectDebit    = "DIRECT_DEBIT"
 )
 
 // Environment variable names

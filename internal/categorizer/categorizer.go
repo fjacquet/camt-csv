@@ -25,7 +25,7 @@ func normalizeStringToLowerCategorizer(input string) string {
 	if input == "" {
 		return ""
 	}
-	
+
 	// Fast path for ASCII-only strings (common case)
 	if isASCII(input) {
 		// Performance optimization: Pre-allocate builder capacity to avoid reallocations
@@ -41,7 +41,7 @@ func normalizeStringToLowerCategorizer(input string) string {
 		}
 		return builder.String()
 	}
-	
+
 	// Fallback for Unicode strings
 	return strings.ToLower(input)
 }

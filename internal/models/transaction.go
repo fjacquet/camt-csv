@@ -448,8 +448,6 @@ func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
 	return time.Parse("02.01.2006", dateStr)
 }
 
-
-
 // NewTransactionFromBuilder creates a Transaction using the builder pattern
 // This provides a more readable way to construct transactions
 func NewTransactionFromBuilder() *TransactionBuilder {
@@ -491,5 +489,3 @@ func (t *Transaction) SetAmountFromFloat(amount float64, currency string) {
 	t.Amount = decimal.NewFromFloat(amount)
 	t.Currency = currency
 }
-
-

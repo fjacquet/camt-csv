@@ -164,7 +164,6 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 		return categories, nil
 	}
 
-
 	return config.Categories, nil
 }
 
@@ -199,7 +198,6 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 		return nil, fmt.Errorf("error parsing creditor mappings: %w", err)
 	}
 
-
 	return mappings, nil
 }
 
@@ -233,7 +231,6 @@ func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
 	if err := yaml.Unmarshal(data, &mappings); err != nil {
 		return nil, fmt.Errorf("error parsing debtor mappings: %w", err)
 	}
-
 
 	return mappings, nil
 }
@@ -288,7 +285,6 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error writing creditor mappings: %w", err)
 	}
 
-
 	return nil
 }
 
@@ -341,7 +337,6 @@ func (s *CategoryStore) SaveDebtorMappings(mappings map[string]string) error {
 	if err := os.WriteFile(filePath, data, models.PermissionConfigFile); err != nil {
 		return fmt.Errorf("error writing debtor mappings: %w", err)
 	}
-
 
 	return nil
 }

@@ -77,7 +77,7 @@ func TestTransactionValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateTransaction(tt.transaction)
-			
+
 			if tt.expectValid {
 				assert.NoError(t, err)
 			} else {
@@ -94,23 +94,23 @@ func validateTransaction(tx Transaction) error {
 	if tx.Number == "" {
 		return fmt.Errorf("missing required field: Number")
 	}
-	
+
 	if tx.Date.IsZero() {
 		return fmt.Errorf("missing required field: Date")
 	}
-	
+
 	if tx.Date.After(time.Now()) {
 		return fmt.Errorf("future date not allowed")
 	}
-	
+
 	validCurrencies := map[string]bool{
 		"CHF": true, "EUR": true, "USD": true, "GBP": true,
 	}
-	
+
 	if !validCurrencies[tx.Currency] {
 		return fmt.Errorf("invalid currency: %s", tx.Currency)
 	}
-	
+
 	return nil
 }
 
@@ -141,13 +141,12 @@ func TestTransactionBuilder_ErrorHandling(t *testing.T) {
 			expectError: true,
 			errorMsg:    "invalid date format",
 		},
-
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := tt.buildFunc()
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)

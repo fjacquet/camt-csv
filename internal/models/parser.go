@@ -11,11 +11,12 @@ import (
 // This interface will be removed in v3.0.0 to follow Interface Segregation Principle.
 //
 // Migration example:
-//   // Old code:
-//   var p models.Parser
-//   
-//   // New code:
-//   var p parser.FullParser // or specific interfaces like parser.Parser, parser.Validator
+//
+//	// Old code:
+//	var p models.Parser
+//
+//	// New code:
+//	var p parser.FullParser // or specific interfaces like parser.Parser, parser.Validator
 type Parser interface {
 	Parse(r io.Reader) ([]Transaction, error)
 	ConvertToCSV(inputFile, outputFile string) error

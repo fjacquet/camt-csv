@@ -24,14 +24,14 @@ type StrategyResults struct {
 // GetBestResult returns the first successful result or the highest confidence result
 func (sr StrategyResults) GetBestResult() (models.Category, bool) {
 	var bestResult *StrategyResult
-	
+
 	// First, look for any successful result (found = true)
 	for i := range sr.Results {
 		if sr.Results[i].Found && sr.Results[i].Error == nil {
 			return sr.Results[i].Category, true
 		}
 	}
-	
+
 	// If no successful result, find the highest confidence result
 	for i := range sr.Results {
 		if sr.Results[i].Error == nil {
@@ -40,11 +40,11 @@ func (sr StrategyResults) GetBestResult() (models.Category, bool) {
 			}
 		}
 	}
-	
+
 	if bestResult != nil {
 		return bestResult.Category, bestResult.Found
 	}
-	
+
 	return models.Category{}, false
 }
 

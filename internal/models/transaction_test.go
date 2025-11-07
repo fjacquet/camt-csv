@@ -345,8 +345,6 @@ func TestTransaction_SetAmountFromFloat(t *testing.T) {
 	assert.Equal(t, "EUR", tx.Currency)
 }
 
-
-
 func TestTransaction_ToBuilder(t *testing.T) {
 	original := Transaction{
 		Number:      "TXN-001",

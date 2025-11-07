@@ -210,7 +210,11 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 	if err != nil {
 		return "", fmt.Errorf("failed to make API request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.log.WithError(closeErr).Warn("Failed to close response body")
+		}
+	}()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
