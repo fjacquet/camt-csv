@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update `CLAUDE.md` to reflect refactored parser interface (segregated interfaces, new factory location)
 - Update dependencies: cobra v1.10.2, golang.org/x/net v0.47.0, golang.org/x/sys v0.38.0, golang.org/x/text v0.31.0
+- **Type-safe Categorizer Interface**: Replace `interface{}` with `models.TransactionCategorizer` for compile-time type safety
+  - Add `TransactionCategorizer` interface to models package
+  - Update `CategorizerConfigurable` interface to use type-safe signature
+  - Modify `Categorize` method to include auto-learning functionality
 
 ### Deprecated
 
