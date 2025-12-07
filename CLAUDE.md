@@ -107,6 +107,61 @@ Configuration loads in order (later overrides earlier):
 
 ## Coding Principles
 
+### KISS - Keep It Simple, Stupid
+
+Simplicity is the ultimate sophistication. Always prefer the simplest solution that works.
+
+```go
+// BAD - over-engineered
+type TransactionProcessorFactory interface {
+    CreateProcessor(config ProcessorConfig) TransactionProcessor
+}
+type TransactionProcessor interface {
+    Process(tx Transaction) (ProcessedTransaction, error)
+}
+
+// GOOD - simple and direct
+func ProcessTransaction(tx Transaction) (Transaction, error) {
+    // Direct implementation
+}
+```
+
+**Guidelines:**
+- Don't add abstraction until you need it (Rule of Three)
+- Avoid premature optimization
+- If a junior developer can't understand it in 5 minutes, simplify it
+- One function = one responsibility
+- Prefer flat over nested code
+
+### DRY - Don't Repeat Yourself
+
+Every piece of knowledge should have a single, authoritative representation.
+
+```go
+// BAD - repeated logic
+func ParseCAMTDate(s string) time.Time {
+    t, _ := time.Parse("2006-01-02", s)
+    return t
+}
+func ParseRevolutDate(s string) time.Time {
+    t, _ := time.Parse("2006-01-02", s)  // Duplicated!
+    return t
+}
+
+// GOOD - single source of truth
+const DateFormat = "2006-01-02"
+func ParseDate(s string) (time.Time, error) {
+    return time.Parse(DateFormat, s)
+}
+```
+
+**Guidelines:**
+- Extract common logic into shared functions (`internal/common/`)
+- Use constants for repeated values (`internal/models/constants.go`)
+- Single source of truth for business logic
+- But: Don't DRY prematurely - wait for 3 repetitions (Rule of Three)
+- Acceptable duplication: test code, simple one-liners
+
 ### Functional Programming Guidelines
 
 This codebase follows functional programming principles where applicable:
