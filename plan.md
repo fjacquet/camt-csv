@@ -9,192 +9,218 @@
 
 ## Executive Summary
 
-The codebase has undergone significant architectural improvements (DI, interface segregation, logging abstraction). Progress has been made on critical issues.
-
 | Metric | Current | Target | Status |
 |--------|---------|--------|--------|
 | Test Coverage | ~46.6% | 60%+ | :red_circle: Below target |
 | Linter Issues | 0 | 0 | :green_circle: Clean |
-| Critical Bugs | 0 | 0 | :green_circle: None found |
-| FP Compliance | Partial | Full | :yellow_circle: In progress |
+| FP Compliance | Partial | Full | :yellow_circle: 13 violations |
+| DRY Compliance | Partial | Full | :yellow_circle: Date formats not centralized |
 
 ---
 
-## Completed Items
+## Completed Items :white_check_mark:
 
-### :white_check_mark: 1. SLSA Workflow Fixed
-- Created `.slsa-goreleaser.yml` configuration
-- Updated Go version to 1.24
-- Upgraded slsa-github-generator to v2.0.0
-
-### :white_check_mark: 2. Configuration System Consolidated
-- Deprecated legacy functions in `internal/config/config.go`
-- Added migration documentation
-- All deprecated functions marked for removal in v3.0.0
-
-### :white_check_mark: 3. Type-Safe Categorizer Interface
-- Added `TransactionCategorizer` interface to `models` package
-- Removed `interface{}` from `CategorizerConfigurable`
-- Auto-learning integrated into `Categorize()` method
-
-### :white_check_mark: 4. Immutable Container
-- Made all Container fields private
-- Added `GetParsers()` method returning copy of map
-- Prevents accidental modification after initialization
+| Item | Description |
+|------|-------------|
+| SLSA Workflow | Created `.slsa-goreleaser.yml`, fixed Go version |
+| Config Consolidation | Deprecated legacy functions in config.go |
+| Type-Safe Categorizer | Added `TransactionCategorizer` interface |
+| Immutable Container | Private fields with getters only |
+| CLAUDE.md | Added KISS, DRY, FP guidelines |
 
 ---
 
 ## Remaining Issues
 
-### HIGH Priority
+### 1. FP Violations - Global Mutable State :red_circle:
 
-#### 5. Functional Programming Violations - Global Mutable State
-**Status**: NOT FIXED
-**Impact**: Thread safety, testability, predictability
+**Global `var log` (7 files):**
 
-**Global `var log` declarations (violates FP immutability):**
+| File | Line | Fix |
+|------|------|-----|
+| `internal/selmaparser/selmaparser.go` | 20 | Pass logger to functions |
+| `internal/currencyutils/currencyutils.go` | 13 | Pass logger to functions |
+| `internal/dateutils/dateutils.go` | 13 | Pass logger to functions |
+| `internal/xmlutils/xpath.go` | 14 | Pass logger to functions |
+| `internal/debitparser/debitparser.go` | 23 | Pass logger to functions |
+| `internal/pdfparser/pdfparser_helpers.go` | 26 | Pass logger to functions |
+| `internal/revolutparser/revolutparser.go` | 29 | Pass logger to functions |
 
-| File | Line | Issue |
-|------|------|-------|
-| `internal/selmaparser/selmaparser.go` | 20 | `var log = logrus.New()` |
-| `internal/currencyutils/currencyutils.go` | 13 | `var log = logrus.New()` |
-| `internal/dateutils/dateutils.go` | 13 | `var log = logrus.New()` |
-| `internal/xmlutils/xpath.go` | 14 | `var log = logrus.New()` |
-| `internal/debitparser/debitparser.go` | 23 | `var log = logging.NewLogrusAdapter(...)` |
-| `internal/pdfparser/pdfparser_helpers.go` | 26 | `var log = getDefaultLogger()` |
-| `internal/revolutparser/revolutparser.go` | 29 | `var log = getDefaultLogger()` |
+**`SetLogger()` anti-pattern (4 files):**
 
-**`SetLogger()` anti-pattern (mutates global state):**
+| File | Line | Fix |
+|------|------|-----|
+| `internal/fileutils/fileutils.go` | 13 | Remove, use DI |
+| `internal/dateutils/dateutils.go` | 42 | Remove, use DI |
+| `internal/currencyutils/currencyutils.go` | 16 | Remove, use DI |
+| `internal/xmlutils/xpath.go` | 17 | Remove, use DI |
 
-| File | Line | Issue |
-|------|------|-------|
-| `internal/fileutils/fileutils.go` | 13 | `func SetLogger(logger *logrus.Logger)` |
-| `internal/dateutils/dateutils.go` | 42 | `func SetLogger(logger *logrus.Logger)` |
-| `internal/currencyutils/currencyutils.go` | 16 | `func SetLogger(logger *logrus.Logger)` |
-| `internal/xmlutils/xpath.go` | 17 | `func SetLogger(logger *logrus.Logger)` |
+**`SetDelimiter()` anti-pattern (2 files):**
 
-**Mutable global Delimiters:**
+| File | Line | Fix |
+|------|------|-----|
+| `internal/common/csv.go` | 30 | Use config or const |
+| `internal/selmaparser/selmaparser.go` | 32 | Use config or const |
 
-| File | Line | Issue |
-|------|------|-------|
-| `internal/common/csv.go` | 19 | `var Delimiter rune = ','` |
-| `internal/selmaparser/selmaparser.go` | 23 | `var Delimiter rune = ','` |
+**Mutable `var Delimiter` (2 files):**
 
-**Fix**: Pass logger as parameter, use constants for delimiters.
-
-#### 6. Low Test Coverage (~46.6%)
-
-| Package | Coverage | Priority |
-|---------|----------|----------|
-| `cmd/camt` | 0% | HIGH |
-| `cmd/pdf` | 0% | HIGH |
-| `cmd/revolut` | 0% | HIGH |
-| `cmd/selma` | 0% | HIGH |
-| `internal/pdfparser` | 32% | HIGH |
-| `internal/reviewer` | 27% | MEDIUM |
-| `internal/store` | 42% | MEDIUM |
-| `internal/logging` | 42% | MEDIUM |
-
-**Target**: 60% overall, 50% per package minimum
+| File | Line | Fix |
+|------|------|-----|
+| `internal/common/csv.go` | 19 | Change to `const` |
+| `internal/selmaparser/selmaparser.go` | 23 | Change to `const` |
 
 ---
 
-### MEDIUM Priority
+### 2. DRY Violations :yellow_circle:
 
-#### 7. Inconsistent Error Unwrapping
-**Location**: `internal/parsererror/errors.go`
+**Date formats not centralized:**
+- `dateutils` has formats as `var` (should be `const`)
+- Other files use hardcoded `"2006-01-02"` instead of `dateutils.DateLayoutISO`
+- 13+ occurrences of `time.Parse` with inline format strings
 
-| Error Type | Has Unwrap() |
-|------------|--------------|
-| ParseError | :white_check_mark: Yes |
-| CategorizationError | :white_check_mark: Yes |
-| ValidationError | :x: No |
-| DataExtractionError | :x: No |
-
-**Fix**: Add `Unwrap()` to all error types.
-
-#### 8. Logging Abstraction Leaks
-**Location**: `internal/logging/logrus_adapter.go:141`
-
-```go
-func (a *LogrusAdapter) GetLogrusLogger() *logrus.Logger {
-    return a.logger  // Defeats abstraction purpose
-}
-```
-
-**Fix**: Remove or make private.
-
-#### 9. No Pre-commit Hooks
-**Status**: NOT IMPLEMENTED
+**Fix:**
+1. Change `dateutils` formats to `const`
+2. Replace hardcoded formats with `dateutils` constants
 
 ---
 
-## Updated Action Plan
+### 3. Missing Error Unwrap() :yellow_circle:
 
-### Phase 1: FP Compliance (Next)
+| Error Type | Has Unwrap() | File |
+|------------|--------------|------|
+| ParseError | :white_check_mark: Yes | parsererror/errors.go:33 |
+| CategorizationError | :white_check_mark: Yes | parsererror/errors.go:70 |
+| ValidationError | :x: No | parsererror/errors.go:41 |
+| InvalidFormatError | :x: No | parsererror/errors.go:77 |
+| DataExtractionError | :x: No | parsererror/errors.go:99 |
+
+---
+
+### 4. Logging Abstraction Leak :yellow_circle:
+
+| File | Line | Issue |
+|------|------|-------|
+| `internal/logging/logrus_adapter.go` | 141 | `GetLogrusLogger()` exposes implementation |
+
+---
+
+### 5. Test Coverage :red_circle:
+
+**Packages at 0% (need tests):**
+
+| Package | Priority |
+|---------|----------|
+| `cmd/camt` | HIGH |
+| `cmd/pdf` | HIGH |
+| `cmd/revolut` | HIGH |
+| `cmd/selma` | HIGH |
+| `cmd/debit` | HIGH |
+| `cmd/revolut-investment` | HIGH |
+| `internal/xmlutils` | MEDIUM |
+| `internal/git` | LOW |
+
+**Packages below 50% (need improvement):**
+
+| Package | Coverage | Target |
+|---------|----------|--------|
+| `internal/pdfparser` | 32.1% | 50% |
+| `internal/reviewer` | 27.3% | 50% |
+| `internal/debitparser` | 40.0% | 50% |
+| `internal/logging` | 42.1% | 50% |
+| `internal/store` | 42.4% | 50% |
+| `internal/camtparser` | 45.6% | 50% |
+
+**Packages at good coverage (>70%):**
+
+| Package | Coverage |
+|---------|----------|
+| `internal/container` | 100% |
+| `internal/factory` | 100% |
+| `internal/parsererror` | 100% |
+| `internal/textutils` | 100% |
+| `internal/currencyutils` | 97.6% |
+| `internal/parser` | 87.9% |
+| `internal/fileutils` | 81.6% |
+| `internal/validation` | 81.2% |
+| `internal/common` | 78.8% |
+| `internal/dateutils` | 78.8% |
+| `cmd/review` | 73.0% |
+
+---
+
+## Action Plan
+
+### Phase 1: FP Compliance (Priority: HIGH)
 
 | Task | Files | Effort |
 |------|-------|--------|
-| Remove global `var log` in utility packages | 4 files | 2 hours |
-| Remove `SetLogger()` functions | 4 files | 1 hour |
-| Make `Delimiter` a constant or config | 2 files | 30 min |
-| Pass logger as parameter to all functions | Multiple | 3 hours |
+| Remove global `var log` | 7 files | 3h |
+| Remove `SetLogger()` functions | 4 files | 1h |
+| Make `Delimiter` constant | 2 files | 30m |
+| Remove `SetDelimiter()` functions | 2 files | 30m |
 
-### Phase 2: Test Coverage
+### Phase 2: DRY Compliance (Priority: MEDIUM)
 
-| Task | Target Coverage | Effort |
-|------|-----------------|--------|
-| Add tests for `cmd/camt` | 50% | 2 hours |
-| Add tests for `cmd/pdf` | 50% | 2 hours |
-| Add tests for `cmd/revolut` | 50% | 2 hours |
-| Add tests for `cmd/selma` | 50% | 2 hours |
-| Improve `internal/pdfparser` tests | 50% | 3 hours |
+| Task | Files | Effort |
+|------|-------|--------|
+| Make date formats `const` in dateutils | 1 file | 15m |
+| Replace hardcoded date formats | ~10 files | 2h |
 
-### Phase 3: Cleanup
+### Phase 3: Error Handling (Priority: LOW)
 
-| Task | Impact | Effort |
+| Task | Files | Effort |
+|------|-------|--------|
+| Add `Unwrap()` to ValidationError | 1 file | 15m |
+| Add `Unwrap()` to InvalidFormatError | 1 file | 15m |
+| Add `Unwrap()` to DataExtractionError | 1 file | 15m |
+
+### Phase 4: Cleanup (Priority: LOW)
+
+| Task | Files | Effort |
+|------|-------|--------|
+| Remove `GetLogrusLogger()` | 1 file | 15m |
+
+### Phase 5: Test Coverage (Priority: MEDIUM)
+
+| Task | Target | Effort |
 |------|--------|--------|
-| Add Unwrap() to all errors | LOW | 1 hour |
-| Remove logging abstraction leaks | LOW | 30 min |
-| Add pre-commit hooks | LOW | 30 min |
+| Add cmd package tests | 50% each | 8h |
+| Improve internal package tests | 50% min | 6h |
 
 ---
 
 ## Production Readiness Checklist
 
+- [ ] FP compliance (no global mutable state)
+- [ ] DRY compliance (centralized date formats)
+- [ ] All error types have Unwrap()
+- [ ] No logging abstraction leaks
 - [ ] Test coverage >= 60%
 - [x] All linter checks pass
 - [x] SLSA workflow fixed
-- [x] Configuration system consolidated (deprecated)
-- [x] Type-safe Categorizer interface
+- [x] Config system consolidated
+- [x] Type-safe interfaces
 - [x] Immutable Container
-- [ ] FP compliance (no global mutable state)
-- [ ] Pre-commit hooks configured
-- [x] CHANGELOG updated
+- [x] CLAUDE.md with coding principles
 
 ---
 
-## Functional Programming Principles
+## Quick Wins (< 1 hour each)
 
-The codebase should follow these FP principles where applicable:
-
-1. **Immutability**: Data should not be mutated after creation
-2. **No Global State**: Avoid `var` at package level (except constants)
-3. **Pure Functions**: Same input = same output, no side effects
-4. **Dependency Injection**: Pass dependencies as parameters
-5. **No `SetX()` Mutators**: Configure at construction time only
+1. Make `Delimiter` constants (30m)
+2. Make date formats constants (15m)
+3. Add missing `Unwrap()` methods (45m)
+4. Remove `GetLogrusLogger()` (15m)
 
 ---
 
-## Conclusion
+## Summary
 
-Good progress made on architectural cleanup:
-- :white_check_mark: SLSA workflow
-- :white_check_mark: Config consolidation
-- :white_check_mark: Type-safe interfaces
-- :white_check_mark: Immutable container
-
-Remaining work:
-1. **FP Compliance**: Remove global mutable state (~6 hours)
-2. **Test Coverage**: Increase to 60%+ (~13 hours)
-3. **Minor Cleanup**: Error unwrapping, logging leaks (~2 hours)
+| Category | Issues | Effort |
+|----------|--------|--------|
+| FP Violations | 13 | ~5h |
+| DRY Violations | ~10 | ~2h |
+| Error Handling | 3 | ~45m |
+| Logging Leak | 1 | ~15m |
+| Test Coverage | 14 packages | ~14h |
+| **Total** | | **~22h** |
