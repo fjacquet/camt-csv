@@ -105,6 +105,94 @@ Configuration loads in order (later overrides earlier):
 5. Add CLI command in `cmd/{name}/convert.go`
 6. Wire command in `main.go`
 
+## Coding Principles
+
+### Functional Programming Guidelines
+
+This codebase follows functional programming principles where applicable:
+
+**1. No Global Mutable State**
+```go
+// BAD - global mutable state
+var log = logrus.New()
+func SetLogger(l *logrus.Logger) { log = l }
+
+// GOOD - dependency injection
+func NewParser(logger logging.Logger) *Parser {
+    return &Parser{logger: logger}
+}
+```
+
+**2. Immutability**
+```go
+// BAD - mutable struct fields
+type Container struct {
+    Logger logging.Logger  // Can be modified
+}
+
+// GOOD - private fields with getters
+type Container struct {
+    logger logging.Logger  // Immutable after creation
+}
+func (c *Container) GetLogger() logging.Logger { return c.logger }
+```
+
+**3. Pure Functions (where possible)**
+```go
+// BAD - modifies external state
+func ProcessTransaction(tx *Transaction) {
+    tx.Category = "Food"  // Mutates input
+}
+
+// GOOD - returns new value
+func CategorizeTransaction(tx Transaction) Transaction {
+    result := tx  // Copy
+    result.Category = "Food"
+    return result
+}
+```
+
+**4. Constants Over Variables**
+```go
+// BAD - mutable delimiter
+var Delimiter rune = ','
+
+// GOOD - constant
+const DefaultDelimiter rune = ','
+```
+
+**5. Configure at Construction**
+```go
+// BAD - SetX() mutator pattern
+parser := NewParser()
+parser.SetLogger(logger)
+parser.SetCategorizer(cat)
+
+// GOOD - constructor injection
+parser := NewParser(logger, categorizer)
+```
+
+### Dependency Injection
+
+All dependencies should flow through the `Container` (`internal/container/`):
+
+```go
+// Create container with all dependencies
+container, err := container.NewContainer(cfg)
+
+// Access dependencies via getters
+logger := container.GetLogger()
+parser, _ := container.GetParser(container.CAMT)
+categorizer := container.GetCategorizer()
+```
+
+### Interface Design
+
+Follow Interface Segregation Principle:
+- Small, focused interfaces (`Parser`, `Validator`, `CSVConverter`)
+- Compose into larger interfaces when needed (`FullParser`)
+- Use `models.TransactionCategorizer` for categorization (type-safe)
+
 ## Changelog Management
 
 **IMPORTANT**: Update `CHANGELOG.md` for every significant change.
