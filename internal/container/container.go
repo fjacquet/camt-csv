@@ -34,16 +34,20 @@ const (
 // Container holds all application dependencies and provides methods to access them.
 // It acts as the central registry for dependency injection, ensuring that all
 // components receive their required dependencies through constructors.
+//
+// Container is immutable after creation - all fields are private and can only
+// be accessed through getter methods. This prevents accidental modification
+// of dependencies after initialization.
 type Container struct {
-	// Core dependencies
-	Logger      logging.Logger
-	Config      *config.Config
-	Store       *store.CategoryStore
-	AIClient    categorizer.AIClient
-	Categorizer *categorizer.Categorizer
+	// Core dependencies (private for immutability)
+	logger      logging.Logger
+	config      *config.Config
+	store       *store.CategoryStore
+	aiClient    categorizer.AIClient
+	categorizer *categorizer.Categorizer
 
-	// Parser registry
-	Parsers map[ParserType]parser.FullParser
+	// Parser registry (private for immutability)
+	parsers map[ParserType]parser.FullParser
 }
 
 // NewContainer creates and wires all application dependencies.
@@ -120,12 +124,12 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		logging.Field{Key: "ai_enabled", Value: cfg.AI.Enabled})
 
 	return &Container{
-		Logger:      logger,
-		Config:      cfg,
-		Store:       categoryStore,
-		AIClient:    aiClient,
-		Categorizer: cat,
-		Parsers:     parsers,
+		logger:      logger,
+		config:      cfg,
+		store:       categoryStore,
+		aiClient:    aiClient,
+		categorizer: cat,
+		parsers:     parsers,
 	}, nil
 }
 
@@ -139,41 +143,52 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 //   - parser.FullParser: The requested parser instance
 //   - error: Error if parser type is unknown
 func (c *Container) GetParser(pt ParserType) (parser.FullParser, error) {
-	p, ok := c.Parsers[pt]
+	p, ok := c.parsers[pt]
 	if !ok {
 		return nil, fmt.Errorf("unknown parser type: %s", pt)
 	}
 	return p, nil
 }
 
+// GetParsers returns a copy of the parser registry.
+// This prevents external modification of the internal parser map.
+func (c *Container) GetParsers() map[ParserType]parser.FullParser {
+	// Return a copy to maintain immutability
+	result := make(map[ParserType]parser.FullParser, len(c.parsers))
+	for k, v := range c.parsers {
+		result[k] = v
+	}
+	return result
+}
+
 // GetLogger returns the container's logger instance.
 // This is a convenience method for accessing the logger.
 func (c *Container) GetLogger() logging.Logger {
-	return c.Logger
+	return c.logger
 }
 
 // GetConfig returns the container's configuration instance.
 // This is a convenience method for accessing the configuration.
 func (c *Container) GetConfig() *config.Config {
-	return c.Config
+	return c.config
 }
 
 // GetCategorizer returns the container's categorizer instance.
 // This is a convenience method for accessing the categorizer.
 func (c *Container) GetCategorizer() *categorizer.Categorizer {
-	return c.Categorizer
+	return c.categorizer
 }
 
 // GetStore returns the container's category store instance.
 // This is a convenience method for accessing the store.
 func (c *Container) GetStore() *store.CategoryStore {
-	return c.Store
+	return c.store
 }
 
 // GetAIClient returns the container's AI client instance.
 // Returns nil if AI is not enabled.
 func (c *Container) GetAIClient() categorizer.AIClient {
-	return c.AIClient
+	return c.aiClient
 }
 
 // Close performs cleanup of container resources.
@@ -181,6 +196,6 @@ func (c *Container) GetAIClient() categorizer.AIClient {
 func (c *Container) Close() error {
 	// Currently no resources need explicit cleanup
 	// This method is provided for future extensibility
-	c.Logger.Info("Container closed")
+	c.logger.Info("Container closed")
 	return nil
 }

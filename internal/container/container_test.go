@@ -101,23 +101,23 @@ func TestNewContainer(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, container)
 
-				// Verify all dependencies are created
-				assert.NotNil(t, container.Logger)
-				assert.NotNil(t, container.Config)
-				assert.NotNil(t, container.Store)
-				assert.NotNil(t, container.Categorizer)
-				assert.NotNil(t, container.Parsers)
+				// Verify all dependencies are created (using getter methods for immutability)
+				assert.NotNil(t, container.GetLogger())
+				assert.NotNil(t, container.GetConfig())
+				assert.NotNil(t, container.GetStore())
+				assert.NotNil(t, container.GetCategorizer())
+				assert.NotNil(t, container.GetParsers())
 
 				// Verify AI client based on config
 				if tt.config.AI.Enabled && tt.config.AI.APIKey != "" {
-					assert.NotNil(t, container.AIClient)
+					assert.NotNil(t, container.GetAIClient())
 				} else {
 					// AI client can be nil if not enabled
 				}
 
 				// Verify all expected parsers are present
 				expectedParsers := []ParserType{CAMT, PDF, Revolut, RevolutInvestment, Selma, Debit}
-				assert.Len(t, container.Parsers, len(expectedParsers))
+				assert.Len(t, container.GetParsers(), len(expectedParsers))
 
 				for _, parserType := range expectedParsers {
 					parser, err := container.GetParser(parserType)
