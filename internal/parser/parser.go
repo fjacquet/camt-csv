@@ -49,7 +49,7 @@ type LoggerConfigurable interface {
 type CategorizerConfigurable interface {
 	// SetCategorizer configures the categorizer instance for the parser.
 	// Parsers should use this categorizer for transaction categorization.
-	SetCategorizer(categorizer interface{})
+	SetCategorizer(categorizer models.TransactionCategorizer)
 }
 
 // FullParser combines all parser capabilities into a single interface.

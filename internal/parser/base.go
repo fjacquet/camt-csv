@@ -22,7 +22,7 @@ import (
 // implementing the segregated parser interfaces.
 type BaseParser struct {
 	logger      logging.Logger
-	categorizer interface{} // Using interface{} to avoid circular import
+	categorizer models.TransactionCategorizer
 }
 
 // NewBaseParser creates a new BaseParser instance with the provided logger.
@@ -69,7 +69,7 @@ func (b *BaseParser) GetLogger() logging.Logger {
 //
 // Parameters:
 //   - categorizer: The categorizer instance to use for transaction categorization
-func (b *BaseParser) SetCategorizer(categorizer interface{}) {
+func (b *BaseParser) SetCategorizer(categorizer models.TransactionCategorizer) {
 	b.categorizer = categorizer
 }
 
@@ -77,8 +77,8 @@ func (b *BaseParser) SetCategorizer(categorizer interface{}) {
 // This is a helper method for parser implementations to access the categorizer.
 //
 // Returns:
-//   - interface{}: The current categorizer instance (nil if not set)
-func (b *BaseParser) GetCategorizer() interface{} {
+//   - models.TransactionCategorizer: The current categorizer instance (nil if not set)
+func (b *BaseParser) GetCategorizer() models.TransactionCategorizer {
 	return b.categorizer
 }
 

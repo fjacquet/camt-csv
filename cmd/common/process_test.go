@@ -32,7 +32,7 @@ func (m *MockFullParser) SetLogger(logger logging.Logger) {
 	m.logger = logger
 }
 
-func (m *MockFullParser) SetCategorizer(categorizer interface{}) {}
+func (m *MockFullParser) SetCategorizer(categorizer models.TransactionCategorizer) {}
 
 func (m *MockFullParser) ValidateFormat(file string) (bool, error) {
 	return m.ValidateResult, m.ValidateError

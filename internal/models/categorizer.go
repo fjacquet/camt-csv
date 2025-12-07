@@ -7,6 +7,30 @@ type Category struct {
 	Description string
 }
 
+// TransactionCategorizer defines the interface for categorizing transactions.
+// This interface is used by parsers to categorize transactions without
+// depending on the concrete categorizer implementation.
+//
+// Implementations should:
+//   - Return a Category with the determined category name
+//   - Handle both creditor and debtor transactions based on isDebtor flag
+//   - Auto-learn new mappings when appropriate
+type TransactionCategorizer interface {
+	// Categorize determines the category for a transaction.
+	//
+	// Parameters:
+	//   - partyName: The name of the transaction party (creditor or debtor)
+	//   - isDebtor: true if the party is a debtor (sender), false if creditor (recipient)
+	//   - amount: Transaction amount as string
+	//   - date: Transaction date as string
+	//   - info: Additional transaction information
+	//
+	// Returns:
+	//   - Category: The determined category
+	//   - error: Any error that occurred during categorization
+	Categorize(partyName string, isDebtor bool, amount, date, info string) (Category, error)
+}
+
 // CategoryConfig represents a category configuration in the YAML file
 type CategoryConfig struct {
 	Name     string   `yaml:"name"`

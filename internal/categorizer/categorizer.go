@@ -269,6 +269,62 @@ func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Cat
 	return c.categorizeTransaction(transaction)
 }
 
+// Categorize implements the models.TransactionCategorizer interface.
+// This method provides a simple interface for categorizing transactions without
+// requiring the caller to create a Transaction struct.
+//
+// This method includes auto-learning: when a category is successfully determined,
+// it automatically saves the mapping to the appropriate database (creditors or debtors)
+// for future use.
+//
+// Parameters:
+//   - partyName: The name of the transaction party
+//   - isDebtor: true if the party is a debtor (sender), false if creditor
+//   - amount: Transaction amount as string
+//   - date: Transaction date as string
+//   - info: Additional transaction information
+//
+// Returns:
+//   - models.Category: The determined category
+//   - error: Any error that occurred during categorization
+func (c *Categorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+	transaction := Transaction{
+		PartyName: partyName,
+		IsDebtor:  isDebtor,
+		Amount:    amount,
+		Date:      date,
+		Info:      info,
+	}
+
+	category, err := c.categorizeTransaction(transaction)
+
+	// Auto-learn: if we successfully found a category, save it to the database
+	// so we don't need to recategorize similar transactions in the future
+	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
+		if isDebtor {
+			c.logger.WithFields(
+				logging.Field{Key: "party", Value: partyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning debitor mapping")
+			c.updateDebitorCategory(partyName, category.Name)
+			if saveErr := c.SaveDebitorsToYAML(); saveErr != nil {
+				c.logger.WithError(saveErr).Warn("Failed to save debitor mapping")
+			}
+		} else {
+			c.logger.WithFields(
+				logging.Field{Key: "party", Value: partyName},
+				logging.Field{Key: "category", Value: category.Name},
+			).Debug("Auto-learning creditor mapping")
+			c.updateCreditorCategory(partyName, category.Name)
+			if saveErr := c.SaveCreditorsToYAML(); saveErr != nil {
+				c.logger.WithError(saveErr).Warn("Failed to save creditor mapping")
+			}
+		}
+	}
+
+	return category, err
+}
+
 // private method for the Categorizer struct
 func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
 	// If party name is empty, return uncategorized immediately

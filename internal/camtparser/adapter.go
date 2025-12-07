@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -367,49 +366,41 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 			// Update derived fields
 			transaction.UpdateDebitCreditAmounts()
 
-			// Categorize the transaction
-			catTransaction := categorizer.Transaction{
-				PartyName:   transaction.PartyName,
-				IsDebtor:    transaction.CreditDebit == models.TransactionTypeDebit, // Use the CreditDebit field to determine if it's a debit transaction
-				Amount:      transaction.Amount.String(),
-				Date:        transaction.Date.Format("02.01.2006"),
-				Info:        transaction.RemittanceInfo,
-				Description: transaction.Description,
-			}
+			// Prepare categorization parameters
+			catPartyName := transaction.PartyName
+			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
+			catAmount := transaction.Amount.String()
+			catDate := transaction.Date.Format("02.01.2006")
+			catInfo := transaction.RemittanceInfo
 
 			// If PartyName is empty, use Description or RemittanceInfo to help with categorization
-			if catTransaction.PartyName == "" {
+			if catPartyName == "" {
 				// Try to use Description as PartyName if available
 				if transaction.Description != "" {
-					catTransaction.PartyName = transaction.Description
+					catPartyName = transaction.Description
 				} else if transaction.RemittanceInfo != "" {
 					// Otherwise use RemittanceInfo
-					catTransaction.PartyName = transaction.RemittanceInfo
+					catPartyName = transaction.RemittanceInfo
 				}
 			}
 
 			// Clean PartyName by removing payment method prefixes before categorization
-			catTransaction.PartyName = cleanPaymentMethodPrefixes(catTransaction.PartyName)
+			catPartyName = cleanPaymentMethodPrefixes(catPartyName)
 
-			// Categorize the transaction using the injected categorizer with auto-learning
+			// Categorize the transaction using the injected categorizer (includes auto-learning)
 			if cat := a.GetCategorizer(); cat != nil {
-				if categorizerInstance, ok := cat.(*categorizer.Categorizer); ok {
-					category, err := categorizer.CategorizeTransactionWithCategorizer(categorizerInstance, catTransaction)
-					if err != nil {
-						a.GetLogger().WithError(err).WithFields(
-							logging.Field{Key: "party", Value: catTransaction.PartyName},
-						).Warn("Failed to categorize transaction")
-						transaction.Category = models.CategoryUncategorized
-					} else {
-						transaction.Category = category.Name
-						a.GetLogger().WithFields(
-							logging.Field{Key: "party", Value: catTransaction.PartyName},
-							logging.Field{Key: "category", Value: category.Name},
-						).Debug("Transaction categorized successfully")
-					}
-				} else {
-					a.GetLogger().Debug("Categorizer not available or wrong type")
+				category, err := cat.Categorize(catPartyName, isDebtor, catAmount, catDate, catInfo)
+				if err != nil {
+					a.GetLogger().WithError(err).WithFields(
+						logging.Field{Key: "party", Value: catPartyName},
+					).Warn("Failed to categorize transaction")
 					transaction.Category = models.CategoryUncategorized
+				} else {
+					transaction.Category = category.Name
+					a.GetLogger().WithFields(
+						logging.Field{Key: "party", Value: catPartyName},
+						logging.Field{Key: "category", Value: category.Name},
+					).Debug("Transaction categorized successfully")
 				}
 			} else {
 				transaction.Category = models.CategoryUncategorized
