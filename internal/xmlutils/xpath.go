@@ -16,7 +16,7 @@ func LoadXMLFile(xmlFilePath string) (*xmlpath.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open XML file: %w", err)
 	}
-	defer file.Close() // Error on close is not critical for read-only operations
+	defer func() { _ = file.Close() }() // Error on close is not critical for read-only operations
 
 	root, err := xmlpath.Parse(file)
 	if err != nil {
