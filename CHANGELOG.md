@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove redundant `config.LoadEnv()` call in `cmd/categorize/categorize.go`
 - Fix unchecked `file.Close()` return values in `internal/fileutils/fileutils_test.go`
+- Fix SLSA workflow: update Go version to 1.24, upgrade to slsa-github-generator v2.0.0
+- Add missing `.slsa-goreleaser.yml` configuration for SLSA provenance builds
 
 ## [2.0.0] - 2025-11-02
 

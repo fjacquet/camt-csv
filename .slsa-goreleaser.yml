@@ -1,0 +1,32 @@
+# SLSA GoReleaser configuration
+# See: https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/go/README.md
+
+version: 1
+
+env:
+  - CGO_ENABLED=0
+
+goos:
+  - linux
+  - darwin
+  - windows
+
+goarch:
+  - amd64
+  - arm64
+
+# Binary name
+binary: camt-csv
+
+# Main package path
+main: ./
+
+# Build flags
+flags:
+  - -trimpath
+
+ldflags:
+  - "-s -w"
+  - "-X main.version={{.Version}}"
+  - "-X main.commit={{.Commit}}"
+  - "-X main.date={{.Date}}"
