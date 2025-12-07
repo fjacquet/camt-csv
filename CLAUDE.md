@@ -31,6 +31,25 @@ gosec -exclude=G304 ./...
 
 This is a Go CLI tool that converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) into standardized CSV with AI-powered categorization.
 
+### CAMT File Format (ISO 20022)
+
+The camt parser handles **CAMT.053** (Bank to Customer Statement) files:
+- Namespace: `urn:iso:std:iso:20022:tech:xsd:camt.053.001.02`
+- Standard: ISO 20022
+- Structure defined in: `internal/models/iso20022.go`
+
+**Supported CAMT Types:**
+| Type | Description | Supported |
+|------|-------------|-----------|
+| CAMT.052 | Bank to Customer Account Report | No |
+| CAMT.053 | Bank to Customer Statement | Yes (v001.02) |
+| CAMT.054 | Bank to Customer Debit/Credit Notification | No |
+
+**Known Limitations:**
+- Only version 001.02 tested (newer versions may have additional fields)
+- No strict namespace validation (will attempt to parse any XML with matching structure)
+- Swiss bank-specific extensions may not be fully supported
+
 ### Key Design Patterns
 
 **Parser Factory Pattern**: Parsers implement segregated interfaces in `internal/parser/parser.go`:

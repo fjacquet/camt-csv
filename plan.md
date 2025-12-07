@@ -214,6 +214,24 @@
 
 ---
 
+## CAMT Format Notes
+
+The parser handles **CAMT.053** (ISO 20022 Bank to Customer Statement):
+
+| Aspect | Current | Recommendation |
+|--------|---------|----------------|
+| Version | 001.02 only | Consider supporting 001.08+ |
+| Namespace validation | None | Add strict validation |
+| CAMT.052 support | No | Future enhancement |
+| CAMT.054 support | No | Future enhancement |
+
+**Files:**
+- `internal/models/iso20022.go` - XML structure definitions
+- `internal/camtparser/adapter.go` - Main parser
+- `internal/camtparser/camtparser_iso20022.go` - ISO20022 specific logic
+
+---
+
 ## Summary
 
 | Category | Issues | Effort |
