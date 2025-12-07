@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add `TransactionCategorizer` interface to models package
   - Update `CategorizerConfigurable` interface to use type-safe signature
   - Modify `Categorize` method to include auto-learning functionality
+- **Immutable Container**: Make `Container` struct fields private for immutability
+  - All fields now accessed through getter methods only
+  - Add `GetParsers()` method returning a copy of the parser map
+  - Prevents accidental modification after initialization
 
 ### Deprecated
 
