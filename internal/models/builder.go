@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"fjacquet/camt-csv/internal/dateutils"
+
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -68,7 +70,7 @@ func (b *TransactionBuilder) WithDate(dateStr string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	date, err := time.Parse("2006-01-02", dateStr)
+	date, err := time.Parse(dateutils.DateLayoutISO, dateStr)
 	if err != nil {
 		b.err = fmt.Errorf("invalid date format '%s': %w", dateStr, err)
 		return b
@@ -91,7 +93,7 @@ func (b *TransactionBuilder) WithValueDate(dateStr string) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}
-	date, err := time.Parse("2006-01-02", dateStr)
+	date, err := time.Parse(dateutils.DateLayoutISO, dateStr)
 	if err != nil {
 		b.err = fmt.Errorf("invalid value date format '%s': %w", dateStr, err)
 		return b
@@ -115,10 +117,10 @@ func (b *TransactionBuilder) WithDateFromDatetime(datetimeStr string) *Transacti
 		return b
 	}
 	// Try parsing as datetime first
-	date, err := time.Parse("2006-01-02 15:04:05", datetimeStr)
+	date, err := time.Parse(dateutils.DateLayoutFull, datetimeStr)
 	if err != nil {
 		// If that fails, try parsing as date only
-		date, err = time.Parse("2006-01-02", datetimeStr)
+		date, err = time.Parse(dateutils.DateLayoutISO, datetimeStr)
 		if err != nil {
 			b.err = fmt.Errorf("invalid datetime format '%s': %w", datetimeStr, err)
 			return b
@@ -134,10 +136,10 @@ func (b *TransactionBuilder) WithValueDateFromDatetime(datetimeStr string) *Tran
 		return b
 	}
 	// Try parsing as datetime first
-	date, err := time.Parse("2006-01-02 15:04:05", datetimeStr)
+	date, err := time.Parse(dateutils.DateLayoutFull, datetimeStr)
 	if err != nil {
 		// If that fails, try parsing as date only
-		date, err = time.Parse("2006-01-02", datetimeStr)
+		date, err = time.Parse(dateutils.DateLayoutISO, datetimeStr)
 		if err != nil {
 			b.err = fmt.Errorf("invalid datetime format '%s': %w", datetimeStr, err)
 			return b

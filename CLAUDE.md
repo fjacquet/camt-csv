@@ -34,6 +34,7 @@ This is a Go CLI tool that converts financial statement formats (CAMT.053 XML, P
 ### CAMT File Format (ISO 20022)
 
 The camt parser handles **CAMT.053** (Bank to Customer Statement) files:
+
 - Namespace: `urn:iso:std:iso:20022:tech:xsd:camt.053.001.02`
 - Standard: ISO 20022
 - Structure defined in: `internal/models/iso20022.go`
@@ -46,6 +47,7 @@ The camt parser handles **CAMT.053** (Bank to Customer Statement) files:
 | CAMT.054 | Bank to Customer Debit/Credit Notification | No |
 
 **Known Limitations:**
+
 - Only version 001.02 tested (newer versions may have additional fields)
 - No strict namespace validation (will attempt to parse any XML with matching structure)
 - Swiss bank-specific extensions may not be fully supported
@@ -53,6 +55,7 @@ The camt parser handles **CAMT.053** (Bank to Customer Statement) files:
 ### Key Design Patterns
 
 **Parser Factory Pattern**: Parsers implement segregated interfaces in `internal/parser/parser.go`:
+
 ```go
 type Parser interface {
     Parse(r io.Reader) ([]Transaction, error)
@@ -83,6 +86,7 @@ type FullParser interface {
 New parsers are registered in `internal/factory/factory.go` via `GetParserWithLogger(parserType, logger)`.
 
 **Three-Tier Categorization** (`internal/categorizer/`):
+
 1. Direct mapping - exact match from `database/creditors.yaml` / `database/debitors.yaml`
 2. Keyword matching - rules from `database/categories.yaml`
 3. AI fallback - Gemini API via `AIClient` interface (testable abstraction)
@@ -104,6 +108,7 @@ AI categorizations are auto-learned and saved back to YAML files.
 ### Configuration Hierarchy
 
 Configuration loads in order (later overrides earlier):
+
 1. Config file: `~/.camt-csv/camt-csv.yaml` or `.camt-csv/config.yaml`
 2. Environment variables: `CAMT_LOG_LEVEL`, `GEMINI_API_KEY`, etc.
 3. CLI flags: `--log-level`, `--ai-enabled`, etc.
@@ -146,6 +151,7 @@ func ProcessTransaction(tx Transaction) (Transaction, error) {
 ```
 
 **Guidelines:**
+
 - Don't add abstraction until you need it (Rule of Three)
 - Avoid premature optimization
 - If a junior developer can't understand it in 5 minutes, simplify it
@@ -175,6 +181,7 @@ func ParseDate(s string) (time.Time, error) {
 ```
 
 **Guidelines:**
+
 - Extract common logic into shared functions (`internal/common/`)
 - Use constants for repeated values (`internal/models/constants.go`)
 - Single source of truth for business logic
@@ -186,6 +193,7 @@ func ParseDate(s string) (time.Time, error) {
 This codebase follows functional programming principles where applicable:
 
 **1. No Global Mutable State**
+
 ```go
 // BAD - global mutable state
 var log = logrus.New()
@@ -198,6 +206,7 @@ func NewParser(logger logging.Logger) *Parser {
 ```
 
 **2. Immutability**
+
 ```go
 // BAD - mutable struct fields
 type Container struct {
@@ -212,6 +221,7 @@ func (c *Container) GetLogger() logging.Logger { return c.logger }
 ```
 
 **3. Pure Functions (where possible)**
+
 ```go
 // BAD - modifies external state
 func ProcessTransaction(tx *Transaction) {
@@ -227,6 +237,7 @@ func CategorizeTransaction(tx Transaction) Transaction {
 ```
 
 **4. Constants Over Variables**
+
 ```go
 // BAD - mutable delimiter
 var Delimiter rune = ','
@@ -236,6 +247,7 @@ const DefaultDelimiter rune = ','
 ```
 
 **5. Configure at Construction**
+
 ```go
 // BAD - SetX() mutator pattern
 parser := NewParser()
@@ -263,6 +275,7 @@ categorizer := container.GetCategorizer()
 ### Interface Design
 
 Follow Interface Segregation Principle:
+
 - Small, focused interfaces (`Parser`, `Validator`, `CSVConverter`)
 - Compose into larger interfaces when needed (`FullParser`)
 - Use `models.TransactionCategorizer` for categorization (type-safe)
@@ -274,6 +287,7 @@ Follow Interface Segregation Principle:
 ### When to Update
 
 Update the changelog when you:
+
 - Add new features or commands
 - Fix bugs
 - Make breaking changes
@@ -286,6 +300,7 @@ Update the changelog when you:
 
 1. Add entries under `## [Unreleased]` section
 2. Use the appropriate category:
+
    - **Added** - new features
    - **Changed** - changes in existing functionality
    - **Deprecated** - soon-to-be removed features
@@ -299,6 +314,7 @@ Update the changelog when you:
 ### Release Process
 
 When creating a release:
+
 1. Change `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
 2. Add new empty `## [Unreleased]` section above
 3. Update comparison links at bottom of file

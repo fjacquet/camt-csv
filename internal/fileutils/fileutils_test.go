@@ -7,16 +7,8 @@ import (
 
 	"fjacquet/camt-csv/internal/fileutils"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestSetLogger(t *testing.T) {
-	// SetLogger is a no-op, just verify it doesn't panic
-	logger := logrus.New()
-	fileutils.SetLogger(logger)
-	fileutils.SetLogger(nil)
-}
 
 func TestFileExists(t *testing.T) {
 	tmpDir := t.TempDir()

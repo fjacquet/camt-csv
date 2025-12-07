@@ -19,9 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// log provides backward compatibility for existing log references
-var log = logging.NewLogrusAdapter("info", "text")
-
 // DebitCSVRow represents a single row in a Visa Debit CSV file
 // It uses struct tags for gocsv unmarshaling
 type DebitCSVRow struct {
@@ -59,7 +56,8 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 		return csv.NewReader(in)
 	})
 
-	log.WithField("count", len(debitRows)).Info("Successfully read rows from CSV file")
+	logger.Info("Successfully read rows from CSV file",
+		logging.Field{Key: "count", Value: len(debitRows)})
 
 	// Convert DebitCSVRow objects to Transaction objects
 	var transactions []models.Transaction
@@ -79,7 +77,8 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 		transactions = append(transactions, tx)
 	}
 
-	log.WithField("count", len(transactions)).Info("Successfully parsed Visa Debit CSV file")
+	logger.Info("Successfully parsed Visa Debit CSV file",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
@@ -96,7 +95,7 @@ func ParseFileWithLogger(filePath string, logger logging.Logger) ([]models.Trans
 	logger.WithField("file", filePath).Info("Parsing Visa Debit CSV file")
 
 	// Check if the file format is valid
-	valid, err := ValidateFormat(filePath)
+	valid, err := ValidateFormatWithLogger(filePath, logger)
 	if err != nil {
 		return nil, fmt.Errorf("validation error: %w", err)
 	}
@@ -123,7 +122,8 @@ func ParseFileWithLogger(filePath string, logger logging.Logger) ([]models.Trans
 		return csv.NewReader(in)
 	})
 
-	log.WithField("count", len(debitRows)).Info("Successfully read rows from CSV file")
+	logger.Info("Successfully read rows from CSV file",
+		logging.Field{Key: "count", Value: len(debitRows)})
 
 	// Convert DebitCSVRow objects to Transaction objects
 	var transactions []models.Transaction
@@ -136,14 +136,15 @@ func ParseFileWithLogger(filePath string, logger logging.Logger) ([]models.Trans
 		// Convert Debit row to Transaction
 		tx, err := convertDebitRowToTransaction(row)
 		if err != nil {
-			log.WithError(err).Warn("Failed to convert row to transaction, skipping")
+			logger.WithError(err).Warn("Failed to convert row to transaction, skipping")
 			continue
 		}
 
 		transactions = append(transactions, tx)
 	}
 
-	log.WithField("count", len(transactions)).Info("Successfully parsed Visa Debit CSV file")
+	logger.Info("Successfully parsed Visa Debit CSV file",
+		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
@@ -237,16 +238,25 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 // ValidateFormat checks if the file is a valid Visa Debit CSV file.
 func ValidateFormat(filePath string) (bool, error) {
-	log.WithField("file", filePath).Info("Validating Visa Debit CSV format")
+	return ValidateFormatWithLogger(filePath, nil)
+}
+
+// ValidateFormatWithLogger checks if the file is a valid Visa Debit CSV file with logger.
+func ValidateFormatWithLogger(filePath string, logger logging.Logger) (bool, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Validating Visa Debit CSV format",
+		logging.Field{Key: "file", Value: filePath})
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to open file for validation")
+		logger.WithError(err).Error("Failed to open file for validation")
 		return false, fmt.Errorf("error opening file for validation: %w", err)
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file")
+			logger.WithError(err).Warn("Failed to close file")
 		}
 	}()
 
@@ -256,7 +266,7 @@ func ValidateFormat(filePath string) (bool, error) {
 	// Read header
 	header, err := reader.Read()
 	if err != nil {
-		log.WithError(err).Error("Failed to read CSV header")
+		logger.WithError(err).Error("Failed to read CSV header")
 		return false, fmt.Errorf("error reading CSV header: %w", err)
 	}
 
@@ -270,7 +280,8 @@ func ValidateFormat(filePath string) (bool, error) {
 
 	for _, required := range requiredColumns {
 		if !columnMap[required] {
-			log.WithField("column", required).Info("Required column not found")
+			logger.Info("Required column not found",
+				logging.Field{Key: "column", Value: required})
 			return false, nil
 		}
 	}
@@ -282,7 +293,7 @@ func ValidateFormat(filePath string) (bool, error) {
 		return true, nil
 	}
 	if err != nil {
-		log.WithError(err).Error("Error reading CSV record during validation")
+		logger.WithError(err).Error("Error reading CSV record during validation")
 		return false, fmt.Errorf("error reading CSV record during validation: %w", err)
 	}
 
@@ -298,15 +309,22 @@ func ConvertToCSV(inputFile, outputFile string) error {
 // BatchConvert converts all CSV files in a directory to the standard CSV format.
 // It processes all files with a .csv extension in the specified directory.
 func BatchConvert(inputDir, outputDir string) (int, error) {
-	log.WithFields(
+	return BatchConvertWithLogger(inputDir, outputDir, nil)
+}
+
+// BatchConvertWithLogger converts all CSV files in a directory with logger.
+func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (int, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Starting batch conversion of Visa Debit CSV files",
 		logging.Field{Key: "inputDir", Value: inputDir},
-		logging.Field{Key: "outputDir", Value: outputDir},
-	).Info("Starting batch conversion of Visa Debit CSV files")
+		logging.Field{Key: "outputDir", Value: outputDir})
 
 	// Check if input directory exists
 	inputInfo, err := os.Stat(inputDir)
 	if err != nil {
-		log.WithError(err).Error("Failed to access input directory")
+		logger.WithError(err).Error("Failed to access input directory")
 		return 0, fmt.Errorf("error accessing input directory: %w", err)
 	}
 	if !inputInfo.IsDir() {
@@ -316,7 +334,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 	// Create output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(outputDir, 0750); err != nil {
-			log.WithError(err).Error("Failed to create output directory")
+			logger.WithError(err).Error("Failed to create output directory")
 			return 0, fmt.Errorf("error creating output directory: %w", err)
 		}
 	}
@@ -324,7 +342,7 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 	// Read input directory
 	entries, err := os.ReadDir(inputDir)
 	if err != nil {
-		log.WithError(err).Error("Failed to read input directory")
+		logger.WithError(err).Error("Failed to read input directory")
 		return 0, fmt.Errorf("error reading input directory: %w", err)
 	}
 
@@ -337,13 +355,15 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		inputFile := fmt.Sprintf("%s/%s", inputDir, entry.Name())
 
 		// Validate if file is in Visa Debit CSV format
-		valid, err := ValidateFormat(inputFile)
+		valid, err := ValidateFormatWithLogger(inputFile, logger)
 		if err != nil {
-			log.WithError(err).WithField("file", inputFile).Warn("Error validating file format, skipping")
+			logger.WithError(err).Warn("Error validating file format, skipping",
+				logging.Field{Key: "file", Value: inputFile})
 			continue
 		}
 		if !valid {
-			log.WithField("file", inputFile).Info("File is not a valid Visa Debit CSV, skipping")
+			logger.Info("File is not a valid Visa Debit CSV, skipping",
+				logging.Field{Key: "file", Value: inputFile})
 			continue
 		}
 
@@ -354,13 +374,15 @@ func BatchConvert(inputDir, outputDir string) (int, error) {
 		// Convert the file
 		err = ConvertToCSV(inputFile, outputFile)
 		if err != nil {
-			log.WithError(err).WithField("file", inputFile).Warn("Error converting file, skipping")
+			logger.WithError(err).Warn("Error converting file, skipping",
+				logging.Field{Key: "file", Value: inputFile})
 			continue
 		}
 
 		count++
 	}
 
-	log.WithField("count", count).Info("Batch conversion completed")
+	logger.Info("Batch conversion completed",
+		logging.Field{Key: "count", Value: count})
 	return count, nil
 }

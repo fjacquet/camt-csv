@@ -15,21 +15,12 @@ import (
 
 // Note: Removed global logger in favor of dependency injection
 
-// Global CSV delimiter - can be configured via centralized config or environment variable
-var Delimiter rune = ','
+// Delimiter is the CSV delimiter used for output (immutable, use config for customization)
+const Delimiter = models.DefaultCSVDelimiter
 
 func init() {
-	// Fallback to environment variable for backward compatibility
-	if val := os.Getenv("CSV_DELIMITER"); val != "" {
-		// Use first rune only
-		SetDelimiter([]rune(val)[0])
-	}
-}
-
-// SetDelimiter allows setting the delimiter for CSV output
-func SetDelimiter(delim rune) {
-	Delimiter = delim
-	gocsv.TagSeparator = fmt.Sprintf("%c", delim)
+	// Configure gocsv with the standard delimiter
+	gocsv.TagSeparator = string(Delimiter)
 }
 
 // ReadCSVFile reads CSV data into a slice of structs using gocsv

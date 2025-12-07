@@ -10,6 +10,7 @@ import (
 
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -171,7 +172,7 @@ func (p *ISO20022Parser) categorizeTransactions(transactions []models.Transactio
 			PartyName:   transactions[i].GetPartyName(),
 			IsDebtor:    isDebtor,
 			Amount:      fmt.Sprintf("%s %s", transactions[i].Amount.String(), transactions[i].Currency),
-			Date:        transactions[i].Date.Format("02.01.2006"),
+			Date:        transactions[i].Date.Format(dateutils.DateLayoutEuropean),
 			Info:        transactions[i].Description,
 			Description: transactions[i].Description,
 		}

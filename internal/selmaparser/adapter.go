@@ -24,7 +24,7 @@ func NewAdapter(logger logging.Logger) *Adapter {
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
-	return Parse(r)
+	return Parse(r, a.GetLogger())
 }
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
@@ -61,7 +61,7 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 		}
 	}()
 
-	return validateFormat(f)
+	return validateFormat(f, a.GetLogger())
 }
 
 // BatchConvert is not implemented for this parser.

@@ -57,10 +57,9 @@ It also provides transaction categorization based on the party's name.`,
 			// Note: Logger is now injected through dependency injection container
 			// Individual parsers receive loggers through their constructors
 
-			// Set CSV delimiter from configuration
-			commonDelim := []rune(AppConfig.CSV.Delimiter)[0]
-			common.SetDelimiter(commonDelim)
-			Log.WithField(logging.FieldDelimiter, AppConfig.CSV.Delimiter).Debug("Setting CSV delimiter from configuration")
+			// CSV delimiter is now a constant (models.DefaultCSVDelimiter = ',')
+			// Configuration value is logged for reference but no longer used to set the delimiter
+			Log.WithField(logging.FieldDelimiter, string(common.Delimiter)).Debug("Using CSV delimiter")
 		},
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {

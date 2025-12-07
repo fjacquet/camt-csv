@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode"
 
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -139,7 +140,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			if len(fields) > 0 {
 				currentTx.Date = formatDate(fields[0])
 				log.Debug("Extracted transaction date",
-					logging.Field{Key: "date", Value: currentTx.Date.Format("02.01.2006")})
+					logging.Field{Key: "date", Value: currentTx.Date.Format(dateutils.DateLayoutEuropean)})
 
 				// Try to extract value date if present
 				if len(fields) > 1 && datePattern.MatchString(fields[1]) {
@@ -464,7 +465,7 @@ func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant
 	}
 
 	// Generate a unique key for deduplication
-	key := fmt.Sprintf("%s-%s-%s", finalTx.Date.Format("2006-01-02"), finalTx.Description, finalTx.Amount.String())
+	key := fmt.Sprintf("%s-%s-%s", finalTx.Date.Format(dateutils.DateLayoutISO), finalTx.Description, finalTx.Amount.String())
 
 	// Only add if we haven't seen this transaction before
 	if !seen[key] {
@@ -723,11 +724,11 @@ func formatDate(date string) time.Time {
 
 	// Try to identify the format
 	formats := []string{
-		"02.01.2006", // DD.MM.YYYY
-		"02.01.06",   // DD.MM.YY
-		"2/1/2006",   // M/D/YYYY
-		"1/2/2006",   // D/M/YYYY
-		"2006-01-02", // YYYY-MM-DD
+		dateutils.DateLayoutEuropean, // DD.MM.YYYY
+		"02.01.06",                   // DD.MM.YY
+		"2/1/2006",                   // M/D/YYYY
+		"1/2/2006",                   // D/M/YYYY
+		dateutils.DateLayoutISO,      // YYYY-MM-DD
 	}
 
 	var t time.Time

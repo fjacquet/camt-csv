@@ -10,33 +10,20 @@ import (
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
-
-var log = logrus.New()
-
-// Delimiter for Selma CSV output (default is ',')
-var Delimiter rune = ','
-
-func init() {
-	if val := os.Getenv("CSV_DELIMITER"); val != "" {
-		SetDelimiter([]rune(val)[0])
-	}
-}
-
-// SetDelimiter allows setting the delimiter for CSV output
-func SetDelimiter(delim rune) {
-	Delimiter = delim
-}
 
 // Parse reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects.
 // This is the standardized parser interface for reading Selma CSV files.
-func Parse(r io.Reader) ([]models.Transaction, error) {
-	log.Info("Reading Selma CSV from reader")
+func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Reading Selma CSV from reader")
 
 	// Buffer the reader content so we can validate and parse from the same data
 	data, err := io.ReadAll(r)
@@ -45,7 +32,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 	}
 
 	// Check if the file format is valid first
-	valid, err := validateFormat(strings.NewReader(string(data)))
+	valid, err := validateFormat(strings.NewReader(string(data)), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +70,7 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 			if err == io.EOF {
 				break
 			}
-			log.WithError(err).Warn("Skipping malformed CSV row")
+			logger.WithError(err).Warn("Skipping malformed CSV row")
 			continue
 		}
 		// Pad or truncate record to match header length
@@ -121,14 +108,15 @@ func Parse(r io.Reader) ([]models.Transaction, error) {
 		}
 		tx, err := convertSelmaRowToTransaction(row)
 		if err != nil {
-			log.WithError(err).WithField("row", row).Warn("Failed to convert row to transaction")
+			logger.WithError(err).Warn("Failed to convert row to transaction",
+				logging.Field{Key: "row", Value: row})
 			continue
 		}
 		transactions = append(transactions, tx)
 	}
 
 	// Process the transactions (categorize, associate related transactions)
-	return ProcessTransactions(transactions), nil
+	return ProcessTransactions(transactions, logger), nil
 }
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
@@ -218,15 +206,21 @@ func determineCreditDebit(transactionType, amount string) string {
 //
 // Parameters:
 //   - transactions: A slice of Transaction objects to process
+//   - logger: Logger instance for logging operations
 //
 // Returns:
 //   - []models.Transaction: The processed transactions with additional metadata
-func ProcessTransactions(transactions []models.Transaction) []models.Transaction {
-	log.WithField("count", len(transactions)).Info("Processing Selma transactions")
+func ProcessTransactions(transactions []models.Transaction, logger logging.Logger) []models.Transaction {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Processing Selma transactions",
+		logging.Field{Key: "count", Value: len(transactions)})
 
 	processedTransactions := processTransactionsInternal(transactions)
 
-	log.WithField("count", len(processedTransactions)).Info("Successfully processed Selma transactions")
+	logger.Info("Successfully processed Selma transactions",
+		logging.Field{Key: "count", Value: len(processedTransactions)})
 	return processedTransactions
 }
 
@@ -239,11 +233,13 @@ func WriteToCSV(transactions []models.Transaction, csvFile string) error {
 
 // ConvertToCSV converts a Selma CSV file to the standard CSV format.
 // This is a convenience function that combines Parse and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string) error {
-	log.WithFields(logrus.Fields{
-		"input":  inputFile,
-		"output": outputFile,
-	}).Info("Converting file to CSV")
+func ConvertToCSV(inputFile, outputFile string, logger logging.Logger) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Converting file to CSV",
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
 	file, err := os.Open(inputFile)
@@ -252,12 +248,13 @@ func ConvertToCSV(inputFile, outputFile string) error {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Warnf("Failed to close file: %v", err)
+			logger.Warn("Failed to close file",
+				logging.Field{Key: "error", Value: err})
 		}
 	}()
 
 	// Parse the file
-	transactions, err := Parse(file)
+	transactions, err := Parse(file, logger)
 	if err != nil {
 		return err
 	}
@@ -267,19 +264,21 @@ func ConvertToCSV(inputFile, outputFile string) error {
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		"count":  len(transactions),
-		"input":  inputFile,
-		"output": outputFile,
-	}).Info("Successfully converted file to CSV")
+	logger.Info("Successfully converted file to CSV",
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "input", Value: inputFile},
+		logging.Field{Key: "output", Value: outputFile})
 
 	return nil
 }
 
 // validateFormat checks if a file is in valid Selma CSV format.
 // It verifies the structure and required fields of the CSV file.
-func validateFormat(r io.Reader) (bool, error) {
-	log.Info("Validating Selma CSV format from reader")
+func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	logger.Info("Validating Selma CSV format from reader")
 
 	// Create a CSV reader
 	reader := csv.NewReader(r)
@@ -319,6 +318,6 @@ func validateFormat(r io.Reader) (bool, error) {
 		}
 	}
 
-	log.Debug("Selma CSV format validation successful")
+	logger.Debug("Selma CSV format validation successful")
 	return true, nil
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -99,7 +99,7 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
 
 	if len(transactions) > 0 {
-		expectedDate1, _ := time.Parse("2006-01-02", "2023-01-01")
+		expectedDate1, _ := time.Parse(dateutils.DateLayoutISO, "2023-01-01")
 		assert.Equal(t, expectedDate1, transactions[0].Date, "Date should be parsed correctly")
 		assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
 		assert.Equal(t, models.ParseAmount("-247.90"), transactions[0].Amount)
@@ -107,7 +107,7 @@ func TestParseFile(t *testing.T) {
 		assert.Equal(t, 2, transactions[0].NumberOfShares)
 	}
 	if len(transactions) > 1 {
-		expectedDate2, _ := time.Parse("2006-01-02", "2023-01-02")
+		expectedDate2, _ := time.Parse(dateutils.DateLayoutISO, "2023-01-02")
 		assert.Equal(t, expectedDate2, transactions[1].Date, "Date should be parsed correctly")
 		assert.Contains(t, transactions[1].Description, "ISHARES CORE S&P 500 UCITS ETF")
 		assert.Equal(t, models.ParseAmount("452.22"), transactions[1].Amount)
@@ -119,8 +119,7 @@ func TestParseFile(t *testing.T) {
 func TestConvertToCSV(t *testing.T) {
 	t.Run("convert", func(t *testing.T) {
 		setupTestCategorizer(t)
-		// Set CSV delimiter to comma for this test
-		common.SetDelimiter(',')
+		// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 		// Create temp directories
 		tempDir := filepath.Join(os.TempDir(), "selma-test")
 		err := os.MkdirAll(tempDir, 0750)
@@ -147,7 +146,8 @@ func TestConvertToCSV(t *testing.T) {
 		}
 
 		// Test converting from Selma to standard CSV
-		err = ConvertToCSV(selmaFile, outputFile)
+		logger := logging.NewLogrusAdapter("info", "text")
+		err = ConvertToCSV(selmaFile, outputFile, logger)
 
 		// Check if the conversion succeeded or failed - we're looking for a consistent result either way
 		if err == nil {
@@ -176,15 +176,14 @@ func TestConvertToCSV(t *testing.T) {
 
 func TestWriteToCSV(t *testing.T) {
 	setupTestCategorizer(t)
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 	// Create a temporary directory for output
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
 
 	// Create test transactions
-	date1, _ := time.Parse("2006-01-02", "2023-01-15")
-	date2, _ := time.Parse("2006-01-02", "2023-01-20")
+	date1, _ := time.Parse(dateutils.DateLayoutISO, "2023-01-15")
+	date2, _ := time.Parse(dateutils.DateLayoutISO, "2023-01-20")
 	transactions := []models.Transaction{
 		{
 			Date:           date1,

@@ -4,6 +4,7 @@ package selmaparser
 import (
 	"strings"
 
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/shopspring/decimal"
@@ -112,7 +113,7 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 			// Format date as key to match processed transactions
 			var date string
 			if !tx.Date.IsZero() {
-				date = tx.Date.Format("02.01.2006")
+				date = tx.Date.Format(dateutils.DateLayoutEuropean)
 			}
 			fund := tx.Fund
 
@@ -149,7 +150,7 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 
 		// Add stamp duty amount if applicable
 		if tx.Description == "trade" && tx.Fund != "" {
-			dateKey := tx.Date.Format("02.01.2006")
+			dateKey := tx.Date.Format(dateutils.DateLayoutEuropean)
 			if dayDuties, exists := stampDuties[dateKey]; exists {
 				if dutyInfo, found := dayDuties[tx.Fund]; found {
 					// Associate stamp duty as a fee (decimal)

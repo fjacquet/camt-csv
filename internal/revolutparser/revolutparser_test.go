@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -45,8 +45,8 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	assert.Equal(t, 4, len(transactions), "Expected 4 transactions")
 
 	// Verify first transaction
-	assert.Equal(t, "02.01.2025", transactions[0].Date.Format("02.01.2006"))
-	assert.Equal(t, "01.01.2025", transactions[0].ValueDate.Format("02.01.2006"))
+	assert.Equal(t, "02.01.2025", transactions[0].Date.Format(dateutils.DateLayoutEuropean))
+	assert.Equal(t, "01.01.2025", transactions[0].ValueDate.Format(dateutils.DateLayoutEuropean))
 	assert.Equal(t, "Transfert to CHF Vacances", transactions[0].Description) // Updated to match actual code behavior
 	assert.Equal(t, models.ParseAmount("2.50"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
@@ -54,8 +54,8 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	assert.Equal(t, models.StatusCompleted, transactions[0].Status)
 
 	// Verify second transaction
-	assert.Equal(t, "03.01.2025", transactions[1].Date.Format("02.01.2006"))
-	assert.Equal(t, "02.01.2025", transactions[1].ValueDate.Format("02.01.2006"))
+	assert.Equal(t, "03.01.2025", transactions[1].Date.Format(dateutils.DateLayoutEuropean))
+	assert.Equal(t, "02.01.2025", transactions[1].ValueDate.Format(dateutils.DateLayoutEuropean))
 	assert.Equal(t, "Boreal Coffee Shop", transactions[1].Description)
 	assert.Equal(t, models.ParseAmount("57.50"), transactions[1].Amount)
 	assert.Equal(t, models.TransactionTypeDebit, transactions[1].CreditDebit)
@@ -66,8 +66,7 @@ func TestWriteToCSV(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.csv")
 
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 
 	// Create test transactions
 	transactions := []models.Transaction{
@@ -140,8 +139,7 @@ func TestConvertToCSV(t *testing.T) {
 	inputFile := filepath.Join(tempDir, "input.csv")
 	outputFile := filepath.Join(tempDir, "output.csv")
 
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 
 	// Create a test CSV file
 	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance

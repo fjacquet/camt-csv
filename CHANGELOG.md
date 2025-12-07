@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Development Infrastructure**:
+
   - `CLAUDE.md` - AI-assisted development guidance with coding principles (KISS, DRY, FP)
   - `Dockerfile` - Multi-stage Alpine container build for containerized deployments
   - `Makefile` - Development commands (build, test, lint, coverage, security)
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `plan.md` - Senior architect review with action plan and production readiness checklist
 
 - **Documentation**:
+
   - CAMT.053 ISO 20022 format documentation in CLAUDE.md
   - Coding principles: KISS, DRY, Functional Programming guidelines
   - Dependency injection patterns and interface design guidelines
@@ -65,41 +67,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Dependency Injection Architecture**: Complete refactoring to use dependency injection pattern
+
   - New `Container` type for managing all application dependencies
   - Elimination of global mutable state for better testability
   - All parsers now receive dependencies through constructors
 
-- **Interface Segregation for Parsers**: 
+- **Interface Segregation for Parsers**:
+
   - Segregated parser interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`)
   - `BaseParser` foundation providing common functionality to all parsers
   - Composition-based architecture eliminating code duplication
 
 - **Framework-Agnostic Logging**:
+
   - New `logging.Logger` interface for structured logging abstraction
   - `LogrusAdapter` implementation with dependency injection support
   - Structured logging with `Field` type for key-value pairs
 
 - **Transaction Builder Pattern**:
+
   - Fluent API for constructing complex transactions with validation
   - Type-safe transaction creation with sensible defaults
   - Automatic field population and validation at build time
 
 - **Strategy Pattern for Categorization**:
+
   - Modular categorization strategies (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`)
   - Priority-based strategy execution with independent testing
   - Extensible architecture for adding new categorization methods
 
 - **Comprehensive Error Handling**:
+
   - Custom error types (`ParseError`, `ValidationError`, `CategorizationError`, `DataExtractionError`)
   - Detailed error context with parser, field, and value information
   - Proper error wrapping with `fmt.Errorf` and `%w` verb
 
 - **Performance Optimizations**:
+
   - String operations optimization with `strings.Builder` and pre-allocation
   - Lazy initialization for expensive resources (AI client)
   - Pre-allocated slices and maps with capacity hints
 
 - **Constants-Based Design**:
+
   - Comprehensive constants in `internal/models/constants.go`
   - Elimination of magic strings and numbers throughout codebase
   - Type-safe transaction directions and status values
@@ -121,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Global Singleton Functions** (BREAKING CHANGES):
+
   - `categorizer.GetDefaultCategorizer()` - Use `container.NewContainer()` and access `Categorizer`
   - `categorizer.CategorizeTransaction()` - Use `categorizer.Categorize()` with context
   - `categorizer.UpdateDebitorCategory()` - Use `categorizer.UpdateDebtorMapping()`
@@ -133,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `logging.GetLogger()` - Use `logging.NewLogrusAdapter()` with dependency injection
 
 - **Deprecated Methods** (BREAKING CHANGES):
+
   - `CategoryStore.LoadDebitorMappings()` - Use `LoadDebtorMappings()`
   - `CategoryStore.SaveDebitorMappings()` - Use `SaveDebtorMappings()`
   - `DirectMappingStrategy.UpdateDebitorMapping()` - Use `UpdateDebtorMapping()`
@@ -149,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 See [DEPRECATION_TIMELINE.md](docs/DEPRECATION_TIMELINE.md) for complete deprecation schedule and migration guidance.
 
 **Current Status (v2.0.0):**
+
 - ✅ Global singleton functions removed
 - ⚠️ Transaction backward compatibility methods deprecated (removal in v3.0.0)
 - ✅ New dependency injection architecture available
@@ -162,6 +175,7 @@ See [DEPRECATION_TIMELINE.md](docs/DEPRECATION_TIMELINE.md) for complete depreca
 #### Configuration Migration
 
 **Old configuration** (`~/.camt-csv/config.yaml`):
+
 ```yaml
 log_level: "info"
 csv_delimiter: ","
@@ -169,6 +183,7 @@ ai_enabled: true
 ```
 
 **New configuration**:
+
 ```yaml
 log:
   level: "info"
@@ -183,6 +198,7 @@ ai:
 #### Code Migration
 
 **Old code**:
+
 ```go
 // Global singleton usage (removed)
 categorizer := categorizer.GetDefaultCategorizer()
@@ -190,6 +206,7 @@ result := categorizer.CategorizeTransaction(tx)
 ```
 
 **New code**:
+
 ```go
 // Dependency injection
 container, err := container.NewContainer(config)
@@ -236,6 +253,7 @@ See Git history for changes in previous versions.
 This major version (2.0.0) removes all deprecated global singleton functions and methods that were marked for removal. The new architecture is based on dependency injection and provides better testability, maintainability, and performance.
 
 **Key Migration Steps:**
+
 1. Update configuration file structure
 2. Rename `debitors.yaml` to `debtors.yaml`
 3. Replace global function calls with dependency injection pattern

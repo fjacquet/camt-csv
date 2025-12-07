@@ -244,15 +244,24 @@ func TestErrorWrappingPatterns(t *testing.T) {
 		assert.Equal(t, catErr, targetCatErr)
 	})
 
-	t.Run("ValidationError does not implement Unwrap", func(t *testing.T) {
+	t.Run("ValidationError implements Unwrap", func(t *testing.T) {
+		underlyingErr := errors.New("underlying error")
 		valErr := &ValidationError{
 			FilePath: "/path/to/file.xml",
 			Reason:   "invalid format",
+			Err:      underlyingErr,
 		}
 
-		// ValidationError should not have an Unwrap method
-		// This is intentional as it represents a terminal error condition
-		assert.NotImplements(t, (*interface{ Unwrap() error })(nil), valErr)
+		// ValidationError should have an Unwrap method
+		assert.Implements(t, (*interface{ Unwrap() error })(nil), valErr)
+		assert.Equal(t, underlyingErr, valErr.Unwrap())
+
+		// Test with nil underlying error
+		valErrNoWrap := &ValidationError{
+			FilePath: "/path/to/file.xml",
+			Reason:   "invalid format",
+		}
+		assert.Nil(t, valErrNoWrap.Unwrap())
 	})
 }
 

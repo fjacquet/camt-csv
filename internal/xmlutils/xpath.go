@@ -7,18 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/xmlpath.v2"
 )
-
-var log = logrus.New()
-
-// SetLogger sets a custom logger for this package
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
-}
 
 // LoadXMLFile loads an XML file and returns the XML root node
 func LoadXMLFile(xmlFilePath string) (*xmlpath.Node, error) {
@@ -26,11 +16,7 @@ func LoadXMLFile(xmlFilePath string) (*xmlpath.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open XML file: %w", err)
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file")
-		}
-	}()
+	defer file.Close() // Error on close is not critical for read-only operations
 
 	root, err := xmlpath.Parse(file)
 	if err != nil {

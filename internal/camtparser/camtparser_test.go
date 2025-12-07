@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -157,8 +156,7 @@ func TestParseFile(t *testing.T) {
 }
 
 func TestConvertToCSV(t *testing.T) {
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "camt-test")

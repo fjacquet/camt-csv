@@ -4,30 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestSetLogger(t *testing.T) {
-	// Create a custom logger
-	customLogger := logrus.New()
-	customLogger.SetLevel(logrus.DebugLevel)
-
-	// Save the original logger to restore after test
-	originalLogger := log
-	defer func() {
-		log = originalLogger
-	}()
-
-	// Test with valid logger
-	SetLogger(customLogger)
-	assert.Equal(t, customLogger, log)
-
-	// Test with nil logger (should not change the current logger)
-	currentLogger := log
-	SetLogger(nil)
-	assert.Equal(t, currentLogger, log)
-}
 
 func TestParseDate(t *testing.T) {
 	tests := []struct {

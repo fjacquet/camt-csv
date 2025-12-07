@@ -7,17 +7,7 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
-	"github.com/sirupsen/logrus"
 )
-
-var log = logrus.New()
-
-// SetLogger sets a custom logger for this package
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
-}
 
 // ParseAmount parses a string representation of an amount into a decimal value
 // It handles various formats like "1,234.56", "1.234,56", "1234.56", "1234,56"

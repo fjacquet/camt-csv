@@ -6,43 +6,31 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.New()
-
-// Common date formats used in the application
-var (
-	// Standard date layouts
+// Common date format constants used throughout the application
+const (
 	DateLayoutISO       = "2006-01-02"
 	DateLayoutEuropean  = "02.01.2006"
 	DateLayoutSwiss     = "02.01.2006"
 	DateLayoutUS        = "01/02/2006"
 	DateLayoutFull      = "2006-01-02 15:04:05"
 	DateLayoutWithMonth = "2-Jan-2006"
-
-	// List of standard formats to try when parsing dates
-	CommonFormats = []string{
-		DateLayoutISO,
-		DateLayoutEuropean,
-		DateLayoutSwiss,
-		DateLayoutUS,
-		DateLayoutFull,
-		DateLayoutWithMonth,
-		"02-01-2006",
-		"02/01/2006",
-		"2006/01/02",
-		"Jan 2, 2006",
-		"January 2, 2006",
-	}
 )
 
-// SetLogger sets a custom logger for this package
-func SetLogger(logger *logrus.Logger) {
-	if logger != nil {
-		log = logger
-	}
+// CommonFormats is a list of standard formats to try when parsing dates
+var CommonFormats = []string{
+	DateLayoutISO,
+	DateLayoutEuropean,
+	DateLayoutSwiss,
+	DateLayoutUS,
+	DateLayoutFull,
+	DateLayoutWithMonth,
+	"02-01-2006",
+	"02/01/2006",
+	"2006/01/02",
+	"Jan 2, 2006",
+	"January 2, 2006",
 }
 
 // ParseDate attempts to parse a date string using multiple common formats
@@ -184,24 +172,24 @@ func ParseDateString(dateStr string) (time.Time, error) {
 
 	// Try various date formats commonly found in financial data
 	formats := []string{
-		"02.01.2006",                // DD.MM.YYYY (Swiss/European)
-		"2006-01-02",                // YYYY-MM-DD (ISO)
-		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
-		"2006-01-02T15:04:05Z",      // ISO 8601
-		"2006-01-02T15:04:05-07:00", // ISO 8601 with timezone
-		"02/01/2006",                // DD/MM/YYYY (European)
-		"01/02/2006",                // MM/DD/YYYY (US format)
-		"02-01-2006",                // DD-MM-YYYY
-		"01-02-2006",                // MM-DD-YYYY
-		"2.1.2006",                  // D.M.YYYY
-		"January 2, 2006",           // Month D, YYYY
-		"2 January 2006",            // D Month YYYY
-		"02 Jan 2006",               // DD MMM YYYY
-		"Jan 02, 2006",              // MMM DD, YYYY
-		"January 2006",              // Month YYYY (for monthly statements)
-		"Jan 2006",                  // MMM YYYY (abbreviated month)
-		"01/2006",                   // MM/YYYY
-		"2006/01",                   // YYYY/MM
+		DateLayoutEuropean,                // DD.MM.YYYY (Swiss/European)
+		DateLayoutISO,                     // YYYY-MM-DD (ISO)
+		DateLayoutFull,                    // YYYY-MM-DD HH:MM:SS
+		DateLayoutISO + "T15:04:05Z",      // ISO 8601
+		DateLayoutISO + "T15:04:05-07:00", // ISO 8601 with timezone
+		"02/01/2006",                      // DD/MM/YYYY (European)
+		DateLayoutUS,                      // MM/DD/YYYY (US format)
+		"02-01-2006",                      // DD-MM-YYYY
+		"01-02-2006",                      // MM-DD-YYYY
+		"2.1.2006",                        // D.M.YYYY
+		"January 2, 2006",                 // Month D, YYYY
+		"2 January 2006",                  // D Month YYYY
+		"02 Jan 2006",                     // DD MMM YYYY
+		"Jan 02, 2006",                    // MMM DD, YYYY
+		"January 2006",                    // Month YYYY (for monthly statements)
+		"Jan 2006",                        // MMM YYYY (abbreviated month)
+		"01/2006",                         // MM/YYYY
+		"2006/01",                         // YYYY/MM
 	}
 
 	// Try each format until one works
@@ -219,5 +207,5 @@ func ToSwissFormat(date time.Time) string {
 	if date.IsZero() {
 		return ""
 	}
-	return date.Format("02.01.2006")
+	return date.Format(DateLayoutSwiss)
 }

@@ -136,8 +136,3 @@ func (l *LogrusAdapter) Warnf(format string, args ...interface{}) {
 func (l *LogrusAdapter) Debugf(format string, args ...interface{}) {
 	l.entry.Debugf(format, args...)
 }
-
-// GetLogrusLogger returns the underlying logrus logger for backward compatibility
-func (l *LogrusAdapter) GetLogrusLogger() *logrus.Logger {
-	return l.logger
-}

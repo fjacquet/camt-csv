@@ -41,12 +41,22 @@ func (e *ParseError) Unwrap() error {
 type ValidationError struct {
 	FilePath string // Path to the file that failed validation
 	Reason   string // Human-readable explanation of why validation failed
+	Err      error  // Optional: the underlying error that caused validation failure
 }
 
 // Error returns a formatted error message indicating which file failed validation and why.
 // This implements the error interface.
 func (e *ValidationError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("validation failed for %s: %s: %v", e.FilePath, e.Reason, e.Err)
+	}
 	return fmt.Sprintf("validation failed for %s: %s", e.FilePath, e.Reason)
+}
+
+// Unwrap returns the underlying error, enabling error inspection with errors.Is and errors.As.
+// This follows Go 1.13+ error wrapping conventions.
+func (e *ValidationError) Unwrap() error {
+	return e.Err
 }
 
 // CategorizationError represents a failure during transaction categorization.
@@ -79,6 +89,7 @@ type InvalidFormatError struct {
 	ExpectedFormat       string // Description of the expected file format
 	ActualContentSnippet string // Optional: a snippet of the actual content for debugging
 	Msg                  string // Additional context about the format mismatch
+	Err                  error  // Optional: the underlying error that caused the format issue
 }
 
 // Error returns a detailed error message about the format mismatch.
@@ -86,11 +97,25 @@ type InvalidFormatError struct {
 // This implements the error interface.
 func (e *InvalidFormatError) Error() string {
 	if e.ActualContentSnippet != "" {
+		if e.Err != nil {
+			return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s. Content snippet: '%s': %v",
+				e.FilePath, e.Msg, e.ExpectedFormat, e.ActualContentSnippet, e.Err)
+		}
 		return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s. Content snippet: '%s'",
 			e.FilePath, e.Msg, e.ExpectedFormat, e.ActualContentSnippet)
 	}
+	if e.Err != nil {
+		return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s: %v",
+			e.FilePath, e.Msg, e.ExpectedFormat, e.Err)
+	}
 	return fmt.Sprintf("invalid format in file '%s': %s. Expected: %s",
 		e.FilePath, e.Msg, e.ExpectedFormat)
+}
+
+// Unwrap returns the underlying error, enabling error inspection with errors.Is and errors.As.
+// This follows Go 1.13+ error wrapping conventions.
+func (e *InvalidFormatError) Unwrap() error {
+	return e.Err
 }
 
 // DataExtractionError represents an error where specific required data could not be extracted
@@ -102,6 +127,7 @@ type DataExtractionError struct {
 	RawDataSnippet string // Optional: a snippet of the raw data where extraction failed
 	Reason         string // Technical reason why extraction failed
 	Msg            string // Human-readable description of the extraction failure
+	Err            error  // Optional: the underlying error that caused extraction failure
 }
 
 // Error returns a detailed error message about the data extraction failure.
@@ -109,9 +135,23 @@ type DataExtractionError struct {
 // This implements the error interface.
 func (e *DataExtractionError) Error() string {
 	if e.RawDataSnippet != "" {
+		if e.Err != nil {
+			return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s. Raw data snippet: '%s': %v",
+				e.FilePath, e.FieldName, e.Msg, e.Reason, e.RawDataSnippet, e.Err)
+		}
 		return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s. Raw data snippet: '%s'",
 			e.FilePath, e.FieldName, e.Msg, e.Reason, e.RawDataSnippet)
 	}
+	if e.Err != nil {
+		return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s: %v",
+			e.FilePath, e.FieldName, e.Msg, e.Reason, e.Err)
+	}
 	return fmt.Sprintf("data extraction failed in file '%s' for field '%s': %s. Reason: %s",
 		e.FilePath, e.FieldName, e.Msg, e.Reason)
+}
+
+// Unwrap returns the underlying error, enabling error inspection with errors.Is and errors.As.
+// This follows Go 1.13+ error wrapping conventions.
+func (e *DataExtractionError) Unwrap() error {
+	return e.Err
 }

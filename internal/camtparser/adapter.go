@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -206,11 +207,11 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			var parsedBookingDate, parsedValueDate time.Time
 
-			if bookingDateParsed, err := time.Parse("2006-01-02", bookingDate); err == nil {
+			if bookingDateParsed, err := time.Parse(dateutils.DateLayoutISO, bookingDate); err == nil {
 				parsedBookingDate = bookingDateParsed
 			}
 
-			if valueDateParsed, err := time.Parse("2006-01-02", valueDate); err == nil {
+			if valueDateParsed, err := time.Parse(dateutils.DateLayoutISO, valueDate); err == nil {
 				parsedValueDate = valueDateParsed
 			}
 
@@ -370,7 +371,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 			catPartyName := transaction.PartyName
 			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
 			catAmount := transaction.Amount.String()
-			catDate := transaction.Date.Format("02.01.2006")
+			catDate := transaction.Date.Format(dateutils.DateLayoutEuropean)
 			catInfo := transaction.RemittanceInfo
 
 			// If PartyName is empty, use Description or RemittanceInfo to help with categorization

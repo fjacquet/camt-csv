@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
@@ -19,14 +20,6 @@ import (
 	"github.com/gocarina/gocsv"
 	"github.com/shopspring/decimal"
 )
-
-// getDefaultLogger returns a default logger for backward compatibility
-func getDefaultLogger() logging.Logger {
-	return logging.NewLogrusAdapter("info", "text")
-}
-
-// log provides backward compatibility for existing log references
-var log = getDefaultLogger()
 
 // RevolutCSVRow represents a single row in a Revolut CSV file
 // It uses struct tags for gocsv unmarshaling
@@ -254,7 +247,7 @@ func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, log
 		// Format date as DD.MM.YYYY
 		var date string
 		if !tx.Date.IsZero() {
-			date = tx.Date.Format("02.01.2006")
+			date = tx.Date.Format(dateutils.DateLayoutEuropean)
 		}
 
 		// Format the amount with 2 decimal places
@@ -433,10 +426,10 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 		// Validate if it's a Revolut CSV file
 		isValid, err := validateFormat(inputFile)
 		if err != nil {
-			getDefaultLogger().WithError(err).Warn("Error validating file, skipping",
+			logger.WithError(err).Warn("Error validating file, skipping",
 				logging.Field{Key: "file", Value: inputPath})
 			if err := inputFile.Close(); err != nil {
-				getDefaultLogger().WithError(err).Warn("Failed to close file after validation attempt",
+				logger.WithError(err).Warn("Failed to close file after validation attempt",
 					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
@@ -447,7 +440,7 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 				logging.Field{Key: "file", Value: inputPath},
 				logging.Field{Key: "reason", Value: "validation_failed"})
 			if err := inputFile.Close(); err != nil {
-				log.WithError(err).Warn("Failed to close file after validation attempt",
+				logger.WithError(err).Warn("Failed to close file after validation attempt",
 					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
@@ -456,23 +449,23 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 		// Rewind the file to the beginning for parsing after validation
 		_, err = inputFile.Seek(0, io.SeekStart)
 		if err != nil {
-			log.WithError(err).Warn("Error rewinding file, skipping",
+			logger.WithError(err).Warn("Error rewinding file, skipping",
 				logging.Field{Key: "file", Value: inputPath})
 			if err := inputFile.Close(); err != nil {
-				log.WithError(err).Warn("Failed to close file after rewinding",
+				logger.WithError(err).Warn("Failed to close file after rewinding",
 					logging.Field{Key: "file", Value: inputPath})
 			}
 			continue
 		}
 
 		// Parse the file
-		transactions, err := Parse(inputFile, getDefaultLogger())
+		transactions, err := Parse(inputFile, logger)
 		if err := inputFile.Close(); err != nil {
-			log.WithError(err).Warn("Failed to close file after parsing",
+			logger.WithError(err).Warn("Failed to close file after parsing",
 				logging.Field{Key: "file", Value: inputPath})
 		}
 		if err != nil {
-			log.WithError(err).Warn("Failed to parse file, skipping",
+			logger.WithError(err).Warn("Failed to parse file, skipping",
 				logging.Field{Key: "file", Value: inputPath})
 			continue
 		}
@@ -483,15 +476,15 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 		outputPath := fmt.Sprintf("%s/%s-standardized.csv", outputDir, baseNameWithoutExt)
 
 		// Write to CSV
-		if err := WriteToCSV(transactions, outputPath); err != nil {
-			log.WithError(err).Warn("Failed to write to CSV, skipping",
+		if err := WriteToCSVWithLogger(transactions, outputPath, logger); err != nil {
+			logger.WithError(err).Warn("Failed to write to CSV, skipping",
 				logging.Field{Key: "file", Value: inputPath})
 			continue
 		}
 		processed++
 	}
 
-	log.Info("Batch conversion completed",
+	logger.Info("Batch conversion completed",
 		logging.Field{Key: "count", Value: processed})
 	return processed, nil
 }

@@ -436,7 +436,7 @@ func (t *Transaction) formatDateForCSV(date time.Time) string {
 	if date.IsZero() {
 		return ""
 	}
-	return date.Format("02.01.2006")
+	return date.Format(DateFormatCSV)
 }
 
 // parseDateFromCSV parses a date string from CSV format (DD.MM.YYYY) to time.Time
@@ -445,7 +445,7 @@ func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
 	if dateStr == "" {
 		return time.Time{}, nil
 	}
-	return time.Parse("02.01.2006", dateStr)
+	return time.Parse(DateFormatCSV, dateStr)
 }
 
 // NewTransactionFromBuilder creates a Transaction using the builder pattern

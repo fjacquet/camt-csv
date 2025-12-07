@@ -35,7 +35,7 @@ const (
 
 // CSV formatting
 const (
-	DefaultCSVDelimiter = ';'
+	DefaultCSVDelimiter = ',' // Aligned with config default
 	DateFormatCSV       = "02.01.2006"
 	DecimalPlaces       = 2
 )

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -104,8 +103,7 @@ func TestConvertToCSV(t *testing.T) {
 	// Initialize the test environment
 	setupTestCategorizer(t)
 
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
@@ -147,8 +145,7 @@ func TestConvertToCSV(t *testing.T) {
 }
 
 func TestWriteToCSV(t *testing.T) {
-	// Set CSV delimiter to comma for this test
-	common.SetDelimiter(',')
+	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
 
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "transactions.csv")
