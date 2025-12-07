@@ -10,10 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Development Infrastructure**:
-  - `CLAUDE.md` - AI-assisted development guidance with updated parser interface documentation
+  - `CLAUDE.md` - AI-assisted development guidance with coding principles (KISS, DRY, FP)
   - `Dockerfile` - Multi-stage Alpine container build for containerized deployments
   - `Makefile` - Development commands (build, test, lint, coverage, security)
   - `codecov.yml` - Code coverage configuration and thresholds
+  - `plan.md` - Senior architect review with action plan and production readiness checklist
+
+- **Documentation**:
+  - CAMT.053 ISO 20022 format documentation in CLAUDE.md
+  - Coding principles: KISS, DRY, Functional Programming guidelines
+  - Dependency injection patterns and interface design guidelines
 
 - **Test Coverage Improvements**:
   - Add tests for `cmd/batch` package
