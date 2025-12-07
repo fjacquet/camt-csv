@@ -33,19 +33,35 @@ This is a Go CLI tool that converts financial statement formats (CAMT.053 XML, P
 
 ### Key Design Patterns
 
-**Parser Factory Pattern**: All parsers implement `models.Parser` interface defined in `internal/models/parser.go`:
+**Parser Factory Pattern**: Parsers implement segregated interfaces in `internal/parser/parser.go`:
 ```go
 type Parser interface {
     Parse(r io.Reader) ([]Transaction, error)
+}
+
+type Validator interface {
+    ValidateFormat(filePath string) (bool, error)
+}
+
+type CSVConverter interface {
     ConvertToCSV(inputFile, outputFile string) error
-    WriteToCSV(transactions []Transaction, csvFile string) error
-    SetLogger(logger *logrus.Logger)
-    ValidateFormat(file string) (bool, error)
-    BatchConvert(inputDir, outputDir string) (int, error)
+}
+
+type LoggerConfigurable interface {
+    SetLogger(logger logging.Logger)
+}
+
+// FullParser combines all capabilities
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+    CategorizerConfigurable
 }
 ```
 
-New parsers are registered in `internal/parser/factory.go` via `GetParser(parserType ParserType)`.
+New parsers are registered in `internal/factory/factory.go` via `GetParserWithLogger(parserType, logger)`.
 
 **Three-Tier Categorization** (`internal/categorizer/`):
 1. Direct mapping - exact match from `database/creditors.yaml` / `database/debitors.yaml`
@@ -84,8 +100,8 @@ Configuration loads in order (later overrides earlier):
 
 1. Create package in `internal/{name}parser/`
 2. Implement core parsing in `{name}parser.go`
-3. Create adapter implementing `models.Parser` in `adapter.go`
-4. Register in `internal/parser/factory.go`
+3. Create adapter implementing `parser.FullParser` in `adapter.go`
+4. Register in `internal/factory/factory.go`
 5. Add CLI command in `cmd/{name}/convert.go`
 6. Wire command in `main.go`
 
