@@ -119,7 +119,7 @@ func TestOpenFile(t *testing.T) {
 	file, err := fileutils.OpenFile(testFile)
 	assert.NoError(t, err)
 	assert.NotNil(t, file)
-	file.Close()
+	_ = file.Close()
 
 	// Test opening non-existent file
 	_, err = fileutils.OpenFile(filepath.Join(tmpDir, "nonexistent.txt"))
@@ -135,7 +135,7 @@ func TestCreateFile(t *testing.T) {
 	file, err := fileutils.CreateFile(testFile)
 	assert.NoError(t, err)
 	assert.NotNil(t, file)
-	file.Close()
+	_ = file.Close()
 	assert.True(t, fileutils.FileExists(testFile))
 
 	// Test creating file with nested directories
@@ -143,7 +143,7 @@ func TestCreateFile(t *testing.T) {
 	file, err = fileutils.CreateFile(nestedFile)
 	assert.NoError(t, err)
 	assert.NotNil(t, file)
-	file.Close()
+	_ = file.Close()
 	assert.True(t, fileutils.FileExists(nestedFile))
 }
 
