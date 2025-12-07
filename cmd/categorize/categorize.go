@@ -4,7 +4,6 @@ package categorize
 import (
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/categorizer"
-	"fjacquet/camt-csv/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -32,8 +31,7 @@ func init() {
 func categorizeFunc(cmd *cobra.Command, args []string) {
 	root.Log.Info("Categorize command called")
 
-	// Ensure the environment variables are loaded
-	config.LoadEnv()
+	// Configuration is already initialized by root command's PersistentPreRun
 
 	if root.PartyName != "" {
 		// Create a transaction object to categorize

@@ -1,5 +1,15 @@
 // Package config provides functionality for loading and accessing environment variables.
-// This file maintains backward compatibility while the new Viper-based system is being adopted.
+//
+// DEPRECATION NOTICE: The functions in this file (config.go) are deprecated.
+// Use the Viper-based configuration from viper.go instead:
+//   - LoadEnv() -> Use InitializeConfig() from viper.go
+//   - GetEnv() -> Use Config struct fields
+//   - MustGetEnv() -> Use Config struct fields with validation
+//   - GetGeminiAPIKey() -> Use Config.AI.APIKey
+//   - ConfigureLogging() -> Use ConfigureLoggingFromConfig()
+//   - Logger (global) -> Use container.GetLogger()
+//
+// These functions will be removed in v3.0.0.
 package config
 
 import (
@@ -14,20 +24,31 @@ import (
 
 var (
 	once sync.Once
-	// Global logger instance that should be used across the application
+
+	// Logger is a global logger instance.
+	//
+	// Deprecated: Use container.GetLogger() instead for dependency injection.
+	// Global mutable state is an anti-pattern. This will be removed in v3.0.0.
 	Logger = logrus.New()
-	// Global config instance for new Viper-based configuration
+
+	// globalConfig is the global config instance.
+	// Deprecated: Use InitializeConfig() with dependency injection instead.
 	globalConfig *Config
 )
 
 // ConfigureLogging sets up logging based on environment variables and returns the configured logger.
-// It configures both the log level (from LOG_LEVEL env var) and format (from LOG_FORMAT env var).
 //
-// Supported log levels: debug, info, warn, error, fatal, panic
-// Supported log formats: json, text (default)
+// Deprecated: Use ConfigureLoggingFromConfig() with a Config struct instead.
+// This function will be removed in v3.0.0.
 //
-// Returns:
-//   - *logrus.Logger: Configured logger instance ready for use
+// Migration:
+//
+//	// Old:
+//	logger := config.ConfigureLogging()
+//
+//	// New:
+//	cfg, _ := config.InitializeConfig()
+//	logger := config.ConfigureLoggingFromConfig(cfg)
 func ConfigureLogging() *logrus.Logger {
 	// Configure log level
 	logLevelStr := os.Getenv("LOG_LEVEL")
@@ -58,11 +79,18 @@ func ConfigureLogging() *logrus.Logger {
 }
 
 // LoadEnv loads environment variables from .env file if it exists.
-// It searches for .env files in the current directory and parent directory.
-// This function is safe to call multiple times as it uses sync.Once internally.
 //
-// The function automatically configures logging after loading environment variables.
-// If no .env file is found, it continues without error, relying on system environment variables.
+// Deprecated: Use InitializeConfig() instead, which handles all configuration loading.
+// This function will be removed in v3.0.0.
+//
+// Migration:
+//
+//	// Old:
+//	config.LoadEnv()
+//
+//	// New:
+//	cfg, err := config.InitializeConfig()
+//	// cfg contains all configuration from env vars and config files
 func LoadEnv() {
 	once.Do(func() {
 		// Try to find .env file in current directory
@@ -90,14 +118,19 @@ func LoadEnv() {
 }
 
 // GetEnv retrieves an environment variable with a fallback value if not set.
-// This is a utility function for safely accessing environment variables with defaults.
 //
-// Parameters:
-//   - key: The environment variable name to retrieve
-//   - fallback: The default value to return if the environment variable is not set
+// Deprecated: Use Config struct fields instead. Access configuration via
+// InitializeConfig() which provides type-safe access to all settings.
+// This function will be removed in v3.0.0.
 //
-// Returns:
-//   - string: The environment variable value or the fallback value
+// Migration:
+//
+//	// Old:
+//	value := config.GetEnv("SOME_KEY", "default")
+//
+//	// New:
+//	cfg, _ := config.InitializeConfig()
+//	value := cfg.SomeField // Use appropriate Config field
 func GetEnv(key, fallback string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
@@ -107,17 +140,20 @@ func GetEnv(key, fallback string) string {
 }
 
 // MustGetEnv retrieves an environment variable or panics if not set.
-// This function should be used for required environment variables where the application
-// cannot continue without the value.
 //
-// Parameters:
-//   - key: The environment variable name to retrieve
+// Deprecated: Use Config struct with validation instead. InitializeConfig()
+// validates required fields and returns errors rather than panicking.
+// This function will be removed in v3.0.0.
 //
-// Returns:
-//   - string: The environment variable value
+// Migration:
 //
-// Panics:
-//   - If the environment variable is not set or is empty
+//	// Old:
+//	apiKey := config.MustGetEnv("API_KEY")
+//
+//	// New:
+//	cfg, err := config.InitializeConfig()
+//	if err != nil { log.Fatal(err) }
+//	apiKey := cfg.AI.APIKey
 func MustGetEnv(key string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
@@ -127,17 +163,36 @@ func MustGetEnv(key string) string {
 }
 
 // GetGeminiAPIKey returns the Gemini API key from environment variables.
-// This is a convenience function for accessing the GEMINI_API_KEY environment variable.
-// Returns an empty string if the API key is not set.
 //
-// Returns:
-//   - string: The Gemini API key or empty string if not configured
+// Deprecated: Use Config.AI.APIKey instead.
+// This function will be removed in v3.0.0.
+//
+// Migration:
+//
+//	// Old:
+//	apiKey := config.GetGeminiAPIKey()
+//
+//	// New:
+//	cfg, _ := config.InitializeConfig()
+//	apiKey := cfg.AI.APIKey
 func GetGeminiAPIKey() string {
 	return GetEnv("GEMINI_API_KEY", "")
 }
 
-// InitializeGlobalConfig explicitly initializes the global configuration
-// This is useful for testing or when you want to ensure config is loaded early
+// InitializeGlobalConfig explicitly initializes the global configuration.
+//
+// Deprecated: Use InitializeConfig() and dependency injection instead.
+// This function maintains global state which is an anti-pattern.
+// This function will be removed in v3.0.0.
+//
+// Migration:
+//
+//	// Old:
+//	err := config.InitializeGlobalConfig()
+//
+//	// New:
+//	cfg, err := config.InitializeConfig()
+//	container, err := container.NewContainer(cfg)
 func InitializeGlobalConfig() error {
 	var err error
 	globalConfig, err = InitializeConfig()

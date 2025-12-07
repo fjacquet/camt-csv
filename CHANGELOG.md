@@ -25,6 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update `CLAUDE.md` to reflect refactored parser interface (segregated interfaces, new factory location)
+- Update dependencies: cobra v1.10.2, golang.org/x/net v0.47.0, golang.org/x/sys v0.38.0, golang.org/x/text v0.31.0
+
+### Deprecated
+
+- **Legacy Configuration Functions** (`internal/config/config.go`):
+  - `LoadEnv()` - Use `InitializeConfig()` instead
+  - `GetEnv()` - Use `Config` struct fields instead
+  - `MustGetEnv()` - Use `Config` struct with validation instead
+  - `GetGeminiAPIKey()` - Use `Config.AI.APIKey` instead
+  - `ConfigureLogging()` - Use `ConfigureLoggingFromConfig()` instead
+  - `InitializeGlobalConfig()` - Use `InitializeConfig()` with DI container instead
+  - Global `Logger` variable - Use `container.GetLogger()` instead
+  - All deprecated functions will be removed in v3.0.0
+
+### Fixed
+
+- Remove redundant `config.LoadEnv()` call in `cmd/categorize/categorize.go`
+- Fix unchecked `file.Close()` return values in `internal/fileutils/fileutils_test.go`
 
 ## [2.0.0] - 2025-11-02
 
