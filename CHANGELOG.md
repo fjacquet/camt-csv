@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Development Infrastructure**:
+  - `CLAUDE.md` - AI-assisted development guidance with updated parser interface documentation
+  - `Dockerfile` - Multi-stage Alpine container build for containerized deployments
+  - `Makefile` - Development commands (build, test, lint, coverage, security)
+  - `codecov.yml` - Code coverage configuration and thresholds
+
+- **Test Coverage Improvements**:
+  - Add tests for `cmd/batch` package
+  - Add tests for `cmd/common` package with mock parser implementation
+  - Add tests for `internal/fileutils` package
+  - Add tests for `internal/textutils` package
+  - Add tests for `internal/validation` package
+
+### Changed
+
+- Update `CLAUDE.md` to reflect refactored parser interface (segregated interfaces, new factory location)
+
 ## [2.0.0] - 2025-11-02
 
 ### Added
