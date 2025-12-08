@@ -12,7 +12,7 @@ The CAMT-CSV project is built on a foundation of solid software engineering prin
 
 **Implementation**:
 
-- **Core Interfaces**: `Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`
+- **Core Interfaces**: `Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `CategorizerConfigurable`, `BatchConverter`, `FullParser`
 - **BaseParser Foundation**: All parsers embed `BaseParser` struct for common functionality
 - **Composition over Inheritance**: Parsers compose interfaces rather than inheriting from large base classes
 - **Single Responsibility per Interface**: Each interface has one clear purpose

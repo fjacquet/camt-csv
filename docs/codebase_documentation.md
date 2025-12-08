@@ -83,7 +83,7 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
   * **`container/`**: Manages dependency injection with the `Container` struct that creates and wires all application dependencies, eliminating global state and improving testability.
   * **`logging/`**: Framework-agnostic logging abstraction layer with `Logger` interface and `LogrusAdapter` implementation. Provides structured logging with `Field` struct for key-value pairs, enabling dependency injection and easier testing with mock loggers.
   * **`models/`**: Defines the core data structures with decomposed transaction types (`TransactionCore`, `TransactionWithParties`, `CategorizedTransaction`, `Transaction`). Includes `TransactionBuilder` for fluent construction with validation, `Money` and `Party` value objects, and comprehensive constants in `constants.go` to eliminate magic strings and numbers throughout the codebase.
-  * **`parser/`**: Defines segregated parser interfaces following Interface Segregation Principle (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality including logging and CSV writing.
+  * **`parser/`**: Defines segregated parser interfaces following Interface Segregation Principle (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`, `CategorizerConfigurable`, `BatchConverter`, `FullParser`) and provides the `BaseParser` foundation that all parsers embed for common functionality including logging and CSV writing.
   * **`parsererror/`**: Defines comprehensive custom error types for parsing operations, including `ParseError`, `ValidationError`, `CategorizationError`, `InvalidFormatError`, and `DataExtractionError` with proper error wrapping and context.
   * **`pdfparser/`**: Parses PDF bank statements with dependency injection for PDF extraction. Embeds `BaseParser` and implements the `parser.Parser` interface. Includes specialized logic for Viseca credit card statements.
   * **`revolutparser/`**: Parses Revolut CSV export files. Embeds `BaseParser` and implements the `parser.Parser` interface.
@@ -107,9 +107,11 @@ The project employs a highly standardized parser architecture built around segre
 The architecture is built on several segregated interfaces defined in `internal/parser/parser.go`:
 
 * **`Parser`**: Core parsing interface with `Parse(r io.Reader) ([]models.Transaction, error)` method
-* **`Validator`**: Interface for format validation with `ValidateFormat(filePath string) (bool, error)` method  
+* **`Validator`**: Interface for format validation with `ValidateFormat(filePath string) (bool, error)` method
 * **`CSVConverter`**: Interface for CSV conversion with `ConvertToCSV(inputFile, outputFile string) error` method
 * **`LoggerConfigurable`**: Interface for logger management with `SetLogger(logger logging.Logger)` method
+* **`CategorizerConfigurable`**: Interface for categorizer management with `SetCategorizer(categorizer models.TransactionCategorizer)` method
+* **`BatchConverter`**: Interface for batch directory conversion with `BatchConvert(inputDir, outputDir string) (int, error)` method
 * **`FullParser`**: Composite interface combining all capabilities for parsers that need complete functionality
 
 **BaseParser Foundation:**

@@ -52,6 +52,14 @@ type CategorizerConfigurable interface {
 	SetCategorizer(categorizer models.TransactionCategorizer)
 }
 
+// BatchConverter defines batch conversion capability.
+// This interface allows parsers to convert multiple files in a directory.
+type BatchConverter interface {
+	// BatchConvert converts all files in inputDir and writes them to outputDir.
+	// Returns the number of files converted and any error encountered.
+	BatchConvert(inputDir, outputDir string) (int, error)
+}
+
 // FullParser combines all parser capabilities into a single interface.
 // Use this interface when you need a parser with all available features.
 // Individual interfaces should be used when only specific capabilities are required.
@@ -61,4 +69,5 @@ type FullParser interface {
 	CSVConverter
 	LoggerConfigurable
 	CategorizerConfigurable
+	BatchConverter
 }

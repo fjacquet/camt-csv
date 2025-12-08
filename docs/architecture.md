@@ -114,11 +114,21 @@ type LoggerConfigurable interface {
     SetLogger(logger logging.Logger)
 }
 
+type CategorizerConfigurable interface {
+    SetCategorizer(categorizer models.TransactionCategorizer)
+}
+
+type BatchConverter interface {
+    BatchConvert(inputDir, outputDir string) (int, error)
+}
+
 type FullParser interface {
     Parser
     Validator
     CSVConverter
     LoggerConfigurable
+    CategorizerConfigurable
+    BatchConverter
 }
 ```
 

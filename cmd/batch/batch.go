@@ -2,10 +2,11 @@
 package batch
 
 import (
-	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/factory"
 	"fmt"
 	"os"
+
+	"fjacquet/camt-csv/cmd/root"
+	"fjacquet/camt-csv/internal/container"
 
 	"github.com/spf13/cobra"
 )
@@ -72,8 +73,14 @@ func batchFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	// Get CAMT parser from factory with logger
-	parser, err := factory.GetParserWithLogger(factory.CAMT, logger)
+	// Get container from root command context
+	appContainer := root.GetContainer()
+	if appContainer == nil {
+		logger.Fatal("Container not initialized")
+	}
+
+	// Get parser from container (includes categorizer via DI)
+	parser, err := appContainer.GetParser(container.CAMT)
 	if err != nil {
 		logger.Fatalf("Failed to get CAMT parser: %v", err)
 	}

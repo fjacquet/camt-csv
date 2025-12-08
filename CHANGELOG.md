@@ -30,8 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add tests for `internal/textutils` package
   - Add tests for `internal/validation` package
 
+### Fixed
+
+- **Batch Command Categorization**: Fix batch command not categorizing transactions
+  - Batch command now uses DI container instead of factory directly
+  - Transactions are now properly categorized using all 3 tiers (direct mapping, keyword, AI)
+
 ### Changed
 
+- **BatchConverter Interface**: Add `BatchConverter` interface to `parser.FullParser`
+  - Follows Interface Segregation Principle (ISP)
+  - Enables batch conversion through the DI container
 - Update `CLAUDE.md` to reflect refactored parser interface (segregated interfaces, new factory location)
 - Update dependencies: cobra v1.10.2, golang.org/x/net v0.47.0, golang.org/x/sys v0.38.0, golang.org/x/text v0.31.0
 - **Type-safe Categorizer Interface**: Replace `interface{}` with `models.TransactionCategorizer` for compile-time type safety

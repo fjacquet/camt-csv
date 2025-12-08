@@ -35,17 +35,28 @@ type LoggerConfigurable interface {
     SetLogger(logger logging.Logger)
 }
 
+type CategorizerConfigurable interface {
+    SetCategorizer(categorizer models.TransactionCategorizer)
+}
+
+type BatchConverter interface {
+    BatchConvert(inputDir, outputDir string) (int, error)
+}
+
 type FullParser interface {
     Parser
     Validator
     CSVConverter
     LoggerConfigurable
+    CategorizerConfigurable
+    BatchConverter
 }
 ```
 
 **BaseParser Foundation:**
 All parsers embed a `BaseParser` struct that provides common functionality:
 - Logger management (implements `LoggerConfigurable`)
+- Categorizer management (implements `CategorizerConfigurable`)
 - CSV writing capability (implements `CSVConverter`)
 - Consistent initialization patterns
 
