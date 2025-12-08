@@ -73,6 +73,14 @@ type LoggerConfigurable interface {
     SetLogger(logger logging.Logger)
 }
 
+type CategorizerConfigurable interface {
+    SetCategorizer(categorizer models.TransactionCategorizer)
+}
+
+type BatchConverter interface {
+    BatchConvert(inputDir, outputDir string) (int, error)
+}
+
 // FullParser combines all capabilities
 type FullParser interface {
     Parser
@@ -80,10 +88,11 @@ type FullParser interface {
     CSVConverter
     LoggerConfigurable
     CategorizerConfigurable
+    BatchConverter
 }
 ```
 
-New parsers are registered in `internal/factory/factory.go` via `GetParserWithLogger(parserType, logger)`.
+New parsers are registered in `internal/factory/factory.go`. **Important**: CLI commands should get parsers from the DI Container (`root.GetContainer().GetParser()`), not directly from the factory, to ensure categorizers are properly wired.
 
 **Three-Tier Categorization** (`internal/categorizer/`):
 
@@ -110,8 +119,19 @@ AI categorizations are auto-learned and saved back to YAML files.
 Configuration loads in order (later overrides earlier):
 
 1. Config file: `~/.camt-csv/camt-csv.yaml` or `.camt-csv/config.yaml`
-2. Environment variables: `CAMT_LOG_LEVEL`, `GEMINI_API_KEY`, etc.
+2. Environment variables (see mapping below)
 3. CLI flags: `--log-level`, `--ai-enabled`, etc.
+
+**Environment Variable Mapping:**
+
+| Config Key | Environment Variable | CLI Flag |
+|------------|---------------------|----------|
+| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` |
+| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` |
+| `ai.model` | `CAMT_AI_MODEL` | - |
+| `ai.api_key` | `GEMINI_API_KEY` | - |
+
+Note: The `.env` file is auto-loaded from the current directory.
 
 ### Testing Conventions
 
