@@ -7,18 +7,18 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/xmlpath.v2"
+	"github.com/antchfx/xmlquery"
 )
 
 // LoadXMLFile loads an XML file and returns the XML root node
-func LoadXMLFile(xmlFilePath string) (*xmlpath.Node, error) {
+func LoadXMLFile(xmlFilePath string) (*xmlquery.Node, error) {
 	file, err := os.Open(xmlFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open XML file: %w", err)
 	}
 	defer func() { _ = file.Close() }() // Error on close is not critical for read-only operations
 
-	root, err := xmlpath.Parse(file)
+	root, err := xmlquery.Parse(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse XML file: %w", err)
 	}
@@ -27,16 +27,15 @@ func LoadXMLFile(xmlFilePath string) (*xmlpath.Node, error) {
 }
 
 // ExtractFromXML extracts values from an XML node using an XPath expression
-func ExtractFromXML(root *xmlpath.Node, xpath string) ([]string, error) {
-	path, err := xmlpath.Compile(xpath)
+func ExtractFromXML(root *xmlquery.Node, xpathExpr string) ([]string, error) {
+	nodes, err := xmlquery.QueryAll(root, xpathExpr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile XPath: %w", err)
 	}
 
 	var values []string
-	iter := path.Iter(root)
-	for iter.Next() {
-		values = append(values, iter.Node().String())
+	for _, node := range nodes {
+		values = append(values, node.InnerText())
 	}
 
 	return values, nil
