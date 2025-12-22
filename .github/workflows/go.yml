@@ -90,3 +90,16 @@ jobs:
         with:
           sarif_file: security.sarif
           category: gosec
+
+      - name: Install cyclonedx-gomod
+        run: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+
+      - name: Generate SBOM
+        run: cyclonedx-gomod mod -json -output sbom.json
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.json
+          retention-days: 90
