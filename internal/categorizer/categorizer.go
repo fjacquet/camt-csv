@@ -383,6 +383,14 @@ func categoryDescriptionFromName(name string) string {
 	return "Description for " + name
 }
 
+//------------------------------------------------------------------------------
+// PARTY MAPPING UPDATES
+//------------------------------------------------------------------------------
+// The following methods follow a symmetric pattern for debitors and creditors.
+// This intentional duplication (2 cases) keeps the code simple and readable,
+// rather than adding abstraction overhead for minimal code reuse benefit.
+// Each method is small (~10 lines) and self-contained.
+
 // UpdateDebitorCategory updates a debitor category mapping for this categorizer instance.
 func (c *Categorizer) UpdateDebitorCategory(partyName, categoryName string) {
 	c.updateDebitorCategory(partyName, categoryName)

@@ -18,15 +18,66 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// Pre-compiled regex patterns for performance
+var (
+	// Transaction date patterns
+	datePatternSimple    = regexp.MustCompile(`^\d{2}\.\d{2}\.\d{2,4}`)
+	datePatternCapture   = regexp.MustCompile(`^(\d{2}\.\d{2}\.\d{2,4})`)
+	dateValuePattern     = regexp.MustCompile(`^(\d{2}\.\d{2}\.\d{2,4})(?:\s+(\d{2}\.\d{2}\.\d{2,4}))?`)
+	nonDigitDotPattern   = regexp.MustCompile(`[^\d.]`)
+	multipleSpacePattern = regexp.MustCompile(`\s+`)
+	tripleSpacePattern   = regexp.MustCompile(`[ ]{3,}`)
+
+	// Amount patterns
+	amountEndPattern      = regexp.MustCompile(`(\d+[\'.,]\d+)\s*(-)?$`)
+	amountGenericPattern  = regexp.MustCompile(`[+-]?\s*(\d+'?)+[,\.]?\d*\s*(CHF|EUR|USD|\$|€)?`)
+	amountCurrencyPattern = regexp.MustCompile(`\d+[\.,]\d+\s*[A-Z]{3}|[A-Z]{3}\s*\d+[\.,]\d+`)
+
+	// Currency and fee patterns
+	foreignCurrencyPattern = regexp.MustCompile(`([A-Z]{3})\s+(\d+[\'.,]\d+)`)
+	exchangeRatePattern    = regexp.MustCompile(`Taux de conversion\s+(\d+\.\d+)`)
+	processingFeePattern   = regexp.MustCompile(`Frais de traitement\s+.+?\s+(\d+\.\d+)`)
+
+	// Merchant identifier pattern
+	cardPurchasePattern = regexp.MustCompile(`(?i)card\s+purchase\s+at`)
+
+	// Payee extraction patterns
+	payeePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)payee:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)to:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)merchant:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)payment to:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)paid to:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)transfer to:\s*([^,;]+)`),
+	}
+
+	// Merchant extraction patterns
+	merchantPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)merchant:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)vendor:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)shop:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)store:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)payee name:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)business:\s*([^,;]+)`),
+		regexp.MustCompile(`(?i)company:\s*([^,;]+)`),
+	}
+
+	// Noise phrase patterns for description cleaning
+	noisePhrasePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)transaction date`),
+		regexp.MustCompile(`(?i)value date`),
+		regexp.MustCompile(`(?i)description`),
+		regexp.MustCompile(`(?i)amount`),
+	}
+)
+
 // getDefaultLogger returns a default logger for backward compatibility
 func getDefaultLogger() logging.Logger {
 	return logging.NewLogrusAdapter("info", "text")
 }
 
-// log provides backward compatibility for existing log references
-var log = getDefaultLogger()
-
-// Define extractTextFromPDF as a variable holding a function
+// extractTextFromPDF is a function variable to allow test mocking
+// Note: This is intentionally a package-level variable to support testing
 var extractTextFromPDF = extractTextFromPDFImpl
 
 func extractTextFromPDFImpl(pdfFile string) (string, error) {
@@ -56,7 +107,7 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 }
 
 // parseTransactions parses transaction data from PDF text content
-func parseTransactions(lines []string) ([]models.Transaction, error) {
+func parseTransactions(lines []string, logger logging.Logger) ([]models.Transaction, error) {
 	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
 	transactions := make([]models.Transaction, 0, 50)
 	var currentTx models.Transaction
@@ -83,7 +134,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		if strings.Contains(line, "Visa Gold") || strings.Contains(line, "Visa Platinum") ||
 			strings.Contains(line, "Mastercard") || strings.Contains(line, "XXXX") {
 			isVisecaFormat = true
-			log.Debug("Detected Viseca PDF format - card pattern matched")
+			logger.Debug("Detected Viseca PDF format - card pattern matched")
 			break
 		}
 
@@ -91,17 +142,17 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		if strings.Contains(line, "Montant total dernier relevé") ||
 			strings.Contains(line, "Votre paiement - Merci") {
 			isVisecaFormat = true
-			log.Debug("Detected Viseca PDF format - statement pattern matched")
+			logger.Debug("Detected Viseca PDF format - statement pattern matched")
 			break
 		}
 	}
 
-	log.Debug("Format detection result",
+	logger.Debug("Format detection result",
 		logging.Field{Key: "isVisecaFormat", Value: isVisecaFormat})
 
 	// For Viseca format, use a specialized transaction extraction approach
 	if isVisecaFormat {
-		return parseVisecaTransactions(lines)
+		return parseVisecaTransactions(lines, logger)
 	}
 
 	// Standard PDF format parsing continues below
@@ -118,14 +169,13 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 		}
 
 		// Identify transaction start by date pattern (DD.MM.YY or similar)
-		datePattern := regexp.MustCompile(`^\d{2}\.\d{2}\.\d{2,4}`)
-		if datePattern.MatchString(trimmedLine) {
-			log.Debug("Found potential transaction start",
+		if datePatternSimple.MatchString(trimmedLine) {
+			logger.Debug("Found potential transaction start",
 				logging.Field{Key: "line", Value: trimmedLine})
 
 			// Finalize previous transaction if we're in one
 			if inTransaction {
-				log.Debug("Finalizing previous transaction")
+				logger.Debug("Finalizing previous transaction")
 				finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
 			}
 
@@ -139,11 +189,11 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			fields := strings.Fields(trimmedLine)
 			if len(fields) > 0 {
 				currentTx.Date = formatDate(fields[0])
-				log.Debug("Extracted transaction date",
+				logger.Debug("Extracted transaction date",
 					logging.Field{Key: "date", Value: currentTx.Date.Format(dateutils.DateLayoutEuropean)})
 
 				// Try to extract value date if present
-				if len(fields) > 1 && datePattern.MatchString(fields[1]) {
+				if len(fields) > 1 && datePatternSimple.MatchString(fields[1]) {
 					currentTx.ValueDate = formatDate(fields[1])
 				}
 			}
@@ -163,7 +213,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 			merchant = extractMerchant(trimmedLine)
 		} else if inTransaction {
 			// Continuing a transaction - append to description
-			log.Debug("Continuing transaction with line",
+			logger.Debug("Continuing transaction with line",
 				logging.Field{Key: "line", Value: trimmedLine})
 			description.WriteString(" ")
 			description.WriteString(trimmedLine)
@@ -183,7 +233,7 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 
 	// Finalize the last transaction if needed
 	if inTransaction {
-		log.Debug("Finalizing last transaction")
+		logger.Debug("Finalizing last transaction")
 		finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
 	}
 
@@ -193,14 +243,14 @@ func parseTransactions(lines []string) ([]models.Transaction, error) {
 	// Remove duplicates
 	transactions = deduplicateTransactions(transactions)
 
-	log.Info("Extracted transactions from PDF",
+	logger.Info("Extracted transactions from PDF",
 		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
 
 // parseVisecaTransactions is a specialized parser for Viseca credit card statements
-func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
-	log.Debug("Processing Viseca PDF with specialized parser",
+func parseVisecaTransactions(lines []string, logger logging.Logger) ([]models.Transaction, error) {
+	logger.Debug("Processing Viseca PDF with specialized parser",
 		logging.Field{Key: "lineCount", Value: len(lines)})
 
 	var transactions []models.Transaction
@@ -208,7 +258,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 	// For debugging, dump the first few lines
 	for i := 0; i < min(20, len(lines)); i++ {
-		log.Debug("Sample line from PDF",
+		logger.Debug("Sample line from PDF",
 			logging.Field{Key: "line", Value: lines[i]})
 	}
 
@@ -221,7 +271,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Skip Viseca header lines
 		if strings.Contains(line, "Date de") || (strings.Contains(line, "Date") && strings.Contains(line, "valeur") && strings.Contains(line, "Détails") && strings.Contains(line, "Montant")) {
-			log.Debug("Skipping header line")
+			logger.Debug("Skipping header line")
 			continue
 		}
 
@@ -235,13 +285,12 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		}
 
 		// Check if the line starts with a date (DD.MM.YY or DD.MM.YYYY format)
-		datePattern := regexp.MustCompile(`^(\d{2}\.\d{2}\.\d{2,4})`)
-		if !datePattern.MatchString(line) {
+		if !datePatternCapture.MatchString(line) {
 			// Not a transaction line, could be a category or additional info
 			// Store it to potentially attach to the previous transaction
 			if strings.TrimSpace(line) != "" && !strings.Contains(line, "XXXX") {
 				currentCategory = strings.TrimSpace(line)
-				log.Debug("Found potential category line",
+				logger.Debug("Found potential category line",
 					logging.Field{Key: "category", Value: currentCategory})
 			}
 			continue
@@ -250,10 +299,9 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// This looks like a transaction line - extract the components
 
 		// Extract transaction date and optional value date (DD.MM.YY(YY))
-		dateValuePattern := regexp.MustCompile(`^(\d{2}\.\d{2}\.\d{2,4})(?:\s+(\d{2}\.\d{2}\.\d{2,4}))?`)
 		dateValueMatch := dateValuePattern.FindStringSubmatch(line)
 		if len(dateValueMatch) < 2 || dateValueMatch[1] == "" {
-			log.Debug("Invalid transaction line format - missing date",
+			logger.Debug("Invalid transaction line format - missing date",
 				logging.Field{Key: "line", Value: line})
 			continue
 		}
@@ -271,18 +319,17 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Check for "Montant total" or "Votre paiement" lines - these are summaries, not transactions
 		if strings.Contains(remainingLine, "Montant total") ||
 			strings.Contains(remainingLine, "Votre paiement") {
-			log.Debug("Skipping summary line",
+			logger.Debug("Skipping summary line",
 				logging.Field{Key: "line", Value: line})
 			continue
 		}
 
 		// The amount is typically right-aligned at the end
 		// Look for a number pattern at the end, possibly followed by a minus sign
-		amountPattern := regexp.MustCompile(`(\d+[\'.,]\d+)\s*(-)?$`)
-		amountMatch := amountPattern.FindStringSubmatch(remainingLine)
+		amountMatch := amountEndPattern.FindStringSubmatch(remainingLine)
 
 		if len(amountMatch) < 2 {
-			log.Debug("Could not extract amount from transaction line",
+			logger.Debug("Could not extract amount from transaction line",
 				logging.Field{Key: "line", Value: line})
 			continue
 		}
@@ -297,7 +344,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Extract description (everything between dates and amount)
 		descriptionEndPos := strings.LastIndex(remainingLine, amount)
 		if descriptionEndPos <= 0 {
-			log.Debug("Could not determine description boundaries",
+			logger.Debug("Could not determine description boundaries",
 				logging.Field{Key: "line", Value: line})
 			continue
 		}
@@ -306,7 +353,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Check for foreign currency indicators
 		var originalCurrency, originalAmount string
-		currencyMatch := regexp.MustCompile(`([A-Z]{3})\s+(\d+[\'.,]\d+)`).FindStringSubmatch(description)
+		currencyMatch := foreignCurrencyPattern.FindStringSubmatch(description)
 		if len(currencyMatch) > 2 {
 			originalCurrency = currencyMatch[1]
 			originalAmount = strings.ReplaceAll(currencyMatch[2], "'", "")
@@ -315,7 +362,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			description = strings.Replace(description, currencyMatch[0], "", 1)
 			description = strings.TrimSpace(description)
 
-			log.Debug("Found foreign currency transaction",
+			logger.Debug("Found foreign currency transaction",
 				logging.Field{Key: "currency", Value: originalCurrency},
 				logging.Field{Key: "amount", Value: originalAmount})
 		}
@@ -338,7 +385,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Build the transaction
 		tx, err := builder.Build()
 		if err != nil {
-			log.WithError(err).Warn("Failed to build transaction, skipping",
+			logger.WithError(err).Warn("Failed to build transaction, skipping",
 				logging.Field{Key: "description", Value: description})
 			continue
 		}
@@ -346,7 +393,7 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 		// Attach category if we have one
 		if currentCategory != "" {
 			tx.Description = tx.Description + " - " + currentCategory
-			log.Debug("Added category to transaction",
+			logger.Debug("Added category to transaction",
 				logging.Field{Key: "category", Value: currentCategory})
 			currentCategory = "" // Reset for next transaction
 		}
@@ -363,28 +410,28 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 			}
 
 			// If the next line starts with a date, it's a new transaction - stop looking
-			if datePattern.MatchString(nextLine) {
+			if datePatternCapture.MatchString(nextLine) {
 				break
 			}
 
 			// Look for exchange rate information
 			if strings.Contains(nextLine, "Taux de conversion") {
-				exchangeRateMatch := regexp.MustCompile(`Taux de conversion\s+(\d+\.\d+)`).FindStringSubmatch(nextLine)
+				exchangeRateMatch := exchangeRatePattern.FindStringSubmatch(nextLine)
 				if len(exchangeRateMatch) > 1 {
 					tx.ExchangeRate = models.ParseAmount(exchangeRateMatch[1])
 					exchangeRateFound = true
-					log.Debug("Found exchange rate",
+					logger.Debug("Found exchange rate",
 						logging.Field{Key: "exchangeRate", Value: tx.ExchangeRate.String()})
 				}
 			}
 
 			// Look for processing fee information
 			if strings.Contains(nextLine, "Frais de traitement") {
-				feeMatch := regexp.MustCompile(`Frais de traitement\s+.+?\s+(\d+\.\d+)`).FindStringSubmatch(nextLine)
+				feeMatch := processingFeePattern.FindStringSubmatch(nextLine)
 				if len(feeMatch) > 1 {
 					tx.Fees = models.ParseAmount(feeMatch[1])
 					processingFeeFound = true
-					log.Debug("Found processing fees",
+					logger.Debug("Found processing fees",
 						logging.Field{Key: "fees", Value: tx.Fees.String()})
 				}
 			}
@@ -397,14 +444,14 @@ func parseVisecaTransactions(lines []string) ([]models.Transaction, error) {
 
 		// Add transaction to list
 		transactions = append(transactions, tx)
-		log.Debug("Added transaction",
+		logger.Debug("Added transaction",
 			logging.Field{Key: "date", Value: tx.Date},
 			logging.Field{Key: "description", Value: tx.Description},
 			logging.Field{Key: "amount", Value: tx.Amount.String()})
 	}
 
 	// Log the number of transactions found
-	log.Info("Extracted transactions from Viseca PDF",
+	logger.Info("Extracted transactions from Viseca PDF",
 		logging.Field{Key: "count", Value: len(transactions)})
 	return transactions, nil
 }
@@ -477,8 +524,7 @@ func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant
 // extractAmount extracts the amount from a transaction line
 func extractAmount(text string) (string, decimal.Decimal, bool) {
 	// Match patterns like "123.45 USD" or "USD 123.45"
-	amountPattern := regexp.MustCompile(`[+-]?\s*(\d+'?)+[,\.]?\d*\s*(CHF|EUR|USD|\$|€)?`)
-	amountMatch := amountPattern.FindString(text)
+	amountMatch := amountGenericPattern.FindString(text)
 
 	if amountMatch != "" {
 		amountStr := amountMatch
@@ -496,15 +542,14 @@ func extractAmount(text string) (string, decimal.Decimal, bool) {
 // cleanDescription removes unwanted elements from the description
 func cleanDescription(description string) string {
 	// Replace multiple spaces with a single space
-	description = regexp.MustCompile(`\s+`).ReplaceAllString(description, " ")
+	description = multipleSpacePattern.ReplaceAllString(description, " ")
 
 	// Remove leading/trailing whitespace
 	description = strings.TrimSpace(description)
 
-	// Remove common noise phrases
-	noisePhrases := []string{"transaction date", "value date", "description", "amount"}
-	for _, phrase := range noisePhrases {
-		description = regexp.MustCompile(`(?i)`+phrase).ReplaceAllString(description, "")
+	// Remove common noise phrases using pre-compiled patterns
+	for _, pattern := range noisePhrasePatterns {
+		description = pattern.ReplaceAllString(description, "")
 	}
 
 	return description
@@ -512,18 +557,8 @@ func cleanDescription(description string) string {
 
 // extractPayee extracts the payee/merchant from a description
 func extractPayee(description string) string {
-	// Common patterns for merchant names in transaction descriptions
-	patterns := []string{
-		`(?i)payee:\s*([^,;]+)`,
-		`(?i)to:\s*([^,;]+)`,
-		`(?i)merchant:\s*([^,;]+)`,
-		`(?i)payment to:\s*([^,;]+)`,
-		`(?i)paid to:\s*([^,;]+)`,
-		`(?i)transfer to:\s*([^,;]+)`,
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
+	// Try pre-compiled payee patterns
+	for _, re := range payeePatterns {
 		matches := re.FindStringSubmatch(description)
 		if len(matches) > 1 {
 			return strings.TrimSpace(matches[1])
@@ -579,19 +614,8 @@ func extractPayee(description string) string {
 
 // extractMerchant extracts the merchant from a description
 func extractMerchant(description string) string {
-	// Common patterns for merchant names in transaction descriptions
-	patterns := []string{
-		`(?i)merchant:\s*([^,;]+)`,
-		`(?i)vendor:\s*([^,;]+)`,
-		`(?i)shop:\s*([^,;]+)`,
-		`(?i)store:\s*([^,;]+)`,
-		`(?i)payee name:\s*([^,;]+)`,
-		`(?i)business:\s*([^,;]+)`,
-		`(?i)company:\s*([^,;]+)`,
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
+	// Try pre-compiled merchant patterns
+	for _, re := range merchantPatterns {
 		matches := re.FindStringSubmatch(description)
 		if len(matches) > 1 {
 			return strings.TrimSpace(matches[1])
@@ -630,7 +654,7 @@ func preProcessText(text string) string {
 
 	// Replace multiple consecutive spaces with a single space
 	// But preserve alignment for amount values which are typically right-aligned
-	text = regexp.MustCompile(`[ ]{3,}`).ReplaceAllString(text, "   ")
+	text = tripleSpacePattern.ReplaceAllString(text, "   ")
 
 	// Remove empty lines
 	var lines []string
@@ -659,7 +683,6 @@ func containsMerchantIdentifier(line string) bool {
 	}
 
 	// Look for "Card purchase at" pattern
-	cardPurchasePattern := regexp.MustCompile(`(?i)card\s+purchase\s+at`)
 	if cardPurchasePattern.MatchString(line) {
 		return true
 	}
@@ -669,8 +692,7 @@ func containsMerchantIdentifier(line string) bool {
 
 // containsAmount checks if a line contains a monetary amount
 func containsAmount(line string) bool {
-	amountPattern := regexp.MustCompile(`\d+[\.,]\d+\s*[A-Z]{3}|[A-Z]{3}\s*\d+[\.,]\d+`)
-	return amountPattern.MatchString(line)
+	return amountCurrencyPattern.MatchString(line)
 }
 
 // deduplicateTransactions removes duplicate transactions based on date, description, and amount
@@ -719,8 +741,7 @@ func determineCreditDebit(description string) string {
 // formatDate parses a date string and returns time.Time
 func formatDate(date string) time.Time {
 	// Remove any non-digit or dot characters
-	re := regexp.MustCompile(`[^\d.]`)
-	date = re.ReplaceAllString(date, "")
+	date = nonDigitDotPattern.ReplaceAllString(date, "")
 
 	// Try to identify the format
 	formats := []string{

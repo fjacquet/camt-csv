@@ -1,13 +1,69 @@
 package debit_test
 
 import (
+	"errors"
+	"io"
 	"testing"
+
+	"fjacquet/camt-csv/cmd/common"
+	"fjacquet/camt-csv/internal/logging"
+	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDebitConvertCommand_InvalidFile(t *testing.T) {
-	// Skip this test as it calls log.Fatal() which exits the process
-	// This test validates error handling which works correctly in production
-	// but cannot be tested in the current architecture without refactoring
-	// to return errors instead of calling log.Fatal()
-	t.Skip("Skipping test that calls log.Fatal() - command correctly handles invalid files in production")
+// mockFullParser implements parser.FullParser for testing
+type mockFullParser struct {
+	validateErr    error
+	validateResult bool
+	convertErr     error
+}
+
+func (m *mockFullParser) Parse(r io.Reader) ([]models.Transaction, error) {
+	return nil, nil
+}
+
+func (m *mockFullParser) ValidateFormat(filePath string) (bool, error) {
+	return m.validateResult, m.validateErr
+}
+
+func (m *mockFullParser) ConvertToCSV(inputFile, outputFile string) error {
+	return m.convertErr
+}
+
+func (m *mockFullParser) SetLogger(logger logging.Logger) {}
+
+func (m *mockFullParser) SetCategorizer(categorizer models.TransactionCategorizer) {}
+
+func (m *mockFullParser) BatchConvert(inputDir, outputDir string) (int, error) {
+	return 0, nil
+}
+
+var _ parser.FullParser = (*mockFullParser)(nil)
+
+func TestDebitConvert_InvalidFormat(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockParser := &mockFullParser{
+		validateResult: false,
+		validateErr:    nil,
+	}
+
+	err := common.ProcessFileWithError(mockParser, "input.csv", "output.csv", true, logger)
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, common.ErrInvalidFormat)
+}
+
+func TestDebitConvert_ConversionError(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockParser := &mockFullParser{
+		validateResult: true,
+		convertErr:     errors.New("Debit parsing failed"),
+	}
+
+	err := common.ProcessFileWithError(mockParser, "input.csv", "output.csv", true, logger)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error converting to CSV")
 }

@@ -18,8 +18,9 @@ const (
 	DateLayoutWithMonth = "2-Jan-2006"
 )
 
-// CommonFormats is a list of standard formats to try when parsing dates
-var CommonFormats = []string{
+// commonFormats is the internal list of standard formats to try when parsing dates
+// This is kept private to prevent modification
+var commonFormats = []string{
 	DateLayoutISO,
 	DateLayoutEuropean,
 	DateLayoutSwiss,
@@ -33,6 +34,13 @@ var CommonFormats = []string{
 	"January 2, 2006",
 }
 
+// GetCommonFormats returns a copy of the standard date formats to prevent mutation
+func GetCommonFormats() []string {
+	result := make([]string, len(commonFormats))
+	copy(result, commonFormats)
+	return result
+}
+
 // ParseDate attempts to parse a date string using multiple common formats
 // Returns the parsed time and the detected format
 func ParseDate(dateStr string) (time.Time, string, error) {
@@ -40,7 +48,7 @@ func ParseDate(dateStr string) (time.Time, string, error) {
 	dateStr = CleanDateString(dateStr)
 
 	// Try each format until one works
-	for _, format := range CommonFormats {
+	for _, format := range commonFormats {
 		if t, err := time.Parse(format, dateStr); err == nil {
 			return t, format, nil
 		}

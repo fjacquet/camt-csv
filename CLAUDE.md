@@ -5,26 +5,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Test Commands
 
 ```bash
-# Build the application
-go build
+# Using Makefile (recommended)
+make build            # Build the application
+make test             # Run all tests
+make test-race        # Run tests with race detector
+make coverage         # Generate HTML coverage report
+make lint             # Run golangci-lint
+make security         # Run gosec security scan
+make sbom             # Generate SBOM (CycloneDX format)
+make all              # Lint, test, and build
+make install-tools    # Install dev tools (golangci-lint, gosec, cyclonedx-gomod)
 
-# Run all tests
-go test ./...
-
-# Run tests with race detection
-go test -v -race ./...
-
-# Run tests with coverage
-go test -v -coverprofile=coverage.txt -covermode=atomic ./...
-
-# Run a single test
-go test -v -run TestFunctionName ./path/to/package
-
-# Lint (requires golangci-lint)
-golangci-lint run --timeout=5m
-
-# Security scan (requires gosec)
-gosec -exclude=G304 ./...
+# Direct commands (for specific cases)
+go test -v -run TestFunctionName ./path/to/package  # Single test
+go test -v -coverprofile=coverage.txt ./...         # Coverage profile
 ```
 
 ## Architecture Overview
@@ -151,154 +145,27 @@ Note: The `.env` file is auto-loaded from the current directory.
 
 ## Coding Principles
 
-### KISS - Keep It Simple, Stupid
+> **Detailed patterns and examples**: See `.claude/skills/golang-expert/` for comprehensive Go patterns including functional programming, interface design, testing, concurrency, error handling, and performance optimization.
 
-Simplicity is the ultimate sophistication. Always prefer the simplest solution that works.
+### Core Principles
 
-```go
-// BAD - over-engineered
-type TransactionProcessorFactory interface {
-    CreateProcessor(config ProcessorConfig) TransactionProcessor
-}
-type TransactionProcessor interface {
-    Process(tx Transaction) (ProcessedTransaction, error)
-}
-
-// GOOD - simple and direct
-func ProcessTransaction(tx Transaction) (Transaction, error) {
-    // Direct implementation
-}
-```
-
-**Guidelines:**
-
-- Don't add abstraction until you need it (Rule of Three)
-- Avoid premature optimization
-- If a junior developer can't understand it in 5 minutes, simplify it
-- One function = one responsibility
-- Prefer flat over nested code
-
-### DRY - Don't Repeat Yourself
-
-Every piece of knowledge should have a single, authoritative representation.
-
-```go
-// BAD - repeated logic
-func ParseCAMTDate(s string) time.Time {
-    t, _ := time.Parse("2006-01-02", s)
-    return t
-}
-func ParseRevolutDate(s string) time.Time {
-    t, _ := time.Parse("2006-01-02", s)  // Duplicated!
-    return t
-}
-
-// GOOD - single source of truth
-const DateFormat = "2006-01-02"
-func ParseDate(s string) (time.Time, error) {
-    return time.Parse(DateFormat, s)
-}
-```
-
-**Guidelines:**
-
-- Extract common logic into shared functions (`internal/common/`)
-- Use constants for repeated values (`internal/models/constants.go`)
-- Single source of truth for business logic
-- But: Don't DRY prematurely - wait for 3 repetitions (Rule of Three)
-- Acceptable duplication: test code, simple one-liners
-
-### Functional Programming Guidelines
-
-This codebase follows functional programming principles where applicable:
-
-**1. No Global Mutable State**
-
-```go
-// BAD - global mutable state
-var log = logrus.New()
-func SetLogger(l *logrus.Logger) { log = l }
-
-// GOOD - dependency injection
-func NewParser(logger logging.Logger) *Parser {
-    return &Parser{logger: logger}
-}
-```
-
-**2. Immutability**
-
-```go
-// BAD - mutable struct fields
-type Container struct {
-    Logger logging.Logger  // Can be modified
-}
-
-// GOOD - private fields with getters
-type Container struct {
-    logger logging.Logger  // Immutable after creation
-}
-func (c *Container) GetLogger() logging.Logger { return c.logger }
-```
-
-**3. Pure Functions (where possible)**
-
-```go
-// BAD - modifies external state
-func ProcessTransaction(tx *Transaction) {
-    tx.Category = "Food"  // Mutates input
-}
-
-// GOOD - returns new value
-func CategorizeTransaction(tx Transaction) Transaction {
-    result := tx  // Copy
-    result.Category = "Food"
-    return result
-}
-```
-
-**4. Constants Over Variables**
-
-```go
-// BAD - mutable delimiter
-var Delimiter rune = ','
-
-// GOOD - constant
-const DefaultDelimiter rune = ','
-```
-
-**5. Configure at Construction**
-
-```go
-// BAD - SetX() mutator pattern
-parser := NewParser()
-parser.SetLogger(logger)
-parser.SetCategorizer(cat)
-
-// GOOD - constructor injection
-parser := NewParser(logger, categorizer)
-```
+1. **KISS** - Prefer the simplest solution. No abstraction until needed (Rule of Three).
+2. **DRY** - Single source of truth. Extract after 3 repetitions.
+3. **No Global Mutable State** - Use dependency injection via `Container`.
+4. **Immutability** - Private fields with getters, return new values.
+5. **Pure Functions** - Same input = same output, no side effects.
+6. **Interface Segregation** - Small, focused interfaces composed when needed.
 
 ### Dependency Injection
 
-All dependencies should flow through the `Container` (`internal/container/`):
+All dependencies flow through the `Container` (`internal/container/`):
 
 ```go
-// Create container with all dependencies
 container, err := container.NewContainer(cfg)
-
-// Access dependencies via getters
 logger := container.GetLogger()
 parser, _ := container.GetParser(container.CAMT)
 categorizer := container.GetCategorizer()
 ```
-
-### Interface Design
-
-Follow Interface Segregation Principle:
-
-- Small, focused interfaces (`Parser`, `Validator`, `CSVConverter`)
-- Compose into larger interfaces when needed (`FullParser`)
-- Use `models.TransactionCategorizer` for categorization (type-safe)
 
 ## Changelog Management
 

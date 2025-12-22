@@ -1,4 +1,4 @@
-.PHONY: build test lint security clean coverage help install-tools
+.PHONY: build test lint security clean coverage help install-tools sbom
 
 # Build variables
 BINARY_NAME=camt-csv
@@ -53,17 +53,23 @@ security:
 	gosec -exclude=G304 -fmt=sarif -out=security.sarif ./...
 	@echo "Security report: security.sarif"
 
+## sbom: Generate Software Bill of Materials (CycloneDX format)
+sbom:
+	cyclonedx-gomod mod -json -output sbom.json
+	@echo "SBOM generated: sbom.json"
+
 ## clean: Clean build artifacts
 clean:
 	rm -f $(BINARY_NAME)
 	rm -f coverage.txt coverage.html
-	rm -f security.sarif
+	rm -f security.sarif sbom.json
 	rm -f debug_pdf_extract.txt
 
 ## install-tools: Install development tools
 install-tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
 
 ## mod-tidy: Tidy go modules
 mod-tidy:

@@ -2,6 +2,9 @@
 package common
 
 import (
+	"errors"
+	"fmt"
+
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -11,8 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ProcessFile processes a single file using the given parser.
-func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) {
+// ErrInvalidFormat is returned when a file fails format validation.
+var ErrInvalidFormat = errors.New("file is not in a valid format")
+
+// ProcessFileWithError processes a single file using the given parser and returns an error on failure.
+// This is the preferred function for testable code.
+func ProcessFileWithError(p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) error {
 	// Set the logger on the parser using the new interface
 	p.SetLogger(log)
 
@@ -20,24 +27,59 @@ func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate boo
 		log.Info("Validating format...")
 		valid, err := p.ValidateFormat(inputFile)
 		if err != nil {
-			log.Fatalf("Error validating file: %v", err)
+			return fmt.Errorf("error validating file: %w", err)
 		}
 		if !valid {
-			log.Fatal("The file is not in a valid format")
+			return ErrInvalidFormat
 		}
 		log.Info("Validation successful.")
 	}
 
-	err := p.ConvertToCSV(inputFile, outputFile)
-	if err != nil {
-		log.Fatalf("Error converting to CSV: %v", err)
+	if err := p.ConvertToCSV(inputFile, outputFile); err != nil {
+		return fmt.Errorf("error converting to CSV: %w", err)
 	}
 	log.Info("Conversion completed successfully!")
+	return nil
+}
+
+// ProcessFile processes a single file using the given parser.
+// Deprecated: Use ProcessFileWithError instead for better error handling and testability.
+func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) {
+	if err := ProcessFileWithError(p, inputFile, outputFile, validate, log); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+// ProcessFileLegacyWithError processes a single file using the legacy parser interface and returns an error on failure.
+// This is the preferred function for testable code.
+//
+// Deprecated: Use ProcessFileWithError with parser.FullParser instead.
+func ProcessFileLegacyWithError(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) error {
+	// Set the logger on the parser using the new interface
+	parser.SetLogger(log)
+
+	if validate {
+		log.Info("Validating format...")
+		valid, err := parser.ValidateFormat(inputFile)
+		if err != nil {
+			return fmt.Errorf("error validating file: %w", err)
+		}
+		if !valid {
+			return ErrInvalidFormat
+		}
+		log.Info("Validation successful.")
+	}
+
+	if err := parser.ConvertToCSV(inputFile, outputFile); err != nil {
+		return fmt.Errorf("error converting to CSV: %w", err)
+	}
+	log.Info("Conversion completed successfully!")
+	return nil
 }
 
 // ProcessFileLegacy processes a single file using the legacy parser interface.
 //
-// Deprecated: Use ProcessFile with parser.FullParser instead.
+// Deprecated: Use ProcessFileWithError with parser.FullParser instead.
 // This function will be removed in v3.0.0.
 //
 // Migration example:
@@ -56,26 +98,9 @@ func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate boo
 //	}
 //	err = fullParser.ConvertToCSV(inputFile, outputFile)
 func ProcessFileLegacy(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
-	// Set the logger on the parser using the new interface
-	parser.SetLogger(log)
-
-	if validate {
-		log.Info("Validating format...")
-		valid, err := parser.ValidateFormat(inputFile)
-		if err != nil {
-			log.Fatalf("Error validating file: %v", err)
-		}
-		if !valid {
-			log.Fatal("The file is not in a valid format")
-		}
-		log.Info("Validation successful.")
+	if err := ProcessFileLegacyWithError(parser, inputFile, outputFile, validate, log); err != nil {
+		log.Fatalf("%v", err)
 	}
-
-	err := parser.ConvertToCSV(inputFile, outputFile)
-	if err != nil {
-		log.Fatalf("Error converting to CSV: %v", err)
-	}
-	log.Info("Conversion completed successfully!")
 }
 
 // SaveMappings saves the creditor and debitor mappings.

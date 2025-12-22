@@ -103,7 +103,7 @@ func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logg
 	lines := strings.Split(processedText, "\n")
 
 	// Parse the lines to extract transactions
-	transactions, err := parseTransactions(lines)
+	transactions, err := parseTransactions(lines, logger)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",

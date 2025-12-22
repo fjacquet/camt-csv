@@ -47,12 +47,18 @@ func (cp *ConcurrentProcessor) processSequential(entries []models.Entry, process
 	return transactions
 }
 
+// indexedEntry pairs an entry with its original index for order preservation
+type indexedEntry struct {
+	index int
+	entry *models.Entry
+}
+
 // processConcurrent handles large datasets with worker pools
 func (cp *ConcurrentProcessor) processConcurrent(entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
 	ctx := context.Background()
 
 	// Create channels for work distribution
-	entryChan := make(chan *models.Entry, cp.workerCount)
+	entryChan := make(chan indexedEntry, cp.workerCount)
 	resultChan := make(chan indexedTransaction, len(entries))
 
 	// Start workers
@@ -62,12 +68,12 @@ func (cp *ConcurrentProcessor) processConcurrent(entries []models.Entry, process
 		go cp.worker(ctx, &wg, entryChan, resultChan, processor)
 	}
 
-	// Send work to workers
+	// Send work to workers with their original indices
 	go func() {
 		defer close(entryChan)
 		for i := range entries {
 			select {
-			case entryChan <- &entries[i]:
+			case entryChan <- indexedEntry{index: i, entry: &entries[i]}:
 			case <-ctx.Done():
 				return
 			}
@@ -106,21 +112,21 @@ type indexedTransaction struct {
 }
 
 // worker processes entries from the channel
-func (cp *ConcurrentProcessor) worker(ctx context.Context, wg *sync.WaitGroup, entryChan <-chan *models.Entry, resultChan chan<- indexedTransaction, processor func(*models.Entry) models.Transaction) {
+func (cp *ConcurrentProcessor) worker(ctx context.Context, wg *sync.WaitGroup, entryChan <-chan indexedEntry, resultChan chan<- indexedTransaction, processor func(*models.Entry) models.Transaction) {
 	defer wg.Done()
 
 	for {
 		select {
-		case entry, ok := <-entryChan:
+		case ie, ok := <-entryChan:
 			if !ok {
 				return
 			}
 
-			tx := processor(entry)
+			tx := processor(ie.entry)
 
 			select {
 			case resultChan <- indexedTransaction{
-				index:       0, // Index would need to be passed with the entry
+				index:       ie.index,
 				transaction: tx,
 			}:
 			case <-ctx.Done():
