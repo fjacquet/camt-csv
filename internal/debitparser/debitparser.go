@@ -249,7 +249,7 @@ func ValidateFormatWithLogger(filePath string, logger logging.Logger) (bool, err
 	logger.Info("Validating Visa Debit CSV format",
 		logging.Field{Key: "file", Value: filePath})
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		logger.WithError(err).Error("Failed to open file for validation")
 		return false, fmt.Errorf("error opening file for validation: %w", err)

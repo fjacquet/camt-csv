@@ -33,7 +33,7 @@ func ReadCSVFile[TCSVRow any](filePath string, logger logging.Logger) ([]TCSVRow
 	logger.WithField("file", filePath).Info("Reading CSV file")
 
 	// Open the file
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		logger.WithError(err).Error("Failed to open CSV file")
 		return nil, fmt.Errorf("error opening CSV file: %w", err)
@@ -90,7 +90,7 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	}
 
 	// Create the file
-	file, err := os.Create(csvFile)
+	file, err := os.Create(csvFile) // #nosec G304 -- CLI tool requires user-provided output paths
 	if err != nil {
 		logger.WithError(err).Error("Failed to create CSV file")
 		return fmt.Errorf("error creating CSV file: %w", err)

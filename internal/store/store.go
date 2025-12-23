@@ -143,7 +143,7 @@ func (s *CategoryStore) LoadCategories() ([]models.CategoryConfig, error) {
 		return nil, fmt.Errorf("error resolving categories file: %w", err)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- config file path resolved internally
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []models.CategoryConfig{}, nil
@@ -188,7 +188,7 @@ func (s *CategoryStore) LoadCreditorMappings() (map[string]string, error) {
 		return nil, fmt.Errorf("error resolving creditor mappings file: %w", err)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- config file path resolved internally
 	if err != nil {
 		return nil, fmt.Errorf("error reading creditor mappings file: %w", err)
 	}
@@ -222,7 +222,7 @@ func (s *CategoryStore) LoadDebtorMappings() (map[string]string, error) {
 		return nil, fmt.Errorf("error resolving debtor mappings file: %w", err)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- config file path resolved internally
 	if err != nil {
 		return nil, fmt.Errorf("error reading debtor mappings file: %w", err)
 	}

@@ -423,7 +423,7 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	// Open the XML file
 
-	file, err := os.Open(xmlFile)
+	file, err := os.Open(xmlFile) // #nosec G304 -- CLI tool requires user-provided file paths
 
 	if err != nil {
 

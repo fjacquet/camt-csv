@@ -41,18 +41,18 @@ across spec.md, plan.md, and tasks.md after task generation.`,
 		tasksPath := filepath.Join(prereqs.FeatureDir, "tasks.md")
 		constitutionPath := ".specify/memory/constitution.md"
 
-		specContent, err := os.ReadFile(specPath)
+		specContent, err := os.ReadFile(specPath) // #nosec G304 -- reading spec files from known project paths
 		if err != nil {
 			fmt.Printf("Error reading spec.md: %s\n", err)
 			return
 		}
 
-		planContent, err := os.ReadFile(planPath)
+		planContent, err := os.ReadFile(planPath) // #nosec G304 -- reading plan files from known project paths
 		if err != nil {
 			fmt.Printf("Warning: could not read plan.md: %s\n", err)
 		}
 
-		tasksContent, err := os.ReadFile(tasksPath)
+		tasksContent, err := os.ReadFile(tasksPath) // #nosec G304 -- reading task files from known project paths
 		if err != nil {
 			fmt.Printf("Error reading tasks.md: %s\n", err)
 			return

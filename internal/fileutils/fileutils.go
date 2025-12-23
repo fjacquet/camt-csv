@@ -41,7 +41,7 @@ func ReadFile(filePath string) ([]byte, error) {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -72,7 +72,7 @@ func OpenFile(filePath string) (*os.File, error) {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -88,7 +88,7 @@ func CreateFile(filePath string) (*os.File, error) {
 		return nil, err
 	}
 
-	file, err := os.Create(filePath)
+	file, err := os.Create(filePath) // #nosec G304 -- CLI tool requires user-provided output paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}

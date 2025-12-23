@@ -29,7 +29,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
 func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
-	file, err := os.Open(inputFile)
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
 	}

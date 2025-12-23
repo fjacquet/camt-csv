@@ -38,7 +38,7 @@ func (p *ISO20022Parser) ParseFile(xmlFilePath string) ([]models.Transaction, er
 		logging.Field{Key: "file", Value: xmlFilePath})
 
 	// Read XML file
-	xmlBytes, err := os.ReadFile(xmlFilePath)
+	xmlBytes, err := os.ReadFile(xmlFilePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to read XML file: %w", err)
 	}
@@ -200,7 +200,7 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 		logging.Field{Key: "file", Value: filePath})
 
 	// Try to open and read the file
-	xmlFile, err := os.Open(filePath)
+	xmlFile, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return false, fmt.Errorf("error opening file: %w", err)
 	}
@@ -212,7 +212,7 @@ func (p *ISO20022Parser) ValidateFormat(filePath string) (bool, error) {
 	}()
 
 	// Read the file content
-	xmlBytes, err := os.ReadFile(filePath)
+	xmlBytes, err := os.ReadFile(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return false, fmt.Errorf("error reading file: %w", err)
 	}

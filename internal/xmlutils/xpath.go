@@ -12,7 +12,7 @@ import (
 
 // LoadXMLFile loads an XML file and returns the XML root node
 func LoadXMLFile(xmlFilePath string) (*xmlquery.Node, error) {
-	file, err := os.Open(xmlFilePath)
+	file, err := os.Open(xmlFilePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to open XML file: %w", err)
 	}

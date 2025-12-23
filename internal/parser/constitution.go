@@ -53,7 +53,7 @@ func (l *ConstitutionLoader) LoadConstitutionFiles(filePaths []string) ([]models
 
 // loadSingleConstitutionFile reads and parses a single YAML constitution file.
 func (l *ConstitutionLoader) loadSingleConstitutionFile(filePath string) ([]models.ConstitutionPrinciple, error) {
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 -- loading config files from known paths
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}

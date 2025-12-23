@@ -92,7 +92,7 @@ func (s *CodebaseScanner) scanDirectory(dirPath string) ([]models.CodebaseSectio
 // scanFile reads the content of a single file.
 // It returns a CodebaseSection for the file.
 func (s *CodebaseScanner) scanFile(filePath string) (models.CodebaseSection, error) {
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(filePath) // #nosec G304 -- scanning user-specified codebase paths
 	if err != nil {
 		s.logger.WithError(err).WithField("file", filePath).Error("Failed to read file")
 		return models.CodebaseSection{}, fmt.Errorf("failed to read file %s: %w", filePath, err)

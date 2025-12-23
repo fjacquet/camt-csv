@@ -242,7 +242,7 @@ func ConvertToCSV(inputFile, outputFile string, logger logging.Logger) error {
 		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
-	file, err := os.Open(inputFile)
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
 	}

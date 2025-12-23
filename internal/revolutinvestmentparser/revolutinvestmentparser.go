@@ -303,7 +303,7 @@ func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, log
 		logging.Field{Key: "count", Value: len(transactions)},
 		logging.Field{Key: "file", Value: csvFile})
 
-	file, err := os.Create(csvFile)
+	file, err := os.Create(csvFile) // #nosec G304 -- CLI tool requires user-provided output paths
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -359,7 +359,7 @@ func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger)
 		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
-	file, err := os.Open(inputFile)
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("failed to open input file: %w", err)
 	}

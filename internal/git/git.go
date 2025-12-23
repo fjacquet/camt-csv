@@ -44,3 +44,27 @@ func IsGitRepo() bool {
 	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	return cmd.Run() == nil
 }
+
+// GetChangedFiles returns a list of files changed between the working tree and a git reference.
+// This uses `git diff --name-only` for simple, reliable path extraction.
+func GetChangedFiles(gitRef string) ([]string, error) {
+	cmd := exec.Command("git", "diff", "--name-only", gitRef)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changed files: %s - %w", stderr.String(), err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	var files []string
+	for _, line := range lines {
+		if line = strings.TrimSpace(line); line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
+}

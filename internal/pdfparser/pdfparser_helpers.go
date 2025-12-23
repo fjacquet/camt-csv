@@ -93,7 +93,7 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	}
 
 	// Read the extracted text
-	output, err := os.ReadFile(tempFile)
+	output, err := os.ReadFile(tempFile) // #nosec G304 -- reading from app-generated temp file
 	if err != nil {
 		return "", fmt.Errorf("error reading extracted text: %w", err)
 	}

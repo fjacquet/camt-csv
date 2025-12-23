@@ -222,7 +222,7 @@ func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, log
 	}
 
 	// Create the file
-	file, err := os.Create(csvFile)
+	file, err := os.Create(csvFile) // #nosec G304 -- CLI tool requires user-provided output paths
 	if err != nil {
 		return fmt.Errorf("error creating CSV file: %w", err)
 	}
@@ -292,7 +292,7 @@ func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger)
 		logging.Field{Key: "output", Value: outputFile})
 
 	// Open the input file
-	file, err := os.Open(inputFile)
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
 	}
@@ -416,7 +416,7 @@ func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (
 		inputPath := fmt.Sprintf("%s/%s", inputDir, file.Name())
 
 		// Open the input file for validation and parsing
-		inputFile, err := os.Open(inputPath)
+		inputFile, err := os.Open(inputPath) // #nosec G304 -- CLI tool requires user-provided file paths
 		if err != nil {
 			logger.WithError(err).Warn("Error opening file, skipping",
 				logging.Field{Key: "file", Value: inputPath})

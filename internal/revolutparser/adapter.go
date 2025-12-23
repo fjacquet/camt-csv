@@ -29,7 +29,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
 func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
-	file, err := os.Open(inputFile)
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
 	}
@@ -50,7 +50,7 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 
 // ValidateFormat checks if a file is a valid Revolut CSV file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
-	f, err := os.Open(file)
+	f, err := os.Open(file) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return false, err
 	}

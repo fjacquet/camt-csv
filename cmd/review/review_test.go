@@ -254,3 +254,64 @@ principles:
 	assert.Equal(t, models.FindingStatusManualReviewRequired, report.Findings[0].Status)
 	assert.Contains(t, report.Findings[0].Details, "Placeholder finding for TEST-001")
 }
+
+func TestFilterPathsToChangedFiles(t *testing.T) {
+	tests := []struct {
+		name         string
+		original     []string
+		changedFiles []string
+		expected     []string
+	}{
+		{
+			name:         "empty original returns all changed files",
+			original:     []string{},
+			changedFiles: []string{"file1.go", "file2.go"},
+			expected:     []string{"file1.go", "file2.go"},
+		},
+		{
+			name:         "exact file match",
+			original:     []string{"file1.go"},
+			changedFiles: []string{"file1.go", "file2.go"},
+			expected:     []string{"file1.go"},
+		},
+		{
+			name:         "directory match",
+			original:     []string{"internal"},
+			changedFiles: []string{"internal/foo.go", "internal/bar.go", "cmd/main.go"},
+			expected:     []string{"internal/foo.go", "internal/bar.go"},
+		},
+		{
+			name:         "current directory match",
+			original:     []string{"."},
+			changedFiles: []string{"file1.go", "internal/foo.go"},
+			expected:     []string{"file1.go", "internal/foo.go"},
+		},
+		{
+			name:         "no overlap",
+			original:     []string{"src"},
+			changedFiles: []string{"internal/foo.go"},
+			expected:     []string{},
+		},
+		{
+			name:         "mixed matches",
+			original:     []string{"internal", "cmd/main.go"},
+			changedFiles: []string{"internal/foo.go", "cmd/main.go", "pkg/util.go"},
+			expected:     []string{"internal/foo.go", "cmd/main.go"},
+		},
+		{
+			name:         "no duplicates",
+			original:     []string{"internal", "internal/foo.go"},
+			changedFiles: []string{"internal/foo.go"},
+			expected:     []string{"internal/foo.go"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterPathsToChangedFiles(tt.original, tt.changedFiles)
+
+			// Sort for comparison (order may differ)
+			assert.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}

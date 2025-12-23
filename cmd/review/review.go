@@ -1,14 +1,16 @@
 package review
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"fjacquet/camt-csv/internal/git"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/report"
 	"fjacquet/camt-csv/internal/reviewer"
 	"fjacquet/camt-csv/internal/scanner"
-	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -54,17 +56,27 @@ identifying areas of non-compliance and proposing corrective actions.`, // Note:
 			if !git.IsGitRepo() {
 				return fmt.Errorf("current directory is not a Git repository, cannot use --git-ref")
 			}
-			diff, err := git.GetDiff(gitRef)
+
+			changedFiles, err := git.GetChangedFiles(gitRef)
 			if err != nil {
-				return fmt.Errorf("failed to get git diff: %w", err)
+				return fmt.Errorf("failed to get changed files: %w", err)
 			}
-			// For now, we'll just log the diff and proceed with all paths.
-			// In a real implementation, this diff would be parsed to get changed files.
+
+			if len(changedFiles) == 0 {
+				logger.Info("No files changed since reference",
+					logging.Field{Key: "git_ref", Value: gitRef})
+				fmt.Println("No files changed since", gitRef)
+				return nil
+			}
+
+			// Filter pathsToScan to only include changed files
+			pathsToScan = filterPathsToChangedFiles(args, changedFiles)
+
 			logger.WithFields(
 				logging.Field{Key: "git_ref", Value: gitRef},
-				logging.Field{Key: "diff", Value: diff},
-			).Debug("Git diff against reference")
-			// TODO: Parse diff to get changed files and update pathsToScan
+				logging.Field{Key: "changed_files", Value: len(changedFiles)},
+				logging.Field{Key: "paths_to_scan", Value: len(pathsToScan)},
+			).Info("Filtered to changed files only")
 		}
 
 		// 2. Perform review
@@ -108,4 +120,45 @@ func init() {
 // GetReviewCommand returns the Cobra command for the review functionality.
 func GetReviewCommand() *cobra.Command {
 	return reviewCmd
+}
+
+// filterPathsToChangedFiles returns only paths from original that match or contain changed files.
+// If original paths are directories, it includes changed files within those directories.
+// If original is empty (meaning scan current directory), it returns all changed files.
+func filterPathsToChangedFiles(original, changedFiles []string) []string {
+	// If no paths specified, use all changed files
+	if len(original) == 0 {
+		return changedFiles
+	}
+
+	changedSet := make(map[string]bool)
+	for _, f := range changedFiles {
+		changedSet[f] = true
+	}
+
+	var filtered []string
+	seen := make(map[string]bool)
+
+	for _, path := range original {
+		// Check if path is directly in changed files
+		if changedSet[path] {
+			if !seen[path] {
+				filtered = append(filtered, path)
+				seen[path] = true
+			}
+			continue
+		}
+
+		// Check if path is a directory containing changed files
+		for _, changed := range changedFiles {
+			if strings.HasPrefix(changed, path+"/") || path == "." {
+				if !seen[changed] {
+					filtered = append(filtered, changed)
+					seen[changed] = true
+				}
+			}
+		}
+	}
+
+	return filtered
 }

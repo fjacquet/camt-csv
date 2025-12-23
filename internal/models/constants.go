@@ -61,6 +61,6 @@ const (
 const (
 	EnvLogLevel     = "LOG_LEVEL"
 	EnvLogFormat    = "LOG_FORMAT"
-	EnvGeminiAPIKey = "GEMINI_API_KEY"
+	EnvGeminiAPIKey = "GEMINI_API_KEY" // #nosec G101 -- env var name, not a credential
 	EnvCSVDelimiter = "CSV_DELIMITER"
 )
