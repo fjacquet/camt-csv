@@ -9,32 +9,32 @@
 
 ## Executive Summary
 
-| Metric         | Current | Target | Status                                       |
-| -------------- | ------- | ------ | -------------------------------------------- |
-| Test Coverage  | ~46.6%  | 60%+   | :red_circle: Below target                    |
-| Linter Issues  | 1       | 0      | :yellow_circle: Pre-existing errcheck issue  |
-| FP Compliance  | ~100%   | Full   | :green_circle: All violations fixed          |
-| DRY Compliance | ~95%    | Full   | :green_circle: Date formats centralized      |
+| Metric         | Current | Target | Status                                      |
+| -------------- | ------- | ------ | ------------------------------------------- |
+| Test Coverage  | ~46.6%  | 60%+   | :red_circle: Below target                   |
+| Linter Issues  | 1       | 0      | :yellow_circle: Pre-existing errcheck issue |
+| FP Compliance  | ~100%   | Full   | :green_circle: All violations fixed         |
+| DRY Compliance | ~95%    | Full   | :green_circle: Date formats centralized     |
 
 ---
 
 ## Completed Items :white_check_mark:
 
-| Item                  | Description                                           |
-| --------------------- | ----------------------------------------------------- |
-| SLSA Workflow         | Created `.slsa-goreleaser.yml`, fixed Go version      |
-| Config Consolidation  | Deprecated legacy functions in config.go              |
-| Type-Safe Categorizer | Added `TransactionCategorizer` interface              |
-| Immutable Container   | Private fields with getters only                      |
-| CLAUDE.md             | Added KISS, DRY, FP guidelines                        |
-| Delimiter Constant    | Changed `var Delimiter` to `const` in common/csv.go   |
-| Remove SetDelimiter   | Removed mutable SetDelimiter() functions              |
+| Item                  | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| SLSA Workflow         | Created `.slsa-goreleaser.yml`, fixed Go version                                |
+| Config Consolidation  | Deprecated legacy functions in config.go                                        |
+| Type-Safe Categorizer | Added `TransactionCategorizer` interface                                        |
+| Immutable Container   | Private fields with getters only                                                |
+| CLAUDE.md             | Added KISS, DRY, FP guidelines                                                  |
+| Delimiter Constant    | Changed `var Delimiter` to `const` in common/csv.go                             |
+| Remove SetDelimiter   | Removed mutable SetDelimiter() functions                                        |
 | Utility Pkg Cleanup   | Removed unused log/SetLogger from currencyutils, dateutils, xmlutils, fileutils |
-| Date Format Constants | Changed date layouts to `const` in dateutils          |
-| Parser FP Compliance  | Removed global `var log` from selmaparser, debitparser, revolutparser |
-| Error Unwrap Methods  | Added `Unwrap()` to ValidationError, InvalidFormatError, DataExtractionError |
-| Logging Leak Fix      | Removed `GetLogrusLogger()` from logrus_adapter.go    |
-| DRY Date Formats      | Replaced hardcoded date formats with dateutils constants across all parsers |
+| Date Format Constants | Changed date layouts to `const` in dateutils                                    |
+| Parser FP Compliance  | Removed global `var log` from selmaparser, debitparser, revolutparser           |
+| Error Unwrap Methods  | Added `Unwrap()` to ValidationError, InvalidFormatError, DataExtractionError    |
+| Logging Leak Fix      | Removed `GetLogrusLogger()` from logrus_adapter.go                              |
+| DRY Date Formats      | Replaced hardcoded date formats with dateutils constants across all parsers     |
 
 ---
 
@@ -43,6 +43,7 @@
 ### 1. FP Violations - Global Mutable State :green_circle: COMPLETED
 
 **All FP violations have been fixed:**
+
 - ✅ Removed `var log` from: currencyutils, dateutils, xmlutils (was unused)
 - ✅ Removed `SetLogger()` from: fileutils, dateutils, currencyutils, xmlutils
 - ✅ Changed `var Delimiter` to `const` in common/csv.go
@@ -70,11 +71,11 @@
 
 ### 3. Error Unwrap() Methods :green_circle: COMPLETED
 
-| Error Type          | Has Unwrap()           | File                     |
-| ------------------- | ---------------------- | ------------------------ |
-| ParseError          | :white_check_mark: Yes | parsererror/errors.go:33 |
-| CategorizationError | :white_check_mark: Yes | parsererror/errors.go:70 |
-| ValidationError     | :white_check_mark: Yes | parsererror/errors.go:58 |
+| Error Type          | Has Unwrap()           | File                      |
+| ------------------- | ---------------------- | ------------------------- |
+| ParseError          | :white_check_mark: Yes | parsererror/errors.go:33  |
+| CategorizationError | :white_check_mark: Yes | parsererror/errors.go:70  |
+| ValidationError     | :white_check_mark: Yes | parsererror/errors.go:58  |
 | InvalidFormatError  | :white_check_mark: Yes | parsererror/errors.go:117 |
 | DataExtractionError | :white_check_mark: Yes | parsererror/errors.go:155 |
 
@@ -134,20 +135,20 @@
 
 ### Phase 1: FP Compliance (Priority: HIGH) - 100% Complete :green_circle:
 
-| Task                              | Files   | Status     |
-| --------------------------------- | ------- | ---------- |
-| Remove global `var log`           | 7 of 7  | ✅ Done    |
-| Remove `SetLogger()` functions    | 4 files | ✅ Done    |
-| Make `Delimiter` constant         | 2 files | ✅ Done    |
-| Remove `SetDelimiter()` functions | 2 files | ✅ Done    |
-| Remove parser `var log`           | 3 files | ✅ Done    |
+| Task                              | Files   | Status  |
+| --------------------------------- | ------- | ------- |
+| Remove global `var log`           | 7 of 7  | ✅ Done |
+| Remove `SetLogger()` functions    | 4 files | ✅ Done |
+| Make `Delimiter` constant         | 2 files | ✅ Done |
+| Remove `SetDelimiter()` functions | 2 files | ✅ Done |
+| Remove parser `var log`           | 3 files | ✅ Done |
 
 ### Phase 2: DRY Compliance (Priority: MEDIUM) - 100% Complete :green_circle:
 
-| Task                                   | Files     | Status     |
-| -------------------------------------- | --------- | ---------- |
-| Make date formats `const` in dateutils | 1 file    | ✅ Done    |
-| Replace hardcoded date formats         | 10 files  | ✅ Done    |
+| Task                                   | Files    | Status  |
+| -------------------------------------- | -------- | ------- |
+| Make date formats `const` in dateutils | 1 file   | ✅ Done |
+| Replace hardcoded date formats         | 10 files | ✅ Done |
 
 ### Phase 3: Error Handling (Priority: LOW) - 100% Complete :green_circle:
 
@@ -220,12 +221,12 @@ The parser handles **CAMT.053** (ISO 20022 Bank to Customer Statement):
 
 ## Summary
 
-| Category       | Original | Remaining | Progress      |
-| -------------- | -------- | --------- | ------------- |
-| FP Violations  | 13       | 0         | 100% done ✅  |
-| DRY Violations | ~10      | 0         | 100% done ✅  |
-| Error Handling | 3        | 0         | 100% done ✅  |
-| Logging Leak   | 1        | 0         | 100% done ✅  |
-| Test Coverage  | 14 pkgs  | 14 pkgs   | 0% done       |
+| Category       | Original | Remaining | Progress     |
+| -------------- | -------- | --------- | ------------ |
+| FP Violations  | 13       | 0         | 100% done ✅ |
+| DRY Violations | ~10      | 0         | 100% done ✅ |
+| Error Handling | 3        | 0         | 100% done ✅ |
+| Logging Leak   | 1        | 0         | 100% done ✅ |
+| Test Coverage  | 14 pkgs  | 14 pkgs   | 0% done      |
 
 **Remaining effort estimate: ~10h** (test coverage only)

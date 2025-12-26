@@ -48,3 +48,4 @@ database/creditors.yaml
 database/debtors.yaml
 .DS_Store
 sbom.json
+coverage.html
