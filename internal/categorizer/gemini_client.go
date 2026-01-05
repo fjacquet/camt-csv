@@ -47,6 +47,20 @@ type GeminiCandidate struct {
 	Content GeminiContent `json:"content"`
 }
 
+// GeminiEmbeddingRequest represents the request structure for Gemini Embedding API
+type GeminiEmbeddingRequest struct {
+	Content GeminiContent `json:"content"`
+}
+
+// GeminiEmbeddingResponse represents the response structure from Gemini Embedding API
+type GeminiEmbeddingResponse struct {
+	Embedding GeminiEmbeddingValues `json:"embedding"`
+}
+
+type GeminiEmbeddingValues struct {
+	Values []float32 `json:"values"`
+}
+
 // NewGeminiClient creates a new instance of GeminiClient.
 func NewGeminiClient(logger logging.Logger) *GeminiClient {
 	if logger == nil {
@@ -278,4 +292,69 @@ func (c *GeminiClient) cleanCategory(category string) string {
 	}
 
 	return category
+}
+
+// GetEmbedding returns the vector embedding for the given text using Gemini's embedding model
+func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
+	if c.apiKey == "" {
+		return nil, fmt.Errorf("API key not set")
+	}
+
+	// use text-embedding-004 for better performance/cost
+	embeddingModel := "text-embedding-004"
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent?key=%s", embeddingModel, c.apiKey)
+
+	request := GeminiEmbeddingRequest{
+		Content: GeminiContent{
+			Parts: []GeminiPart{
+				{Text: text},
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make API request: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.log.WithError(closeErr).Warn("Failed to close response body")
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.log.WithFields(
+			logging.Field{Key: "status_code", Value: resp.StatusCode},
+			logging.Field{Key: "response_body", Value: string(body)},
+		).Error("Gemini Embedding API returned error")
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var geminiResp GeminiEmbeddingResponse
+	if err := json.Unmarshal(body, &geminiResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if len(geminiResp.Embedding.Values) == 0 {
+		return nil, fmt.Errorf("empty embedding returned")
+	}
+
+	return geminiResp.Embedding.Values, nil
 }

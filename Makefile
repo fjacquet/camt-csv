@@ -55,7 +55,7 @@ security:
 
 ## sbom: Generate Software Bill of Materials (CycloneDX format)
 sbom:
-	cyclonedx-gomod mod -json -output sbom.json
+	../../go/bin/cyclonedx-gomod mod -json -output sbom.json
 	@echo "SBOM generated: sbom.json"
 
 ## clean: Clean build artifacts
@@ -86,4 +86,4 @@ run: build
 	./$(BINARY_NAME)
 
 ## all: Run lint, test, and build
-all: lint test build
+all: clean coverage lint test build sbom

@@ -21,11 +21,19 @@ import (
 
 // MockAIClient implements the AIClient interface for testing purposes.
 type MockAIClient struct {
-	CategorizeFunc func(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+	CategorizeFunc   func(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+	GetEmbeddingFunc func(ctx context.Context, text string) ([]float32, error)
 }
 
 func (m *MockAIClient) Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
 	return m.CategorizeFunc(ctx, transaction)
+}
+
+func (m *MockAIClient) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
+	if m.GetEmbeddingFunc != nil {
+		return m.GetEmbeddingFunc(ctx, text)
+	}
+	return []float32{0.0, 0.0}, nil
 }
 
 func TestCategorizer_CategorizeTransaction(t *testing.T) {

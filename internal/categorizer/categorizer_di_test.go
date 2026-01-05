@@ -14,7 +14,8 @@ import (
 
 // MockAIClient for testing dependency injection
 type MockAIClient struct {
-	CategorizeFunc func(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+	CategorizeFunc   func(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+	GetEmbeddingFunc func(ctx context.Context, text string) ([]float32, error)
 }
 
 func (m *MockAIClient) Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
@@ -24,6 +25,13 @@ func (m *MockAIClient) Categorize(ctx context.Context, transaction models.Transa
 	// Default behavior: return transaction with a mock category
 	transaction.Category = "MockCategory"
 	return transaction, nil
+}
+
+func (m *MockAIClient) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
+	if m.GetEmbeddingFunc != nil {
+		return m.GetEmbeddingFunc(ctx, text)
+	}
+	return []float32{0.0, 0.0}, nil
 }
 
 func TestCategorizeTransactionWithCategorizer(t *testing.T) {

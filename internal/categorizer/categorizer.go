@@ -122,19 +122,21 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		aiClient:         aiClient,
 	}
 
-	// Initialize strategies in priority order
-	c.strategies = []CategorizationStrategy{
-		NewDirectMappingStrategy(store, logger),
-		NewKeywordStrategy(store, logger),
-		NewAIStrategy(aiClient, logger),
-	}
-
 	// Load categories from YAML
 	categories, err := c.store.LoadCategories()
 	if err != nil {
 		c.logger.WithError(err).Warn("Failed to load categories")
 	} else {
 		c.categories = categories
+	}
+
+	// Initialize strategies in priority order
+	// Note: SemanticStrategy needs loaded categories to build its index
+	c.strategies = []CategorizationStrategy{
+		NewDirectMappingStrategy(store, logger),
+		NewKeywordStrategy(store, logger),
+		NewSemanticStrategy(aiClient, logger, c.categories),
+		NewAIStrategy(aiClient, logger),
 	}
 
 	// Load creditor mappings

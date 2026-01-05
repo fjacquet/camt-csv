@@ -15,9 +15,10 @@ import (
 
 // TestMockAIClient is a mock implementation of AIClient for testing with additional tracking.
 type TestMockAIClient struct {
-	CategorizeFunc  func(ctx context.Context, tx models.Transaction) (models.Transaction, error)
-	CallCount       int
-	LastTransaction models.Transaction
+	CategorizeFunc   func(ctx context.Context, tx models.Transaction) (models.Transaction, error)
+	GetEmbeddingFunc func(ctx context.Context, text string) ([]float32, error)
+	CallCount        int
+	LastTransaction  models.Transaction
 }
 
 func (m *TestMockAIClient) Categorize(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
@@ -31,6 +32,13 @@ func (m *TestMockAIClient) Categorize(ctx context.Context, tx models.Transaction
 	// Default behavior: return transaction with a test category
 	tx.Category = "AI Test Category"
 	return tx, nil
+}
+
+func (m *TestMockAIClient) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
+	if m.GetEmbeddingFunc != nil {
+		return m.GetEmbeddingFunc(ctx, text)
+	}
+	return []float32{0.1, 0.2, 0.3}, nil
 }
 
 func TestAIStrategy_Name(t *testing.T) {

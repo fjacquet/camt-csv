@@ -10,7 +10,7 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 ## ✨ Key Features
 
 - **Multi-format Support**: Extensible parser architecture with segregated interfaces (`Parser`, `Validator`, `CSVConverter`, `LoggerConfigurable`) and `BaseParser` foundation for easy addition of new financial statement formats.
-- **Smart Categorization**: Three-tier hybrid approach using direct mapping, keyword matching, and AI fallback with strategy pattern implementation (`DirectMappingStrategy`, `KeywordStrategy`, `AIStrategy`).
+- **Smart Categorization**: Four-tier hybrid approach using direct mapping, keyword matching, semantic vector search, and AI fallback with strategy pattern implementation (`DirectMappingStrategy`, `KeywordStrategy`, `SemanticStrategy`, `AIStrategy`).
 - **Dependency Injection Architecture**: Clean architecture with explicit dependencies through `Container` pattern, eliminating global state and improving testability.
 - **Framework-Agnostic Logging**: Structured logging abstraction (`logging.Logger` interface) with `LogrusAdapter` implementation for flexible logging backends and dependency injection.
 - **Transaction Builder Pattern**: Fluent API for constructing complex transactions with validation, type safety, and enhanced backward compatibility methods with direction-based logic (`GetPayee()`, `GetPayer()`, `GetCounterparty()`).
@@ -207,8 +207,9 @@ type Categorizer struct {
 
 // Strategies are executed in priority order:
 // 1. DirectMappingStrategy - Exact name matches (fastest)
-// 2. KeywordStrategy - Pattern matching (local)  
-// 3. AIStrategy - Gemini AI fallback (optional)
+// 2. KeywordStrategy - Pattern matching (local)
+// 3. SemanticStrategy - Vector embedding similarity (smart)
+// 4. AIStrategy - Gemini AI fallback (optional)
 
 // Usage with dependency injection
 categorizer := container.GetCategorizer()
@@ -219,7 +220,8 @@ category, err := categorizer.CategorizeTransaction(transaction)
 
 1. **Direct Mapping Strategy** - Instant recognition from `creditors.yaml`/`debtors.yaml` using exact name matching
 2. **Keyword Strategy** - Local pattern matching from `categories.yaml` using configurable keyword rules
-3. **AI Strategy** - Gemini AI for unknown transactions with auto-learning and rate limiting
+3. **Semantic Strategy** - Vector-based similarity search matching transactions to category concepts
+4. **AI Strategy** - Gemini AI for unknown transactions with auto-learning and rate limiting
 
 ### Dependency Injection
 

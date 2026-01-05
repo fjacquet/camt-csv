@@ -14,4 +14,7 @@ type AIClient interface {
 	// or an error if categorization fails.
 	// Implementations will interact with an external AI service (e.g., Google Gemini).
 	Categorize(ctx context.Context, transaction models.Transaction) (models.Transaction, error)
+
+	// GetEmbedding returns the vector embedding for the given text.
+	GetEmbedding(ctx context.Context, text string) ([]float32, error)
 }
