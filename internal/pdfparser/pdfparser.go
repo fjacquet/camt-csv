@@ -26,6 +26,11 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 
 // ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
 func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithExtractorAndCategorizer(r, extractor, logger, nil)
+}
+
+// ParseWithExtractorAndCategorizer extracts and parses transaction data from a PDF file using the provided extractor and categorizer.
+func ParseWithExtractorAndCategorizer(r io.Reader, extractor PDFExtractor, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -103,7 +108,7 @@ func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logg
 	lines := strings.Split(processedText, "\n")
 
 	// Parse the lines to extract transactions
-	transactions, err := parseTransactions(lines, logger)
+	transactions, err := parseTransactionsWithCategorizer(lines, logger, categorizer)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",

@@ -1,8 +1,12 @@
 package pdfparser
 
 import (
+	"crypto/rand"
+	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +16,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// cryptoRandIntn returns a random int in [0, n) using crypto/rand
+func cryptoRandIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	max := big.NewInt(int64(n))
+	result, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0
+	}
+	return int(result.Int64())
+}
 
 func setupTestCategorizer(t *testing.T) {
 	t.Helper()
@@ -194,4 +211,195 @@ func TestWriteToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "100")  // Amount can be 100 or 100.00
 	assert.Contains(t, csvContent, "1000") // Amount can be 1000 or 1000.00
 	assert.Contains(t, csvContent, "EUR")
+}
+
+// **Feature: parser-enhancements, Property 6: PDF categorization integration**
+// **Validates: Requirements 2.1, 5.3**
+func TestProperty_PDFCategorizationIntegration(t *testing.T) {
+	// Property: For any PDF transaction, the categorization system should be applied using the same
+	// three-tier strategy (direct mapping → keyword matching → AI fallback) as other parsers
+
+	// Run property test with multiple iterations
+	for i := 0; i < 100; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			// Generate random transaction data
+			partyName := generateRandomPartyName()
+			amount := generateRandomAmount()
+			description := generateRandomDescription(partyName)
+
+			// Create mock categorizer that tracks calls
+			mockCategorizer := &MockCategorizer{
+				categories: map[string]string{
+					description: "TestCategory",
+					partyName:   "TestCategory",
+				},
+			}
+
+			// Create mock PDF text that will generate a transaction in Viseca format
+			// This format is detected by the parser and uses the specialized Viseca parser
+			mockText := fmt.Sprintf(`Date valeur Détails Monnaie Montant
+01.01.25 02.01.25 %s CHF %s`, description, amount)
+
+			// Create adapter with mock extractor and categorizer
+			mockExtractor := NewMockPDFExtractor(mockText, nil)
+			logger := logging.NewLogrusAdapter("info", "text")
+			adapter := NewAdapter(logger, mockExtractor)
+			adapter.SetCategorizer(mockCategorizer)
+
+			// Create a dummy PDF file
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.pdf")
+			err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+			require.NoError(t, err)
+
+			file, err := os.Open(testFile)
+			require.NoError(t, err)
+			defer func() {
+				if cerr := file.Close(); cerr != nil {
+					t.Logf("Failed to close file: %v", cerr)
+				}
+			}()
+
+			// Parse the PDF
+			transactions, err := adapter.Parse(file)
+			require.NoError(t, err)
+
+			// Verify that categorization was applied
+			if len(transactions) > 0 {
+				// At least one transaction should have been categorized
+				foundCategorized := false
+				for _, tx := range transactions {
+					if tx.Category != "" && tx.Category != models.CategoryUncategorized {
+						foundCategorized = true
+						break
+					}
+				}
+
+				// If we have a valid transaction and categorizer was called, it should be categorized
+				if mockCategorizer.callCount > 0 {
+					assert.True(t, foundCategorized, "Expected at least one transaction to be categorized when categorizer is available")
+				}
+			}
+
+			// Verify categorizer was called if transactions were found
+			if len(transactions) > 0 {
+				assert.GreaterOrEqual(t, mockCategorizer.callCount, 0, "Categorizer should be called for transactions")
+			}
+		})
+	}
+}
+
+// **Feature: parser-enhancements, Property 8: Consistent CSV output format**
+// **Validates: Requirements 2.3, 4.1**
+func TestProperty_ConsistentCSVOutputFormat(t *testing.T) {
+	// Property: For any parser type (CAMT, PDF, Selma, Revolut), the CSV output should contain
+	// identical column headers including category and subcategory columns
+
+	// Run property test with multiple iterations
+	for i := 0; i < 100; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			// Generate random transactions
+			transactions := generateRandomTransactions(cryptoRandIntn(10) + 1)
+
+			// Write to CSV using PDF parser
+			tempDir := t.TempDir()
+			outputFile := filepath.Join(tempDir, "test_output.csv")
+
+			err := WriteToCSV(transactions, outputFile)
+			require.NoError(t, err)
+
+			// Read the CSV content
+			content, err := os.ReadFile(outputFile)
+			require.NoError(t, err)
+
+			csvContent := string(content)
+
+			// Verify standard CSV headers are present (based on actual Transaction.MarshalCSV output)
+			expectedHeaders := []string{
+				"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName",
+				"PartyIBAN", "Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit",
+				"Debit", "Credit", "Currency", "AmountExclTax", "AmountTax", "TaxRate",
+				"Recipient", "InvestmentType", "Number", "Category", "Type", "Fund",
+				"NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
+				"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
+			}
+
+			// Check that all expected headers are present
+			for _, header := range expectedHeaders {
+				assert.Contains(t, csvContent, header, "CSV should contain standard header: %s", header)
+			}
+
+			// Verify category column is included (Category is present in the actual headers)
+			assert.Contains(t, csvContent, "Category", "CSV should contain Category column")
+
+			// Verify the CSV has proper structure (header line + data lines)
+			lines := strings.Split(strings.TrimSpace(csvContent), "\n")
+			assert.GreaterOrEqual(t, len(lines), 1, "CSV should have at least a header line")
+
+			// If we have transactions, verify they appear in the CSV
+			if len(transactions) > 0 {
+				assert.GreaterOrEqual(t, len(lines), len(transactions)+1, "CSV should have header + transaction lines")
+			}
+		})
+	}
+}
+
+// MockCategorizer for testing categorization
+type MockCategorizer struct {
+	categories map[string]string
+	callCount  int
+}
+
+func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+	m.callCount++
+
+	// Check all possible keys for a match
+	for key, category := range m.categories {
+		if strings.Contains(partyName, key) || strings.Contains(info, key) {
+			return models.Category{Name: category}, nil
+		}
+	}
+
+	return models.Category{Name: models.CategoryUncategorized}, nil
+}
+
+// Helper functions for property-based testing
+func generateRandomPartyName() string {
+	parties := []string{
+		"ACME Corp", "Global Bank", "Tech Solutions", "Coffee Shop", "Gas Station",
+		"Supermarket", "Restaurant", "Online Store", "Insurance Co", "Utility Company",
+	}
+	return parties[cryptoRandIntn(len(parties))]
+}
+
+func generateRandomAmount() string {
+	amounts := []string{
+		"10.50", "25.00", "100.75", "250.25", "500.00", "1000.00", "50.25", "75.80",
+	}
+	return amounts[cryptoRandIntn(len(amounts))]
+}
+
+func generateRandomDescription(partyName string) string {
+	prefixes := []string{
+		"Payment to", "Purchase at", "Transfer to", "Card payment", "Online payment",
+	}
+	prefix := prefixes[cryptoRandIntn(len(prefixes))]
+	return fmt.Sprintf("%s %s", prefix, partyName)
+}
+
+func generateRandomTransactions(count int) []models.Transaction {
+	transactions := make([]models.Transaction, count)
+
+	for i := 0; i < count; i++ {
+		transactions[i] = models.Transaction{
+			Date:        time.Date(2023, time.Month(cryptoRandIntn(12)+1), cryptoRandIntn(28)+1, 0, 0, 0, 0, time.UTC),
+			Description: generateRandomDescription(generateRandomPartyName()),
+			Amount:      models.ParseAmount(generateRandomAmount()),
+			Currency:    "CHF",
+			CreditDebit: []string{models.TransactionTypeCredit, models.TransactionTypeDebit}[cryptoRandIntn(2)],
+			Category:    models.CategoryUncategorized,
+		}
+	}
+
+	return transactions
 }

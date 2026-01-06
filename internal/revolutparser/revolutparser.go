@@ -38,10 +38,18 @@ type RevolutCSVRow struct {
 
 // Parse parses a Revolut CSV file from an io.Reader and returns a slice of Transaction objects.
 // This is the main entry point for parsing Revolut CSV files.
+// Note: This function does not perform categorization. Use ParseWithCategorizer for full functionality.
 func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithCategorizer(r, logger, nil)
+}
+
+// ParseWithCategorizer parses a Revolut CSV file and categorizes transactions using the provided categorizer.
+// This is the preferred entry point when categorization is needed.
+func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
+
 	logger.Info("Parsing Revolut CSV from reader")
 
 	// Buffer the reader content so we can validate and parse from the same data
@@ -108,9 +116,28 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 			continue
 		}
 
-		// Note: Categorization is now handled by the categorizer component
-		// through dependency injection, not directly in the parser
-		tx.Category = models.CategoryUncategorized
+		// Categorize the transaction using the injected categorizer
+		if categorizer != nil {
+			// Determine if this is a debit (payment out) or credit (payment in)
+			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
+			catAmount := tx.Amount.String()
+			catDate := ""
+			if !tx.Date.IsZero() {
+				catDate = tx.Date.Format("02.01.2006")
+			}
+
+			category, catErr := categorizer.Categorize(tx.Description, isDebtor, catAmount, catDate, "")
+			if catErr != nil {
+				logger.WithError(catErr).WithFields(
+					logging.Field{Key: "party", Value: tx.Description},
+				).Warn("Failed to categorize transaction")
+				tx.Category = models.CategoryUncategorized
+			} else {
+				tx.Category = category.Name
+			}
+		} else {
+			tx.Category = models.CategoryUncategorized
+		}
 
 		transactions = append(transactions, tx)
 	}

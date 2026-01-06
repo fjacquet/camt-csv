@@ -30,7 +30,13 @@ type RevolutInvestmentCSVRow struct {
 // Note: Removed global logger in favor of dependency injection
 
 // Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
+// Note: This function does not perform categorization. Use ParseWithCategorizer for full functionality.
 func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithCategorizer(r, logger, nil)
+}
+
+// ParseWithCategorizer parses a Revolut investment CSV file and categorizes transactions using the provided categorizer.
+func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -96,6 +102,32 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "row", Value: i + 2})
 			continue
+		}
+
+		// Categorize the transaction using the injected categorizer
+		if categorizer != nil {
+			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
+			catAmount := transaction.Amount.String()
+			catDate := ""
+			if !transaction.Date.IsZero() {
+				catDate = transaction.Date.Format("02.01.2006")
+			}
+
+			category, catErr := categorizer.Categorize(transaction.PartyName, isDebtor, catAmount, catDate, "")
+			if catErr != nil {
+				logger.WithError(catErr).WithFields(
+					logging.Field{Key: "party", Value: transaction.PartyName},
+				).Warn("Failed to categorize transaction")
+				transaction.Category = models.CategoryUncategorized
+			} else {
+				transaction.Category = category.Name
+				logger.WithFields(
+					logging.Field{Key: "party", Value: transaction.PartyName},
+					logging.Field{Key: "category", Value: category.Name},
+				).Debug("Transaction categorized successfully")
+			}
+		} else {
+			transaction.Category = models.CategoryUncategorized
 		}
 
 		transactions = append(transactions, transaction)

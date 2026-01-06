@@ -29,7 +29,7 @@ func NewAdapter(logger logging.Logger, extractor PDFExtractor) *Adapter {
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
-	return ParseWithExtractor(r, a.extractor, a.GetLogger())
+	return ParseWithExtractorAndCategorizer(r, a.extractor, a.GetLogger(), a.GetCategorizer())
 }
 
 // ConvertToCSV implements models.Parser.ConvertToCSV

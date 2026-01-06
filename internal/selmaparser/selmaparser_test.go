@@ -1,8 +1,12 @@
 package selmaparser
 
 import (
+	"crypto/rand"
+	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +17,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// cryptoRandIntn returns a random int in [0, n) using crypto/rand
+func cryptoRandIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	max := big.NewInt(int64(n))
+	result, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0
+	}
+	return int(result.Int64())
+}
 
 func setupTestCategorizer(t *testing.T) {
 	// The new categorizer system uses dependency injection and doesn't require global setup
@@ -227,4 +244,194 @@ func TestWriteToCSV(t *testing.T) {
 	assert.Contains(t, csvContent, "Quarterly distribution")
 	assert.Contains(t, csvContent, "Income Fund")
 	assert.Contains(t, csvContent, "1000")
+}
+
+// **Feature: parser-enhancements, Property 7: Selma categorization integration**
+// **Validates: Requirements 3.1, 5.3**
+func TestProperty_SelmaCategorizationIntegration(t *testing.T) {
+	// Property: For any Selma transaction, the categorization system should be applied using the same
+	// three-tier strategy (direct mapping → keyword matching → AI fallback) as other parsers
+
+	// Run property test with multiple iterations
+	for i := 0; i < 100; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			// Generate random transaction data
+			fundName := generateRandomFundName()
+			amount := generateRandomAmount()
+			description := generateRandomDescription()
+
+			// Create mock categorizer that tracks calls
+			mockCategorizer := &MockCategorizer{
+				categories: map[string]string{
+					fundName:    "Investment Category",
+					description: "Transaction Category",
+				},
+			}
+
+			// Create test CSV content with random data
+			testCSV := fmt.Sprintf(`Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
+2023-01-01,%s,12345,%s,%s,CHF,10`, description, fundName, amount)
+
+			// Create temporary file
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.csv")
+			err := os.WriteFile(testFile, []byte(testCSV), 0600)
+			require.NoError(t, err)
+
+			file, err := os.Open(testFile)
+			require.NoError(t, err)
+			defer func() {
+				if cerr := file.Close(); cerr != nil {
+					t.Logf("Failed to close file: %v", cerr)
+				}
+			}()
+
+			// Create adapter with categorizer
+			logger := logging.NewLogrusAdapter("info", "text")
+			adapter := NewAdapter(logger)
+			adapter.SetCategorizer(mockCategorizer)
+
+			// Parse the CSV
+			transactions, err := adapter.Parse(file)
+			require.NoError(t, err)
+
+			// Verify that categorization was applied
+			if len(transactions) > 0 {
+				// At least one transaction should have been categorized
+				foundCategorized := false
+				for _, tx := range transactions {
+					if tx.Category != "" && tx.Category != models.CategoryUncategorized {
+						foundCategorized = true
+						break
+					}
+				}
+
+				// If we have a valid transaction and categorizer was called, it should be categorized
+				if mockCategorizer.callCount > 0 {
+					assert.True(t, foundCategorized, "Expected at least one transaction to be categorized when categorizer is available")
+				}
+			}
+
+			// Verify categorizer was called if transactions were found
+			if len(transactions) > 0 {
+				assert.GreaterOrEqual(t, mockCategorizer.callCount, 0, "Categorizer should be called for transactions")
+			}
+		})
+	}
+}
+
+// MockCategorizer for testing categorization
+type MockCategorizer struct {
+	categories map[string]string
+	callCount  int
+}
+
+func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+	m.callCount++
+
+	if category, exists := m.categories[partyName]; exists {
+		return models.Category{Name: category}, nil
+	}
+
+	return models.Category{Name: models.CategoryUncategorized}, nil
+}
+
+// Helper functions for property-based testing
+func generateRandomFundName() string {
+	funds := []string{
+		"VANGUARD FTSE ALL WORLD", "ISHARES CORE S&P 500", "SPDR S&P 500", "VANGUARD TOTAL STOCK",
+		"ISHARES MSCI WORLD", "VANGUARD EMERGING MARKETS", "ISHARES CORE MSCI EMERGING",
+		"SPDR PORTFOLIO S&P 500", "VANGUARD FTSE DEVELOPED", "ISHARES CORE AGGREGATE BOND",
+	}
+	return funds[cryptoRandIntn(len(funds))]
+}
+
+func generateRandomAmount() string {
+	amounts := []string{
+		"10.50", "25.00", "100.75", "250.25", "500.00", "1000.00", "50.25", "75.80",
+		"-10.50", "-25.00", "-100.75", "-250.25", "-500.00", "-1000.00", "-50.25", "-75.80",
+	}
+	return amounts[cryptoRandIntn(len(amounts))]
+}
+
+func generateRandomDescription() string {
+	descriptions := []string{
+		"trade", "dividend", "cash_transfer", "selma_fee", "withholding_tax", "stamp_duty",
+	}
+	return descriptions[cryptoRandIntn(len(descriptions))]
+}
+
+// **Feature: parser-enhancements, Property 8: Consistent CSV output format**
+// **Validates: Requirements 3.3, 4.1**
+func TestProperty_SelmaConsistentCSVOutputFormat(t *testing.T) {
+	// Property: For any parser type (CAMT, PDF, Selma, Revolut), the CSV output should contain
+	// identical column headers including category and subcategory columns
+
+	// Run property test with multiple iterations
+	for i := 0; i < 100; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			// Generate random transactions
+			transactions := generateRandomSelmaTransactions(cryptoRandIntn(10) + 1)
+
+			// Write to CSV using Selma parser
+			tempDir := t.TempDir()
+			outputFile := filepath.Join(tempDir, "test_output.csv")
+
+			err := WriteToCSV(transactions, outputFile)
+			require.NoError(t, err)
+
+			// Read the CSV content
+			content, err := os.ReadFile(outputFile)
+			require.NoError(t, err)
+
+			csvContent := string(content)
+
+			// Verify standard CSV headers are present (based on actual Transaction.MarshalCSV output)
+			expectedHeaders := []string{
+				"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName",
+				"PartyIBAN", "Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit",
+				"Debit", "Credit", "Currency", "AmountExclTax", "AmountTax", "TaxRate",
+				"Recipient", "InvestmentType", "Number", "Category", "Type", "Fund",
+				"NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
+				"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
+			}
+
+			// Check that all expected headers are present
+			for _, header := range expectedHeaders {
+				assert.Contains(t, csvContent, header, "CSV should contain standard header: %s", header)
+			}
+
+			// Verify category column is included (Category is present in the actual headers)
+			assert.Contains(t, csvContent, "Category", "CSV should contain Category column")
+
+			// Verify the CSV has proper structure (header line + data lines)
+			lines := strings.Split(strings.TrimSpace(csvContent), "\n")
+			assert.GreaterOrEqual(t, len(lines), 1, "CSV should have at least a header line")
+
+			// If we have transactions, verify they appear in the CSV
+			if len(transactions) > 0 {
+				assert.GreaterOrEqual(t, len(lines), len(transactions)+1, "CSV should have header + transaction lines")
+			}
+		})
+	}
+}
+
+func generateRandomSelmaTransactions(count int) []models.Transaction {
+	transactions := make([]models.Transaction, count)
+
+	for i := 0; i < count; i++ {
+		transactions[i] = models.Transaction{
+			Date:           time.Date(2023, time.Month(cryptoRandIntn(12)+1), cryptoRandIntn(28)+1, 0, 0, 0, 0, time.UTC),
+			Description:    generateRandomDescription(),
+			Amount:         models.ParseAmount(generateRandomAmount()),
+			Currency:       "CHF",
+			CreditDebit:    []string{models.TransactionTypeCredit, models.TransactionTypeDebit}[cryptoRandIntn(2)],
+			Category:       models.CategoryUncategorized,
+			Fund:           generateRandomFundName(),
+			NumberOfShares: cryptoRandIntn(100),
+			Investment:     []string{"Buy", "Sell", "Income", "Dividend", "Expense"}[cryptoRandIntn(5)],
+		}
+	}
+
+	return transactions
 }

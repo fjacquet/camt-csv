@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -106,8 +107,8 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	return string(output), nil
 }
 
-// parseTransactions parses transaction data from PDF text content
-func parseTransactions(lines []string, logger logging.Logger) ([]models.Transaction, error) {
+// parseTransactionsWithCategorizer parses transaction data from PDF text content and applies categorization
+func parseTransactionsWithCategorizer(lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
 	transactions := make([]models.Transaction, 0, 50)
 	var currentTx models.Transaction
@@ -152,7 +153,7 @@ func parseTransactions(lines []string, logger logging.Logger) ([]models.Transact
 
 	// For Viseca format, use a specialized transaction extraction approach
 	if isVisecaFormat {
-		return parseVisecaTransactions(lines, logger)
+		return parseVisecaTransactionsWithCategorizer(lines, logger, categorizer)
 	}
 
 	// Standard PDF format parsing continues below
@@ -176,7 +177,7 @@ func parseTransactions(lines []string, logger logging.Logger) ([]models.Transact
 			// Finalize previous transaction if we're in one
 			if inTransaction {
 				logger.Debug("Finalizing previous transaction")
-				finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
+				finalizeTransactionWithCategorizer(&currentTx, &description, merchant, seen, &transactions, categorizer, logger)
 			}
 
 			// Start a new transaction
@@ -234,7 +235,7 @@ func parseTransactions(lines []string, logger logging.Logger) ([]models.Transact
 	// Finalize the last transaction if needed
 	if inTransaction {
 		logger.Debug("Finalizing last transaction")
-		finalizeTransaction(&currentTx, &description, merchant, seen, &transactions)
+		finalizeTransactionWithCategorizer(&currentTx, &description, merchant, seen, &transactions, categorizer, logger)
 	}
 
 	// Sort transactions by date
@@ -243,13 +244,17 @@ func parseTransactions(lines []string, logger logging.Logger) ([]models.Transact
 	// Remove duplicates
 	transactions = deduplicateTransactions(transactions)
 
+	// Process transactions with categorization statistics
+	processedTransactions := common.ProcessTransactionsWithCategorizationStats(
+		transactions, logger, categorizer, "PDF")
+
 	logger.Info("Extracted transactions from PDF",
-		logging.Field{Key: "count", Value: len(transactions)})
-	return transactions, nil
+		logging.Field{Key: "count", Value: len(processedTransactions)})
+	return processedTransactions, nil
 }
 
-// parseVisecaTransactions is a specialized parser for Viseca credit card statements
-func parseVisecaTransactions(lines []string, logger logging.Logger) ([]models.Transaction, error) {
+// parseVisecaTransactionsWithCategorizer is a specialized parser for Viseca credit card statements with categorization
+func parseVisecaTransactionsWithCategorizer(lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	logger.Debug("Processing Viseca PDF with specialized parser",
 		logging.Field{Key: "lineCount", Value: len(lines)})
 
@@ -437,11 +442,6 @@ func parseVisecaTransactions(lines []string, logger logging.Logger) ([]models.Tr
 			}
 		}
 
-		// Try to categorize the transaction
-		// Note: Categorization is now handled by the categorizer component
-		// through dependency injection, not directly in the parser
-		tx.Category = models.CategoryUncategorized
-
 		// Add transaction to list
 		transactions = append(transactions, tx)
 		logger.Debug("Added transaction",
@@ -451,13 +451,17 @@ func parseVisecaTransactions(lines []string, logger logging.Logger) ([]models.Tr
 	}
 
 	// Log the number of transactions found
+	// Process transactions with categorization statistics
+	processedTransactions := common.ProcessTransactionsWithCategorizationStats(
+		transactions, logger, categorizer, "PDF-Viseca")
+
 	logger.Info("Extracted transactions from Viseca PDF",
-		logging.Field{Key: "count", Value: len(transactions)})
-	return transactions, nil
+		logging.Field{Key: "count", Value: len(processedTransactions)})
+	return processedTransactions, nil
 }
 
-// finalizeTransaction finalizes a transaction and adds it to the list of transactions
-func finalizeTransaction(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction) {
+// finalizeTransactionWithCategorizer finalizes a transaction with categorization and adds it to the list of transactions
+func finalizeTransactionWithCategorizer(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction, categorizer models.TransactionCategorizer, logger logging.Logger) {
 	// Clean the description
 	cleanDesc := cleanDescription(desc.String())
 

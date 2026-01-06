@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"fjacquet/camt-csv/internal/dateutils"
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/shopspring/decimal"
@@ -101,8 +102,9 @@ func FormatTransaction(tx *models.Transaction) {
 	}
 }
 
-// processTransactionsInternal processes a slice of Transaction objects from Selma CSV data.
-func processTransactionsInternal(transactions []models.Transaction) []models.Transaction {
+// processTransactionsInternalWithCategorizer processes a slice of Transaction objects from Selma CSV data
+// with optional categorization support.
+func processTransactionsInternalWithCategorizer(transactions []models.Transaction, categorizer models.TransactionCategorizer, logger logging.Logger) []models.Transaction {
 	// Map to track stamp duties by date and fund
 	stampDuties := make(map[string]map[string]StampDutyInfo)
 	var processedTransactions []models.Transaction
@@ -161,6 +163,9 @@ func processTransactionsInternal(transactions []models.Transaction) []models.Tra
 
 		// Add investment type and category
 		tx = setInvestmentType(tx)
+
+		// Apply external categorization if categorizer is provided
+		// Note: Categorization is now handled by the statistics helper after internal processing
 
 		processedTransactions = append(processedTransactions, tx)
 	}

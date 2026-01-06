@@ -32,7 +32,13 @@ type DebitCSVRow struct {
 }
 
 // Parse parses a Visa Debit CSV file from an io.Reader and returns a slice of Transaction objects.
+// Note: This function does not perform categorization. Use ParseWithCategorizer for full functionality.
 func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithCategorizer(r, logger, nil)
+}
+
+// ParseWithCategorizer parses a Visa Debit CSV file and categorizes transactions using the provided categorizer.
+func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -72,6 +78,32 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction, skipping")
 			continue
+		}
+
+		// Categorize the transaction using the injected categorizer
+		if categorizer != nil {
+			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
+			catAmount := tx.Amount.String()
+			catDate := ""
+			if !tx.Date.IsZero() {
+				catDate = tx.Date.Format("02.01.2006")
+			}
+
+			category, catErr := categorizer.Categorize(tx.Description, isDebtor, catAmount, catDate, "")
+			if catErr != nil {
+				logger.WithError(catErr).WithFields(
+					logging.Field{Key: "party", Value: tx.Description},
+				).Warn("Failed to categorize transaction")
+				tx.Category = models.CategoryUncategorized
+			} else {
+				tx.Category = category.Name
+				logger.WithFields(
+					logging.Field{Key: "party", Value: tx.Description},
+					logging.Field{Key: "category", Value: category.Name},
+				).Debug("Transaction categorized successfully")
+			}
+		} else {
+			tx.Category = models.CategoryUncategorized
 		}
 
 		transactions = append(transactions, tx)

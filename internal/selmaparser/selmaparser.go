@@ -20,6 +20,12 @@ import (
 // Parse reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects.
 // This is the standardized parser interface for reading Selma CSV files.
 func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithCategorizer(r, logger, nil)
+}
+
+// ParseWithCategorizer reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects
+// and applies categorization using the provided categorizer.
+func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -116,7 +122,7 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 	}
 
 	// Process the transactions (categorize, associate related transactions)
-	return ProcessTransactions(transactions, logger), nil
+	return ProcessTransactionsWithCategorizer(transactions, logger, categorizer), nil
 }
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
@@ -211,17 +217,36 @@ func determineCreditDebit(transactionType, amount string) string {
 // Returns:
 //   - []models.Transaction: The processed transactions with additional metadata
 func ProcessTransactions(transactions []models.Transaction, logger logging.Logger) []models.Transaction {
+	return ProcessTransactionsWithCategorizer(transactions, logger, nil)
+}
+
+// ProcessTransactionsWithCategorizer processes a slice of Transaction objects from Selma CSV data.
+// It applies categorization using the provided categorizer and associates related transactions like stamp duties.
+//
+// Parameters:
+//   - transactions: A slice of Transaction objects to process
+//   - logger: Logger instance for logging operations
+//   - categorizer: Optional categorizer for transaction categorization
+//
+// Returns:
+//   - []models.Transaction: The processed transactions with additional metadata
+func ProcessTransactionsWithCategorizer(transactions []models.Transaction, logger logging.Logger, categorizer models.TransactionCategorizer) []models.Transaction {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
 	logger.Info("Processing Selma transactions",
 		logging.Field{Key: "count", Value: len(transactions)})
 
-	processedTransactions := processTransactionsInternal(transactions)
+	// First process transactions internally (stamp duties, investment types, etc.)
+	processedTransactions := processTransactionsInternalWithCategorizer(transactions, nil, logger)
+
+	// Then apply categorization with statistics tracking
+	finalTransactions := common.ProcessTransactionsWithCategorizationStats(
+		processedTransactions, logger, categorizer, "Selma")
 
 	logger.Info("Successfully processed Selma transactions",
-		logging.Field{Key: "count", Value: len(processedTransactions)})
-	return processedTransactions
+		logging.Field{Key: "count", Value: len(finalTransactions)})
+	return finalTransactions
 }
 
 // WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
