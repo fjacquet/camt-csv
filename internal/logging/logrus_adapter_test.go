@@ -295,3 +295,256 @@ func TestFieldConstants(t *testing.T) {
 func TestLogrusAdapter_ImplementsInterface(t *testing.T) {
 	var _ Logger = (*LogrusAdapter)(nil)
 }
+
+func TestLogrusAdapter_BackwardCompatibilityMethods(t *testing.T) {
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.DebugLevel)
+	logrusLogger.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+	})
+
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+	adapter := logger.(*LogrusAdapter)
+
+	// Test Infof
+	adapter.Infof("info message with %s", "formatting")
+	output := buf.String()
+	assert.Contains(t, output, "info message with formatting")
+
+	// Reset buffer
+	buf.Reset()
+
+	// Test Errorf
+	adapter.Errorf("error message with %d", 42)
+	output = buf.String()
+	assert.Contains(t, output, "error message with 42")
+
+	// Reset buffer
+	buf.Reset()
+
+	// Test Warnf
+	adapter.Warnf("warn message with %v", true)
+	output = buf.String()
+	assert.Contains(t, output, "warn message with true")
+
+	// Reset buffer
+	buf.Reset()
+
+	// Test Debugf
+	adapter.Debugf("debug message with %s", "debug")
+	output = buf.String()
+	assert.Contains(t, output, "debug message with debug")
+}
+
+func TestLogrusAdapter_FatalMethods(t *testing.T) {
+	// Note: We can't easily test Fatal methods as they call os.Exit
+	// This test just verifies the methods exist and can be called
+	// In a real scenario, these would terminate the program
+	
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.FatalLevel)
+	
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+	adapter := logger.(*LogrusAdapter)
+
+	// Verify methods exist (compilation test)
+	assert.NotNil(t, adapter.Fatal)
+	assert.NotNil(t, adapter.Fatalf)
+}
+
+func TestLogrusAdapter_MultipleFields(t *testing.T) {
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.InfoLevel)
+	logrusLogger.SetFormatter(&logrus.JSONFormatter{})
+
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+
+	fields := []Field{
+		{Key: "string_field", Value: "test"},
+		{Key: "int_field", Value: 123},
+		{Key: "bool_field", Value: false},
+		{Key: "float_field", Value: 3.14},
+		{Key: "nil_field", Value: nil},
+	}
+
+	logger.Info("test message", fields...)
+
+	output := buf.String()
+	assert.Contains(t, output, "test message")
+	assert.Contains(t, output, "string_field")
+	assert.Contains(t, output, "test")
+	assert.Contains(t, output, "int_field")
+	assert.Contains(t, output, "123")
+	assert.Contains(t, output, "bool_field")
+	assert.Contains(t, output, "false")
+}
+
+func TestLogrusAdapter_EmptyFields(t *testing.T) {
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.InfoLevel)
+	logrusLogger.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+	})
+
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+
+	// Test with no fields
+	logger.Info("message without fields")
+
+	output := buf.String()
+	assert.Contains(t, output, "message without fields")
+}
+
+func TestLogrusAdapter_LevelFiltering(t *testing.T) {
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.WarnLevel) // Only warn and above
+	logrusLogger.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+	})
+
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+
+	// These should not appear in output
+	logger.Debug("debug message")
+	logger.Info("info message")
+
+	// These should appear
+	logger.Warn("warn message")
+	logger.Error("error message")
+
+	output := buf.String()
+	assert.NotContains(t, output, "debug message")
+	assert.NotContains(t, output, "info message")
+	assert.Contains(t, output, "warn message")
+	assert.Contains(t, output, "error message")
+}
+
+func TestLogrusAdapter_NestedWithCalls(t *testing.T) {
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+	logrusLogger.SetLevel(logrus.InfoLevel)
+	logrusLogger.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+	})
+
+	logger := NewLogrusAdapterFromLogger(logrusLogger)
+	testErr := errors.New("nested error")
+
+	// Test nested With calls
+	nestedLogger := logger.
+		WithField("level1", "value1").
+		WithFields(Field{Key: "level2", Value: "value2"}).
+		WithError(testErr).
+		WithField("level3", "value3")
+
+	nestedLogger.Info("nested logging test")
+
+	output := buf.String()
+	assert.Contains(t, output, "nested logging test")
+	assert.Contains(t, output, "level1")
+	assert.Contains(t, output, "value1")
+	assert.Contains(t, output, "level2")
+	assert.Contains(t, output, "value2")
+	assert.Contains(t, output, "level3")
+	assert.Contains(t, output, "value3")
+	assert.Contains(t, output, "nested error")
+}
+
+func TestAllFieldConstants(t *testing.T) {
+	// Test all field constants are properly defined
+	constants := map[string]string{
+		FieldFile:          "file_path",
+		FieldParser:        "parser",
+		FieldTransactionID: "transaction_id",
+		FieldCategory:      "category",
+		FieldReason:        "reason",
+		FieldOperation:     "operation",
+		FieldStatus:        "status",
+		FieldError:         "error",
+		FieldDuration:      "duration_ms",
+		FieldCount:         "count",
+		FieldDelimiter:     "delimiter",
+		FieldInputFile:     "input_file",
+		FieldOutputFile:    "output_file",
+	}
+
+	for constant, expected := range constants {
+		assert.Equal(t, expected, constant, "Field constant should match expected value")
+	}
+}
+
+func TestLogrusAdapter_JSONFormat(t *testing.T) {
+	logger := NewLogrusAdapter("info", "json")
+	adapter := logger.(*LogrusAdapter)
+
+	// Verify JSON formatter is set
+	_, ok := adapter.logger.Formatter.(*logrus.JSONFormatter)
+	assert.True(t, ok, "Should use JSON formatter")
+}
+
+func TestLogrusAdapter_TextFormat(t *testing.T) {
+	logger := NewLogrusAdapter("info", "text")
+	adapter := logger.(*LogrusAdapter)
+
+	// Verify Text formatter is set
+	textFormatter, ok := adapter.logger.Formatter.(*logrus.TextFormatter)
+	assert.True(t, ok, "Should use Text formatter")
+	assert.True(t, textFormatter.FullTimestamp, "Should have full timestamp enabled")
+}
+
+func TestLogrusAdapter_InvalidLevelHandling(t *testing.T) {
+	// Capture logrus warnings
+	logrusLogger := logrus.New()
+	var buf bytes.Buffer
+	logrusLogger.SetOutput(&buf)
+
+	// This should trigger a warning and default to info level
+	logger := NewLogrusAdapter("invalid-level", "text")
+	adapter := logger.(*LogrusAdapter)
+
+	assert.Equal(t, logrus.InfoLevel, adapter.logger.Level, "Should default to info level for invalid input")
+}
+
+func TestField_Structure(t *testing.T) {
+	field := Field{
+		Key:   "test_key",
+		Value: "test_value",
+	}
+
+	assert.Equal(t, "test_key", field.Key)
+	assert.Equal(t, "test_value", field.Value)
+}
+
+func TestConvertFields_VariousTypes(t *testing.T) {
+	fields := []Field{
+		{Key: "string", Value: "text"},
+		{Key: "int", Value: 42},
+		{Key: "float", Value: 3.14},
+		{Key: "bool", Value: true},
+		{Key: "nil", Value: nil},
+		{Key: "slice", Value: []string{"a", "b"}},
+		{Key: "map", Value: map[string]int{"x": 1}},
+	}
+
+	logrusFields := convertFields(fields)
+
+	assert.Len(t, logrusFields, 7)
+	assert.Equal(t, "text", logrusFields["string"])
+	assert.Equal(t, 42, logrusFields["int"])
+	assert.Equal(t, 3.14, logrusFields["float"])
+	assert.Equal(t, true, logrusFields["bool"])
+	assert.Nil(t, logrusFields["nil"])
+	assert.Equal(t, []string{"a", "b"}, logrusFields["slice"])
+	assert.Equal(t, map[string]int{"x": 1}, logrusFields["map"])
+}

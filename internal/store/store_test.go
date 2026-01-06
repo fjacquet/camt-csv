@@ -157,3 +157,337 @@ func TestLoadAndSaveDebtorMappings(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "INCOME_FREELANCE", newMappings["Company Z"])
 }
+
+func TestFindConfigFileInMultipleLocations(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Create subdirectories
+	configDir := filepath.Join(tempDir, "config")
+	databaseDir := filepath.Join(tempDir, "database")
+	err := os.MkdirAll(configDir, 0755)
+	assert.NoError(t, err)
+	err = os.MkdirAll(databaseDir, 0755)
+	assert.NoError(t, err)
+
+	// Change to temp directory for relative path testing
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		err := os.Chdir(originalDir)
+		assert.NoError(t, err)
+	}()
+	err = os.Chdir(tempDir)
+	assert.NoError(t, err)
+
+	store := NewCategoryStore("", "", "")
+
+	// Test file in current directory
+	currentFile := "test.yaml"
+	err = os.WriteFile(currentFile, []byte("test"), 0644)
+	assert.NoError(t, err)
+	
+	found, err := store.FindConfigFile("test.yaml")
+	assert.NoError(t, err)
+	assert.Equal(t, "test.yaml", found)
+
+	// Test file in config directory
+	configFile := filepath.Join("config", "config-test.yaml")
+	err = os.WriteFile(configFile, []byte("test"), 0644)
+	assert.NoError(t, err)
+	
+	found, err = store.FindConfigFile("config-test.yaml")
+	assert.NoError(t, err)
+	assert.Equal(t, configFile, found)
+
+	// Test file in database directory
+	databaseFile := filepath.Join("database", "db-test.yaml")
+	err = os.WriteFile(databaseFile, []byte("test"), 0644)
+	assert.NoError(t, err)
+	
+	found, err = store.FindConfigFile("db-test.yaml")
+	assert.NoError(t, err)
+	assert.Equal(t, databaseFile, found)
+
+	// Test nonexistent file
+	_, err = store.FindConfigFile("nonexistent.yaml")
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestLoadCategoriesSimpleFormat(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "categories.yaml")
+	
+	// Test simple list format (fallback)
+	content := `
+- name: Food
+  keywords: ["restaurant", "food"]
+- name: Transport
+  keywords: ["bus", "train"]
+`
+	writeFile(t, file, content)
+	store := NewTestCategoryStore(dir)
+	
+	cats, err := store.LoadCategories()
+	assert.NoError(t, err)
+	assert.Len(t, cats, 2)
+	assert.Equal(t, "Food", cats[0].Name)
+	assert.Equal(t, "Transport", cats[1].Name)
+}
+
+func TestLoadCreditorMappingsWithMissingFile(t *testing.T) {
+	store := NewCategoryStore("", "", "")
+	store.CreditorsFile = "nonexistent.yaml" // Use relative path so it goes through FindConfigFile
+	
+	mappings, err := store.LoadCreditorMappings()
+	assert.NoError(t, err)
+	assert.Empty(t, mappings)
+}
+
+func TestLoadDebtorMappingsWithMissingFile(t *testing.T) {
+	store := NewCategoryStore("", "", "")
+	store.DebtorsFile = "nonexistent.yaml" // Use relative path so it goes through FindConfigFile
+	
+	mappings, err := store.LoadDebtorMappings()
+	assert.NoError(t, err)
+	assert.Empty(t, mappings)
+}
+
+func TestLoadCreditorMappingsWithMalformedYAML(t *testing.T) {
+	tempDir := t.TempDir()
+	file := filepath.Join(tempDir, "creditors.yaml")
+	
+	// Write malformed YAML
+	content := `{malformed: yaml: content}`
+	writeFile(t, file, content)
+	
+	store := NewCategoryStore("", file, "")
+	_, err := store.LoadCreditorMappings()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error parsing creditor mappings")
+}
+
+func TestLoadDebtorMappingsWithMalformedYAML(t *testing.T) {
+	tempDir := t.TempDir()
+	file := filepath.Join(tempDir, "debtors.yaml")
+	
+	// Write malformed YAML
+	content := `{malformed: yaml: content}`
+	writeFile(t, file, content)
+	
+	store := NewCategoryStore("", "", file)
+	_, err := store.LoadDebtorMappings()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error parsing debtor mappings")
+}
+
+func TestSaveCreditorMappingsWithDefaultFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Change to temp directory
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		err := os.Chdir(originalDir)
+		assert.NoError(t, err)
+	}()
+	err = os.Chdir(tempDir)
+	assert.NoError(t, err)
+
+	store := NewCategoryStore("", "", "") // Empty filenames use defaults
+	
+	mappings := map[string]string{
+		"Test Creditor": "Test Category",
+	}
+	
+	err = store.SaveCreditorMappings(mappings)
+	assert.NoError(t, err)
+	
+	// Verify file was created in database directory
+	expectedPath := filepath.Join("database", "creditors.yaml")
+	_, err = os.Stat(expectedPath)
+	assert.NoError(t, err)
+}
+
+func TestSaveDebtorMappingsWithDefaultFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Change to temp directory
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		err := os.Chdir(originalDir)
+		assert.NoError(t, err)
+	}()
+	err = os.Chdir(tempDir)
+	assert.NoError(t, err)
+
+	store := NewCategoryStore("", "", "") // Empty filenames use defaults
+	
+	mappings := map[string]string{
+		"Test Debtor": "Test Category",
+	}
+	
+	err = store.SaveDebtorMappings(mappings)
+	assert.NoError(t, err)
+	
+	// Verify file was created in database directory
+	expectedPath := filepath.Join("database", "debtors.yaml")
+	_, err = os.Stat(expectedPath)
+	assert.NoError(t, err)
+}
+
+func TestSaveCreditorMappingsWithAbsolutePath(t *testing.T) {
+	tempDir := t.TempDir()
+	absolutePath := filepath.Join(tempDir, "absolute-creditors.yaml")
+	
+	store := NewCategoryStore("", absolutePath, "")
+	
+	mappings := map[string]string{
+		"Absolute Creditor": "Absolute Category",
+	}
+	
+	err := store.SaveCreditorMappings(mappings)
+	assert.NoError(t, err)
+	
+	// Verify file was created at absolute path
+	_, err = os.Stat(absolutePath)
+	assert.NoError(t, err)
+}
+
+func TestSaveDebtorMappingsWithAbsolutePath(t *testing.T) {
+	tempDir := t.TempDir()
+	absolutePath := filepath.Join(tempDir, "absolute-debtors.yaml")
+	
+	store := NewCategoryStore("", "", absolutePath)
+	
+	mappings := map[string]string{
+		"Absolute Debtor": "Absolute Category",
+	}
+	
+	err := store.SaveDebtorMappings(mappings)
+	assert.NoError(t, err)
+	
+	// Verify file was created at absolute path
+	_, err = os.Stat(absolutePath)
+	assert.NoError(t, err)
+}
+
+func TestResolveConfigFile(t *testing.T) {
+	tempDir := t.TempDir()
+	store := NewCategoryStore("", "", "")
+	
+	// Test absolute path
+	absolutePath := filepath.Join(tempDir, "test.yaml")
+	resolved, err := store.resolveConfigFile(absolutePath)
+	assert.NoError(t, err)
+	assert.Equal(t, absolutePath, resolved)
+	
+	// Test relative path that doesn't exist
+	_, err = store.resolveConfigFile("nonexistent.yaml")
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestLoadCategoriesWithDefaultFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Change to temp directory
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Failed to restore directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+
+	// Create database directory and file
+	if err := os.MkdirAll("database", 0755); err != nil {
+		t.Fatalf("Failed to create database directory: %v", err)
+	}
+	
+	content := `
+categories:
+  - name: Default Category
+    keywords: ["default"]
+`
+	writeFile(t, filepath.Join("database", "categories.yaml"), content)
+	
+	store := NewCategoryStore("", "", "") // Empty filename uses default
+	
+	cats, err := store.LoadCategories()
+	assert.NoError(t, err)
+	assert.Len(t, cats, 1)
+	assert.Equal(t, "Default Category", cats[0].Name)
+}
+
+func TestLoadCreditorMappingsWithDefaultFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Change to temp directory
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Failed to restore directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+
+	// Create database directory and file
+	if err := os.MkdirAll("database", 0755); err != nil {
+		t.Fatalf("Failed to create database directory: %v", err)
+	}
+	
+	mappings := map[string]string{"Default Creditor": "Default Category"}
+	data, err := yaml.Marshal(mappings)
+	assert.NoError(t, err)
+	if err := os.WriteFile(filepath.Join("database", "creditors.yaml"), data, 0644); err != nil {
+		t.Fatalf("Failed to write creditors file: %v", err)
+	}
+	
+	store := NewCategoryStore("", "", "") // Empty filename uses default
+	
+	loadedMappings, err := store.LoadCreditorMappings()
+	assert.NoError(t, err)
+	assert.Equal(t, "Default Category", loadedMappings["Default Creditor"])
+}
+
+func TestLoadDebtorMappingsWithDefaultFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Change to temp directory
+	originalDir, err := os.Getwd()
+	assert.NoError(t, err)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Failed to restore directory: %v", err)
+		}
+	}()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+
+	// Create database directory and file
+	if err := os.MkdirAll("database", 0755); err != nil {
+		t.Fatalf("Failed to create database directory: %v", err)
+	}
+	
+	mappings := map[string]string{"Default Debtor": "Default Category"}
+	data, err := yaml.Marshal(mappings)
+	assert.NoError(t, err)
+	if err := os.WriteFile(filepath.Join("database", "debtors.yaml"), data, 0644); err != nil {
+		t.Fatalf("Failed to write debtors file: %v", err)
+	}
+	
+	store := NewCategoryStore("", "", "") // Empty filename uses default
+	
+	loadedMappings, err := store.LoadDebtorMappings()
+	assert.NoError(t, err)
+	assert.Equal(t, "Default Category", loadedMappings["Default Debtor"])
+}
