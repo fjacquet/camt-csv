@@ -213,7 +213,7 @@ func TestParseWithCategorizer_Success(t *testing.T) {
 
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	mockCategorizer := &MockCategorizer{}
 	mockCategorizer.On("Categorize", "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{Name: "Investment"}, nil)
 
@@ -221,7 +221,7 @@ func TestParseWithCategorizer_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Investment", transactions[0].Category)
-	
+
 	mockCategorizer.AssertExpectations(t)
 }
 
@@ -231,7 +231,7 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	mockCategorizer := &MockCategorizer{}
 	mockCategorizer.On("Categorize", "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{}, assert.AnError)
 
@@ -239,7 +239,7 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
-	
+
 	mockCategorizer.AssertExpectations(t)
 }
 
@@ -251,7 +251,7 @@ func TestParseWithCategorizer_EmptyFile(t *testing.T) {
 
 	_, err := ParseWithCategorizer(reader, logger, nil)
 	require.Error(t, err)
-	
+
 	var invalidFormatErr *parsererror.InvalidFormatError
 	assert.ErrorAs(t, err, &invalidFormatErr)
 	assert.Contains(t, err.Error(), "empty or contains only headers")
@@ -266,7 +266,7 @@ func TestParseWithCategorizer_InsufficientColumns(t *testing.T) {
 
 	_, err := ParseWithCategorizer(reader, logger, nil)
 	require.Error(t, err)
-	
+
 	var invalidFormatErr *parsererror.InvalidFormatError
 	assert.ErrorAs(t, err, &invalidFormatErr)
 	assert.Contains(t, err.Error(), "insufficient columns")
@@ -281,7 +281,7 @@ func TestParseWithCategorizer_WrongHeaders(t *testing.T) {
 
 	_, err := ParseWithCategorizer(reader, logger, nil)
 	require.Error(t, err)
-	
+
 	var invalidFormatErr *parsererror.InvalidFormatError
 	assert.ErrorAs(t, err, &invalidFormatErr)
 	assert.Contains(t, err.Error(), "unexpected header")
@@ -369,7 +369,7 @@ func TestConvertRowToTransaction_InvalidQuantity(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	_, err := convertRowToTransaction(row, logger)
 	require.Error(t, err)
-	
+
 	var dataExtractionErr *parsererror.DataExtractionError
 	assert.ErrorAs(t, err, &dataExtractionErr)
 	assert.Contains(t, err.Error(), "failed to parse quantity")
@@ -390,7 +390,7 @@ func TestConvertRowToTransaction_InvalidPricePerShare(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	_, err := convertRowToTransaction(row, logger)
 	require.Error(t, err)
-	
+
 	var dataExtractionErr *parsererror.DataExtractionError
 	assert.ErrorAs(t, err, &dataExtractionErr)
 	assert.Contains(t, err.Error(), "failed to parse price per share")
@@ -410,7 +410,7 @@ func TestConvertRowToTransaction_InvalidTotalAmount(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	_, err := convertRowToTransaction(row, logger)
 	require.Error(t, err)
-	
+
 	var dataExtractionErr *parsererror.DataExtractionError
 	assert.ErrorAs(t, err, &dataExtractionErr)
 	assert.Contains(t, err.Error(), "failed to parse total amount")
@@ -428,7 +428,7 @@ func TestConvertRowToTransaction_InvalidFXRate(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	txn, err := convertRowToTransaction(row, logger)
 	require.NoError(t, err)
-	
+
 	// Should default to 1.0 for invalid FX rate
 	assert.Equal(t, "1", txn.ExchangeRate.String())
 }
@@ -445,7 +445,7 @@ func TestConvertRowToTransaction_EmptyFXRate(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	txn, err := convertRowToTransaction(row, logger)
 	require.NoError(t, err)
-	
+
 	// Should default to 1.0 for empty FX rate
 	assert.Equal(t, "1", txn.ExchangeRate.String())
 }
@@ -526,7 +526,7 @@ func TestConvertToCSVWithLogger_NilLogger(t *testing.T) {
 
 func TestConvertToCSVWithLogger_FileOpenError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	err := ConvertToCSVWithLogger("/nonexistent/input.csv", "/tmp/output.csv", logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open input file")
@@ -541,7 +541,7 @@ func TestWriteToCSVWithLogger_CreateFileError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	err := WriteToCSVWithLogger(transactions, "/nonexistent/directory/output.csv", logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create file")

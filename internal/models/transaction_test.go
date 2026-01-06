@@ -398,7 +398,7 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("GetFeesAsFloat", func(t *testing.T) {
 		tx := Transaction{Fees: decimal.NewFromFloat(5.50)}
 		assert.Equal(t, 5.50, tx.GetFeesAsFloat())
-		
+
 		// Test zero fees
 		txZero := Transaction{Fees: decimal.Zero}
 		assert.Equal(t, 0.0, txZero.GetFeesAsFloat())
@@ -407,19 +407,19 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("SetAmountFromDecimal", func(t *testing.T) {
 		tx := Transaction{}
 		amount := decimal.NewFromFloat(123.45)
-		
+
 		tx.SetAmountFromDecimal(amount)
-		
+
 		assert.True(t, amount.Equal(tx.Amount))
 	})
 
 	t.Run("GetOriginalAmountAsDecimal", func(t *testing.T) {
 		originalAmount := decimal.NewFromFloat(100.50)
 		tx := Transaction{OriginalAmount: originalAmount}
-		
+
 		result := tx.GetOriginalAmountAsDecimal()
 		assert.True(t, originalAmount.Equal(result))
-		
+
 		// Test zero original amount
 		txZero := Transaction{OriginalAmount: decimal.Zero}
 		assert.True(t, decimal.Zero.Equal(txZero.GetOriginalAmountAsDecimal()))
@@ -428,10 +428,10 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("GetExchangeRateAsDecimal", func(t *testing.T) {
 		exchangeRate := decimal.NewFromFloat(0.92)
 		tx := Transaction{ExchangeRate: exchangeRate}
-		
+
 		result := tx.GetExchangeRateAsDecimal()
 		assert.True(t, exchangeRate.Equal(result))
-		
+
 		// Test zero exchange rate
 		txZero := Transaction{ExchangeRate: decimal.Zero}
 		assert.True(t, decimal.Zero.Equal(txZero.GetExchangeRateAsDecimal()))
@@ -440,10 +440,10 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("GetFeesAsDecimal", func(t *testing.T) {
 		fees := decimal.NewFromFloat(12.50)
 		tx := Transaction{Fees: fees}
-		
+
 		result := tx.GetFeesAsDecimal()
 		assert.True(t, fees.Equal(result))
-		
+
 		// Test zero fees
 		txZero := Transaction{Fees: decimal.Zero}
 		assert.True(t, decimal.Zero.Equal(txZero.GetFeesAsDecimal()))
@@ -452,9 +452,9 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("SetFeesFromDecimal", func(t *testing.T) {
 		tx := Transaction{}
 		fees := decimal.NewFromFloat(7.75)
-		
+
 		tx.SetFeesFromDecimal(fees)
-		
+
 		assert.True(t, fees.Equal(tx.Fees))
 	})
 }
@@ -469,10 +469,10 @@ func TestTransaction_DateFormattingIndirect(t *testing.T) {
 			Amount:    decimal.NewFromFloat(100),
 			Currency:  "CHF",
 		}
-		
+
 		csvData, err := tx.MarshalCSV()
 		require.NoError(t, err)
-		
+
 		// Verify dates are formatted correctly in CSV (DD.MM.YYYY format)
 		assert.Contains(t, csvData[2], "15.01.2025") // Date field
 		assert.Contains(t, csvData[3], "16.01.2025") // ValueDate field
@@ -517,14 +517,14 @@ func TestTransaction_DateFormattingIndirect(t *testing.T) {
 			"100",            // OriginalAmount
 			"1",              // ExchangeRate
 		}
-		
+
 		var tx Transaction
 		err := tx.UnmarshalCSV(csvData)
 		require.NoError(t, err)
-		
+
 		expectedDate := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 		expectedValueDate := time.Date(2025, 1, 16, 0, 0, 0, 0, time.UTC)
-		
+
 		assert.Equal(t, expectedDate, tx.Date)
 		assert.Equal(t, expectedValueDate, tx.ValueDate)
 	})
@@ -534,7 +534,7 @@ func TestTransaction_DateFormattingIndirect(t *testing.T) {
 func TestCategorizationStats_UncoveredMethods(t *testing.T) {
 	t.Run("NewCategorizationStats", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		assert.Equal(t, 0, stats.Total)
 		assert.Equal(t, 0, stats.Successful)
 		assert.Equal(t, 0, stats.Failed)
@@ -543,55 +543,55 @@ func TestCategorizationStats_UncoveredMethods(t *testing.T) {
 
 	t.Run("IncrementTotal", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		stats.IncrementTotal()
 		assert.Equal(t, 1, stats.Total)
-		
+
 		stats.IncrementTotal()
 		assert.Equal(t, 2, stats.Total)
 	})
 
 	t.Run("IncrementSuccessful", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		stats.IncrementSuccessful()
 		assert.Equal(t, 1, stats.Successful)
-		
+
 		stats.IncrementSuccessful()
 		assert.Equal(t, 2, stats.Successful)
 	})
 
 	t.Run("IncrementFailed", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		stats.IncrementFailed()
 		assert.Equal(t, 1, stats.Failed)
-		
+
 		stats.IncrementFailed()
 		assert.Equal(t, 2, stats.Failed)
 	})
 
 	t.Run("IncrementUncategorized", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		stats.IncrementUncategorized()
 		assert.Equal(t, 1, stats.Uncategorized)
-		
+
 		stats.IncrementUncategorized()
 		assert.Equal(t, 2, stats.Uncategorized)
 	})
 
 	t.Run("GetSuccessRate", func(t *testing.T) {
 		stats := NewCategorizationStats()
-		
+
 		// Test with zero total
 		assert.Equal(t, 0.0, stats.GetSuccessRate())
-		
+
 		// Test with some successful
 		stats.Total = 10
 		stats.Successful = 7
 		assert.Equal(t, 70.0, stats.GetSuccessRate())
-		
+
 		// Test with 100% success
 		stats.Total = 5
 		stats.Successful = 5
@@ -604,7 +604,7 @@ func TestCategorizationStats_UncoveredMethods(t *testing.T) {
 		stats.Successful = 7
 		stats.Failed = 2
 		stats.Uncategorized = 1
-		
+
 		// This method logs to the provided logger, we just test it doesn't panic
 		// Note: LogSummary takes (logger, prefix) parameters
 		logger := &MockLogger{}
@@ -617,16 +617,16 @@ func TestCategorizationStats_UncoveredMethods(t *testing.T) {
 // Mock logger for testing
 type MockLogger struct{}
 
-func (m *MockLogger) Debug(msg string, fields ...logging.Field) {}
-func (m *MockLogger) Info(msg string, fields ...logging.Field)  {}
-func (m *MockLogger) Warn(msg string, fields ...logging.Field)  {}
-func (m *MockLogger) Error(msg string, fields ...logging.Field) {}
-func (m *MockLogger) Fatal(msg string, fields ...logging.Field) {}
-func (m *MockLogger) Debugf(format string, args ...interface{}) {}
-func (m *MockLogger) Infof(format string, args ...interface{})  {}
-func (m *MockLogger) Warnf(format string, args ...interface{})  {}
-func (m *MockLogger) Errorf(format string, args ...interface{}) {}
-func (m *MockLogger) Fatalf(format string, args ...interface{}) {}
-func (m *MockLogger) WithError(err error) logging.Logger { return m }
+func (m *MockLogger) Debug(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Info(msg string, fields ...logging.Field)               {}
+func (m *MockLogger) Warn(msg string, fields ...logging.Field)               {}
+func (m *MockLogger) Error(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Fatal(msg string, fields ...logging.Field)              {}
+func (m *MockLogger) Debugf(format string, args ...interface{})              {}
+func (m *MockLogger) Infof(format string, args ...interface{})               {}
+func (m *MockLogger) Warnf(format string, args ...interface{})               {}
+func (m *MockLogger) Errorf(format string, args ...interface{})              {}
+func (m *MockLogger) Fatalf(format string, args ...interface{})              {}
+func (m *MockLogger) WithError(err error) logging.Logger                     { return m }
 func (m *MockLogger) WithField(key string, value interface{}) logging.Logger { return m }
-func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger { return m }
+func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger      { return m }

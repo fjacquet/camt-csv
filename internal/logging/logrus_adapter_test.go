@@ -342,12 +342,12 @@ func TestLogrusAdapter_FatalMethods(t *testing.T) {
 	// Note: We can't easily test Fatal methods as they call os.Exit
 	// This test just verifies the methods exist and can be called
 	// In a real scenario, these would terminate the program
-	
+
 	logrusLogger := logrus.New()
 	var buf bytes.Buffer
 	logrusLogger.SetOutput(&buf)
 	logrusLogger.SetLevel(logrus.FatalLevel)
-	
+
 	logger := NewLogrusAdapterFromLogger(logrusLogger)
 	adapter := logger.(*LogrusAdapter)
 

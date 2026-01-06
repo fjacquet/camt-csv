@@ -94,7 +94,7 @@ func TestPerformReview_ManualEvaluationMethod(t *testing.T) {
 	report := models.NewComplianceReport(sections, principles)
 
 	// Simulate manual evaluation logic
-	for _, _ = range sections {
+	for range sections {
 		for _, principle := range principles {
 			if principle.EvaluationMethod == models.EvaluationMethodManual {
 				finding := models.Finding{
@@ -138,8 +138,8 @@ func TestPerformReview_UnsupportedEvaluationMethod(t *testing.T) {
 	// Simulate unsupported evaluation method logic
 	for _, section := range sections {
 		for _, principle := range principles {
-			if principle.EvaluationMethod != models.EvaluationMethodAutomated && 
-			   principle.EvaluationMethod != models.EvaluationMethodManual {
+			if principle.EvaluationMethod != models.EvaluationMethodAutomated &&
+				principle.EvaluationMethod != models.EvaluationMethodManual {
 				evalErr := fmt.Errorf("unsupported evaluation method '%s' for principle '%s'", principle.EvaluationMethod, principle.ID)
 				report.Findings = append(report.Findings, models.Finding{
 					Principle: principle,
@@ -242,7 +242,7 @@ func TestPerformReview_OverallStatusDetermination(t *testing.T) {
 			}
 
 			report := models.NewComplianceReport(sections, principles)
-			
+
 			// Add a finding with the test status
 			finding := models.Finding{
 				Principle: principles[0],
@@ -327,7 +327,7 @@ func TestPerformReview_MultipleSectionsAndPrinciples(t *testing.T) {
 func TestPerformReview_PrincipleFiltering(t *testing.T) {
 	// Test principle filtering logic
 	principleIDs := []string{"TEST-001", "TEST-003"}
-	
+
 	loadedPrinciples := []models.ConstitutionPrinciple{
 		{ID: "TEST-001", Name: "Test Principle 1"},
 		{ID: "TEST-002", Name: "Test Principle 2"},
@@ -355,7 +355,7 @@ func TestPerformReview_PrincipleFiltering(t *testing.T) {
 func TestPerformReview_EmptyPrincipleIDsUsesAll(t *testing.T) {
 	// Test that empty principle IDs uses all loaded principles
 	principleIDs := []string{} // Empty
-	
+
 	loadedPrinciples := []models.ConstitutionPrinciple{
 		{ID: "TEST-001", Name: "Test Principle 1"},
 		{ID: "TEST-002", Name: "Test Principle 2"},

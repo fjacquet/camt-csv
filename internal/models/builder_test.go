@@ -885,37 +885,37 @@ func TestTransaction_CSVAccuracy(t *testing.T) {
 func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 	t.Run("WithDatetime", func(t *testing.T) {
 		datetime := time.Date(2025, 1, 15, 14, 30, 0, 0, time.UTC)
-		
+
 		tx, err := NewTransactionBuilder().
 			WithDatetime(datetime).
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, datetime, tx.Date)
 	})
 
 	t.Run("WithValueDatetime", func(t *testing.T) {
 		datetime := time.Date(2025, 1, 16, 14, 30, 0, 0, time.UTC)
-		
+
 		tx, err := NewTransactionBuilder().
 			WithDate("2025-01-15").
 			WithValueDatetime(datetime).
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, datetime, tx.ValueDate)
 	})
 
 	t.Run("WithDateFromDatetime", func(t *testing.T) {
 		datetimeStr := "2025-01-15 14:30:45"
-		
+
 		tx, err := NewTransactionBuilder().
 			WithDateFromDatetime(datetimeStr).
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			Build()
-		
+
 		require.NoError(t, err)
 		// The method actually preserves the full datetime, not just the date part
 		expectedDate := time.Date(2025, 1, 15, 14, 30, 45, 0, time.UTC)
@@ -924,13 +924,13 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 
 	t.Run("WithValueDateFromDatetime", func(t *testing.T) {
 		datetimeStr := "2025-01-16 14:30:45"
-		
+
 		tx, err := NewTransactionBuilder().
 			WithDate("2025-01-15").
 			WithValueDateFromDatetime(datetimeStr).
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			Build()
-		
+
 		require.NoError(t, err)
 		// The method actually preserves the full datetime, not just the date part
 		expectedDate := time.Date(2025, 1, 16, 14, 30, 45, 0, time.UTC)
@@ -942,7 +942,7 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 			WithDate("2025-01-15").
 			WithAmountFromFloat(123.45, "CHF").
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "123.45", tx.Amount.String())
 		assert.Equal(t, "CHF", tx.Currency)
@@ -954,7 +954,7 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			WithPartyName("Test Party").
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "Test Party", tx.PartyName)
 	})
@@ -965,7 +965,7 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			WithPartyIBAN("CH1234567890123456").
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "CH1234567890123456", tx.PartyIBAN)
 	})
@@ -976,7 +976,7 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			WithFeesFromFloat(5.50).
 			Build()
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "5.5", tx.Fees.String())
 	})
@@ -985,13 +985,13 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 		pricePerShare := decimal.NewFromFloat(10.50)
 		amountTax := decimal.NewFromFloat(7.70)
 		taxRate := decimal.NewFromFloat(7.7)
-		
+
 		tx, err := NewTransactionBuilder().
 			WithDate("2025-01-15").
 			WithAmount(decimal.NewFromFloat(100), "CHF").
 			WithTaxInfo(pricePerShare, amountTax, taxRate).
 			Build()
-		
+
 		require.NoError(t, err)
 		// WithTaxInfo sets AmountExclTax, AmountTax, and TaxRate
 		assert.True(t, pricePerShare.Equal(tx.AmountExclTax))

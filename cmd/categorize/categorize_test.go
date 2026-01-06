@@ -23,20 +23,20 @@ func TestCategorizeCommand_Flags(t *testing.T) {
 	partyFlag := categorize.Cmd.Flags().Lookup("party")
 	assert.NotNil(t, partyFlag)
 	assert.Equal(t, "p", partyFlag.Shorthand)
-	
+
 	debtorFlag := categorize.Cmd.Flags().Lookup("debtor")
 	assert.NotNil(t, debtorFlag)
 	assert.Equal(t, "d", debtorFlag.Shorthand)
 	assert.Equal(t, "false", debtorFlag.DefValue)
-	
+
 	amountFlag := categorize.Cmd.Flags().Lookup("amount")
 	assert.NotNil(t, amountFlag)
 	assert.Equal(t, "a", amountFlag.Shorthand)
-	
+
 	dateFlag := categorize.Cmd.Flags().Lookup("date")
 	assert.NotNil(t, dateFlag)
 	assert.Equal(t, "t", dateFlag.Shorthand)
-	
+
 	infoFlag := categorize.Cmd.Flags().Lookup("info")
 	assert.NotNil(t, infoFlag)
 	assert.Equal(t, "n", infoFlag.Shorthand)
@@ -46,16 +46,16 @@ func TestCategorizeCommand_FlagUsage(t *testing.T) {
 	// Test that flags have usage descriptions
 	partyFlag := categorize.Cmd.Flags().Lookup("party")
 	assert.Contains(t, partyFlag.Usage, "Party name")
-	
+
 	debtorFlag := categorize.Cmd.Flags().Lookup("debtor")
 	assert.Contains(t, debtorFlag.Usage, "debtor")
-	
+
 	amountFlag := categorize.Cmd.Flags().Lookup("amount")
 	assert.Contains(t, amountFlag.Usage, "amount")
-	
+
 	dateFlag := categorize.Cmd.Flags().Lookup("date")
 	assert.Contains(t, dateFlag.Usage, "date")
-	
+
 	infoFlag := categorize.Cmd.Flags().Lookup("info")
 	assert.Contains(t, infoFlag.Usage, "info")
 }
@@ -65,11 +65,11 @@ func TestCategorizeCommand_RequiredFlags(t *testing.T) {
 	partyFlag := categorize.Cmd.Flags().Lookup("party")
 	assert.NotNil(t, partyFlag)
 	assert.Equal(t, "", partyFlag.DefValue) // Required flags typically have empty default
-	
+
 	// Test that other flags are not required (have default values or are optional)
 	debtorFlag := categorize.Cmd.Flags().Lookup("debtor")
 	assert.Equal(t, "false", debtorFlag.DefValue)
-	
+
 	amountFlag := categorize.Cmd.Flags().Lookup("amount")
 	assert.Equal(t, "", amountFlag.DefValue) // Optional string flag
 }
@@ -78,13 +78,13 @@ func TestCategorizeCommand_FlagDefaults(t *testing.T) {
 	// Test default values
 	debtorFlag := categorize.Cmd.Flags().Lookup("debtor")
 	assert.Equal(t, "false", debtorFlag.DefValue)
-	
+
 	amountFlag := categorize.Cmd.Flags().Lookup("amount")
 	assert.Equal(t, "", amountFlag.DefValue)
-	
+
 	dateFlag := categorize.Cmd.Flags().Lookup("date")
 	assert.Equal(t, "", dateFlag.DefValue)
-	
+
 	infoFlag := categorize.Cmd.Flags().Lookup("info")
 	assert.Equal(t, "", infoFlag.DefValue)
 }
@@ -92,18 +92,18 @@ func TestCategorizeCommand_FlagDefaults(t *testing.T) {
 func TestCategorizeCommand_Run_EmptyPartyName(t *testing.T) {
 	// Save original values
 	originalPartyName := root.PartyName
-	
+
 	// Reset after test
 	defer func() {
 		root.PartyName = originalPartyName
 	}()
-	
+
 	// Set empty party name
 	root.PartyName = ""
-	
+
 	// Create test command
 	cmd := &cobra.Command{}
-	
+
 	// Test that it doesn't panic with empty party name
 	assert.NotPanics(t, func() {
 		categorize.Cmd.Run(cmd, []string{})
@@ -118,7 +118,7 @@ func TestCategorizeCommand_Run_WithPartyName(t *testing.T) {
 	originalDate := root.Date
 	originalInfo := root.Info
 	originalContainer := root.AppContainer
-	
+
 	// Reset after test
 	defer func() {
 		root.PartyName = originalPartyName
@@ -128,20 +128,20 @@ func TestCategorizeCommand_Run_WithPartyName(t *testing.T) {
 		root.Info = originalInfo
 		root.AppContainer = originalContainer
 	}()
-	
+
 	// Set test values
 	root.PartyName = "Test Party"
 	root.IsDebtor = false
 	root.Amount = "100.50"
 	root.Date = "2025-01-15"
 	root.Info = "Test info"
-	
+
 	// Set container to nil to test the nil container path
 	root.AppContainer = nil
-	
+
 	// Create test command
 	testCmd := &cobra.Command{}
-	
+
 	// Test that it doesn't panic with party name set but nil container
 	// This will trigger the "Container not initialized" path
 	assert.NotPanics(t, func() {
@@ -159,21 +159,21 @@ func TestCategorizeCommand_GlobalVariableAccess(t *testing.T) {
 	originalAmount := root.Amount
 	originalDate := root.Date
 	originalInfo := root.Info
-	
+
 	// Modify values
 	root.PartyName = "Modified Party"
 	root.IsDebtor = true
 	root.Amount = "200.75"
 	root.Date = "2025-02-20"
 	root.Info = "Modified info"
-	
+
 	// Verify changes
 	assert.Equal(t, "Modified Party", root.PartyName)
 	assert.True(t, root.IsDebtor)
 	assert.Equal(t, "200.75", root.Amount)
 	assert.Equal(t, "2025-02-20", root.Date)
 	assert.Equal(t, "Modified info", root.Info)
-	
+
 	// Restore original values
 	root.PartyName = originalPartyName
 	root.IsDebtor = originalIsDebtor
@@ -195,10 +195,10 @@ func TestCategorizeCommand_Structure(t *testing.T) {
 	assert.NotEmpty(t, categorize.Cmd.Short)
 	assert.NotEmpty(t, categorize.Cmd.Long)
 	assert.NotNil(t, categorize.Cmd.Run)
-	
+
 	// Test that it has flags
 	assert.True(t, categorize.Cmd.Flags().HasFlags())
-	
+
 	// Test that it has the expected number of flags
 	flagCount := 0
 	categorize.Cmd.Flags().VisitAll(func(flag *pflag.Flag) {
@@ -211,16 +211,16 @@ func TestCategorizeCommand_FlagTypes(t *testing.T) {
 	// Test that flags have correct types
 	partyFlag := categorize.Cmd.Flags().Lookup("party")
 	assert.Equal(t, "string", partyFlag.Value.Type())
-	
+
 	debtorFlag := categorize.Cmd.Flags().Lookup("debtor")
 	assert.Equal(t, "bool", debtorFlag.Value.Type())
-	
+
 	amountFlag := categorize.Cmd.Flags().Lookup("amount")
 	assert.Equal(t, "string", amountFlag.Value.Type())
-	
+
 	dateFlag := categorize.Cmd.Flags().Lookup("date")
 	assert.Equal(t, "string", dateFlag.Value.Type())
-	
+
 	infoFlag := categorize.Cmd.Flags().Lookup("info")
 	assert.Equal(t, "string", infoFlag.Value.Type())
 }

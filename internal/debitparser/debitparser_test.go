@@ -210,7 +210,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 
 	reader := strings.NewReader(validContent)
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Mock categorizer
 	mockCategorizer := &mockCategorizer{
 		category: models.Category{Name: "Transport"},
@@ -228,7 +228,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 
 	reader := strings.NewReader(validContent)
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Mock categorizer that returns error
 	mockCategorizer := &mockCategorizerError{}
 
@@ -361,7 +361,7 @@ func TestConvertDebitRowToTransaction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tx, err := convertDebitRowToTransaction(tt.row)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -396,7 +396,7 @@ func TestValidateFormatWithLogger(t *testing.T) {
 	// Test with valid file
 	validContent := `Bénéficiaire;Date;Montant;Monnaie
 PMT CARTE RATP;15.04.2025;-4,21;CHF`
-	
+
 	validFile := filepath.Join(tempDir, "valid.csv")
 	err := os.WriteFile(validFile, []byte(validContent), 0600)
 	require.NoError(t, err)
@@ -433,7 +433,7 @@ func TestBatchConvert(t *testing.T) {
 	// Create valid debit CSV file
 	validCSV := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
 PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
-	
+
 	validFile := filepath.Join(inputDir, "valid.csv")
 	err = os.WriteFile(validFile, []byte(validCSV), 0600)
 	require.NoError(t, err)
@@ -441,7 +441,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 	// Create invalid CSV file
 	invalidCSV := `SomeHeader1;SomeHeader2
 Value1;Value2`
-	
+
 	invalidFile := filepath.Join(inputDir, "invalid.csv")
 	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
 	require.NoError(t, err)
@@ -480,7 +480,7 @@ func TestBatchConvertWithLogger(t *testing.T) {
 	// Create valid CSV file
 	validCSV := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
 PMT CARTE Test;15.04.2025;-25,00;CHF;12345;REF123;COMPLETED`
-	
+
 	validFile := filepath.Join(inputDir, "test.csv")
 	err = os.WriteFile(validFile, []byte(validCSV), 0600)
 	require.NoError(t, err)

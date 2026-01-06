@@ -431,7 +431,7 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 	t.Run("IsZero", func(t *testing.T) {
 		zero := NewMoney(decimal.Zero, "CHF")
 		nonZero := NewMoney(decimal.NewFromFloat(1.0), "CHF")
-		
+
 		assert.True(t, zero.IsZero())
 		assert.False(t, nonZero.IsZero())
 	})
@@ -440,7 +440,7 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 		positive := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		negative := NewMoney(decimal.NewFromFloat(-100.0), "CHF")
 		zero := NewMoney(decimal.Zero, "CHF")
-		
+
 		assert.True(t, positive.IsPositive())
 		assert.False(t, negative.IsPositive())
 		assert.False(t, zero.IsPositive())
@@ -450,7 +450,7 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 		positive := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		negative := NewMoney(decimal.NewFromFloat(-100.0), "CHF")
 		zero := NewMoney(decimal.Zero, "CHF")
-		
+
 		assert.False(t, positive.IsNegative())
 		assert.True(t, negative.IsNegative())
 		assert.False(t, zero.IsNegative())
@@ -459,10 +459,10 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 	t.Run("Abs", func(t *testing.T) {
 		positive := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		negative := NewMoney(decimal.NewFromFloat(-100.0), "CHF")
-		
+
 		absPositive := positive.Abs()
 		absNegative := negative.Abs()
-		
+
 		assert.Equal(t, "100", absPositive.Amount.String())
 		assert.Equal(t, "100", absNegative.Amount.String())
 		assert.Equal(t, "CHF", absPositive.Currency)
@@ -472,10 +472,10 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 	t.Run("Neg", func(t *testing.T) {
 		positive := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		negative := NewMoney(decimal.NewFromFloat(-100.0), "CHF")
-		
+
 		negPositive := positive.Neg()
 		negNegative := negative.Neg()
-		
+
 		assert.Equal(t, "-100", negPositive.Amount.String())
 		assert.Equal(t, "100", negNegative.Amount.String())
 		assert.Equal(t, "CHF", negPositive.Currency)
@@ -485,9 +485,9 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 	t.Run("Mul", func(t *testing.T) {
 		money := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		multiplier := decimal.NewFromFloat(2.5)
-		
+
 		result := money.Mul(multiplier)
-		
+
 		assert.Equal(t, "250", result.Amount.String())
 		assert.Equal(t, "CHF", result.Currency)
 	})
@@ -495,16 +495,16 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 	t.Run("Div", func(t *testing.T) {
 		money := NewMoney(decimal.NewFromFloat(100.0), "CHF")
 		divisor := decimal.NewFromFloat(4.0)
-		
+
 		result := money.Div(divisor)
-		
+
 		assert.Equal(t, "25", result.Amount.String())
 		assert.Equal(t, "CHF", result.Currency)
 	})
 
 	t.Run("StringFixed", func(t *testing.T) {
 		money := NewMoney(decimal.NewFromFloat(100.123456), "CHF")
-		
+
 		// StringFixed returns the amount with currency, not just the amount
 		assert.Equal(t, "100.12 CHF", money.StringFixed(2))
 		assert.Equal(t, "100.1235 CHF", money.StringFixed(4))
@@ -513,9 +513,9 @@ func TestMoney_UncoveredMethods(t *testing.T) {
 
 	t.Run("Float64", func(t *testing.T) {
 		money := NewMoney(decimal.NewFromFloat(100.50), "CHF")
-		
+
 		result := money.Float64()
-		
+
 		assert.InDelta(t, 100.50, result, 0.001)
 	})
 }

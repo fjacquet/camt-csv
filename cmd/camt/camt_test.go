@@ -40,7 +40,7 @@ func TestCamtCommand_Run_EmptyInput(t *testing.T) {
 	originalOutput := root.SharedFlags.Output
 	originalValidate := root.SharedFlags.Validate
 	originalContainer := root.AppContainer
-	
+
 	// Reset after test
 	defer func() {
 		root.SharedFlags.Input = originalInput
@@ -48,18 +48,18 @@ func TestCamtCommand_Run_EmptyInput(t *testing.T) {
 		root.SharedFlags.Validate = originalValidate
 		root.AppContainer = originalContainer
 	}()
-	
+
 	// Set empty input
 	root.SharedFlags.Input = ""
 	root.SharedFlags.Output = ""
 	root.SharedFlags.Validate = false
-	
+
 	// Set container to nil to test the nil container path
 	root.AppContainer = nil
-	
+
 	// Create test command
 	cmd := &cobra.Command{}
-	
+
 	// Test that it doesn't panic with empty input but nil container
 	// This will trigger the "Container not initialized" path
 	assert.NotPanics(t, func() {
@@ -75,7 +75,7 @@ func TestCamtCommand_Run_WithInput(t *testing.T) {
 	originalOutput := root.SharedFlags.Output
 	originalValidate := root.SharedFlags.Validate
 	originalContainer := root.AppContainer
-	
+
 	// Reset after test
 	defer func() {
 		root.SharedFlags.Input = originalInput
@@ -83,18 +83,18 @@ func TestCamtCommand_Run_WithInput(t *testing.T) {
 		root.SharedFlags.Validate = originalValidate
 		root.AppContainer = originalContainer
 	}()
-	
+
 	// Set test values
 	root.SharedFlags.Input = "test.xml"
 	root.SharedFlags.Output = "test.csv"
 	root.SharedFlags.Validate = true
-	
+
 	// Set container to nil to test the nil container path
 	root.AppContainer = nil
-	
+
 	// Create test command
 	cmd := &cobra.Command{}
-	
+
 	// Test that it doesn't panic with input set but nil container
 	assert.NotPanics(t, func() {
 		// We expect this to log a fatal error, but we're testing it doesn't panic
@@ -107,17 +107,17 @@ func TestCamtCommand_GlobalVariableAccess(t *testing.T) {
 	originalInput := root.SharedFlags.Input
 	originalOutput := root.SharedFlags.Output
 	originalValidate := root.SharedFlags.Validate
-	
+
 	// Modify values
 	root.SharedFlags.Input = "modified.xml"
 	root.SharedFlags.Output = "modified.csv"
 	root.SharedFlags.Validate = true
-	
+
 	// Verify changes
 	assert.Equal(t, "modified.xml", root.SharedFlags.Input)
 	assert.Equal(t, "modified.csv", root.SharedFlags.Output)
 	assert.True(t, root.SharedFlags.Validate)
-	
+
 	// Restore original values
 	root.SharedFlags.Input = originalInput
 	root.SharedFlags.Output = originalOutput
@@ -129,7 +129,7 @@ func TestCamtCommand_ContainerIntegration(t *testing.T) {
 	assert.NotPanics(t, func() {
 		root.GetContainer()
 	})
-	
+
 	assert.NotPanics(t, func() {
 		root.GetLogrusAdapter()
 	})
@@ -148,36 +148,36 @@ func TestCamtCommand_LoggingIntegration(t *testing.T) {
 		logger := root.GetLogrusAdapter()
 		assert.NotNil(t, logger)
 	})
-	
+
 	assert.NotNil(t, root.Log)
 }
 
 func TestCamtCommand_CommandExecution(t *testing.T) {
 	// Test basic command execution structure
 	cmd := camt.Cmd
-	
+
 	// Test that the command can be created and has the right structure
 	assert.Equal(t, "camt", cmd.Use)
 	assert.NotNil(t, cmd.Run)
-	
+
 	// Test that we can access the run function
-	assert.IsType(t, func(*cobra.Command, []string){}, cmd.Run)
+	assert.IsType(t, func(*cobra.Command, []string) {}, cmd.Run)
 }
 
 func TestCamtCommand_SharedFlagsIntegration(t *testing.T) {
 	// Test that SharedFlags structure is accessible and modifiable
 	originalFlags := root.SharedFlags
-	
+
 	// Test structure access
 	assert.NotNil(t, &root.SharedFlags)
-	
+
 	// Test field access
 	assert.NotPanics(t, func() {
 		_ = root.SharedFlags.Input
 		_ = root.SharedFlags.Output
 		_ = root.SharedFlags.Validate
 	})
-	
+
 	// Restore original flags
 	root.SharedFlags = originalFlags
 }
@@ -185,15 +185,15 @@ func TestCamtCommand_SharedFlagsIntegration(t *testing.T) {
 func TestCamtCommand_ErrorHandling(t *testing.T) {
 	// Test error handling scenarios
 	originalContainer := root.AppContainer
-	
+
 	// Reset after test
 	defer func() {
 		root.AppContainer = originalContainer
 	}()
-	
+
 	// Test with nil container
 	root.AppContainer = nil
-	
+
 	// The command should handle nil container gracefully (with fatal log)
 	assert.NotPanics(t, func() {
 		container := root.GetContainer()
@@ -204,42 +204,42 @@ func TestCamtCommand_ErrorHandling(t *testing.T) {
 func TestCamtCommand_FunctionExecution(t *testing.T) {
 	// Test that the command function can be accessed and has the right signature
 	cmd := camt.Cmd
-	
+
 	// Verify the function exists
 	assert.NotNil(t, cmd.Run)
-	
+
 	// Verify it has the correct signature
-	assert.IsType(t, func(*cobra.Command, []string){}, cmd.Run)
-	
+	assert.IsType(t, func(*cobra.Command, []string) {}, cmd.Run)
+
 	// Test that we can call it (it will fail due to dependencies, but we test the call path)
 	originalContainer := root.AppContainer
 	originalInput := root.SharedFlags.Input
 	originalOutput := root.SharedFlags.Output
 	originalValidate := root.SharedFlags.Validate
-	
+
 	defer func() {
 		root.AppContainer = originalContainer
 		root.SharedFlags.Input = originalInput
 		root.SharedFlags.Output = originalOutput
 		root.SharedFlags.Validate = originalValidate
 	}()
-	
+
 	// Set up minimal test environment
 	root.SharedFlags.Input = "test.xml"
 	root.SharedFlags.Output = "test.csv"
 	root.SharedFlags.Validate = false
 	root.AppContainer = nil
-	
+
 	// The function will log a fatal error, but we test that it doesn't panic before that
 	assert.NotPanics(t, func() {
 		// Test accessing the logger functions that the command uses
 		logger := root.GetLogrusAdapter()
 		assert.NotNil(t, logger)
-		
+
 		// Test accessing the container function
 		appContainer := root.GetContainer()
 		_ = appContainer // Will be nil, which is expected in this test
-		
+
 		// Test that we can access the parser type constant
 		assert.Equal(t, "camt", string(container.CAMT))
 	})
@@ -249,25 +249,25 @@ func TestCamtCommand_LoggingCalls(t *testing.T) {
 	// Test the logging calls that happen in the command
 	originalInput := root.SharedFlags.Input
 	originalOutput := root.SharedFlags.Output
-	
+
 	defer func() {
 		root.SharedFlags.Input = originalInput
 		root.SharedFlags.Output = originalOutput
 	}()
-	
+
 	// Set test values
 	root.SharedFlags.Input = "sample.xml"
 	root.SharedFlags.Output = "output.csv"
-	
+
 	// Test that we can access the logging functionality
 	assert.NotPanics(t, func() {
 		logger := root.GetLogrusAdapter()
 		assert.NotNil(t, logger)
-		
+
 		// Test the log calls that would happen in the command
 		logger.Infof("Input CAMT.053 file: %s", root.SharedFlags.Input)
 		logger.Infof("Output CSV file: %s", root.SharedFlags.Output)
-		
+
 		// Test root logger access
 		assert.NotNil(t, root.Log)
 	})

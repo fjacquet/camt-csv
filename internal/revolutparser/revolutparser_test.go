@@ -184,7 +184,11 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Mock categorizer
 	mockCategorizer := &mockCategorizer{
@@ -210,7 +214,11 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Mock categorizer that returns error
 	mockCategorizer := &mockCategorizerError{}
@@ -261,7 +269,7 @@ Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,C
 		t.Run(tt.name, func(t *testing.T) {
 			reader := strings.NewReader(tt.content)
 			valid, err := validateFormat(reader)
-			
+
 			if tt.hasError {
 				assert.Error(t, err)
 			} else {
@@ -284,7 +292,7 @@ func TestBatchConvert(t *testing.T) {
 	// Create valid Revolut CSV file
 	validCSV := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
-	
+
 	validFile := filepath.Join(inputDir, "valid.csv")
 	err = os.WriteFile(validFile, []byte(validCSV), 0600)
 	require.NoError(t, err)
@@ -292,7 +300,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 	// Create invalid CSV file
 	invalidCSV := `Date,Description,Balance
 2025-01-02,Some description,111.42`
-	
+
 	invalidFile := filepath.Join(inputDir, "invalid.csv")
 	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
 	require.NoError(t, err)
@@ -335,7 +343,7 @@ func TestPostProcessTransactions(t *testing.T) {
 			CreditDebit: models.TransactionTypeDebit,
 		},
 		{
-			Type:        "TRANSFER", 
+			Type:        "TRANSFER",
 			Description: "To CHF Vacances",
 			CreditDebit: models.TransactionTypeCredit,
 		},
@@ -347,19 +355,19 @@ func TestPostProcessTransactions(t *testing.T) {
 	}
 
 	processed := postProcessTransactions(transactions)
-	
+
 	// First transaction should be processed as debit transfer
 	assert.Equal(t, "Transfert to CHF Vacances", processed[0].Description)
 	assert.Equal(t, "Transfert to CHF Vacances", processed[0].Name)
 	assert.Equal(t, "Transfert to CHF Vacances", processed[0].PartyName)
 	assert.Equal(t, "Transfert to CHF Vacances", processed[0].Recipient)
-	
+
 	// Second transaction should be processed as credit transfer
 	assert.Equal(t, "Transferred To CHF Vacances", processed[1].Description)
 	assert.Equal(t, "Transferred To CHF Vacances", processed[1].Name)
 	assert.Equal(t, "Transferred To CHF Vacances", processed[1].PartyName)
 	assert.Equal(t, "Transferred To CHF Vacances", processed[1].Recipient)
-	
+
 	// Third transaction should remain unchanged
 	assert.Equal(t, "Regular payment", processed[2].Description)
 }
@@ -379,7 +387,11 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Pending transaction
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	transactions, err := Parse(file, logger)
@@ -406,7 +418,7 @@ func (m *mockCategorizerError) Categorize(description string, isDebtor bool, amo
 
 func TestConvertRevolutRowToTransactionWithFeeError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	row := RevolutCSVRow{
 		Type:          "CARD_PAYMENT",
 		Product:       "Current",
@@ -427,10 +439,10 @@ func TestConvertRevolutRowToTransactionWithFeeError(t *testing.T) {
 
 func TestConvertRevolutRowToTransactionWithInvalidAmount(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	row := RevolutCSVRow{
 		Type:          "CARD_PAYMENT",
-		Product:       "Current", 
+		Product:       "Current",
 		StartedDate:   "2025-01-02 08:07:09",
 		CompletedDate: "2025-01-03 15:38:51",
 		Description:   "Test Payment",
@@ -458,7 +470,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,"unclosed quote,-57
 
 	reader := strings.NewReader(invalidCSV)
 	logger := logging.NewLogrusAdapter("info", "text")
-	
+
 	_, err := Parse(reader, logger)
 	assert.Error(t, err)
 }
@@ -468,7 +480,7 @@ func TestParseWithNilLogger(t *testing.T) {
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
 
 	reader := strings.NewReader(csvContent)
-	
+
 	// Should work with nil logger (creates default)
 	transactions, err := Parse(reader, nil)
 	assert.NoError(t, err)
@@ -532,7 +544,7 @@ func TestBatchConvertWithLogger(t *testing.T) {
 	// Create valid CSV file
 	validCSV := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Test Payment,-25.00,0.00,CHF,COMPLETED,75.00`
-	
+
 	validFile := filepath.Join(inputDir, "test.csv")
 	err = os.WriteFile(validFile, []byte(validCSV), 0600)
 	require.NoError(t, err)
@@ -566,12 +578,12 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee Shop,-10.50,
 
 func TestAdapter_ValidateFormat(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	t.Run("valid revolut file", func(t *testing.T) {
 		validFile := filepath.Join(tempDir, "valid.csv")
 		csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00`
-		
+
 		err := os.WriteFile(validFile, []byte(csvContent), 0600)
 		require.NoError(t, err)
 
@@ -587,7 +599,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,
 		invalidFile := filepath.Join(tempDir, "invalid.csv")
 		csvContent := `Wrong,Headers
 data,here`
-		
+
 		err := os.WriteFile(invalidFile, []byte(csvContent), 0600)
 		require.NoError(t, err)
 
@@ -612,7 +624,7 @@ func TestAdapter_BatchConvert(t *testing.T) {
 	validFile := filepath.Join(inputDir, "revolut1.csv")
 	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00`
-	
+
 	err = os.WriteFile(validFile, []byte(csvContent), 0600)
 	require.NoError(t, err)
 
@@ -864,7 +876,7 @@ func TestConvertToCSVWithLogger_FileErrors(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "input.csv")
 		csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00`
-		
+
 		err := os.WriteFile(inputFile, []byte(csvContent), 0600)
 		require.NoError(t, err)
 

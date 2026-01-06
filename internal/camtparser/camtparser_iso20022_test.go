@@ -655,7 +655,6 @@ func TestISO20022Parser_ExtractTransactions(t *testing.T) {
 	})
 }
 
-
 func TestAdapter_BatchConvert(t *testing.T) {
 	tempDir := t.TempDir()
 	inputDir := filepath.Join(tempDir, "input")

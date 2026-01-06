@@ -94,15 +94,15 @@ func (m *MockLegacyParser) WriteToCSV(transactions []models.Transaction, csvFile
 func TestProcessFileWithError_Success(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(true, nil)
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(nil)
-	
+
 	// Test with validation
 	err := common.ProcessFileWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.NoError(t, err)
 	mockParser.AssertExpectations(t)
 }
@@ -110,14 +110,14 @@ func TestProcessFileWithError_Success(t *testing.T) {
 func TestProcessFileWithError_ValidationError(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(false, errors.New("validation failed"))
-	
+
 	// Test with validation error
 	err := common.ProcessFileWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error validating file")
 	mockParser.AssertExpectations(t)
@@ -126,14 +126,14 @@ func TestProcessFileWithError_ValidationError(t *testing.T) {
 func TestProcessFileWithError_InvalidFormat(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(false, nil)
-	
+
 	// Test with invalid format
 	err := common.ProcessFileWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Equal(t, common.ErrInvalidFormat, err)
 	mockParser.AssertExpectations(t)
@@ -142,14 +142,14 @@ func TestProcessFileWithError_InvalidFormat(t *testing.T) {
 func TestProcessFileWithError_ConversionError(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(errors.New("conversion failed"))
-	
+
 	// Test without validation (skip validation)
 	err := common.ProcessFileWithError(mockParser, "input.xml", "output.csv", false, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error converting to CSV")
 	mockParser.AssertExpectations(t)
@@ -158,14 +158,14 @@ func TestProcessFileWithError_ConversionError(t *testing.T) {
 func TestProcessFileWithError_NoValidation(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(nil)
-	
+
 	// Test without validation
 	err := common.ProcessFileWithError(mockParser, "input.xml", "output.csv", false, mockLogger)
-	
+
 	assert.NoError(t, err)
 	mockParser.AssertExpectations(t)
 }
@@ -174,16 +174,16 @@ func TestProcessFileWithError_NoValidation(t *testing.T) {
 func TestProcessFile_Success(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(nil)
-	
+
 	// Test without validation
 	assert.NotPanics(t, func() {
 		common.ProcessFile(mockParser, "input.xml", "output.csv", false, mockLogger)
 	})
-	
+
 	mockParser.AssertExpectations(t)
 }
 
@@ -191,15 +191,15 @@ func TestProcessFile_Success(t *testing.T) {
 func TestProcessFileLegacyWithError_Success(t *testing.T) {
 	mockParser := &MockLegacyParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(true, nil)
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(nil)
-	
+
 	// Test with validation
 	err := common.ProcessFileLegacyWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.NoError(t, err)
 	mockParser.AssertExpectations(t)
 }
@@ -207,14 +207,14 @@ func TestProcessFileLegacyWithError_Success(t *testing.T) {
 func TestProcessFileLegacyWithError_ValidationError(t *testing.T) {
 	mockParser := &MockLegacyParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(false, errors.New("validation failed"))
-	
+
 	// Test with validation error
 	err := common.ProcessFileLegacyWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error validating file")
 	mockParser.AssertExpectations(t)
@@ -223,14 +223,14 @@ func TestProcessFileLegacyWithError_ValidationError(t *testing.T) {
 func TestProcessFileLegacyWithError_InvalidFormat(t *testing.T) {
 	mockParser := &MockLegacyParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ValidateFormat", "input.xml").Return(false, nil)
-	
+
 	// Test with invalid format
 	err := common.ProcessFileLegacyWithError(mockParser, "input.xml", "output.csv", true, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Equal(t, common.ErrInvalidFormat, err)
 	mockParser.AssertExpectations(t)
@@ -239,14 +239,14 @@ func TestProcessFileLegacyWithError_InvalidFormat(t *testing.T) {
 func TestProcessFileLegacyWithError_ConversionError(t *testing.T) {
 	mockParser := &MockLegacyParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(errors.New("conversion failed"))
-	
+
 	// Test without validation
 	err := common.ProcessFileLegacyWithError(mockParser, "input.xml", "output.csv", false, mockLogger)
-	
+
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error converting to CSV")
 	mockParser.AssertExpectations(t)
@@ -256,23 +256,23 @@ func TestProcessFileLegacyWithError_ConversionError(t *testing.T) {
 func TestProcessFileLegacy_Success(t *testing.T) {
 	mockParser := &MockLegacyParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "input.xml", "output.csv").Return(nil)
-	
+
 	// Test without validation
 	assert.NotPanics(t, func() {
 		common.ProcessFileLegacy(mockParser, "input.xml", "output.csv", false, mockLogger)
 	})
-	
+
 	mockParser.AssertExpectations(t)
 }
 
 // Test SaveMappings function (deprecated)
 func TestSaveMappings(t *testing.T) {
 	logger := logrus.New()
-	
+
 	// Test that SaveMappings doesn't panic
 	assert.NotPanics(t, func() {
 		common.SaveMappings(logger)
@@ -289,14 +289,14 @@ func TestErrInvalidFormat(t *testing.T) {
 func TestProcessFileWithError_EdgeCases(t *testing.T) {
 	mockParser := &MockFullParser{}
 	mockLogger := logging.NewLogrusAdapter("info", "text")
-	
+
 	// Setup expectations for empty file paths
 	mockParser.On("SetLogger", mockLogger).Return()
 	mockParser.On("ConvertToCSV", "", "").Return(nil)
-	
+
 	// Test with empty file paths
 	err := common.ProcessFileWithError(mockParser, "", "", false, mockLogger)
-	
+
 	assert.NoError(t, err)
 	mockParser.AssertExpectations(t)
 }

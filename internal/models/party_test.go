@@ -130,7 +130,7 @@ func TestParty_UncoveredMethods(t *testing.T) {
 		partyWithName := Party{Name: "John Doe"}
 		partyWithoutName := Party{IBAN: "CH1234567890123456"}
 		emptyParty := Party{}
-		
+
 		assert.True(t, partyWithName.HasName())
 		assert.False(t, partyWithoutName.HasName())
 		assert.False(t, emptyParty.HasName())
@@ -140,7 +140,7 @@ func TestParty_UncoveredMethods(t *testing.T) {
 		partyWithIBAN := Party{IBAN: "CH1234567890123456"}
 		partyWithoutIBAN := Party{Name: "John Doe"}
 		emptyParty := Party{}
-		
+
 		assert.True(t, partyWithIBAN.HasIBAN())
 		assert.False(t, partyWithoutIBAN.HasIBAN())
 		assert.False(t, emptyParty.HasIBAN())
@@ -235,11 +235,11 @@ func TestParty_UncoveredMethods(t *testing.T) {
 		party2 := Party{Name: "John Doe", IBAN: "CH1234567890123456"}
 		party3 := Party{Name: "Jane Doe", IBAN: "CH1234567890123456"}
 		party4 := Party{Name: "John Doe", IBAN: "DE89370400440532013000"}
-		
+
 		assert.True(t, party1.Equal(party2))
 		assert.False(t, party1.Equal(party3))
 		assert.False(t, party1.Equal(party4))
-		
+
 		// Test with normalized IBANs
 		partySpaced := Party{Name: "John Doe", IBAN: "CH12 3456 7890 1234 56"}
 		assert.True(t, party1.Equal(partySpaced))
@@ -247,16 +247,16 @@ func TestParty_UncoveredMethods(t *testing.T) {
 
 	t.Run("SimilarTo", func(t *testing.T) {
 		party1 := Party{Name: "John Doe", IBAN: "CH1234567890123456"}
-		party2 := Party{Name: "john doe", IBAN: "CH1234567890123456"} // Different case
-		party3 := Party{Name: "John", IBAN: "CH1234567890123456"}     // Different name
-		party4 := Party{Name: "Jane Doe", IBAN: "CH1234567890123456"} // Different name
+		party2 := Party{Name: "john doe", IBAN: "CH1234567890123456"}     // Different case
+		party3 := Party{Name: "John", IBAN: "CH1234567890123456"}         // Different name
+		party4 := Party{Name: "Jane Doe", IBAN: "CH1234567890123456"}     // Different name
 		party5 := Party{Name: "John Doe", IBAN: "DE89370400440532013000"} // Same name, different IBAN
-		
+
 		assert.True(t, party1.SimilarTo(party2))  // Case insensitive
 		assert.False(t, party1.SimilarTo(party3)) // Different name
 		assert.False(t, party1.SimilarTo(party4)) // Different name
 		assert.True(t, party1.SimilarTo(party5))  // Same name, IBAN doesn't matter for SimilarTo
-		
+
 		// Test with whitespace
 		partyWithSpaces := Party{Name: " John Doe ", IBAN: "CH1234567890123456"}
 		assert.True(t, party1.SimilarTo(partyWithSpaces)) // Whitespace trimmed

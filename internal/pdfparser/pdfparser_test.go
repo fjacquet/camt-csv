@@ -412,7 +412,11 @@ func TestParseWithExtractor(t *testing.T) {
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockText := `Date valeur Détails Monnaie Montant
@@ -433,7 +437,11 @@ func TestParseWithExtractorAndCategorizer(t *testing.T) {
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockText := `Date valeur Détails Monnaie Montant
@@ -458,7 +466,11 @@ func TestParseWithNilLogger(t *testing.T) {
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	mockText := `Date valeur Détails Monnaie Montant
 01.01.25 02.01.25 Test Transaction CHF 100.50`
@@ -478,7 +490,11 @@ func TestParseWithExtractorError(t *testing.T) {
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
@@ -495,7 +511,11 @@ func TestParseFileFunction(t *testing.T) {
 
 	file, err := os.Open(testFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockText := `Date valeur Détails Monnaie Montant
@@ -1058,9 +1078,9 @@ func TestAdapterBatchConvert(t *testing.T) {
 	inputDir := filepath.Join(tempDir, "input")
 	outputDir := filepath.Join(tempDir, "output")
 
-	err := os.MkdirAll(inputDir, 0755)
+	err := os.MkdirAll(inputDir, 0750)
 	require.NoError(t, err)
-	err = os.MkdirAll(outputDir, 0755)
+	err = os.MkdirAll(outputDir, 0750)
 	require.NoError(t, err)
 
 	// Create dummy PDF file
