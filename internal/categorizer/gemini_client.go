@@ -139,50 +139,83 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 
 // buildCategorizationPrompt creates a prompt for the Gemini API to categorize the transaction
 func (c *GeminiClient) buildCategorizationPrompt(transaction models.Transaction) string {
-	prompt := fmt.Sprintf(`You are a financial transaction categorizer. Categorize this transaction into ONE of these categories:
+	prompt := fmt.Sprintf(`You are a financial transaction categorizer for a personal finance application.
+Your goal is to categorize the given transaction into ONE of the specific categories listed below.
 
-CATEGORIES:
-- Alimentation (food, groceries, restaurants)
-- Transports (public transport, taxis, parking)
-- Shopping (retail, clothing, electronics)
-- Services (utilities, phone, internet, professional services)
-- Loisirs (entertainment, sports, hobbies, theme parks)
-- Logement (rent, housing costs)
-- Santé (healthcare, pharmacy, medical)
-- Assurances (insurance)
-- Virements (transfers, bank operations)
-- Salaire (salary, income)
-- Restaurants (dining out, cafes)
-- Voiture (car expenses, fuel, maintenance)
-- Utilités (utilities, electricity, water)
-- Divertissement (entertainment, streaming, games)
-- Abonnements (subscriptions)
-- Retraits (cash withdrawals)
-- Frais Bancaires (bank fees)
-- Investissements (investments, trading)
-- Dons (donations, charity)
-- Taxes (taxes, government fees)
-- Enfants (children-related expenses)
-- Éducation (education, courses)
-- Voyages (travel, hotels)
-- Mobilier (furniture, home goods)
-- Sport (sports, fitness)
-- Bien-être (wellness, beauty)
+CATEGORIES (Strictly limit your answer to this list):
+- Abonnements (subscriptions, streaming, cloud services, software)
+- Alimentation (food, bakeries, snacks - NOT restaurants)
+- Animaux (pets, vet)
+- Assurance Maladie (health insurance)
+- Assurances (general insurance, liability, household)
+- Bien-être (wellness, spa, massage)
 - Cadeaux (gifts)
-- Divers (miscellaneous)
+- Courses (groceries, supermarkets like Migros, Coop)
+- Divertissement (movies, games, bowling)
+- Divers (miscellaneous, unknown)
+- Dons (donations, charity)
+- Éducation (school, university, books, courses)
+- Enfants (children, daycare, toys)
+- Épargne (savings, investments)
+- Famille (family expenses)
+- Formation (training, workshops)
+- Frais Bancaires (bank fees, card fees)
+- Hypothèques (mortgage)
+- Impôts (taxes)
+- Investissements (stocks, crypto, bonds)
+- Logement (rent, condo fees)
+- Loisirs (hobbies, theme parks, museums)
+- Mobilier (furniture, home decoration, IKEA)
+- Non Classé (uncategorized)
+- Pension (retirement income/contributions - NOT hostels/hotels/AI)
+- Prêts (loans)
+- Restaurants (dining out, fast food, cafes)
+- Revenus Financiers (dividends, interest)
+- Revenus Locatifs (rental income)
+- Revenus Professionnels (business income)
+- Salaire (salary)
+- Santé (doctors, pharmacy, medical)
+- Services (general services)
+- Services Professionnels (lawyer, accountant, consultant)
+- Séjours (stays, hotels, airbnb)
+- Shopping (retail, clothes, electronics, online shopping)
+- Soins Personnels (hairdresser, barber, cosmetics)
+- Sport (gym, equipment, sports clubs)
+- Taxes (government taxes)
+- Transferts (transfers)
+- Transport Privé (private transport)
+- Transports Publics (train, bus, tram, CFF/SBB)
+- Utilités (electricity, water, phone, internet)
+- Virements (internal transfers, TWINT to friends)
+- Voiture (fuel, parking, repairs, tolls)
+- Voyages (travel, flights, hotels, trains for vacation)
 
-TRANSACTION:
+TRICKY CASES / RULES:
+1. **AI & Software**: "Claude.ai", "OpenAI", "ChatGPT", "Midjourney", "Google One", "Microsoft" are **Abonnements** or **Services Professionnels**. NEVER classify them as "Pension".
+2. **Retirement**: "Pension" is ONLY for retirement funds (AVS/AI/LPP).
+3. **Food vs Groceries**: "Migros", "Coop", "Denner" are **Courses**. "McDonalds", "Starbucks", "Restaurant X" are **Restaurants**.
+4. **Transport**: "SNCF", "CFF", "SBB" are **Transports Publics**. "Parking", "Shell", "BP" are **Voiture**.
+5. **Hotels**: Hotels can be **Voyages** (if travel) or **Séjours**. Do not use "Assurances" for hotels.
+6. **Stores**: "IKEA", "Conforama" are **Mobilier**. "Zalando", "Manor" are **Shopping**. "Fnac", "Digitec" are **Shopping** (or **Loisirs** if tickets).
+7. **Insurance**: Only actual insurance companies (AXA, Zurich, Vaudoise) are **Assurances**. Do not put shops here.
+8. **Identify Merchants**: Use your extensive internal knowledge to identify companies, brands, and local businesses. If a Party name is obscure (e.g., "Amavita", "Cidiverte"), use your knowledge to determine if it is a pharmacy, a game shop, etc., and categorize accordingly.
+
+FEW-SHOT EXAMPLES:
+- Transaction: "OpenAI *ChatGPT", Amount: 20.00 -> Category: Abonnements
+- Transaction: "Coop Pronto", Amount: 15.50 -> Category: Courses
+- Transaction: "McDonalds", Amount: 24.90 -> Category: Restaurants
+- Transaction: "SBB CFF FFS Mobile Ticket", Amount: 5.60 -> Category: Transports Publics
+- Transaction: "Parking de la Gare", Amount: 3.00 -> Category: Voiture
+- Transaction: "IKEA AG", Amount: 150.00 -> Category: Mobilier
+- Transaction: "Zalando", Amount: 89.90 -> Category: Shopping
+- Transaction: "Retrait Bancomat", Amount: 100.00 -> Category: Divers
+- Transaction: "La Vaudoise Assurances", Amount: 450.00 -> Category: Assurances
+- Transaction: "Claude.ai", Amount: 18.00 -> Category: Abonnements
+
+TRANSACTION TO CATEGORIZE:
 Party: %s
 Description: %s
 Amount: %s CHF
-
-RULES:
-1. Return ONLY the category name, nothing else
-2. If unsure, choose the most likely category
-3. For theme parks like Europa Park, use "Loisirs"
-4. For restaurants and food places, use "Alimentation" or "Restaurants"
-5. For shops and retail, use "Shopping"
-6. For transport and parking, use "Transports"
 
 Category:`, transaction.PartyName, transaction.Description, transaction.Amount.String())
 
@@ -271,26 +304,82 @@ func (c *GeminiClient) cleanCategory(category string) string {
 	// Remove quotes if present
 	category = strings.Trim(category, `"'`)
 
-	// Handle common variations
-	switch strings.ToLower(category) {
-	case "food", "food & drink", "groceries", "supermarket":
-		return "Alimentation"
-	case "transport", "transportation", "travel":
-		return "Transports"
-	case "entertainment", "leisure", "theme park", "amusement":
-		return "Loisirs"
-	case "restaurant", "dining", "cafe", "coffee":
-		return "Restaurants"
-	case "retail", "store", "shopping":
-		return "Shopping"
-	case "utilities", "utility":
-		return "Utilités"
-	case "bank fees", "banking":
-		return "Frais Bancaires"
-	case "uncategorized", "unknown", "other":
-		return models.CategoryUncategorized
+	// Map of lower-case synonyms to canonical category names
+	synonyms := map[string]string{
+		"food":             "Alimentation",
+		"groceries":        "Courses",
+		"supermarket":      "Courses",
+		"restaurant":       "Restaurants",
+		"transport":        "Transports Publics",
+		"transport public": "Transports Publics",
+		"train":            "Transports Publics",
+		"bus":              "Transports Publics",
+		"car":              "Voiture",
+		"fuel":             "Voiture",
+		"gas":              "Voiture",
+		"parking":          "Voiture",
+		"shopping":         "Shopping",
+		"retail":           "Shopping",
+		"clothes":          "Shopping",
+		"clothing":         "Shopping",
+		"electronics":      "Shopping",
+		"health":           "Santé",
+		"medical":          "Santé",
+		"doctor":           "Santé",
+		"pharmacy":         "Santé",
+		"subscriptions":    "Abonnements",
+		"subscription":     "Abonnements",
+		"insurance":        "Assurances",
+		"bank fees":        "Frais Bancaires",
+		"fees":             "Frais Bancaires",
+		"salary":           "Salaire",
+		"income":           "Salaire",
+		"rent":             "Logement",
+		"housing":          "Logement",
+		"utilities":        "Utilités",
+		"phone":            "Utilités",
+		"internet":         "Utilités",
+		"electricity":      "Utilités",
+		"entertainment":    "Divertissement",
+		"movies":           "Divertissement",
+		"leisure":          "Loisirs",
+		"hobbies":          "Loisirs",
+		"sports":           "Sport",
+		"gym":              "Sport",
+		"fitness":          "Sport",
+		"travel":           "Voyages",
+		"vacation":         "Voyages",
+		"hotel":            "Voyages",
+		"hotels":           "Voyages",
+		"kids":             "Enfants",
+		"children":         "Enfants",
+		"education":        "Éducation",
+		"school":           "Éducation",
+		"gift":             "Cadeaux",
+		"gifts":            "Cadeaux",
+		"donation":         "Dons",
+		"charity":          "Dons",
+		"tax":              "Impôts",
+		"taxes":            "Impôts",
+		"investment":       "Investissements",
+		"investments":      "Investissements",
+		"furniture":        "Mobilier",
+		"withdrawal":       "Divers",
+		"cash":             "Divers",
+		"transfer":         "Virements",
+		"transfers":        "Virements",
+		"uncategorized":    models.CategoryUncategorized,
+		"unknown":          models.CategoryUncategorized,
+		"other":            models.CategoryUncategorized,
 	}
 
+	lowerCat := strings.ToLower(category)
+	if canonical, ok := synonyms[lowerCat]; ok {
+		return canonical
+	}
+
+	// If no synonym found, return the category as is (but trimmed)
+	// Ideally we should check against a set of valid categories here, but for now we trust the prompt or the user.
 	return category
 }
 

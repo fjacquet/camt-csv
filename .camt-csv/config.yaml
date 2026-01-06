@@ -9,7 +9,7 @@ csv:
   quote_all: false
 ai:
   enabled: true
-  model: gemini-2.5-flash
+  model: gemini-3.0-flash
   requests_per_minute: 20
   timeout_seconds: 30
   fallback_category: Uncategorized
