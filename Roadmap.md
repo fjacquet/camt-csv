@@ -19,30 +19,30 @@ Transform the current monolithic CLI application into a three-tier architecture:
 
 ## Target Architecture
 
-```
-                    +------------------+
-                    |   SQLite DB      |
-                    | (categories.db)  |
-                    +--------+---------+
-                             |
-              +--------------+--------------+
-              |                             |
-    +---------v---------+         +---------v---------+
-    |    REST API       |         |    File Storage   |
-    |  (Gin + Swagger)  |         |  (local uploads)  |
-    +---------+---------+         +-------------------+
-              |
-    +---------+---------+---------+
-    |                   |         |
-+---v---+         +-----v-----+   |
-|  CLI  |         |   Svelte  |   |
-| Client|         |  Web App  |   |
-+-------+         +-----------+   |
-                                  |
-                    +-------------v-----------+
-                    | Optional: Direct Parser |
-                    | (offline CLI mode)      |
-                    +-------------------------+
+```mermaid
+graph TD
+    DB["<b>SQLite DB</b><br/>categories.db"]
+    API["<b>REST API</b><br/>Gin + Swagger"]
+    STORAGE["<b>File Storage</b><br/>local uploads"]
+    CLI["<b>CLI Client</b>"]
+    WEB["<b>Svelte Web App</b>"]
+    PARSER["<b>Optional:<br/>Direct Parser</b><br/>offline CLI mode"]
+
+    DB --> API
+    DB --> STORAGE
+    API --> CLI
+    API --> WEB
+    API --> PARSER
+    STORAGE -.->|optional| PARSER
+    CLI -.->|fallback| PARSER
+    WEB -.->|fallback| PARSER
+
+    style DB fill:#4A90E2
+    style API fill:#7ED321
+    style STORAGE fill:#7ED321
+    style CLI fill:#F5A623
+    style WEB fill:#F5A623
+    style PARSER fill:#BD10E0
 ```
 
 ---
@@ -53,7 +53,7 @@ Transform the current monolithic CLI application into a three-tier architecture:
 
 **New files to create:**
 
-```
+```bash
 cmd/api/main.go              # API server entry point
 internal/api/
   router/router.go           # Gin router setup
@@ -74,7 +74,7 @@ internal/api/
 
 ### 1.2 Core API Endpoints
 
-```
+```bash
 GET  /health                           # Health check
 GET  /api/v1/parsers                   # List available parsers
 
@@ -105,12 +105,18 @@ GET  /swagger/*                        # Swagger UI
 
 **Files to modify:**
 
-| File                              | Changes                                      |
-| --------------------------------- | -------------------------------------------- |
-| `internal/models/transaction.go`  | Add JSON struct tags                         |
-| `internal/parser/parser.go`       | Keep as-is (already uses io.Reader)          |
-| `internal/container/container.go` | Extract from global state, make instantiable |
-| `cmd/root/root.go`                | Remove global AppContainer/AppConfig         |
+```mermaid
+graph TD
+    A["<b>Files to Modify</b>"]
+    B["internal/models/transaction.go<br/>Add JSON struct tags"]
+    C["internal/parser/parser.go<br/>Keep as-is<br/>already uses io.Reader"]
+    D["internal/container/container.go<br/>Extract from global state<br/>make instantiable"]
+    E["cmd/root/root.go<br/>Remove global AppContainer<br/>and AppConfig"]
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+```
 
 **Key refactoring:**
 
@@ -166,7 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_mappings_lookup
 
 **New files:**
 
-```
+```bash
 internal/repository/
   repository.go              # Interface definitions
   sqlite/
@@ -208,7 +214,7 @@ Migrates existing YAML data to SQLite:
 
 **New files:**
 
-```
+```bash
 pkg/client/
   client.go                  # HTTP client wrapper
   parse.go                   # Parse API calls
@@ -221,7 +227,7 @@ pkg/client/
 
 **Files to modify:**
 
-```
+```bash
 cmd/camt/convert.go          # Use API client instead of direct parser
 cmd/pdf/convert.go
 cmd/revolut/convert.go
@@ -231,7 +237,7 @@ cmd/categorize/categorize.go
 
 **New flags:**
 
-```
+```bash
 --api-url     # API server URL (default: http://localhost:8080)
 --offline     # Use direct parsing (no API, original behavior)
 ```
@@ -249,7 +255,7 @@ Default to API mode when server is reachable.
 
 **New directory:** `web/`
 
-```
+```bash
 web/
   src/
     lib/
@@ -363,41 +369,44 @@ web/
 
 ## Critical Files to Modify
 
-| Priority | File                                  | Changes                                     |
-| -------- | ------------------------------------- | ------------------------------------------- |
-| 1        | `internal/models/transaction.go`      | Add JSON tags                               |
-| 2        | `internal/container/container.go`     | Remove singleton pattern, make instantiable |
-| 3        | `cmd/root/root.go`                    | Remove global state                         |
-| 4        | `internal/categorizer/categorizer.go` | Use repository interface                    |
-| 5        | `internal/store/store.go`             | Refactor to implement repository interface  |
+```mermaid
+graph TD
+    A["<b>Priority 1</b><br/>internal/models/transaction.go<br/>Add JSON tags"]
+    B["<b>Priority 2</b><br/>internal/container/container.go<br/>Remove singleton pattern<br/>make instantiable"]
+    C["<b>Priority 3</b><br/>cmd/root/root.go<br/>Remove global state"]
+    D["<b>Priority 4</b><br/>internal/categorizer/categorizer.go<br/>Use repository interface"]
+    E["<b>Priority 5</b><br/>internal/store/store.go<br/>Refactor to implement<br/>repository interface"]
+    A --> B --> C --> D --> E
+```
 
 ## New Files to Create
 
-| Priority | File                              | Purpose                |
-| -------- | --------------------------------- | ---------------------- |
-| 1        | `cmd/api/main.go`                 | API server entry point |
-| 2        | `internal/api/router/router.go`   | Gin router setup       |
-| 3        | `internal/api/handlers/*.go`      | HTTP handlers          |
-| 4        | `internal/repository/sqlite/*.go` | SQLite data layer      |
-| 5        | `pkg/client/*.go`                 | Go API client library  |
-| 6        | `web/`                            | Svelte frontend        |
+```mermaid
+graph TD
+    A["<b>Priority 1</b><br/>cmd/api/main.go<br/>API server entry point"]
+    B["<b>Priority 2</b><br/>internal/api/router/router.go<br/>Gin router setup"]
+    C["<b>Priority 3</b><br/>internal/api/handlers/*.go<br/>HTTP handlers"]
+    D["<b>Priority 4</b><br/>internal/repository/sqlite/*.go<br/>SQLite data layer"]
+    E["<b>Priority 5</b><br/>pkg/client/*.go<br/>Go API client library"]
+    F["<b>Priority 6</b><br/>web/<br/>Svelte frontend"]
+    A --> B --> C --> D --> E --> F
+```
 
 ---
 
 ## Complexity Assessment
 
-| Component                    | Difficulty  | Notes                                |
-| ---------------------------- | ----------- | ------------------------------------ |
-| JSON tags on Transaction     | Easy        | Simple struct tag additions          |
-| Gin API setup + Swagger      | Easy        | Well-documented, straightforward     |
-| Parse endpoint (file upload) | Medium      | Multipart handling, stream to parser |
-| SQLite repository            | Medium      | New code, but simple schema          |
-| YAML -> SQLite migration     | Medium      | One-time data transformation         |
-| Categorizer refactoring      | Medium      | Replace store with repository        |
-| Global state removal         | Medium-Hard | Deeply embedded in cmd/root          |
-| API client library           | Easy        | HTTP calls with JSON                 |
-| CLI refactoring              | Medium      | Add API mode, keep offline mode      |
-| Svelte frontend              | Medium      | Standard SPA, generated API client   |
+```mermaid
+graph TD
+    E1["<b>EASY</b><br/>✓ JSON tags on Transaction<br/>Simple struct tag additions<br/>---<br/>✓ Gin API setup + Swagger<br/>Well-documented, straightforward<br/>---<br/>✓ API client library<br/>HTTP calls with JSON"]
+    M1["<b>MEDIUM</b><br/>⚙ Parse endpoint file upload<br/>Multipart handling, stream to parser<br/>---<br/>⚙ SQLite repository<br/>New code, but simple schema<br/>---<br/>⚙ YAML → SQLite migration<br/>One-time data transformation"]
+    M2["<b>MEDIUM</b> continued<br/>⚙ Categorizer refactoring<br/>Replace store with repository<br/>---<br/>⚙ CLI refactoring<br/>Add API mode, keep offline mode<br/>---<br/>⚙ Svelte frontend<br/>Standard SPA, generated API client"]
+    H["<b>MEDIUM-HARD</b><br/>⚡ Global state removal<br/>Deeply embedded in cmd/root"]
+
+    E1 --> M1
+    M1 --> M2
+    M2 --> H
+```
 
 ---
 

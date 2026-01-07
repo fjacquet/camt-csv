@@ -34,7 +34,6 @@ work
 /camt-csv
 .camt-csv
 temp
-internal/pdfparser/debug_pdf_extract.txt
 security.sarif
 coverage.txt
 .DS_Store
@@ -44,8 +43,7 @@ Thumbs.db
 .idea/
 .DS_Store
 go.mod
-database/creditors.yaml
-database/debtors.yaml
-.DS_Store
+# database/creditors.yaml
+# database/debtors.yaml
 sbom.json
 coverage.html

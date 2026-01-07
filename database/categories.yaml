@@ -1,455 +1,754 @@
----
-# Catégories pour la classification des transactions
-# Ce fichier contient la liste des catégories utilisées par le classifieur
-# Pour ajouter une nouvelle catégorie, ajoutez-la simplement à cette liste
-# Pour modifier ou supprimer une catégorie, modifiez-la ou supprimez-la de cette liste
 categories:
-  # Catégories par ordre alphabétique
+  # --- LISTE STRICTE ICOMPTA (Source: ICCategory_202601062046.csv) ---
+
   - name: Abonnements
     keywords:
       - abonnement
-      - service
-      - mensuel
-      - annuel
       - souscription
       - membership
-      - cotisation
       - cloud
       - stockage
-      - streaming
-      - digital
+      - icloud
+      - google one
+      - microsoft
+      - adobe
+      - chatgpt
+      - openai
+      - claude.ai
+      - app store
+      - play store
+      - spotify
+      - netflix
+      - apple music
+      - disney+
+      - prime video
+      - youtube premium
+      - dropbox
+      - 1password
+      - nordvpn
+      - proton
+      - canva
+      - strava
+      - zwift
+      - audible
+      - kindle
+      - pressereader
+      - le temps
+      - 24 heures
+      - lausanne cites
+
+  - name: Activités
+    keywords:
+      - activité
+      - loisir créatif
+      - cours de cuisine
+      - poterie
+      - couture
+      - peinture
+      - dessin
+      - atelier
+      - workshop (loisir)
+      - club de lecture
+      - randonnée organisée
+      - guide de montagne
+
   - name: Alimentation
     keywords:
-      - restaurant
-      - mcdonalds
-      - burger
-      - pizza
-      - repas
-      - café
-      - cafe
+      - boucherie
       - boulangerie
-      - nourriture
-      - bistro
+      - laiterie
       - traiteur
+      - marché
       - cantine
-      - fast-food
-      - gastro
-  - name: Restaurants
+      - poissonnerie
+      - fromagerie
+      - primeur
+      - maraîcher
+      - épicerie fine
+      - chocolatier
+      - confiserie
+      - pâtisserie
+      - kebab (emporter)
+      - sandwicherie
+      - pause déjeuner
+      - machine à café
+      - selecta
+
+  - name: Allocations
     keywords:
-      - restaurant
-      - mcdonalds
-      - burger
-      - pizza
-      - repas
-      - café
-      - cafe
-      - boulangerie
-      - nourriture
-      - bistro
-      - traiteur
-      - cantine
-      - fast-food
-      - gastro
+      - allocations familiales
+      - caf
+      - subside
+      - allocation de naissance
+      - allocation de formation
+      - rente invalidité
+      - prestation complémentaire
+      - pua
+      - bourse d'étude
+
   - name: Animaux
     keywords:
       - vétérinaire
       - animalerie
-      - nourriture animale
-      - toilettage
+      - qualipet
+      - fressnapf
       - animaux
       - chien
       - chat
-      - pension
+      - croquettes
+      - litière
+      - toilettage
+      - pension pour animaux
+      - dog walker
+      - zooplus
+      - maxi zoo
+
   - name: Assurance Maladie
     keywords:
       - assurance maladie
       - caisse maladie
       - lamal
-      - complémentaire
-      - css
+      - groupe mutuel
       - assura
       - helsana
-      - concordia
-      - sanitas
+      - css
       - swica
-      - groupe mutuel
       - visana
       - assurance soins
+      - kpt
+      - sanitas
+      - concordia
+      - sympany
+      - atupri
+      - ökk
+      - egk
+
   - name: Assurances
     keywords:
       - assurance
-      - prime
-      - police
       - rc
       - ménage
-      - responsabilité civile
-      - habitation
       - véhicule
-      - vie
-      - accident
-      - prévoyance
-      - zurich
-      - axa
-      - baloise
       - vaudoise
-      - mobilière
+      - axa
+      - zurich
+      - la mobilière
+      - generali
       - helvetia
+      - allianz
+      - baloîse
+      - emmentaler
+      - protection juridique
+      - tcs protection
+      - assurance voyage
+      - assurance vie
+      - responsabilité civile
+
+  - name: Autre
+    keywords:
+      - autre
+      - inconnu
+      - divers
+      - à classer
+      - mystère
+      - erreur banque
+      - régularisation
+
+  - name: Bien-être
+    keywords:
+      - spa
+      - massage
+      - thermes
+      - bains
+      - sauna
+      - hammam
+      - thalasso
+      - centre thermal
+      - laveys-les-bains
+      - bains de la gruyère
+      - bains de saillon
+      - meditation
+      - yoga (retraite)
+      - soin visage
+      - acupuncture
+      - ostéopathe (bien-être)
+
   - name: Cadeaux
     keywords:
       - cadeau
       - présent
-      - don
-      - charité
-      - fondation
-      - collecte
-      - bienfaisance
-      - humanitaire
-      - croix-rouge
-      - solidarité
-      - association
-      - soutien
-  - name: Dons
-    keywords:
-      - cadeau
-      - présent
-      - don
-      - charité
-      - fondation
-      - collecte
-      - bienfaisance
-      - humanitaire
-      - croix-rouge
-      - solidarité
-      - association
-      - soutien
+      - anniversaire
+      - noël
+      - fête des mères
+      - fête des pères
+      - saint-valentin
+      - mariage
+      - naissance
+      - cagnotte
+      - pot commun
+      - fleuriste
+      - bouquet de fleurs
+      - chocolat (cadeau)
+
   - name: Courses
     keywords:
-      - supermarché
-      - epicerie
       - coop
       - migros
+      - denner
       - aldi
       - lidl
-      - carrefour
-      - marché
-      - denner
-      - alimentaire
-      - volg
       - manor food
+      - volg
+      - supermarché
+      - epicerie
+      - globus delicatessa
+      - spar
+      - landi (alimentaire)
+      - otto's
+      - prodega
+      - aligro
+      - farmy
+      - coop@home
+      - migros online
+
   - name: Divers
-    keywords: [inconnu, autre, divers, non classé, inclassable]
-  - name: Non Classé
-    keywords: [inconnu, autre, divers, non classé, inclassable]
+    keywords:
+      - divers
+      - retrait
+      - cash
+      - bancomat
+      - distributeur
+      - espèces
+      - argent de poche
+      - porte-monnaie
+      - petite monnaie
+
+  - name: Divertissement
+    keywords:
+      - cinéma
+      - film
+      - bowling
+      - escape game
+      - laser game
+      - karting
+      - billard
+      - flipper
+      - jeux vidéo
+      - steam
+      - playstation
+      - xbox
+      - nintendo
+      - twitch
+      - patinoire
+      - minigolf
+
+  - name: Dons
+    keywords:
+      - don
+      - charité
+      - fondation
+      - wwf
+      - greenpeace
+      - croix-rouge
+      - armée du salut
+      - caritas
+      - médecin sans frontières
+      - unicef
+      - téléthon
+      - chaîne du bonheur
+      - action de carême
+      - paroisse
+      - église
+      - quête
+
   - name: Éducation
     keywords:
       - école
       - université
       - écolage
-      - formation
       - cours
-      - éducation
-      - livre
-      - apprentissage
-      - étude
-      - frais de scolarité
-      - formation continue
-      - séminaire
-  - name: Formation
-    keywords:
-      - école
-      - université
-      - écolage
-      - formation
-      - cours
-      - éducation
-      - livre
-      - apprentissage
-      - étude
-      - frais de scolarité
-      - formation continue
-      - séminaire
-  - name: Épargne
-    keywords:
-      - épargne
-      - économie
-      - compte épargne
-      - versement épargne
-      - réserve
-      - bas de laine
-      - livret
-      - 3ème pilier
-  - name: Famille
-    keywords:
-      - crèche
-      - garde d'enfant
-      - garderie
-      - jeux
-      - jouets
-      - activités enfants
-      - babysitter
-      - nourrice
-      - école privée
-      - reme
+      - udemy
+      - coursera
+      - uniles
+      - epfl
+      - heig-vd
+      - hes-so
+      - gymnase
+      - collège
+      - livres scolaires
+      - matériel scolaire
+      - inscription examen
+      - cours de langue
+      - duolingo
+
   - name: Enfants
     keywords:
       - crèche
-      - garde d'enfant
       - garderie
-      - jeux
       - jouets
-      - activités enfants
       - babysitter
-      - nourrice
-      - école privée
+      - nounou
+      - maman de jour
+      - cantine scolaire
+      - parascolaire
+      - camp de vacances
+      - ludothèque
+      - puériculture
+      - couches
+      - lait maternisé
+      - poussette
+      - vêtements enfants
+      - king jouet
+      - toys r us
+      - franz carl weber
+
+  - name: Épargne
+    keywords:
+      - épargne
+      - 3ème pilier
+      - réserve
+      - compte épargne
+      - virement épargne
+      - tirelire
+      - économies
+      - pilier 3a
+      - viac
+      - finpension
+      - frankly
+
+  - name: Équipement Maison
+    keywords:
+      - electroménager
+      - dyson
+      - miele
+      - samsung
+      - philips
+      - bosch
+      - siemens
+      - machine à laver
+      - lave-vaisselle
+      - aspirateur
+      - fer à repasser
+      - machine à café (appareil)
+      - nettoshop
+      - fust
+      - interdiscount (ménager)
+      - mediamarkt (ménager)
+
+  - name: Famille
+    keywords:
+      - famille
+      - aide familiale
+      - soutien familial
+      - pension alimentaire (versée)
+      - argent de poche enfants
+      - remboursement famille
+
+  - name: Formation
+    keywords:
+      - formation
+      - séminaire
+      - workshop
+      - conférence
+      - congrès
+      - formation continue
+      - brevet fédéral
+      - masterclass
+      - webinaire
+      - coaching professionnel
+
   - name: Frais Bancaires
     keywords:
-      - frais
+      - frais bancaires
+      - frais de tenue de compte
       - commission
-      - pénalité
-      - intérêt débiteur
-      - carte
+      - intérêts débiteurs
+      - cotisation carte
       - frais de gestion
-      - frais de tenue
-      - découvert
+      - frais de transaction
+      - frais de change
+      - agios
+      - frais de rappel
       - frais de dossier
+      - frais carte de crédit
+      - cornèrcard
+      - viseca (frais)
+      - swissbankers
+
+  - name: Hypothèques
+    keywords:
+      - hypothèque
+      - intérêts hypothécaires
+      - amortissement indirect
+      - amortissement direct
+      - cédule hypothécaire
+      - banque cantonale (hypothèque)
+      - raiffeisen (hypothèque)
+
   - name: Impôts
     keywords:
-      - impôt
-      - taxe
-      - fiscal
-      - acompte
+      - impôts
       - icc
       - ifd
-      - déclaration
       - administration fiscale
-      - prélèvement
-  - name: Taxes
-    keywords:
-      - impôt
-      - taxe
-      - fiscal
-      - acompte
-      - icc
-      - ifd
-      - déclaration
-      - administration fiscale
-      - prélèvement
+      - acv
+      - bordereau d'impôt
+      - acompte impôt
+      - impôt à la source
+      - taxe pompier
+      - impôt foncier
+      - gain immobilier
+
   - name: Investissements
     keywords:
       - investissement
-      - action
-      - obligation
-      - fonds
-      - etf
-      - placement
+      - swissborg
+      - interactive brokers
+      - degiro
       - bourse
-      - titre
-      - portefeuille
       - crypto
-      - dépôt
+      - actions
+      - etf
+      - bitcoin
+      - ethereum
+      - yuh
+      - neon invest
+      - revolut trading
+      - coinbase
+      - binance
+      - kraken
+      - trading
+      - placement
+
   - name: Logement
     keywords:
       - loyer
-      - hypothèque
-      - bail
-      - charge
       - régie
       - gérance
-      - ppl
-      - propriétaire
-      - appartement
-      - location
+      - charges locatives
+      - décompte de chauffage
+      - garantie de loyer
+      - swisscaution
+      - firstcaution
+      - assurance loyer
+      - conciergerie
+      - syndic
+      - ppe
+
   - name: Loisirs
     keywords:
-      - cinéma
-      - film
-      - netflix
-      - spotify
-      - apple music
-      - théâtre
-      - concert
-      - événement
-      - spectacle
-      - streaming
-      - musée
-      - exposition
-      - sorties
       - loisirs
-  - name: Divertissement
-    keywords:
-      - cinéma
-      - film
-      - netflix
-      - spotify
-      - apple music
-      - théâtre
-      - concert
-      - événement
-      - spectacle
-      - streaming
+      - parc d'attraction
+      - europa park
+      - disney
       - musée
+      - zoo
+      - aquatis
       - exposition
-      - sorties
-      - loisirs
+      - concert
+      - festival
+      - paléo
+      - montreux jazz
+      - théâtre
+      - opéra
+      - cirque
+      - foire
+      - comptoir
+      - ticketcorner
+      - starticket
+      - fnac spectacle
+
   - name: Mobilier
     keywords:
       - ikea
-      - meubles
-      - electroménager
-      - rénovation
-      - décoration
-      - bricolage
-      - maison
-      - cuisine
-      - mobilier
       - conforama
-      - article de ménage
-  - name: Équipement Maison
+      - pfister
+      - livique
+      - meubles
+      - décoration
+      - jumbo
+      - hornbach
+      - do it
+      - obi
+      - bauhaus
+      - micasa
+      - interio
+      - maison du monde
+      - luminaire
+      - tapis
+      - rideaux
+      - literie
+
+  - name: Non Classé
     keywords:
-      - ikea
-      - meubles
-      - electroménager
-      - rénovation
-      - décoration
-      - bricolage
-      - maison
-      - cuisine
-      - mobilier
-      - conforama
-      - article de ménage
+      - non classé
+      - unclassified
+      - pending
+      - à vérifier
+
   - name: Pension
     keywords:
+      - pension
+      - retraite
       - avs
       - ai
       - lpp
-      - pension
-      - retraite
-      - rente
-      - allocation
-      - prévoyance
       - caisse de pension
-      - prestations
-      - indemnité
-      - subside
-  - name: Allocations
-    keywords:
-      - avs
-      - ai
-      - lpp
-      - pension
-      - retraite
-      - rente
-      - allocation
-      - prévoyance
-      - caisse de pension
-      - prestations
-      - indemnité
-      - subside
+      - 2ème pilier
+      - rente vieillesse
+      - prestations de libre passage
+      - caisse de compensation
+
   - name: Prêts
     keywords:
       - prêt
-      - hypothèque
       - crédit
-      - amortissement
-      - intérêt
-      - remboursement
-      - financement
-      - échéance
-      - mensualité
       - leasing
-  - name: Hypothèques
+      - cembra
+      - remboursement prêt
+      - cashgate
+      - bank-now
+      - mensualité leasing
+      - crédit consommation
+      - petit crédit
+
+  - name: Restaurants
     keywords:
-      - prêt
-      - hypothèque
-      - crédit
-      - amortissement
-      - intérêt
-      - remboursement
-      - financement
-      - échéance
-      - mensualité
-      - leasing
+      - restaurant
+      - mcdonalds
+      - burger king
+      - starbucks
+      - café
+      - pizzeria
+      - ubereats
+      - eat.ch
+      - justeat
+      - kfc
+      - subway
+      - holy cow
+      - b.good
+      - five guys
+      - luigia
+      - vapiano
+      - brasserie
+      - auberge
+      - buvette
+      - tea-room
+      - bar
+      - pub
+      - discothèque
+
   - name: Revenus Financiers
     keywords:
-      - intérêt
-      - dividende
-      - rendement
-      - coupon
+      - dividendes
+      - intérêts
+      - gains
       - plus-value
-      - revenu financier
-      - bénéfice
+      - coupon
+      - rendement
+      - cashback
+      - intérêts créditeurs
+
   - name: Revenus Locatifs
     keywords:
-      - loyer reçu
-      - location
-      - bail
-      - locataire
-      - bien immobilier
+      - loyer perçu
       - revenu locatif
-      - gérance
+      - location appartement
+      - location garage
+
+  - name: Revenus Professionnels
+    keywords:
+      - honoraires
+      - freelance
+      - facture client
+      - chiffre d'affaires
+      - recette
+      - prestation de service
+      - mandat
+
   - name: Salaire
     keywords:
       - salaire
-      - revenu
-      - paye
       - traitement
-      - honoraire
-      - rémunération
-      - employeur
-      - mensualité
-      - versement
       - 13ème salaire
-      - prime
-      - commission
-  - name: Revenus Professionnels
-    keywords:
-      - salaire
-      - revenu
-      - paye
-      - traitement
-      - honoraire
-      - rémunération
+      - bonus
+      - gratification
+      - indemnité
+      - note de frais (remboursement)
+      - solde de tout compte
       - employeur
-      - mensualité
-      - versement
-      - 13ème salaire
-      - prime
-      - commission
+
   - name: Santé
     keywords:
       - médecin
       - docteur
       - hôpital
-      - clinique
-      - médical
-      - fitness
-      - gym
-      - sport
-      - santé
+      - pharmacie
+      - amavita
+      - sun store
       - dentiste
       - opticien
-      - physiothérapie
-      - thérapeute
-  - name: Bien-être
-    keywords:
-      - médecin
-      - docteur
-      - hôpital
-      - clinique
-      - médical
-      - fitness
-      - gym
-      - sport
-      - santé
-      - dentiste
-      - opticien
-      - physiothérapie
-      - thérapeute
-  - name: Services
-    keywords: [service, facture, abonnement, tv
+      - chuv
+      - hug
+      - permanence
+      - radiologie
+      - laboratoire
+      - urgences
+      - ambulance
+      - benu
+      - coop vitality
+      - lunettes
+      - lentilles
 
-  
-]
+  - name: Séjours
+    keywords:
+      - séjour
+      - week-end
+      - gîte
+      - chambre d'hôte
+      - camping
+      - auberge de jeunesse
+      - b&b
+
+  - name: Services
+    keywords:
+      - service
+      - prestation
+      - nettoyage
+      - pressing
+      - 5àsec
+      - ménage
+      - batmaid
+      - serrurier
+      - cordonnier
+      - couturière
+      - blanchisserie
+      - déchetterie
+      - poste
+      - la poste
+
+  - name: Shopping
+    keywords:
+      - shopping
+      - amazon
+      - galaxus
+      - digitec
+      - fnac
+      - zalando
+      - vêtements
+      - chaussures
+      - manor
+      - interdiscount
+      - mediamarkt
+      - h&m
+      - zara
+      - c&a
+      - uniglo
+      - decathlon (habits)
+      - ochsner shoes
+      - dosenbach
+      - visilab (solaire)
+      - apple store
+      - brack.ch
+      - microspot
+      - aliexpress
+      - temu
+      - wish
+      - shein
+
+  - name: Soins Personnels
+    keywords:
+      - coiffeur
+      - barbier
+      - esthéticienne
+      - manucure
+      - cosmétiques
+      - onglerie
+      - épilation
+      - sephora
+      - marionnaud
+      - import parfumerie
+      - ritual
+      - lush
+      - body shop
+      - tatoueur
+
+  - name: Sport
+    keywords:
+      - sport
+      - fitness
+      - gym
+      - club de sport
+      - piscine
+      - ski
+      - decathlon
+      - ochsner sport
+      - intersport
+      - sportxx
+      - let's go fitness
+      - activ fitness
+      - non stop gym
+      - puregym
+      - harmony
+      - abonnement ski
+      - magic pass
+      - cours de tennis
+      - cotisation club
+      - football
+      - matériel sportif
+
+  - name: Taxes
+    keywords:
+      - taxe
+      - tva
+      - vignette
+      - émolument
+      - taxe de séjour
+      - taxe poubelle
+      - taxe chien
+      - droits de douane
+      - frais de douane
+
+  - name: Transferts
+    keywords:
+      - transfert
+      - virement interne
+      - compte joint
+      - compte epargne
+      - transfert revolut
+      - top-up
+
+  - name: Transport Privé
+    keywords:
+      - transport privé
+      - blablacar
+      - covoiturage
+      - location utilitaire
+      - mobility (abonnement)
+
+  - name: Transports Publics
+    keywords:
+      - cff
+      - sbb
+      - sncf
+      - tpg
+      - tl
+      - train
+      - bus
+      - tram
+      - billet de train
+      - abonnement général
+      - demi-tarif
+      - swisspass
+      - fairtiq
+      - mobilis
+      - unireso
+      - libero
+      - oisea
+      - metro
+      - funiculaire
+      - bateau (cgn)
+
   - name: Utilités
     keywords:
       - électricité
@@ -457,183 +756,92 @@ categories:
       - gaz
       - internet
       - téléphone
-      - télécommunication
-      - chauffage
-      - ordures
-      - service
-      - facture
-      - abonnement
-      - tv
-      - romande energie
       - swisscom
-      - salt
       - sunrise
-      - wingo
+      - salt
+      - romande energie
+      - billag
+      - serafe
+      - groupe e
+      - sig
+      - viteos
       - upc
-      - wc
-  - name: Services Professionnels
+      - yallo
+      - wingo
+      - mobilezone
+      - fibre optique
+
+  - name: Vacances
     keywords:
-      - bureau
-      - impression
-      - conseil
-      - logiciel
-      - service
-      - professionnel
-      - avocat
-      - notaire
-      - comptable
-      - fiduciaire
-      - consultant
-      - honoraires
-  - name: Shopping
-    keywords:
-      - amazon
-      - ebay
-      - manor
-      - zalando
-      - magasin
-      - retail
-      - boutique
-      - achat
-      - habillement
-      - vêtements
-      - chaussures
-      - accessoires
-      - galeries
-      - fnac
-  - name: Soins Personnels
-    keywords:
-      - pharmacie
-      - apotheke
-      - beauté
-      - salon
-      - coiffeur
-      - barbier
-      - cosmétiques
-      - droguerie
-      - parfumerie
-      - esthétique
-  - name: Sport
-    keywords:
-      - abonnement sport
-      - club
-      - fitness
-      - ski
-      - piscine
-      - tennis
-      - golf
-      - salle de sport
-      - équipement sportif
-      - activité
-      - cours
-  - name: Activités
-    keywords:
-      - abonnement sport
-      - club
-      - fitness
-      - ski
-      - piscine
-      - tennis
-      - golf
-      - salle de sport
-      - équipement sportif
-      - activité
-      - cours
-  - name: Transports Publics
-    keywords:
-      - cff
-      - sbb
-      - train
-      - bus
-      - tram
-      - métro
-      - abonnement
-      - billet
-      - transport
-      - tpg
-      - swisspass
-      - mobilis
+      - vacances
+      - voyage
+      - easyjet
+      - swiss
+      - airbnb
+      - booking.com
+      - hôtel
+      - expedia
+      - ebookers
+      - hotelplan
+      - kuoni
+      - club med
+      - tui
+      - ltur
+      - lastminute
+      - edreams
+      - skyscanner
+      - air france
+      - lufthansa
+      - british airways
+      - emirates
+      - location vacances
+
   - name: Virements
     keywords:
       - virement
-      - transfert
-      - remboursement
-      - versement
-      - e-banking
       - twint
-      - mobile banking
-      - transaction
-      - swift
-      - compte à compte
-  - name: Transferts
-    keywords:
-      - virement
-      - transfert
       - remboursement
-      - versement
       - e-banking
-      - twint
-      - mobile banking
+      - paymit
+      - versement
       - transaction
-      - swift
-      - compte à compte
+
   - name: Voiture
     keywords:
       - essence
       - carburant
+      - station service
+      - coop pronto (essence)
+      - socar
+      - avia
+      - shell
+      - bp
       - garage
-      - réparation
-      - entretien
-      - automobile
       - parking
       - péage
-      - autoroute
-      - vignette
-      - taxi
+      - tcs
+      - tamoil
+      - agip
+      - eni
+      - amag
+      - emil frey
+      - pneu
+      - service auto
+      - contrôle technique
+      - expertise auto
+      - vignette autoroutière
+      - park24
+      - easypark
+      - paybyphone
       - uber
-      - location voiture
-  - name: Transport Privé
-    keywords:
-      - essence
-      - carburant
-      - garage
-      - réparation
-      - entretien
-      - automobile
-      - parking
-      - péage
-      - autoroute
-      - vignette
       - taxi
-      - uber
-      - location voiture
+
   - name: Voyages
     keywords:
-      - hôtel
-      - booking.com
-      - airbnb
-      - compagnie aérienne
-      - avion
-      - vol
-      - vacances
       - voyage
-      - séjour
       - agence de voyage
       - croisière
-      - hébergement
-      - tourisme
-  - name: Séjours
-    keywords:
-      - hôtel
-      - booking.com
-      - airbnb
-      - compagnie aérienne
-      - avion
-      - vol
-      - vacances
-      - voyage
-      - séjour
-      - agence de voyage
-      - croisière
-      - hébergement
-      - tourisme
+      - msc
+      - costa
+      - tour opérateur
+

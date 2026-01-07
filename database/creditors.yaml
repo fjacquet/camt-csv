@@ -1,34 +1,35 @@
 al volo pizzeria: Restaurants
 amazon: Shopping
 angel s bar: Restaurants
-avenir assurance malad: Assurances
+apple.com/bill, itunes.com ie: Virements
+avenir assurance malad: Assurance Maladie
 avenir assurance maladie sa: Assurance Maladie
 axa versicherungen ag: Assurances
 balance migration to another region or legal entity: Virements
 boreal coffee shop: Restaurants
-brack.ch ag: Loisirs
-cash_transfer: Revenus Financiers
+brack.ch ag: Shopping
+cash_transfer: Virements
 celine gentil martinez: Logement
 closing transaction: Revenus Financiers
-concur technologies, inc.: Loisirs
-coop pronto: Alimentation
-cpev lausanne: Virements
+concur technologies, inc.: Virements
+coop pronto: Courses
+cpev lausanne: Pension
 cr twint laurent claude p majch: Virements
 cr twint romain joncour: Virements
 cr twint vladimir budimirovic: Virements
 dell sa: Salaire
-dipl. ing. fust ag: Équipement Maison
-disney plus, - télévision et radio: Divertissement
+dipl. ing. fust ag: Shopping
+disney plus, - télévision et radio: Virements
 dividend: Revenus Financiers
-easypark: Non Classé
-exchange to chf: Revenus Financiers
-exchange to eur: Divers
+easypark: Voiture
+exchange to chf: Virements
+exchange to eur: Virements
 exchanged to chf: Virements
 express jacquet f. c. i. & cts: Virements
 express jacquet frederic yvan: Virements
-filae: Abonnements
-florence c. i. jacquet: Impôts
-fondation de prevoyance epargne 3: Cadeaux
+filae: Virements
+florence c. i. jacquet: Virements
+fondation de prevoyance epargne 3: Épargne
 frederic jacquet: Virements
 frederic yvan joseph jacquet: Virements
 gofundme: Dons
@@ -36,31 +37,31 @@ institutions hotela: Salaire
 jacquet florence c. i.: Virements
 jacquet florence caroline isabelle: Virements
 jacquet frederic: Virements
-jacquet frederic yvan joseph: Revenus Professionnels
+jacquet frederic yvan joseph: Virements
 jacquet-pagan florence et frederic: Virements
 jordi ochoa: Virements
-kiro ai: Pension
-migros: Alimentation
-mutuel assurance maladie sa: Salaire
+kiro ai: Revenus Professionnels
+migros: Courses
+mutuel assurance maladie sa: Assurance Maladie
 obsidian: Revenus Professionnels
-payment from frederic yvan joseph jacquet: Revenus Professionnels
+payment from frederic yvan joseph jacquet: Virements
 payment from swissborg solutions oue: Revenus Financiers
 pensionskasse bundes p: Pension
-pocket withdrawal: Withdrawals
-premium plan fee: Abonnements
+pocket withdrawal: Divers
+premium plan fee: Virements
 resultat de cloture: Revenus Financiers
 revenu titre    460782: Revenus Financiers
 sbb cff ffs: Transports Publics
-selecta: Non Classé
+selecta: Alimentation
 sword technologies sa: Salaire
-thermalbad brigerbad: Bien-être
+thermalbad brigerbad: Loisirs
 to chf: Virements
-to chf vacances: Voyages
-to pocket chf vacances from chf: Voyages
+to chf vacances: Virements
+to pocket chf vacances from chf: Virements
 trade: Revenus Financiers
-transfer from revolut digital assets europe ltd: Shopping
-unknown payee: Revenus Financiers
-unknown payer: Revenus Financiers
+transfer from revolut digital assets europe ltd: Virements
+unknown payee: Divers
+unknown payer: Divers
 vaudoise generale, com: Assurances
-vaudoise generale, comp. d'ass: Salaire
-vaudoise generale. comp. d'ass: Salaire
+vaudoise generale, comp. d'ass: Assurances
+vaudoise generale. comp. d'ass: Assurances

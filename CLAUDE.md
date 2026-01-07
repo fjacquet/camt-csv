@@ -34,11 +34,17 @@ The camt parser handles **CAMT.053** (Bank to Customer Statement) files:
 - Structure defined in: `internal/models/iso20022.go`
 
 **Supported CAMT Types:**
-| Type | Description | Supported |
-|------|-------------|-----------|
-| CAMT.052 | Bank to Customer Account Report | No |
-| CAMT.053 | Bank to Customer Statement | Yes (v001.02) |
-| CAMT.054 | Bank to Customer Debit/Credit Notification | No |
+
+```mermaid
+graph TD
+    A["<b>CAMT Types</b>"]
+    B["<b>CAMT.052</b><br/>Bank to Customer Account Report<br/>❌ No"]
+    C["<b>CAMT.053</b><br/>Bank to Customer Statement<br/>✓ Yes v001.02"]
+    D["<b>CAMT.054</b><br/>Bank to Customer Debit/Credit Notification<br/>❌ No"]
+    A --> B
+    A --> C
+    A --> D
+```
 
 **Known Limitations:**
 
@@ -118,12 +124,18 @@ Configuration loads in order (later overrides earlier):
 
 **Environment Variable Mapping:**
 
-| Config Key | Environment Variable | CLI Flag |
-|------------|---------------------|----------|
-| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` |
-| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` |
-| `ai.model` | `CAMT_AI_MODEL` | - |
-| `ai.api_key` | `GEMINI_API_KEY` | - |
+```mermaid
+graph LR
+    A["<b>Config Key</b>"]
+    B["log.level<br/>→ CAMT_LOG_LEVEL<br/>→ --log-level"]
+    C["ai.enabled<br/>→ CAMT_AI_ENABLED<br/>→ --ai-enabled"]
+    D["ai.model<br/>→ CAMT_AI_MODEL"]
+    E["ai.api_key<br/>→ GEMINI_API_KEY"]
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+```
 
 Note: The `.env` file is auto-loaded from the current directory.
 

@@ -138,249 +138,507 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 }
 
 // buildCategorizationPrompt creates a prompt for the Gemini API to categorize the transaction
+
 func (c *GeminiClient) buildCategorizationPrompt(transaction models.Transaction) string {
+
 	prompt := fmt.Sprintf(`You are a financial transaction categorizer for a personal finance application.
+
 Your goal is to categorize the given transaction into ONE of the specific categories listed below.
 
+
+
 CATEGORIES (Strictly limit your answer to this list):
-- Abonnements (subscriptions, streaming, cloud services, software)
-- Alimentation (food, bakeries, snacks - NOT restaurants)
-- Animaux (pets, vet)
-- Assurance Maladie (health insurance)
-- Assurances (general insurance, liability, household)
-- Bien-être (wellness, spa, massage)
-- Cadeaux (gifts)
-- Courses (groceries, supermarkets like Migros, Coop)
-- Divertissement (movies, games, bowling)
-- Divers (miscellaneous, unknown)
-- Dons (donations, charity)
-- Éducation (school, university, books, courses)
-- Enfants (children, daycare, toys)
-- Épargne (savings, investments)
-- Famille (family expenses)
-- Formation (training, workshops)
-- Frais Bancaires (bank fees, card fees)
-- Hypothèques (mortgage)
-- Impôts (taxes)
-- Investissements (stocks, crypto, bonds)
-- Logement (rent, condo fees)
-- Loisirs (hobbies, theme parks, museums)
-- Mobilier (furniture, home decoration, IKEA)
-- Non Classé (uncategorized)
-- Pension (retirement income/contributions - NOT hostels/hotels/AI)
-- Prêts (loans)
+
+- Abonnements
+
+- Activités
+
+- Alimentation (boucherie, boulangerie, traiteur - NOT supermarkets)
+
+- Allocations
+
+- Animaux
+
+- Assurance Maladie
+
+- Assurances
+
+- Autre
+
+- Bien-être (spa, massage)
+
+- Cadeaux
+
+- Courses (supermarkets like Migros, Coop, Aldi, Lidl)
+
+- Divers (cash withdrawals, pocket money)
+
+- Divertissement (movies, games)
+
+- Dons
+
+- Éducation
+
+- Enfants
+
+- Épargne
+
+- Équipement Maison (appliances, electronics for home)
+
+- Famille
+
+- Formation
+
+- Frais Bancaires
+
+- Hypothèques
+
+- Impôts
+
+- Investissements
+
+- Logement (rent, charges)
+
+- Loisirs (parks, museums, concerts)
+
+- Mobilier (furniture, decoration, IKEA)
+
+- Non Classé
+
+- Pension (retirement, AVS/AI)
+
+- Prêts
+
 - Restaurants (dining out, fast food, cafes)
-- Revenus Financiers (dividends, interest)
-- Revenus Locatifs (rental income)
-- Revenus Professionnels (business income)
-- Salaire (salary)
-- Santé (doctors, pharmacy, medical)
-- Services (general services)
-- Services Professionnels (lawyer, accountant, consultant)
-- Séjours (stays, hotels, airbnb)
-- Shopping (retail, clothes, electronics, online shopping)
-- Soins Personnels (hairdresser, barber, cosmetics)
-- Sport (gym, equipment, sports clubs)
-- Taxes (government taxes)
-- Transferts (transfers)
-- Transport Privé (private transport)
-- Transports Publics (train, bus, tram, CFF/SBB)
-- Utilités (electricity, water, phone, internet)
-- Virements (internal transfers, TWINT to friends)
-- Voiture (fuel, parking, repairs, tolls)
-- Voyages (travel, flights, hotels, trains for vacation)
+
+- Revenus Financiers
+
+- Revenus Locatifs
+
+- Revenus Professionnels
+
+- Salaire
+
+- Santé (doctors, pharmacy)
+
+- Séjours (short stays, weekends)
+
+- Services
+
+- Shopping (clothes, electronics, online)
+
+- Soins Personnels (hairdresser, cosmetics)
+
+- Sport
+
+- Taxes
+
+- Transferts
+
+- Transport Privé
+
+- Transports Publics
+
+- Utilités (electricity, phone, internet)
+
+- Vacances (travel, flights, hotels)
+
+- Virements
+
+- Voiture (fuel, parking, repairs)
+
+- Voyages (travel agency, cruises)
+
+
 
 TRICKY CASES / RULES:
-1. **AI & Software**: "Claude.ai", "OpenAI", "ChatGPT", "Midjourney", "Google One", "Microsoft" are **Abonnements** or **Services Professionnels**. NEVER classify them as "Pension".
-2. **Retirement**: "Pension" is ONLY for retirement funds (AVS/AI/LPP).
-3. **Food vs Groceries**: "Migros", "Coop", "Denner" are **Courses**. "McDonalds", "Starbucks", "Restaurant X" are **Restaurants**.
-4. **Transport**: "SNCF", "CFF", "SBB" are **Transports Publics**. "Parking", "Shell", "BP" are **Voiture**.
-5. **Hotels**: Hotels can be **Voyages** (if travel) or **Séjours**. Do not use "Assurances" for hotels.
-6. **Stores**: "IKEA", "Conforama" are **Mobilier**. "Zalando", "Manor" are **Shopping**. "Fnac", "Digitec" are **Shopping** (or **Loisirs** if tickets).
-7. **Insurance**: Only actual insurance companies (AXA, Zurich, Vaudoise) are **Assurances**. Do not put shops here.
-8. **Identify Merchants**: Use your extensive internal knowledge to identify companies, brands, and local businesses. If a Party name is obscure (e.g., "Amavita", "Cidiverte"), use your knowledge to determine if it is a pharmacy, a game shop, etc., and categorize accordingly.
+
+1. **Supermarkets**: "Migros", "Coop", "Denner", "Aldi" are **Courses**. They are NOT "Alimentation" (reserved for specialized food shops) or "Restaurants".
+
+2. **Restaurants**: "McDonalds", "Starbucks", "Restaurant X" are **Restaurants**.
+
+3. **AI & Tech**: "Claude.ai", "OpenAI", "ChatGPT", "Google One" are **Abonnements**.
+
+4. **Transport**: "SNCF", "CFF", "SBB" are **Transports Publics**. "Shell", "BP", "Parking" are **Voiture**.
+
+5. **Vacation**: "EasyJet", "Airbnb", "Booking.com" are **Vacances**.
+
+6. **Furniture vs Appliances**: "IKEA", "Conforama" are **Mobilier**. "Dyson", "Fust" are **Équipement Maison**.
+
+7. **Retirement**: "Pension" is ONLY for retirement funds.
+
+
 
 FEW-SHOT EXAMPLES:
+
 - Transaction: "OpenAI *ChatGPT", Amount: 20.00 -> Category: Abonnements
+
 - Transaction: "Coop Pronto", Amount: 15.50 -> Category: Courses
+
 - Transaction: "McDonalds", Amount: 24.90 -> Category: Restaurants
+
 - Transaction: "SBB CFF FFS Mobile Ticket", Amount: 5.60 -> Category: Transports Publics
+
 - Transaction: "Parking de la Gare", Amount: 3.00 -> Category: Voiture
+
 - Transaction: "IKEA AG", Amount: 150.00 -> Category: Mobilier
+
 - Transaction: "Zalando", Amount: 89.90 -> Category: Shopping
+
 - Transaction: "Retrait Bancomat", Amount: 100.00 -> Category: Divers
+
 - Transaction: "La Vaudoise Assurances", Amount: 450.00 -> Category: Assurances
-- Transaction: "Claude.ai", Amount: 18.00 -> Category: Abonnements
+
+- Transaction: "EasyJet", Amount: 120.00 -> Category: Vacances
+
+
 
 TRANSACTION TO CATEGORIZE:
+
 Party: %s
+
 Description: %s
+
 Amount: %s CHF
+
+
 
 Category:`, transaction.PartyName, transaction.Description, transaction.Amount.String())
 
+
+
 	return prompt
+
 }
 
+
+
 // callGeminiAPI makes the actual API call to Gemini
+
 func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string, error) {
+
 	// Construct the API URL using the configured model
+
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.model, c.apiKey)
 
+
+
 	// Create the request payload
+
 	request := GeminiRequest{
+
 		Contents: []GeminiContent{
+
 			{
+
 				Parts: []GeminiPart{
+
 					{Text: prompt},
+
 				},
+
 			},
+
 		},
+
 	}
+
+
 
 	// Marshal to JSON
+
 	jsonData, err := json.Marshal(request)
+
 	if err != nil {
+
 		return "", fmt.Errorf("failed to marshal request: %w", err)
+
 	}
 
+
+
 	// Create HTTP request
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+
 	if err != nil {
+
 		return "", fmt.Errorf("failed to create request: %w", err)
+
 	}
+
+
 
 	req.Header.Set("Content-Type", "application/json")
 
+
+
 	// Make the request
+
 	resp, err := c.httpClient.Do(req)
+
 	if err != nil {
+
 		return "", fmt.Errorf("failed to make API request: %w", err)
+
 	}
+
 	defer func() {
+
 		if closeErr := resp.Body.Close(); closeErr != nil {
+
 			c.log.WithError(closeErr).Warn("Failed to close response body")
+
 		}
+
 	}()
 
+
+
 	// Read response
+
 	body, err := io.ReadAll(resp.Body)
+
 	if err != nil {
+
 		return "", fmt.Errorf("failed to read response: %w", err)
+
 	}
+
+
 
 	// Check for HTTP errors
+
 	if resp.StatusCode != http.StatusOK {
+
 		c.log.WithFields(
+
 			logging.Field{Key: "status_code", Value: resp.StatusCode},
+
 			logging.Field{Key: "response_body", Value: string(body)},
+
 		).Error("Gemini API returned error")
+
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+
 	}
+
+
 
 	// Parse response
+
 	var geminiResp GeminiResponse
+
 	if err := json.Unmarshal(body, &geminiResp); err != nil {
+
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+
 	}
+
+
 
 	// Extract the category from response
+
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+
 		return "", fmt.Errorf("no content in API response")
+
 	}
+
+
 
 	category := geminiResp.Candidates[0].Content.Parts[0].Text
+
 	return strings.TrimSpace(category), nil
+
 }
 
+
+
 // cleanCategory cleans and validates the category returned by the API
+
 func (c *GeminiClient) cleanCategory(category string) string {
+
 	// Remove common prefixes/suffixes
+
 	category = strings.TrimSpace(category)
+
 	category = strings.TrimPrefix(category, "Category:")
+
 	category = strings.TrimPrefix(category, "category:")
+
 	category = strings.TrimSpace(category)
+
+
 
 	// Remove quotes if present
+
 	category = strings.Trim(category, `"'`)
 
+
+
 	// Map of lower-case synonyms to canonical category names
+
 	synonyms := map[string]string{
-		"food":             "Alimentation",
-		"groceries":        "Courses",
-		"supermarket":      "Courses",
-		"restaurant":       "Restaurants",
-		"transport":        "Transports Publics",
-		"transport public": "Transports Publics",
-		"train":            "Transports Publics",
-		"bus":              "Transports Publics",
-		"car":              "Voiture",
-		"fuel":             "Voiture",
-		"gas":              "Voiture",
-		"parking":          "Voiture",
-		"shopping":         "Shopping",
-		"retail":           "Shopping",
-		"clothes":          "Shopping",
-		"clothing":         "Shopping",
-		"electronics":      "Shopping",
-		"health":           "Santé",
-		"medical":          "Santé",
-		"doctor":           "Santé",
-		"pharmacy":         "Santé",
-		"subscriptions":    "Abonnements",
-		"subscription":     "Abonnements",
-		"insurance":        "Assurances",
-		"bank fees":        "Frais Bancaires",
-		"fees":             "Frais Bancaires",
-		"salary":           "Salaire",
-		"income":           "Salaire",
-		"rent":             "Logement",
-		"housing":          "Logement",
-		"utilities":        "Utilités",
-		"phone":            "Utilités",
-		"internet":         "Utilités",
-		"electricity":      "Utilités",
-		"entertainment":    "Divertissement",
-		"movies":           "Divertissement",
-		"leisure":          "Loisirs",
-		"hobbies":          "Loisirs",
-		"sports":           "Sport",
-		"gym":              "Sport",
-		"fitness":          "Sport",
-		"travel":           "Voyages",
-		"vacation":         "Voyages",
-		"hotel":            "Voyages",
-		"hotels":           "Voyages",
-		"kids":             "Enfants",
-		"children":         "Enfants",
-		"education":        "Éducation",
-		"school":           "Éducation",
-		"gift":             "Cadeaux",
-		"gifts":            "Cadeaux",
-		"donation":         "Dons",
-		"charity":          "Dons",
-		"tax":              "Impôts",
-		"taxes":            "Impôts",
-		"investment":       "Investissements",
-		"investments":      "Investissements",
-		"furniture":        "Mobilier",
-		"withdrawal":       "Divers",
-		"cash":             "Divers",
-		"transfer":         "Virements",
-		"transfers":        "Virements",
-		"uncategorized":    models.CategoryUncategorized,
-		"unknown":          models.CategoryUncategorized,
-		"other":            models.CategoryUncategorized,
+
+		"food":            "Alimentation", // Or Courses, context dependent, defaulting to generic
+
+		"groceries":       "Courses",
+
+		"supermarket":     "Courses",
+
+		"restaurant":      "Restaurants",
+
+		"transport":       "Transports Publics",
+
+		"public transport": "Transports Publics",
+
+		"train":           "Transports Publics",
+
+		"bus":             "Transports Publics",
+
+		"car":             "Voiture",
+
+		"fuel":            "Voiture",
+
+		"gas":             "Voiture",
+
+		"parking":         "Voiture",
+
+		"shopping":        "Shopping",
+
+		"retail":          "Shopping",
+
+		"clothes":         "Shopping",
+
+		"clothing":        "Shopping",
+
+		"electronics":     "Shopping", // Could be Equipement Maison too
+
+		"health":          "Santé",
+
+		"medical":         "Santé",
+
+		"doctor":          "Santé",
+
+		"pharmacy":        "Santé",
+
+		"subscriptions":   "Abonnements",
+
+		"subscription":    "Abonnements",
+
+		"insurance":       "Assurances",
+
+		"bank fees":       "Frais Bancaires",
+
+		"fees":            "Frais Bancaires",
+
+		"salary":          "Salaire",
+
+		"income":          "Salaire",
+
+		"rent":            "Logement",
+
+		"housing":         "Logement",
+
+		"utilities":       "Utilités",
+
+		"phone":           "Utilités",
+
+		"internet":        "Utilités",
+
+		"electricity":     "Utilités",
+
+		"entertainment":   "Divertissement",
+
+		"movies":          "Divertissement",
+
+		"leisure":         "Loisirs",
+
+		"hobbies":         "Loisirs",
+
+		"sports":          "Sport",
+
+		"gym":             "Sport",
+
+		"fitness":         "Sport",
+
+		"travel":          "Vacances",
+
+		"vacation":        "Vacances",
+
+		"hotel":           "Vacances",
+
+		"hotels":          "Vacances",
+
+		"kids":            "Enfants",
+
+		"children":        "Enfants",
+
+		"education":       "Éducation",
+
+		"school":          "Éducation",
+
+		"gift":            "Cadeaux",
+
+		"gifts":           "Cadeaux",
+
+		"donation":        "Dons",
+
+		"charity":         "Dons",
+
+		"tax":             "Impôts",
+
+		"taxes":           "Impôts",
+
+		"investment":      "Investissements",
+
+		"investments":     "Investissements",
+
+		"furniture":       "Mobilier",
+
+		"appliances":      "Équipement Maison",
+
+		"withdrawal":      "Divers",
+
+		"cash":            "Divers",
+
+		"transfer":        "Virements",
+
+		"transfers":       "Virements",
+
+		"pension":         "Pension",
+
+		"retirement":      "Pension",
+
+		"mobilier & maison": "Mobilier", // Mapping old consolidated to new split (could be equiv too)
+
+		"rentes & pensions": "Pension",
+
+		"uncategorized":   models.CategoryUncategorized,
+
+		"unknown":         models.CategoryUncategorized,
+
+		"other":           models.CategoryUncategorized,
+
 	}
+
+
 
 	lowerCat := strings.ToLower(category)
+
 	if canonical, ok := synonyms[lowerCat]; ok {
+
 		return canonical
+
 	}
 
+
+
 	// If no synonym found, return the category as is (but trimmed)
-	// Ideally we should check against a set of valid categories here, but for now we trust the prompt or the user.
+
 	return category
+
 }
 
 // GetEmbedding returns the vector embedding for the given text using Gemini's embedding model

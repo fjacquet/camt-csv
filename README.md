@@ -176,14 +176,29 @@ tx, err := models.NewTransactionBuilder().
 
 ### Supported Formats
 
-| Parser Type | Description | Key Features |
-|---|---|---|
-| `camt` | ISO 20022 bank statements (CAMT.053 XML) | Multi-currency support, complete transaction details, party information |
-| `pdf` | PDF bank statements (Viseca, generic) | Text extraction with dependency injection, specialized Viseca parsing |
-| `revolut` | Revolut app CSV exports | Transaction state handling, fee processing, currency conversion |
-| `revolut-investment` | Revolut investment transactions | BUY/DIVIDEND/CASH TOP-UP categorization, share tracking |
-| `selma` | Investment platform CSV data | Investment categorization, stamp duty association |
-| `debit` | Generic CSV debit transactions | Flexible column mapping, date format detection |
+```mermaid
+graph TD
+    A["<b>Available Parsers</b>"]
+
+    B["<b>camt</b><br/>ISO 20022 bank statements<br/>CAMT.053 XML<br/>---<br/>✓ Multi-currency support<br/>✓ Complete transaction details<br/>✓ Party information"]
+
+    C["<b>pdf</b><br/>PDF bank statements<br/>Viseca, generic<br/>---<br/>✓ Text extraction with DI<br/>✓ Specialized Viseca parsing"]
+
+    D["<b>revolut</b><br/>Revolut app CSV exports<br/>---<br/>✓ Transaction state handling<br/>✓ Fee processing<br/>✓ Currency conversion"]
+
+    E["<b>revolut-investment</b><br/>Revolut investment transactions<br/>---<br/>✓ BUY/DIVIDEND/CASH TOP-UP<br/>✓ Share tracking"]
+
+    F["<b>selma</b><br/>Investment platform CSV data<br/>---<br/>✓ Investment categorization<br/>✓ Stamp duty association"]
+
+    G["<b>debit</b><br/>Generic CSV debit transactions<br/>---<br/>✓ Flexible column mapping<br/>✓ Date format detection"]
+
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+```
 
 ## 🤖 Smart Categorization
 
@@ -243,7 +258,7 @@ categorizer := categorizer.NewCategorizer(store, aiClient, logger)
 **Enhanced Backward Compatibility**: Version 2.0.0 introduces enhanced backward compatibility methods for the Transaction model:
 
 - `GetPayee()` - Returns appropriate party based on transaction direction (payee for debits, payer for credits)
-- `GetPayer()` - Returns appropriate party based on transaction direction (payer for debits, payee for credits)  
+- `GetPayer()` - Returns appropriate party based on transaction direction (payer for debits, payee for credits)
 - `GetCounterparty()` - Always returns the "other party" in the transaction (recommended for new code)
 - `GetAmountAsFloat()` - Continues to work but is deprecated in favor of `GetAmountAsDecimal()`
 
