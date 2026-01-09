@@ -14,7 +14,7 @@ import (
 func TestPdfCommand_Metadata(t *testing.T) {
 	assert.Equal(t, "pdf", pdf.Cmd.Use)
 	assert.Contains(t, pdf.Cmd.Short, "Convert PDF to CSV")
-	assert.Contains(t, pdf.Cmd.Long, "Convert PDF statements to CSV format")
+	assert.Contains(t, pdf.Cmd.Long, "Convert PDF bank statements to CSV format")
 	assert.NotNil(t, pdf.Cmd.Run)
 }
 
@@ -28,7 +28,7 @@ func TestPdfCommand_Structure(t *testing.T) {
 
 func TestPdfCommand_HelpText(t *testing.T) {
 	// Test that help text contains key information
-	assert.Contains(t, pdf.Cmd.Long, "PDF statements")
+	assert.Contains(t, pdf.Cmd.Long, "PDF bank statements")
 	assert.Contains(t, pdf.Cmd.Long, "CSV format")
 	assert.Contains(t, pdf.Cmd.Short, "PDF")
 	assert.Contains(t, pdf.Cmd.Short, "CSV")

@@ -19,10 +19,15 @@ type mockFullParser struct {
 	validateErr    error
 	validateResult bool
 	convertErr     error
+	parseErr       error
+	transactions   []models.Transaction
 }
 
 func (m *mockFullParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-	return nil, nil
+	if m.parseErr != nil {
+		return nil, m.parseErr
+	}
+	return m.transactions, nil
 }
 
 func (m *mockFullParser) ValidateFormat(filePath string) (bool, error) {

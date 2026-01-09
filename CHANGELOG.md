@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PDF Directory Consolidation**: The `pdf` command now accepts a directory as input, consolidating all PDF files into a single CSV output
+  - Single file mode: `camt-csv pdf -i file.pdf -o output.csv` (existing behavior)
+  - Directory mode: `camt-csv pdf -i pdf_dir/ -o consolidated.csv` (new feature)
+  - Automatically detects and processes all PDF files in the specified directory
+  - Consolidates all transactions from multiple PDFs into a single chronologically-sorted CSV
+  - Failed PDFs are skipped with warning logs (graceful degradation)
+  - Context cancellation support for interrupting long operations with Ctrl+C
+  - Validation flag (`--validate`) applies to each PDF file individually
+  - Case-insensitive PDF file detection (.pdf, .PDF, .Pdf all supported)
+  - No source file metadata in output - pure transaction data for clean consolidation
+
 - **Development Infrastructure**:
 
   - `CLAUDE.md` - AI-assisted development guidance with coding principles (KISS, DRY, FP)
