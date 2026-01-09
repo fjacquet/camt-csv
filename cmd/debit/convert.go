@@ -18,6 +18,7 @@ var Cmd = &cobra.Command{
 }
 
 func debitFunc(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	logger := root.GetLogrusAdapter()
 	root.Log.Info("Debit convert command called")
 	logger.Infof("Input file: %s", root.SharedFlags.Input)
@@ -35,6 +36,6 @@ func debitFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Error getting Debit parser: %v", err)
 	}
 
-	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
+	common.ProcessFile(ctx, p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("Debit to CSV conversion completed successfully!")
 }

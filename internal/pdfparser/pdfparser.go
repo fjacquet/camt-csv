@@ -1,6 +1,7 @@
 package pdfparser
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -26,11 +27,11 @@ func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 
 // ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
 func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithExtractorAndCategorizer(r, extractor, logger, nil)
+	return ParseWithExtractorAndCategorizer(context.Background(), r, extractor, logger, nil)
 }
 
 // ParseWithExtractorAndCategorizer extracts and parses transaction data from a PDF file using the provided extractor and categorizer.
-func ParseWithExtractorAndCategorizer(r io.Reader, extractor PDFExtractor, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extractor PDFExtractor, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}

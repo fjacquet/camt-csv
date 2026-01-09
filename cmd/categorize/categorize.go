@@ -29,6 +29,7 @@ func init() {
 }
 
 func categorizeFunc(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	root.Log.Info("Categorize command called")
 
 	// Configuration is already initialized by root command's PersistentPreRun
@@ -53,7 +54,7 @@ func categorizeFunc(cmd *cobra.Command, args []string) {
 		categorizerInstance := appContainer.GetCategorizer()
 
 		// Categorize the transaction using the instance
-		category, err := categorizerInstance.CategorizeTransaction(transaction)
+		category, err := categorizerInstance.CategorizeTransaction(ctx, transaction)
 		if err != nil {
 			logger := root.GetLogrusAdapter()
 			logger.Errorf("Error categorizing transaction: %v", err)

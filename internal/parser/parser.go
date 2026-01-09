@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"io"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -16,7 +17,11 @@ type Parser interface {
 	// and transforming it into the standardized Transaction structure.
 	// Implementations should return custom error types (e.g., InvalidFormatError, DataExtractionError)
 	// for specific parsing failures.
-	Parse(r io.Reader) ([]models.Transaction, error)
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and timeout control
+	//   - r: Reader containing the data to parse
+	Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
 }
 
 // Validator defines format validation capability.
@@ -33,7 +38,12 @@ type Validator interface {
 type CSVConverter interface {
 	// ConvertToCSV converts an input file to CSV format and writes it to the output file.
 	// This is a convenience method that typically combines Parse and WriteToCSV operations.
-	ConvertToCSV(inputFile, outputFile string) error
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and timeout control
+	//   - inputFile: Path to the input file
+	//   - outputFile: Path to the output CSV file
+	ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
 }
 
 // LoggerConfigurable defines the ability to configure logging.
@@ -57,7 +67,12 @@ type CategorizerConfigurable interface {
 type BatchConverter interface {
 	// BatchConvert converts all files in inputDir and writes them to outputDir.
 	// Returns the number of files converted and any error encountered.
-	BatchConvert(inputDir, outputDir string) (int, error)
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation and timeout control
+	//   - inputDir: Directory containing input files
+	//   - outputDir: Directory for output files
+	BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
 }
 
 // FullParser combines all parser capabilities into a single interface.

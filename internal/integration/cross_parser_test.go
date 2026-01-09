@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -114,10 +115,10 @@ func TestCategorizationConsistency(t *testing.T) {
 	}
 
 	// Apply categorization through categorizer
-	pdfCategoryResult, err := testCategorizer.CategorizeTransaction(pdfTransaction)
+	pdfCategoryResult, err := testCategorizer.CategorizeTransaction(context.Background(), pdfTransaction)
 	require.NoError(t, err, "PDF categorization should not fail")
 
-	selmaCategoryResult, err := testCategorizer.CategorizeTransaction(selmaTransaction)
+	selmaCategoryResult, err := testCategorizer.CategorizeTransaction(context.Background(), selmaTransaction)
 	require.NoError(t, err, "Selma categorization should not fail")
 
 	// Verify both parsers produce consistent categorization for the same party
@@ -252,7 +253,7 @@ func TestAutoLearningMechanism(t *testing.T) {
 	}
 
 	// Apply categorization (simulating what happens in Parse())
-	result, err := testCategorizer.CategorizeTransaction(testTransaction)
+	result, err := testCategorizer.CategorizeTransaction(context.Background(), testTransaction)
 	require.NoError(t, err, "Categorization should not fail")
 
 	// Apply same categorization to another transaction with same party
@@ -265,7 +266,7 @@ func TestAutoLearningMechanism(t *testing.T) {
 		Description: "Another test purchase",
 	}
 
-	secondResult, err := testCategorizer.CategorizeTransaction(secondTransaction)
+	secondResult, err := testCategorizer.CategorizeTransaction(context.Background(), secondTransaction)
 	require.NoError(t, err, "Second categorization should not fail")
 
 	// Verify consistency (in real implementation, second call should use saved mapping)

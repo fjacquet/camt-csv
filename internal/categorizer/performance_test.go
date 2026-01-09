@@ -185,7 +185,7 @@ func BenchmarkCategorizer_FullFlow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, tx := range transactions {
-			_, err := categorizer.CategorizeTransaction(tx)
+			_, err := categorizer.CategorizeTransaction(context.Background(), tx)
 			if err != nil {
 				b.Fatal(err)
 			}

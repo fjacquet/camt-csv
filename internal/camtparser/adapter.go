@@ -2,6 +2,7 @@ package camtparser
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -37,7 +38,7 @@ func NewAdapter(logger logging.Logger) *Adapter {
 
 // and transforming it into the standardized Transaction structure.
 
-func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
+func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
 
 	// Read the XML content
 
@@ -390,7 +391,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 			// Categorize the transaction using the injected categorizer (includes auto-learning)
 			if cat := a.GetCategorizer(); cat != nil {
-				category, err := cat.Categorize(catPartyName, isDebtor, catAmount, catDate, catInfo)
+				category, err := cat.Categorize(context.Background(), catPartyName, isDebtor, catAmount, catDate, catInfo)
 				if err != nil {
 					a.GetLogger().WithError(err).WithFields(
 						logging.Field{Key: "party", Value: catPartyName},
@@ -419,7 +420,7 @@ func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
 
 // ConvertToCSV converts an XML file to a CSV file based on the chosen parser type
 
-func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
+func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) error {
 
 	// Open the XML file
 
@@ -444,7 +445,7 @@ func (a *Adapter) ConvertToCSV(xmlFile, csvFile string) error {
 
 	// Parse the XML file using the new Parse method
 
-	transactions, err := a.Parse(file)
+	transactions, err := a.Parse(ctx, file)
 
 	if err != nil {
 
@@ -506,7 +507,7 @@ func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
 
 // BatchConvert converts all XML files in a directory to CSV files.
 
-func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
+func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
 
 	a.GetLogger().Info("Batch converting CAMT.053 XML files",
 		logging.Field{Key: "inputDir", Value: inputDir},
@@ -535,6 +536,15 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 	count := 0
 
 	for _, file := range files {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			a.GetLogger().Warn("Batch processing cancelled",
+				logging.Field{Key: "processed", Value: count},
+				logging.Field{Key: "total", Value: len(files)})
+			return count, ctx.Err()
+		default:
+		}
 
 		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
 
@@ -570,7 +580,7 @@ func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
 
 		// Convert the file
 
-		if err := a.ConvertToCSV(inputFile, outputFile); err != nil {
+		if err := a.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
 
 			a.GetLogger().WithError(err).Error("Failed to convert file",
 				logging.Field{Key: "file", Value: inputFile})

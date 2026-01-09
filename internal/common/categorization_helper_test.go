@@ -2,6 +2,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -20,8 +21,8 @@ type MockCategorizer struct {
 	mock.Mock
 }
 
-func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
-	args := m.Called(partyName, isDebtor, amount, date, info)
+func (m *MockCategorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+	args := m.Called(ctx, partyName, isDebtor, amount, date, info)
 	return args.Get(0).(models.Category), args.Error(1)
 }
 
@@ -100,7 +101,7 @@ func TestProperty9_CategorizationFallbackBehavior(t *testing.T) {
 
 			// Test case 2: Categorizer that always fails
 			mockCategorizer := &MockCategorizer{}
-			mockCategorizer.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			mockCategorizer.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{}, errors.New("categorization failed"))
 
 			result2 := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, mockCategorizer, "TestParser")
@@ -112,7 +113,7 @@ func TestProperty9_CategorizationFallbackBehavior(t *testing.T) {
 
 			// Test case 3: Categorizer that returns empty category
 			mockCategorizer2 := &MockCategorizer{}
-			mockCategorizer2.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			mockCategorizer2.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{Name: ""}, nil)
 
 			result3 := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, mockCategorizer2, "TestParser")
@@ -162,23 +163,23 @@ func TestProperty10_CategorizationStatisticsLogging(t *testing.T) {
 			mockCategorizer := &MockCategorizer{}
 
 			// Set up different responses based on party name
-			mockCategorizer.On("Categorize", mock.MatchedBy(func(partyName string) bool {
+			mockCategorizer.On("Categorize", mock.Anything, mock.MatchedBy(func(partyName string) bool {
 				return strings.Contains(partyName, "success")
 			}), mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{Name: "TestCategory"}, nil)
 
-			mockCategorizer.On("Categorize", mock.MatchedBy(func(partyName string) bool {
+			mockCategorizer.On("Categorize", mock.Anything, mock.MatchedBy(func(partyName string) bool {
 				return strings.Contains(partyName, "fail")
 			}), mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{}, errors.New("categorization failed"))
 
-			mockCategorizer.On("Categorize", mock.MatchedBy(func(partyName string) bool {
+			mockCategorizer.On("Categorize", mock.Anything, mock.MatchedBy(func(partyName string) bool {
 				return strings.Contains(partyName, "uncategorized")
 			}), mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{Name: "Uncategorized"}, nil)
 
 			// Default case for other party names
-			mockCategorizer.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			mockCategorizer.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{Name: "DefaultCategory"}, nil)
 
 			// Modify transactions to have predictable party names

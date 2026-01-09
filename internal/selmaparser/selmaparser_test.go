@@ -1,6 +1,7 @@
 package selmaparser
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -71,7 +72,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	_, err = adapter.Parse(file)
+	_, err = adapter.Parse(context.Background(), file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
@@ -110,7 +111,7 @@ func TestParseFile(t *testing.T) {
 	// Test parsing the file
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	transactions, err := adapter.Parse(file)
+	transactions, err := adapter.Parse(context.Background(), file)
 	assert.NoError(t, err, "ParseFile should not return an error for valid input")
 	assert.NotNil(t, transactions, "Transactions should not be nil")
 	assert.Equal(t, 2, len(transactions), "Should have parsed 2 transactions")
@@ -292,7 +293,7 @@ func TestProperty_SelmaCategorizationIntegration(t *testing.T) {
 			adapter.SetCategorizer(mockCategorizer)
 
 			// Parse the CSV
-			transactions, err := adapter.Parse(file)
+			transactions, err := adapter.Parse(context.Background(), file)
 			require.NoError(t, err)
 
 			// Verify that categorization was applied
@@ -326,7 +327,7 @@ type MockCategorizer struct {
 	callCount  int
 }
 
-func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+func (m *MockCategorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
 	m.callCount++
 
 	if category, exists := m.categories[partyName]; exists {

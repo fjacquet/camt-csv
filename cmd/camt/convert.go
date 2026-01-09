@@ -18,6 +18,7 @@ var Cmd = &cobra.Command{
 }
 
 func camtFunc(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	logger := root.GetLogrusAdapter()
 	root.Log.Info("CAMT.053 process command called")
 	logger.Infof("Input CAMT.053 file: %s", root.SharedFlags.Input)
@@ -35,6 +36,6 @@ func camtFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Error getting CAMT.053 parser: %v", err)
 	}
 
-	common.ProcessFile(p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
+	common.ProcessFile(ctx, p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log)
 	root.Log.Info("CAMT.053 to CSV conversion completed successfully!")
 }

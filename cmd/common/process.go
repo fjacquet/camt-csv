@@ -2,6 +2,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -19,7 +20,7 @@ var ErrInvalidFormat = errors.New("file is not in a valid format")
 
 // ProcessFileWithError processes a single file using the given parser and returns an error on failure.
 // This is the preferred function for testable code.
-func ProcessFileWithError(p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) error {
+func ProcessFileWithError(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) error {
 	// Set the logger on the parser using the new interface
 	p.SetLogger(log)
 
@@ -35,7 +36,7 @@ func ProcessFileWithError(p parser.FullParser, inputFile, outputFile string, val
 		log.Info("Validation successful.")
 	}
 
-	if err := p.ConvertToCSV(inputFile, outputFile); err != nil {
+	if err := p.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
 		return fmt.Errorf("error converting to CSV: %w", err)
 	}
 	log.Info("Conversion completed successfully!")
@@ -44,8 +45,8 @@ func ProcessFileWithError(p parser.FullParser, inputFile, outputFile string, val
 
 // ProcessFile processes a single file using the given parser.
 // Deprecated: Use ProcessFileWithError instead for better error handling and testability.
-func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) {
-	if err := ProcessFileWithError(p, inputFile, outputFile, validate, log); err != nil {
+func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) {
+	if err := ProcessFileWithError(ctx, p, inputFile, outputFile, validate, log); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
@@ -54,7 +55,7 @@ func ProcessFile(p parser.FullParser, inputFile, outputFile string, validate boo
 // This is the preferred function for testable code.
 //
 // Deprecated: Use ProcessFileWithError with parser.FullParser instead.
-func ProcessFileLegacyWithError(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) error {
+func ProcessFileLegacyWithError(ctx context.Context, parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) error {
 	// Set the logger on the parser using the new interface
 	parser.SetLogger(log)
 
@@ -70,7 +71,7 @@ func ProcessFileLegacyWithError(parser models.Parser, inputFile, outputFile stri
 		log.Info("Validation successful.")
 	}
 
-	if err := parser.ConvertToCSV(inputFile, outputFile); err != nil {
+	if err := parser.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
 		return fmt.Errorf("error converting to CSV: %w", err)
 	}
 	log.Info("Conversion completed successfully!")
@@ -96,9 +97,9 @@ func ProcessFileLegacyWithError(parser models.Parser, inputFile, outputFile stri
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	err = fullParser.ConvertToCSV(inputFile, outputFile)
-func ProcessFileLegacy(parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
-	if err := ProcessFileLegacyWithError(parser, inputFile, outputFile, validate, log); err != nil {
+//	err = fullParser.ConvertToCSV(ctx, inputFile, outputFile)
+func ProcessFileLegacy(ctx context.Context, parser models.Parser, inputFile, outputFile string, validate bool, log logging.Logger) {
+	if err := ProcessFileLegacyWithError(ctx, parser, inputFile, outputFile, validate, log); err != nil {
 		log.Fatalf("%v", err)
 	}
 }

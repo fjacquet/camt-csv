@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"io"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -18,10 +19,10 @@ import (
 //	// New code:
 //	var p parser.FullParser // or specific interfaces like parser.Parser, parser.Validator
 type Parser interface {
-	Parse(r io.Reader) ([]Transaction, error)
-	ConvertToCSV(inputFile, outputFile string) error
+	Parse(ctx context.Context, r io.Reader) ([]Transaction, error)
+	ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
 	WriteToCSV(transactions []Transaction, csvFile string) error
 	SetLogger(logger logging.Logger)
 	ValidateFormat(file string) (bool, error)
-	BatchConvert(inputDir, outputDir string) (int, error)
+	BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
 }

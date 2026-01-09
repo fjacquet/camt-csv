@@ -1,6 +1,7 @@
 package revolutparser
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -23,12 +24,12 @@ func NewAdapter(logger logging.Logger) *Adapter {
 }
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
-func (a *Adapter) Parse(r io.Reader) ([]models.Transaction, error) {
+func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
 	return ParseWithCategorizer(r, a.GetLogger(), a.GetCategorizer())
 }
 
 // ConvertToCSV implements models.Parser.ConvertToCSV
-func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
+func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
 	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
@@ -40,7 +41,7 @@ func (a *Adapter) ConvertToCSV(inputFile, outputFile string) error {
 		}
 	}()
 
-	transactions, err := a.Parse(file)
+	transactions, err := a.Parse(ctx, file)
 	if err != nil {
 		return err
 	}
@@ -65,6 +66,6 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 }
 
 // BatchConvert converts all CSV files in a directory to the standard CSV format.
-func (a *Adapter) BatchConvert(inputDir, outputDir string) (int, error) {
+func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
 	return BatchConvert(inputDir, outputDir)
 }

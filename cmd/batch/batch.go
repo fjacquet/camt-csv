@@ -2,6 +2,7 @@
 package batch
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,6 +62,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 }
 
 func batchFunc(cmd *cobra.Command, args []string) {
+	ctx := cmd.Context()
 	root.Log.Info("Batch command called")
 
 	// Use the shared flags from root command
@@ -93,7 +95,7 @@ func batchFunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Use new aggregation-based batch processing
-	count, err := batchConvertWithAggregation(inputDir, outputDir, parser, logger)
+	count, err := batchConvertWithAggregation(ctx, inputDir, outputDir, parser, logger)
 	if err != nil {
 		logger.Fatalf("Error during batch conversion: %v", err)
 	}
@@ -102,7 +104,7 @@ func batchFunc(cmd *cobra.Command, args []string) {
 }
 
 // batchConvertWithAggregation performs batch conversion using the new aggregation engine
-func batchConvertWithAggregation(inputDir, outputDir string, p parser.FullParser, logger logging.Logger) (int, error) {
+func batchConvertWithAggregation(ctx context.Context, inputDir, outputDir string, p parser.FullParser, logger logging.Logger) (int, error) {
 	// Create batch aggregator
 	aggregator := batch.NewBatchAggregator(logger)
 
@@ -178,7 +180,7 @@ func batchConvertWithAggregation(inputDir, outputDir string, p parser.FullParser
 				}
 			}()
 
-			return p.Parse(file)
+			return p.Parse(ctx, file)
 		}
 
 		// Aggregate transactions from all files in the group

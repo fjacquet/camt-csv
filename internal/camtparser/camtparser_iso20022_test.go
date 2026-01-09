@@ -1,6 +1,7 @@
 package camtparser
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -693,7 +694,7 @@ func TestAdapter_BatchConvert(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 
-	count, err := adapter.BatchConvert(inputDir, outputDir)
+	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, count)
 }

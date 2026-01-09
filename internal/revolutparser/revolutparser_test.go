@@ -1,6 +1,7 @@
 package revolutparser
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	// Test parsing
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	transactions, err := adapter.Parse(file)
+	transactions, err := adapter.Parse(context.Background(), file)
 	assert.NoError(t, err, "Failed to parse Revolut CSV file")
 	assert.Equal(t, 4, len(transactions), "Expected 4 transactions")
 
@@ -131,7 +132,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	_, err = adapter.Parse(file)
+	_, err = adapter.Parse(context.Background(), file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
@@ -405,14 +406,14 @@ type mockCategorizer struct {
 	category models.Category
 }
 
-func (m *mockCategorizer) Categorize(description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
+func (m *mockCategorizer) Categorize(ctx context.Context, description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
 	return m.category, nil
 }
 
 // Mock categorizer that returns error
 type mockCategorizerError struct{}
 
-func (m *mockCategorizerError) Categorize(description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
+func (m *mockCategorizerError) Categorize(ctx context.Context, description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
 	return models.Category{}, fmt.Errorf("categorization failed")
 }
 
@@ -568,7 +569,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee Shop,-10.50,
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 
-	err = adapter.ConvertToCSV(inputFile, outputFile)
+	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
 	assert.NoError(t, err)
 
 	// Verify output file exists
@@ -636,7 +637,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
 
-	count, err := adapter.BatchConvert(inputDir, outputDir)
+	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, count) // Only 1 valid file should be processed
 }

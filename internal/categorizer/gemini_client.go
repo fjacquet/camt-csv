@@ -305,13 +305,9 @@ Amount: %s CHF
 
 Category:`, transaction.PartyName, transaction.Description, transaction.Amount.String())
 
-
-
 	return prompt
 
 }
-
-
 
 // callGeminiAPI makes the actual API call to Gemini
 
@@ -320,8 +316,6 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 	// Construct the API URL using the configured model
 
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.model, c.apiKey)
-
-
 
 	// Create the request payload
 
@@ -334,16 +328,10 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 				Parts: []GeminiPart{
 
 					{Text: prompt},
-
 				},
-
 			},
-
 		},
-
 	}
-
-
 
 	// Marshal to JSON
 
@@ -355,8 +343,6 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}
 
-
-
 	// Create HTTP request
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
@@ -367,11 +353,7 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}
 
-
-
 	req.Header.Set("Content-Type", "application/json")
-
-
 
 	// Make the request
 
@@ -393,8 +375,6 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}()
 
-
-
 	// Read response
 
 	body, err := io.ReadAll(resp.Body)
@@ -405,8 +385,6 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}
 
-
-
 	// Check for HTTP errors
 
 	if resp.StatusCode != http.StatusOK {
@@ -416,14 +394,11 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 			logging.Field{Key: "status_code", Value: resp.StatusCode},
 
 			logging.Field{Key: "response_body", Value: string(body)},
-
 		).Error("Gemini API returned error")
 
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 
 	}
-
-
 
 	// Parse response
 
@@ -435,8 +410,6 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}
 
-
-
 	// Extract the category from response
 
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
@@ -445,15 +418,11 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 
 	}
 
-
-
 	category := geminiResp.Candidates[0].Content.Parts[0].Text
 
 	return strings.TrimSpace(category), nil
 
 }
-
-
 
 // cleanCategory cleans and validates the category returned by the API
 
@@ -469,161 +438,154 @@ func (c *GeminiClient) cleanCategory(category string) string {
 
 	category = strings.TrimSpace(category)
 
-
-
 	// Remove quotes if present
 
 	category = strings.Trim(category, `"'`)
-
-
 
 	// Map of lower-case synonyms to canonical category names
 
 	synonyms := map[string]string{
 
-		"food":            "Alimentation", // Or Courses, context dependent, defaulting to generic
+		"food": "Alimentation", // Or Courses, context dependent, defaulting to generic
 
-		"groceries":       "Courses",
+		"groceries": "Courses",
 
-		"supermarket":     "Courses",
+		"supermarket": "Courses",
 
-		"restaurant":      "Restaurants",
+		"restaurant": "Restaurants",
 
-		"transport":       "Transports Publics",
+		"transport": "Transports Publics",
 
 		"public transport": "Transports Publics",
 
-		"train":           "Transports Publics",
+		"train": "Transports Publics",
 
-		"bus":             "Transports Publics",
+		"bus": "Transports Publics",
 
-		"car":             "Voiture",
+		"car": "Voiture",
 
-		"fuel":            "Voiture",
+		"fuel": "Voiture",
 
-		"gas":             "Voiture",
+		"gas": "Voiture",
 
-		"parking":         "Voiture",
+		"parking": "Voiture",
 
-		"shopping":        "Shopping",
+		"shopping": "Shopping",
 
-		"retail":          "Shopping",
+		"retail": "Shopping",
 
-		"clothes":         "Shopping",
+		"clothes": "Shopping",
 
-		"clothing":        "Shopping",
+		"clothing": "Shopping",
 
-		"electronics":     "Shopping", // Could be Equipement Maison too
+		"electronics": "Shopping", // Could be Equipement Maison too
 
-		"health":          "Santé",
+		"health": "Santé",
 
-		"medical":         "Santé",
+		"medical": "Santé",
 
-		"doctor":          "Santé",
+		"doctor": "Santé",
 
-		"pharmacy":        "Santé",
+		"pharmacy": "Santé",
 
-		"subscriptions":   "Abonnements",
+		"subscriptions": "Abonnements",
 
-		"subscription":    "Abonnements",
+		"subscription": "Abonnements",
 
-		"insurance":       "Assurances",
+		"insurance": "Assurances",
 
-		"bank fees":       "Frais Bancaires",
+		"bank fees": "Frais Bancaires",
 
-		"fees":            "Frais Bancaires",
+		"fees": "Frais Bancaires",
 
-		"salary":          "Salaire",
+		"salary": "Salaire",
 
-		"income":          "Salaire",
+		"income": "Salaire",
 
-		"rent":            "Logement",
+		"rent": "Logement",
 
-		"housing":         "Logement",
+		"housing": "Logement",
 
-		"utilities":       "Utilités",
+		"utilities": "Utilités",
 
-		"phone":           "Utilités",
+		"phone": "Utilités",
 
-		"internet":        "Utilités",
+		"internet": "Utilités",
 
-		"electricity":     "Utilités",
+		"electricity": "Utilités",
 
-		"entertainment":   "Divertissement",
+		"entertainment": "Divertissement",
 
-		"movies":          "Divertissement",
+		"movies": "Divertissement",
 
-		"leisure":         "Loisirs",
+		"leisure": "Loisirs",
 
-		"hobbies":         "Loisirs",
+		"hobbies": "Loisirs",
 
-		"sports":          "Sport",
+		"sports": "Sport",
 
-		"gym":             "Sport",
+		"gym": "Sport",
 
-		"fitness":         "Sport",
+		"fitness": "Sport",
 
-		"travel":          "Vacances",
+		"travel": "Vacances",
 
-		"vacation":        "Vacances",
+		"vacation": "Vacances",
 
-		"hotel":           "Vacances",
+		"hotel": "Vacances",
 
-		"hotels":          "Vacances",
+		"hotels": "Vacances",
 
-		"kids":            "Enfants",
+		"kids": "Enfants",
 
-		"children":        "Enfants",
+		"children": "Enfants",
 
-		"education":       "Éducation",
+		"education": "Éducation",
 
-		"school":          "Éducation",
+		"school": "Éducation",
 
-		"gift":            "Cadeaux",
+		"gift": "Cadeaux",
 
-		"gifts":           "Cadeaux",
+		"gifts": "Cadeaux",
 
-		"donation":        "Dons",
+		"donation": "Dons",
 
-		"charity":         "Dons",
+		"charity": "Dons",
 
-		"tax":             "Impôts",
+		"tax": "Impôts",
 
-		"taxes":           "Impôts",
+		"taxes": "Impôts",
 
-		"investment":      "Investissements",
+		"investment": "Investissements",
 
-		"investments":     "Investissements",
+		"investments": "Investissements",
 
-		"furniture":       "Mobilier",
+		"furniture": "Mobilier",
 
-		"appliances":      "Équipement Maison",
+		"appliances": "Équipement Maison",
 
-		"withdrawal":      "Divers",
+		"withdrawal": "Divers",
 
-		"cash":            "Divers",
+		"cash": "Divers",
 
-		"transfer":        "Virements",
+		"transfer": "Virements",
 
-		"transfers":       "Virements",
+		"transfers": "Virements",
 
-		"pension":         "Pension",
+		"pension": "Pension",
 
-		"retirement":      "Pension",
+		"retirement": "Pension",
 
 		"mobilier & maison": "Mobilier", // Mapping old consolidated to new split (could be equiv too)
 
 		"rentes & pensions": "Pension",
 
-		"uncategorized":   models.CategoryUncategorized,
+		"uncategorized": models.CategoryUncategorized,
 
-		"unknown":         models.CategoryUncategorized,
+		"unknown": models.CategoryUncategorized,
 
-		"other":           models.CategoryUncategorized,
-
+		"other": models.CategoryUncategorized,
 	}
-
-
 
 	lowerCat := strings.ToLower(category)
 
@@ -632,8 +594,6 @@ func (c *GeminiClient) cleanCategory(category string) string {
 		return canonical
 
 	}
-
-
 
 	// If no synonym found, return the category as is (but trimmed)
 

@@ -1,6 +1,7 @@
 package pdf_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"testing"
@@ -20,7 +21,7 @@ type mockFullParser struct {
 	convertErr     error
 }
 
-func (m *mockFullParser) Parse(r io.Reader) ([]models.Transaction, error) {
+func (m *mockFullParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
 	return nil, nil
 }
 
@@ -28,7 +29,7 @@ func (m *mockFullParser) ValidateFormat(filePath string) (bool, error) {
 	return m.validateResult, m.validateErr
 }
 
-func (m *mockFullParser) ConvertToCSV(inputFile, outputFile string) error {
+func (m *mockFullParser) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
 	return m.convertErr
 }
 
@@ -36,7 +37,7 @@ func (m *mockFullParser) SetLogger(logger logging.Logger) {}
 
 func (m *mockFullParser) SetCategorizer(categorizer models.TransactionCategorizer) {}
 
-func (m *mockFullParser) BatchConvert(inputDir, outputDir string) (int, error) {
+func (m *mockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
 	return 0, nil
 }
 
@@ -49,7 +50,7 @@ func TestPDFConvert_InvalidFormat(t *testing.T) {
 		validateErr:    nil,
 	}
 
-	err := common.ProcessFileWithError(mockParser, "input.pdf", "output.csv", true, logger)
+	err := common.ProcessFileWithError(context.Background(), mockParser, "input.pdf", "output.csv", true, logger)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, common.ErrInvalidFormat)
@@ -62,7 +63,7 @@ func TestPDFConvert_ConversionError(t *testing.T) {
 		convertErr:     errors.New("PDF parsing failed"),
 	}
 
-	err := common.ProcessFileWithError(mockParser, "input.pdf", "output.csv", true, logger)
+	err := common.ProcessFileWithError(context.Background(), mockParser, "input.pdf", "output.csv", true, logger)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error converting to CSV")

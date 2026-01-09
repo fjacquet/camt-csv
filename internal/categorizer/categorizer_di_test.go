@@ -84,7 +84,7 @@ func TestCategorizeTransactionWithCategorizer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			category, err := CategorizeTransactionWithCategorizer(tt.categorizer, tt.transaction)
+			category, err := CategorizeTransactionWithCategorizer(context.Background(), tt.categorizer, tt.transaction)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -114,7 +114,7 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 
 	// Verify the mapping was added
 	transaction := Transaction{PartyName: "TestDebitor", IsDebtor: true}
-	category, err := cat.CategorizeTransaction(transaction)
+	category, err := cat.CategorizeTransaction(context.Background(), transaction)
 	require.NoError(t, err)
 	assert.Equal(t, "TestCategory", category.Name)
 
@@ -123,7 +123,7 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 
 	// Verify the mapping was added
 	transaction = Transaction{PartyName: "TestCreditor", IsDebtor: false}
-	category, err = cat.CategorizeTransaction(transaction)
+	category, err = cat.CategorizeTransaction(context.Background(), transaction)
 	require.NoError(t, err)
 	assert.Equal(t, "TestCategory2", category.Name)
 }
@@ -152,12 +152,12 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 	transaction := Transaction{PartyName: "Unknown", IsDebtor: true}
 
 	// First categorizer should return uncategorized (no AI)
-	category1, err := cat1.CategorizeTransaction(transaction)
+	category1, err := cat1.CategorizeTransaction(context.Background(), transaction)
 	require.NoError(t, err)
 	assert.Equal(t, models.CategoryUncategorized, category1.Name)
 
 	// Second categorizer should use AI
-	category2, err := cat2.CategorizeTransaction(transaction)
+	category2, err := cat2.CategorizeTransaction(context.Background(), transaction)
 	require.NoError(t, err)
 	assert.Equal(t, "MockCategory", category2.Name)
 }

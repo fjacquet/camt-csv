@@ -194,6 +194,7 @@ func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
 // This function provides a migration path from the global singleton pattern to dependency injection.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeout control
 //   - categorizer: The categorizer instance to use
 //   - transaction: The transaction to categorize
 //
@@ -207,14 +208,14 @@ func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
 //	if err != nil {
 //	    return err
 //	}
-//	category, err := categorizer.CategorizeTransactionWithCategorizer(container.Categorizer, transaction)
-func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transaction) (models.Category, error) {
+//	category, err := categorizer.CategorizeTransactionWithCategorizer(ctx, container.Categorizer, transaction)
+func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer, transaction Transaction) (models.Category, error) {
 	if cat == nil {
 		return models.Category{}, fmt.Errorf("categorizer cannot be nil")
 	}
 
 	// Get the actual categorization
-	category, err := cat.CategorizeTransaction(transaction)
+	category, err := cat.CategorizeTransaction(ctx, transaction)
 
 	// If we successfully found a category via AI, let's immediately save it to the database
 	// so we don't need to recategorize similar transactions in the future
@@ -254,6 +255,7 @@ func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transact
 // This is the preferred method for dependency injection.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeout control
 //   - transaction: The transaction to categorize
 //
 // Returns:
@@ -266,9 +268,9 @@ func CategorizeTransactionWithCategorizer(cat *Categorizer, transaction Transact
 //	if err != nil {
 //	    return err
 //	}
-//	category, err := container.Categorizer.CategorizeTransaction(transaction)
-func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Category, error) {
-	return c.categorizeTransaction(transaction)
+//	category, err := container.Categorizer.CategorizeTransaction(ctx, transaction)
+func (c *Categorizer) CategorizeTransaction(ctx context.Context, transaction Transaction) (models.Category, error) {
+	return c.categorizeTransaction(ctx, transaction)
 }
 
 // Categorize implements the models.TransactionCategorizer interface.
@@ -280,6 +282,7 @@ func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Cat
 // for future use.
 //
 // Parameters:
+//   - ctx: Context for cancellation and timeout control
 //   - partyName: The name of the transaction party
 //   - isDebtor: true if the party is a debtor (sender), false if creditor
 //   - amount: Transaction amount as string
@@ -289,7 +292,7 @@ func (c *Categorizer) CategorizeTransaction(transaction Transaction) (models.Cat
 // Returns:
 //   - models.Category: The determined category
 //   - error: Any error that occurred during categorization
-func (c *Categorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
 	transaction := Transaction{
 		PartyName: partyName,
 		IsDebtor:  isDebtor,
@@ -298,7 +301,7 @@ func (c *Categorizer) Categorize(partyName string, isDebtor bool, amount, date, 
 		Info:      info,
 	}
 
-	category, err := c.categorizeTransaction(transaction)
+	category, err := c.categorizeTransaction(ctx, transaction)
 
 	// Auto-learn: if we successfully found a category, save it to the database
 	// so we don't need to recategorize similar transactions in the future
@@ -328,7 +331,7 @@ func (c *Categorizer) Categorize(partyName string, isDebtor bool, amount, date, 
 }
 
 // private method for the Categorizer struct
-func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Category, error) {
+func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Transaction) (models.Category, error) {
 	// If party name is empty, return uncategorized immediately
 	if strings.TrimSpace(transaction.PartyName) == "" {
 		return models.Category{
@@ -338,7 +341,6 @@ func (c *Categorizer) categorizeTransaction(transaction Transaction) (models.Cat
 	}
 
 	// Try each strategy in priority order
-	ctx := context.Background()
 	for _, strategy := range c.strategies {
 		c.logger.WithFields(
 			logging.Field{Key: "strategy", Value: strategy.Name()},

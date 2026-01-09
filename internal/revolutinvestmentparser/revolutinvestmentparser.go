@@ -1,6 +1,7 @@
 package revolutinvestmentparser
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -113,7 +114,7 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = transaction.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(transaction.PartyName, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(context.Background(), transaction.PartyName, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: transaction.PartyName},

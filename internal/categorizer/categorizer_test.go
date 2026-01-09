@@ -156,7 +156,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			category, err := categorizerInstance.CategorizeTransaction(tc.transaction)
+			category, err := categorizerInstance.CategorizeTransaction(context.Background(), tc.transaction)
 
 			if tc.expectError {
 				assert.Error(t, err)
@@ -306,7 +306,7 @@ UBER: "Transport"`
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			category, err := cat.CategorizeTransaction(tc.transaction)
+			category, err := cat.CategorizeTransaction(context.Background(), tc.transaction)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedCategory, category.Name)
@@ -365,7 +365,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 		Description: "Coffee with starbucks keyword",
 	}
 
-	category, err := cat.CategorizeTransaction(transaction)
+	category, err := cat.CategorizeTransaction(context.Background(), transaction)
 
 	assert.NoError(t, err)
 	// Direct mapping should win over keyword matching
@@ -402,7 +402,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	}
 
 	// Should not fail even if AI client fails
-	category, err := cat.CategorizeTransaction(transaction)
+	category, err := cat.CategorizeTransaction(context.Background(), transaction)
 
 	assert.NoError(t, err)
 	assert.Equal(t, models.CategoryUncategorized, category.Name)
@@ -462,7 +462,7 @@ func TestCategorizer_ConcurrentCategorization(t *testing.T) {
 				Description: "food purchase",
 			}
 
-			category, err := cat.CategorizeTransaction(transaction)
+			category, err := cat.CategorizeTransaction(context.Background(), transaction)
 			if err != nil {
 				results <- fmt.Sprintf("ERROR: %v", err)
 			} else {

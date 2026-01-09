@@ -1,6 +1,7 @@
 package revolutinvestmentparser
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,8 +22,8 @@ type MockCategorizer struct {
 	mock.Mock
 }
 
-func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, description string) (models.Category, error) {
-	args := m.Called(partyName, isDebtor, amount, date, description)
+func (m *MockCategorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, description string) (models.Category, error) {
+	args := m.Called(ctx, partyName, isDebtor, amount, date, description)
 	return args.Get(0).(models.Category), args.Error(1)
 }
 
@@ -54,7 +55,7 @@ func TestParseFile(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	transactions, err := adapter.Parse(file)
+	transactions, err := adapter.Parse(context.Background(), file)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 3)
 
@@ -106,7 +107,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	_, err = adapter.Parse(file)
+	_, err = adapter.Parse(context.Background(), file)
 	require.Error(t, err)
 }
 
@@ -215,7 +216,7 @@ func TestParseWithCategorizer_Success(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	mockCategorizer := &MockCategorizer{}
-	mockCategorizer.On("Categorize", "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{Name: "Investment"}, nil)
+	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{Name: "Investment"}, nil)
 
 	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
 	require.NoError(t, err)
@@ -233,7 +234,7 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	mockCategorizer := &MockCategorizer{}
-	mockCategorizer.On("Categorize", "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{}, assert.AnError)
+	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{}, assert.AnError)
 
 	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
 	require.NoError(t, err)

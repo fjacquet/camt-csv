@@ -1,6 +1,8 @@
 // Package models provides the data structures used throughout the application.
 package models
 
+import "context"
+
 // Category represents a transaction category
 type Category struct {
 	Name        string
@@ -19,6 +21,7 @@ type TransactionCategorizer interface {
 	// Categorize determines the category for a transaction.
 	//
 	// Parameters:
+	//   - ctx: Context for cancellation and timeout control
 	//   - partyName: The name of the transaction party (creditor or debtor)
 	//   - isDebtor: true if the party is a debtor (sender), false if creditor (recipient)
 	//   - amount: Transaction amount as string
@@ -28,7 +31,7 @@ type TransactionCategorizer interface {
 	// Returns:
 	//   - Category: The determined category
 	//   - error: Any error that occurred during categorization
-	Categorize(partyName string, isDebtor bool, amount, date, info string) (Category, error)
+	Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (Category, error)
 }
 
 // CategoryConfig represents a category configuration in the YAML file

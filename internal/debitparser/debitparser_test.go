@@ -1,6 +1,7 @@
 package debitparser
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -515,13 +516,13 @@ type mockCategorizer struct {
 	category models.Category
 }
 
-func (m *mockCategorizer) Categorize(description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
+func (m *mockCategorizer) Categorize(ctx context.Context, description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
 	return m.category, nil
 }
 
 // Mock categorizer that returns error
 type mockCategorizerError struct{}
 
-func (m *mockCategorizerError) Categorize(description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
+func (m *mockCategorizerError) Categorize(ctx context.Context, description string, isDebtor bool, amount, date, reference string) (models.Category, error) {
 	return models.Category{}, fmt.Errorf("categorization failed")
 }

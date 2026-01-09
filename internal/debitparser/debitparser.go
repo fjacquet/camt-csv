@@ -3,6 +3,7 @@
 package debitparser
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -89,7 +90,7 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = tx.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(tx.Description, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(context.Background(), tx.Description, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: tx.Description},

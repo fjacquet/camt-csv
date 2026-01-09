@@ -1,6 +1,7 @@
 package camtparser
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -139,7 +140,7 @@ func TestParseFile(t *testing.T) {
 	// Test parsing
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	transactions, err := adapter.Parse(file)
+	transactions, err := adapter.Parse(context.Background(), file)
 	assert.NoError(t, err, "Failed to parse CAMT.053 XML file")
 	assert.Equal(t, 1, len(transactions), "Expected 1 transaction")
 
@@ -174,7 +175,7 @@ func TestConvertToCSV(t *testing.T) {
 	// Convert XML to CSV
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-	err = adapter.ConvertToCSV(xmlFile, csvFile)
+	err = adapter.ConvertToCSV(context.Background(), xmlFile, csvFile)
 	assert.NoError(t, err)
 
 	// Read the generated CSV file
@@ -246,7 +247,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 		invalidXML := `<invalid>not a camt document</invalid>`
 		file := strings.NewReader(invalidXML)
 
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 		assert.Error(t, err)
 		assert.Nil(t, transactions)
 		assert.Contains(t, err.Error(), "error decoding XML")
@@ -256,7 +257,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 		emptyXML := ``
 		file := strings.NewReader(emptyXML)
 
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 		assert.Error(t, err)
 		assert.Nil(t, transactions)
 	})
@@ -265,7 +266,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 		malformedXML := `<?xml version="1.0"?><Document><unclosed>`
 		file := strings.NewReader(malformedXML)
 
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 		assert.Error(t, err)
 		assert.Nil(t, transactions)
 	})
@@ -285,7 +286,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 </Document>`
 
 		file := strings.NewReader(xmlWithMissingAmount)
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 
 		// Should not error but may have zero amount
 		assert.NoError(t, err)
@@ -309,7 +310,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 </Document>`
 
 		file := strings.NewReader(xmlWithInvalidDate)
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 
 		// Should handle gracefully - may log warning but not fail
 		assert.NoError(t, err)
@@ -334,7 +335,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 </Document>`
 
 		file := strings.NewReader(xmlWithInvalidAmount)
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 
 		// Should handle gracefully
 		assert.NoError(t, err)
@@ -358,7 +359,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 </Document>`
 
 		file := strings.NewReader(xmlWithoutCurrency)
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 
 		// Should handle gracefully
 		assert.NoError(t, err)
@@ -397,7 +398,7 @@ func TestCAMTParser_ErrorScenarios(t *testing.T) {
 </Document>`)
 
 		file := strings.NewReader(xmlBuilder.String())
-		transactions, err := adapter.Parse(file)
+		transactions, err := adapter.Parse(context.Background(), file)
 
 		assert.NoError(t, err)
 		assert.Equal(t, 1000, len(transactions))
@@ -458,7 +459,7 @@ func TestCAMTParser_CSVConversionErrors(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "output.csv")
 
-		err := adapter.ConvertToCSV("/non/existent/input.xml", outputFile)
+		err := adapter.ConvertToCSV(context.Background(), "/non/existent/input.xml", outputFile)
 		assert.Error(t, err)
 	})
 
@@ -469,7 +470,7 @@ func TestCAMTParser_CSVConversionErrors(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to write to non-existent directory
-		err = adapter.ConvertToCSV(inputFile, "/non/existent/dir/output.csv")
+		err = adapter.ConvertToCSV(context.Background(), inputFile, "/non/existent/dir/output.csv")
 		assert.Error(t, err)
 	})
 
@@ -485,7 +486,7 @@ func TestCAMTParser_CSVConversionErrors(t *testing.T) {
 		require.NoError(t, err)
 
 		outputFile := filepath.Join(readOnlyDir, "output.csv")
-		err = adapter.ConvertToCSV(inputFile, outputFile)
+		err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
 		assert.Error(t, err)
 	})
 }

@@ -165,7 +165,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger)
 
 			// Execute
-			category, err := categorizer.CategorizeTransaction(tt.transaction)
+			category, err := categorizer.CategorizeTransaction(context.Background(), tt.transaction)
 
 			// Assert
 			require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger)
 
 	// Execute
-	category, err := categorizer.CategorizeTransaction(transaction)
+	category, err := categorizer.CategorizeTransaction(context.Background(), transaction)
 
 	// Assert
 	require.NoError(t, err)
@@ -269,7 +269,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	}
 
 	// Execute
-	category, err := categorizer.CategorizeTransaction(transaction)
+	category, err := categorizer.CategorizeTransaction(context.Background(), transaction)
 
 	// Assert
 	require.NoError(t, err)
@@ -346,7 +346,7 @@ func TestCategorizer_BackwardCompatibility(t *testing.T) {
 
 			categorizer := NewCategorizer(mockAI, mockStore, mockLogger)
 
-			category, err := categorizer.CategorizeTransaction(tc.transaction)
+			category, err := categorizer.CategorizeTransaction(context.Background(), tc.transaction)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.expected, category.Name)

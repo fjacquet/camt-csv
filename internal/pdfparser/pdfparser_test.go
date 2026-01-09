@@ -1,6 +1,7 @@
 package pdfparser
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -80,7 +81,7 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockExtractor := NewMockPDFExtractor("", assert.AnError)
 	adapter := NewAdapter(logger, mockExtractor)
-	_, err = adapter.Parse(file)
+	_, err = adapter.Parse(context.Background(), file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
 }
 
@@ -110,7 +111,7 @@ func TestParseFile(t *testing.T) {
 03.01.25 04.01.25 Another Transaction CHF 200.75-`
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 	adapter := NewAdapter(logger, mockExtractor)
-	_, err = adapter.Parse(file)
+	_, err = adapter.Parse(context.Background(), file)
 	assert.NoError(t, err, "Expected no error when parsing with mock extractor")
 	// Note: The mock text might not parse into transactions due to format requirements
 	// This test mainly verifies that the dependency injection works
@@ -261,7 +262,7 @@ func TestProperty_PDFCategorizationIntegration(t *testing.T) {
 			}()
 
 			// Parse the PDF
-			transactions, err := adapter.Parse(file)
+			transactions, err := adapter.Parse(context.Background(), file)
 			require.NoError(t, err)
 
 			// Verify that categorization was applied
@@ -350,7 +351,7 @@ type MockCategorizer struct {
 	callCount  int
 }
 
-func (m *MockCategorizer) Categorize(partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+func (m *MockCategorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
 	m.callCount++
 
 	// Check all possible keys for a match
@@ -453,7 +454,7 @@ func TestParseWithExtractorAndCategorizer(t *testing.T) {
 		},
 	}
 
-	transactions, err := ParseWithExtractorAndCategorizer(file, mockExtractor, logger, mockCategorizer)
+	transactions, err := ParseWithExtractorAndCategorizer(context.Background(), file, mockExtractor, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.NotNil(t, transactions)
 }
@@ -1042,7 +1043,7 @@ func TestAdapterConvertToCSV(t *testing.T) {
 	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
 	adapter := NewAdapter(logger, mockExtractor)
 
-	err = adapter.ConvertToCSV(inputFile, outputFile)
+	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
 	assert.Error(t, err) // Expected to fail with mock error
 }
 
@@ -1092,7 +1093,7 @@ func TestAdapterBatchConvert(t *testing.T) {
 	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
 	adapter := NewAdapter(logger, mockExtractor)
 
-	count, err := adapter.BatchConvert(inputDir, outputDir)
+	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
 	// Should return error for not implemented
 	assert.Error(t, err)
 	assert.Equal(t, 0, count)

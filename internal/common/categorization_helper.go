@@ -2,6 +2,8 @@
 package common
 
 import (
+	"context"
+
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 )
@@ -57,6 +59,7 @@ func ProcessTransactionsWithCategorizationStats(
 		}
 
 		category, err := categorizer.Categorize(
+			context.Background(),
 			partyName,
 			tx.IsDebit(),
 			tx.Amount.String(),
@@ -139,6 +142,7 @@ func CategorizeTransactionWithStats(
 	}
 
 	category, err := categorizer.Categorize(
+		context.Background(),
 		partyName,
 		tx.IsDebit(),
 		tx.Amount.String(),
