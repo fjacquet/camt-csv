@@ -60,7 +60,7 @@ func GetChangedFiles(gitRef string) ([]string, error) {
 	}
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	var files []string
+	files := make([]string, 0) // Initialize to empty slice, not nil
 	for _, line := range lines {
 		if line = strings.TrimSpace(line); line != "" {
 			files = append(files, line)
