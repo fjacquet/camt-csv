@@ -32,12 +32,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Context Propagation**: Fix context propagation throughout application for proper cancellation support
+  - CLI commands now extract context from `cmd.Context()` and propagate through all layers
+  - Parser interfaces now accept `context.Context` parameter for cancellation and timeout support
+  - `TransactionCategorizer.Categorize()` now accepts `context.Context` for AI operations
+  - `ConcurrentProcessor` properly handles context cancellation with partial result returns
+  - Fix index out of range panic in `ConcurrentProcessor.processConcurrent()` when context cancelled
+  - Add context cancellation tests for sequential and concurrent processing paths
+  - Enables graceful shutdown with Ctrl+C in batch operations
+- **Race Condition in DirectMappingStrategy**: Fix race condition in `ReloadMappings()` method
+  - Build new mappings outside lock to eliminate vulnerability window
+  - Atomic pointer swap ensures readers never see empty maps during reload
+  - Add concurrent test verifying no race conditions with `-race` detector
+  - All tests pass with race detector: `make test-race` clean
 - **Batch Command Categorization**: Fix batch command not categorizing transactions
   - Batch command now uses DI container instead of factory directly
   - Transactions are now properly categorized using all 3 tiers (direct mapping, keyword, AI)
 
 ### Changed
 
+- **BREAKING: Parser Interfaces**: Add `context.Context` parameter to all parser methods
+  - `Parser.Parse()` now requires `context.Context` as first parameter
+  - `CSVConverter.ConvertToCSV()` now requires `context.Context` as first parameter
+  - `BatchConverter.BatchConvert()` now requires `context.Context` as first parameter
+  - Custom parser implementations must be updated to accept context
+- **BREAKING: TransactionCategorizer Interface**: Add `context.Context` parameter to categorization
+  - `TransactionCategorizer.Categorize()` now requires `context.Context` as first parameter
+  - Enables proper cancellation propagation through AI categorization calls
 - **BatchConverter Interface**: Add `BatchConverter` interface to `parser.FullParser`
   - Follows Interface Segregation Principle (ISP)
   - Enables batch conversion through the DI container

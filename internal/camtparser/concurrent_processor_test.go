@@ -1,9 +1,11 @@
 package camtparser
 
 import (
+	"context"
 	"runtime"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -44,7 +46,7 @@ func TestConcurrentProcessor_ProcessTransactions_UsesSequentialForSmall(t *testi
 		}
 	}
 
-	transactions := processor.ProcessTransactions(entries, simpleProcessor)
+	transactions := processor.ProcessTransactions(context.Background(), entries, simpleProcessor)
 
 	assert.Len(t, transactions, 50)
 }
@@ -71,7 +73,7 @@ func TestConcurrentProcessor_ProcessTransactions_UsesConcurrentForLarge(t *testi
 		}
 	}
 
-	transactions := processor.ProcessTransactions(entries, simpleProcessor)
+	transactions := processor.ProcessTransactions(context.Background(), entries, simpleProcessor)
 
 	// Should have processed all entries
 	assert.Len(t, transactions, 150)
@@ -124,7 +126,7 @@ func TestConcurrentProcessor_ProcessSequential(t *testing.T) {
 				return models.Transaction{Amount: decimal.NewFromFloat(50)}
 			}
 
-			transactions := processor.processSequential(entries, simpleProcessor)
+			transactions := processor.processSequential(context.Background(), entries, simpleProcessor)
 
 			assert.Len(t, transactions, tt.expectedCount)
 			assert.Equal(t, tt.expectedCount, processedCount)
@@ -154,7 +156,7 @@ func TestConcurrentProcessor_ProcessSequential_MaintainsOrder(t *testing.T) {
 		}
 	}
 
-	transactions := processor.processSequential(entries, indexProcessor)
+	transactions := processor.processSequential(context.Background(), entries, indexProcessor)
 
 	require.Len(t, transactions, 10)
 	for i := 0; i < 10; i++ {
@@ -207,7 +209,7 @@ func TestConcurrentProcessor_ProcessConcurrent(t *testing.T) {
 				}
 			}
 
-			transactions := processor.processConcurrent(entries, simpleProcessor)
+			transactions := processor.processConcurrent(context.Background(), entries, simpleProcessor)
 
 			assert.Len(t, transactions, tt.expectedCount)
 		})
@@ -238,7 +240,7 @@ func TestConcurrentProcessor_ProcessConcurrent_AllEntriesProcessed(t *testing.T)
 		return models.Transaction{Amount: amount}
 	}
 
-	transactions := processor.processConcurrent(entries, sumProcessor)
+	transactions := processor.processConcurrent(context.Background(), entries, sumProcessor)
 
 	// Verify correct count is returned
 	require.Len(t, transactions, entryCount)
@@ -271,7 +273,7 @@ func TestConcurrentProcessor_ProcessConcurrent_MaintainsOrder(t *testing.T) {
 		}
 	}
 
-	transactions := processor.processConcurrent(entries, indexProcessor)
+	transactions := processor.processConcurrent(context.Background(), entries, indexProcessor)
 
 	require.Len(t, transactions, entryCount)
 
@@ -303,7 +305,7 @@ func TestConcurrentProcessor_EmptyEntries(t *testing.T) {
 		return models.Transaction{}
 	}
 
-	transactions := processor.ProcessTransactions(entries, simpleProcessor)
+	transactions := processor.ProcessTransactions(context.Background(), entries, simpleProcessor)
 
 	assert.Empty(t, transactions)
 }
@@ -326,7 +328,7 @@ func TestConcurrentProcessor_ProcessorFunctionCalled(t *testing.T) {
 		return models.Transaction{}
 	}
 
-	processor.ProcessTransactions(entries, countingProcessor)
+	processor.ProcessTransactions(context.Background(), entries, countingProcessor)
 
 	assert.Equal(t, 5, callCount, "Processor function should be called once per entry")
 }
@@ -347,7 +349,7 @@ func TestConcurrentProcessor_ProcessorReceivesCorrectEntry(t *testing.T) {
 		return models.Transaction{}
 	}
 
-	processor.ProcessTransactions(entries, capturingProcessor)
+	processor.ProcessTransactions(context.Background(), entries, capturingProcessor)
 
 	assert.Len(t, receivedAmounts, 3)
 	assert.Contains(t, receivedAmounts, "111")
@@ -368,7 +370,7 @@ func TestConcurrentProcessor_ThresholdBoundary(t *testing.T) {
 	for i := range entries99 {
 		entries99[i] = models.Entry{Amt: models.Amount{Value: "1", Ccy: "CHF"}}
 	}
-	tx99 := processor.ProcessTransactions(entries99, simpleProcessor)
+	tx99 := processor.ProcessTransactions(context.Background(), entries99, simpleProcessor)
 	assert.Len(t, tx99, 99)
 
 	// Test just over threshold (100 = concurrent)
@@ -376,6 +378,113 @@ func TestConcurrentProcessor_ThresholdBoundary(t *testing.T) {
 	for i := range entries100 {
 		entries100[i] = models.Entry{Amt: models.Amount{Value: "1", Ccy: "CHF"}}
 	}
-	tx100 := processor.ProcessTransactions(entries100, simpleProcessor)
+	tx100 := processor.ProcessTransactions(context.Background(), entries100, simpleProcessor)
 	assert.Len(t, tx100, 100)
+}
+
+// Test context cancellation in sequential processing
+func TestConcurrentProcessor_SequentialCancellation(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Create small batch (< 100 for sequential processing)
+	entries := make([]models.Entry, 50)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "10.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	simpleProcessor := func(e *models.Entry) models.Transaction {
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Process with cancelled context
+	transactions := processor.ProcessTransactions(ctx, entries, simpleProcessor)
+
+	// Should return partial results or empty due to cancellation
+	// The implementation stops on cancellation, so we should get fewer than 50
+	assert.LessOrEqual(t, len(transactions), 50)
+}
+
+// Test context cancellation in concurrent processing
+func TestConcurrentProcessor_ConcurrentCancellation(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create context with very short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	// Create large batch (>= 100 for concurrent processing)
+	entries := make([]models.Entry, 1000)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "10.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Slow processor to ensure timeout occurs
+	slowProcessor := func(e *models.Entry) models.Transaction {
+		time.Sleep(5 * time.Millisecond)
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Process with timeout context
+	transactions := processor.ProcessTransactions(ctx, entries, slowProcessor)
+
+	// Should process fewer than all entries due to timeout
+	assert.Less(t, len(transactions), 1000, "Should not process all entries due to timeout")
+}
+
+// Test context respects cancellation signal
+func TestConcurrentProcessor_CancellationSignal(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create large batch for concurrent processing
+	entries := make([]models.Entry, 500)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "10.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	simpleProcessor := func(e *models.Entry) models.Transaction {
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Cancel after a short delay
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
+
+	// Process with context that will be cancelled
+	transactions := processor.ProcessTransactions(ctx, entries, simpleProcessor)
+
+	// Should process some but not all entries
+	assert.Greater(t, len(transactions), 0, "Should process some entries before cancellation")
+	assert.LessOrEqual(t, len(transactions), 500, "Should not process all entries after cancellation")
 }

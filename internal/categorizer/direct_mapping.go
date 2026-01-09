@@ -171,14 +171,42 @@ func (s *DirectMappingStrategy) loadMappings() {
 // ReloadMappings reloads the mappings from the store.
 // This can be called when the underlying YAML files have been updated.
 func (s *DirectMappingStrategy) ReloadMappings() {
+	// Load data from store FIRST (outside lock)
+	creditorMappings, creditorErr := s.store.LoadCreditorMappings()
+	if creditorErr != nil {
+		s.logger.WithError(creditorErr).Warn("Failed to load creditor mappings during reload")
+	}
+
+	debtorMappings, debtorErr := s.store.LoadDebtorMappings()
+	if debtorErr != nil {
+		s.logger.WithError(debtorErr).Warn("Failed to load debtor mappings during reload")
+	}
+
+	// Build new maps with normalized keys (outside lock)
+	newCreditorMappings := make(map[string]string, 100)
+	if creditorErr == nil {
+		for key, value := range creditorMappings {
+			newCreditorMappings[normalizeStringToLower(key)] = value
+		}
+	}
+
+	newDebtorMappings := make(map[string]string, 100)
+	if debtorErr == nil {
+		for key, value := range debtorMappings {
+			newDebtorMappings[normalizeStringToLower(key)] = value
+		}
+	}
+
+	// Atomic swap under lock (very brief critical section)
 	s.mu.Lock()
-	// Clear existing mappings
-	s.creditorMappings = make(map[string]string)
-	s.debtorMappings = make(map[string]string)
+	s.creditorMappings = newCreditorMappings
+	s.debtorMappings = newDebtorMappings
 	s.mu.Unlock()
 
-	// Reload from store
-	s.loadMappings()
+	s.logger.WithFields(
+		logging.Field{Key: "creditor_count", Value: len(newCreditorMappings)},
+		logging.Field{Key: "debtor_count", Value: len(newDebtorMappings)},
+	).Debug("Reloaded mappings for DirectMappingStrategy")
 }
 
 // UpdateCreditorMapping adds or updates a creditor mapping.

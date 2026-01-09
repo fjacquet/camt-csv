@@ -3,6 +3,7 @@ package camtparser
 import (
 	"context"
 	"runtime"
+	"sort"
 	"sync"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -24,22 +25,32 @@ func NewConcurrentProcessor(logger logging.Logger) *ConcurrentProcessor {
 }
 
 // ProcessTransactions processes transactions concurrently when beneficial
-func (cp *ConcurrentProcessor) ProcessTransactions(entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
+func (cp *ConcurrentProcessor) ProcessTransactions(ctx context.Context, entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
 	entryCount := len(entries)
 
 	// Use sequential processing for small datasets to avoid overhead
 	if entryCount < 100 {
-		return cp.processSequential(entries, processor)
+		return cp.processSequential(ctx, entries, processor)
 	}
 
-	return cp.processConcurrent(entries, processor)
+	return cp.processConcurrent(ctx, entries, processor)
 }
 
 // processSequential handles small datasets sequentially
-func (cp *ConcurrentProcessor) processSequential(entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
+func (cp *ConcurrentProcessor) processSequential(ctx context.Context, entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
 	transactions := make([]models.Transaction, 0, len(entries))
 
 	for i := range entries {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			cp.logger.Warn("Sequential processing cancelled",
+				logging.Field{Key: "processed", Value: len(transactions)},
+				logging.Field{Key: "total", Value: len(entries)})
+			return transactions
+		default:
+		}
+
 		tx := processor(&entries[i])
 		transactions = append(transactions, tx)
 	}
@@ -54,8 +65,7 @@ type indexedEntry struct {
 }
 
 // processConcurrent handles large datasets with worker pools
-func (cp *ConcurrentProcessor) processConcurrent(entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
-	ctx := context.Background()
+func (cp *ConcurrentProcessor) processConcurrent(ctx context.Context, entries []models.Entry, processor func(*models.Entry) models.Transaction) []models.Transaction {
 
 	// Create channels for work distribution
 	entryChan := make(chan indexedEntry, cp.workerCount)
@@ -86,16 +96,21 @@ func (cp *ConcurrentProcessor) processConcurrent(entries []models.Entry, process
 		close(resultChan)
 	}()
 
-	// Collect results in order
+	// Collect results
 	results := make([]indexedTransaction, 0, len(entries))
 	for result := range resultChan {
 		results = append(results, result)
 	}
 
-	// Sort results by original index to maintain order
+	// Sort results by original index to maintain input order
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+
+	// Create dense slice from sorted results (handles partial results from cancellation)
 	transactions := make([]models.Transaction, len(results))
-	for _, result := range results {
-		transactions[result.index] = result.transaction
+	for i, result := range results {
+		transactions[i] = result.transaction
 	}
 
 	cp.logger.Debug("Concurrent processing completed",

@@ -2,7 +2,9 @@ package categorizer
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -282,4 +284,63 @@ func TestDirectMappingStrategy_ReloadMappings(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, models.CategoryGroceries, category.Name)
+}
+
+func TestDirectMappingStrategy_ReloadMappings_RaceCondition(t *testing.T) {
+	// This test verifies no race condition during concurrent reload and categorize
+	mockStore := &store.MockCategoryStore{
+		CreditorMappings: map[string]string{
+			"coop": models.CategoryGroceries,
+		},
+		DebtorMappings: map[string]string{
+			"john doe": models.CategorySalary,
+		},
+	}
+
+	mockLogger := &logging.MockLogger{}
+	strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+
+	// Start concurrent operations
+	var wg sync.WaitGroup
+	errors := make(chan error, 100)
+
+	// Goroutine 1: Continuously reload mappings
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10; i++ {
+			strategy.ReloadMappings()
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+
+	// Goroutines 2-11: Continuously categorize
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				tx := Transaction{
+					PartyName: "COOP",
+					IsDebtor:  false,
+				}
+				_, found, err := strategy.Categorize(context.Background(), tx)
+				if err != nil {
+					errors <- err
+				}
+				// During reload, we might get found=false, but never an error
+				if found {
+					// Category was found - this is expected most of the time
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errors)
+
+	// Verify no errors occurred
+	for err := range errors {
+		t.Errorf("Unexpected error during concurrent operations: %v", err)
+	}
 }
