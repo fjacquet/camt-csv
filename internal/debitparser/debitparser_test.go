@@ -540,7 +540,7 @@ Value1;Value2;Value3`
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
 		// Parser handles gracefully and returns empty transactions
@@ -561,7 +561,7 @@ PMT CARTE RATP;15.04.2025`
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		_, err = adapter.Parse(context.Background(), file)
 		// Parser should detect missing required columns
@@ -584,7 +584,7 @@ PMT CARTE RATP;15.04.2025;INVALID_AMOUNT;CHF`
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
 		// Parser handles gracefully - logs warning and skips invalid row

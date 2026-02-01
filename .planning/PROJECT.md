@@ -57,6 +57,7 @@ Optional dependency on Google Gemini API for AI categorization.
 Codebase map available at `.planning/codebase/` with 7 analysis documents.
 
 Known technical debt:
+
 - GetLogrusAdapter() creates new logger when mock injected (testing limitation)
 - YAML store lacks concurrent access protection (single-threaded per command currently)
 - PDF parser would benefit from strategy pattern refactor (deferred)

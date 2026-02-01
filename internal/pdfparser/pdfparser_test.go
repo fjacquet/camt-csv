@@ -1185,31 +1185,31 @@ func TestVisecaFormatDetection_PartialMarkers(t *testing.T) {
 	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
 
 	tests := []struct {
-		name           string
-		pdfText        string
-		shouldDetect   bool
-		description    string
+		name         string
+		pdfText      string
+		shouldDetect bool
+		description  string
 	}{
 		{
 			name: "only_column_headers",
 			pdfText: `Date valeur Détails Monnaie Montant
 01.01.25 02.01.25 Test Transaction CHF 100.50`,
 			shouldDetect: true,
-			description: "Column headers alone should trigger Viseca detection",
+			description:  "Column headers alone should trigger Viseca detection",
 		},
 		{
 			name: "only_card_pattern_visa",
 			pdfText: `Statement for Visa Gold card ending in XXXX 1234
 01.01.25 Test Transaction 100.50`,
 			shouldDetect: true,
-			description: "Visa Gold pattern alone should trigger Viseca detection",
+			description:  "Visa Gold pattern alone should trigger Viseca detection",
 		},
 		{
 			name: "only_card_pattern_mastercard",
 			pdfText: `Statement for Mastercard XXXX 5678
 01.01.25 Test Transaction 100.50`,
 			shouldDetect: true,
-			description: "Mastercard pattern alone should trigger Viseca detection",
+			description:  "Mastercard pattern alone should trigger Viseca detection",
 		},
 		{
 			name: "only_statement_features",
@@ -1217,7 +1217,7 @@ func TestVisecaFormatDetection_PartialMarkers(t *testing.T) {
 Montant total dernier relevé CHF 500.00
 01.01.25 Test Transaction 100.50`,
 			shouldDetect: true,
-			description: "Statement features alone should trigger Viseca detection",
+			description:  "Statement features alone should trigger Viseca detection",
 		},
 		{
 			name: "no_markers",
@@ -1225,13 +1225,13 @@ Montant total dernier relevé CHF 500.00
 Date Description Amount
 01.01.25 Test Transaction 100.50`,
 			shouldDetect: false,
-			description: "No Viseca markers should use standard parser",
+			description:  "No Viseca markers should use standard parser",
 		},
 		{
-			name: "empty_content",
-			pdfText: ``,
+			name:         "empty_content",
+			pdfText:      ``,
 			shouldDetect: false,
-			description: "Empty content should use standard parser",
+			description:  "Empty content should use standard parser",
 		},
 		{
 			name: "only_whitespace",
@@ -1240,7 +1240,7 @@ Date Description Amount
 
 			`,
 			shouldDetect: false,
-			description: "Only whitespace should use standard parser",
+			description:  "Only whitespace should use standard parser",
 		},
 	}
 
@@ -1253,7 +1253,7 @@ Date Description Amount
 
 			file, err := os.Open(testFile)
 			require.NoError(t, err)
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
 			adapter := NewAdapter(logger, mockExtractor)
@@ -1276,9 +1276,9 @@ func TestVisecaFormatDetection_FalsePositives(t *testing.T) {
 	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
 
 	tests := []struct {
-		name         string
-		pdfText      string
-		description  string
+		name        string
+		pdfText     string
+		description string
 	}{
 		{
 			name: "viseca_in_transaction_description",
@@ -1312,7 +1312,7 @@ Date Description Amount
 
 			file, err := os.Open(testFile)
 			require.NoError(t, err)
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
 			adapter := NewAdapter(logger, mockExtractor)
@@ -1331,9 +1331,9 @@ func TestVisecaFormatDetection_AmbiguousFormats(t *testing.T) {
 	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
 
 	tests := []struct {
-		name         string
-		pdfText      string
-		description  string
+		name        string
+		pdfText     string
+		description string
 	}{
 		{
 			name: "mixed_markers",
@@ -1344,8 +1344,8 @@ Regular transaction format
 			description: "Mixed Viseca and standard markers should use Viseca parser (Viseca markers take precedence)",
 		},
 		{
-			name: "very_short_file",
-			pdfText: `Date valeur Détails Monnaie Montant`,
+			name:        "very_short_file",
+			pdfText:     `Date valeur Détails Monnaie Montant`,
 			description: "Very short file with only header should use Viseca parser",
 		},
 		{
@@ -1375,7 +1375,7 @@ Votre paiement - Merci
 
 			file, err := os.Open(testFile)
 			require.NoError(t, err)
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
 			adapter := NewAdapter(logger, mockExtractor)
@@ -1410,7 +1410,7 @@ func TestPDFParser_ErrorMessagesIncludeContext(t *testing.T) {
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Mock extractor that returns an error
 		extractionError := fmt.Errorf("pdftotext command not found - please install poppler-utils")
@@ -1432,7 +1432,7 @@ func TestPDFParser_ErrorMessagesIncludeContext(t *testing.T) {
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Create malformed PDF text that will cause parsing issues
 		malformedText := `Date valeur Détails Monnaie Montant
@@ -1467,22 +1467,4 @@ INVALID_DATE INVALID_AMOUNT Some description`
 		// Error should include the input file path for debugging
 		assert.Contains(t, err.Error(), inputFile, "Error message should include input file path")
 	})
-}
-
-// assertErrorHasContext is a helper function to validate error messages contain required context
-func assertErrorHasContext(t *testing.T, err error, filepath, fieldName string) {
-	t.Helper()
-	require.Error(t, err, "Expected an error to be returned")
-
-	errMsg := err.Error()
-
-	if filepath != "" {
-		assert.Contains(t, errMsg, filepath,
-			"Error message should include file path for debugging: %s", errMsg)
-	}
-
-	if fieldName != "" {
-		assert.Contains(t, errMsg, fieldName,
-			"Error message should include field name that caused the error: %s", errMsg)
-	}
 }

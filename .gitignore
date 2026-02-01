@@ -47,3 +47,5 @@ go.mod
 # database/debtors.yaml
 sbom.json
 coverage.html
+.grepai
+.serena

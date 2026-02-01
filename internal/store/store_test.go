@@ -578,9 +578,9 @@ func TestCategoryStore_BackupFailurePreventsSave(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create read-only backup directory
-	err = os.MkdirAll(readOnlyBackupDir, 0444) // Read-only
+	err = os.MkdirAll(readOnlyBackupDir, 0444) // #nosec G301 -- intentionally restrictive for test
 	assert.NoError(t, err)
-	defer os.Chmod(readOnlyBackupDir, 0755) // Restore permissions for cleanup
+	defer func() { _ = os.Chmod(readOnlyBackupDir, 0600) }() // #nosec G302 -- Restore permissions for cleanup
 
 	// Configure store with read-only backup directory
 	store := NewCategoryStore("", creditorsFile, "")

@@ -242,13 +242,13 @@ func (s *CategoryStore) createBackup(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("error opening file for backup: %w", err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 
 	destination, err := os.Create(backupPath) // #nosec G304 -- backupPath is constructed internally
 	if err != nil {
 		return fmt.Errorf("error creating backup file: %w", err)
 	}
-	defer destination.Close()
+	defer func() { _ = destination.Close() }()
 
 	if _, err := io.Copy(destination, source); err != nil {
 		return fmt.Errorf("error copying file to backup: %w", err)

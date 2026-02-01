@@ -921,7 +921,7 @@ Value1,Value2,Value3`
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		_, err = adapter.Parse(context.Background(), file)
 		require.Error(t, err)
@@ -946,7 +946,7 @@ CARD_PAYMENT,Coffee,-10.50`
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		_, err = adapter.Parse(context.Background(), file)
 		// Parser should detect missing required columns
@@ -970,7 +970,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,INVALID_AMOU
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
 		// Parser should handle gracefully or return descriptive error

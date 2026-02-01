@@ -527,7 +527,7 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		_, err = adapter.Parse(context.Background(), file)
 		// Parser may handle malformed XML gracefully or return error
@@ -561,7 +561,7 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
 		// Parser may handle missing fields gracefully by creating empty/zero-value transactions
@@ -593,7 +593,7 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 
 		file, err := os.Open(testFile)
 		require.NoError(t, err)
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
 		// Parser should handle gracefully or return descriptive error
