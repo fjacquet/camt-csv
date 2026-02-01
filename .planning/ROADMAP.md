@@ -1,115 +1,32 @@
-# Roadmap: camt-csv Codebase Hardening
+# Roadmap: camt-csv
 
-## Overview
+## Milestones
 
-This milestone transforms camt-csv from a feature-complete but fragile tool into a hardened, maintainable foundation for future development. We address all identified concerns across four phases: first resolving critical bugs and security issues that directly impact users, then cleaning up deprecated configuration and global state, next standardizing error handling architecture, and finally closing test coverage gaps and adding safety features. Each phase delivers observable improvements in reliability and code quality.
+- SHIPPED **v1.1 Hardening** — Phases 1-4 (shipped 2026-02-01)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3, 4): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>v1.1 Hardening (Phases 1-4) — SHIPPED 2026-02-01</summary>
 
-Decimal phases appear between their surrounding integers in numeric order.
+- [x] Phase 1: Critical Bugs & Security (3/3 plans) — completed 2026-02-01
+- [x] Phase 2: Configuration & State Cleanup (1/1 plans) — completed 2026-02-01
+- [x] Phase 3: Architecture & Error Handling (3/3 plans) — completed 2026-02-01
+- [x] Phase 4: Test Coverage & Safety (4/4 plans) — completed 2026-02-01
 
-- [x] **Phase 1: Critical Bugs & Security** - Fix user-impacting bugs and security vulnerabilities
-- [x] **Phase 2: Configuration & State Cleanup** - Remove deprecated config and global state
-- [x] **Phase 3: Architecture & Error Handling** - Standardize error patterns and cleanup temp files
-- [x] **Phase 4: Test Coverage & Safety** - Close coverage gaps and add data protection
+Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
-## Phase Details
-
-### Phase 1: Critical Bugs & Security
-**Goal**: Users experience no data leaks, predictable behavior, and proper error handling in PDF parsing
-
-**Depends on**: Nothing (first phase)
-
-**Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, SEC-01, SEC-02, SEC-03
-
-**Success Criteria** (what must be TRUE):
-  1. No debug files accumulate in working directory after PDF parsing
-  2. All temporary files have unpredictable random names and are cleaned up properly
-  3. API credentials never appear in any log output at any level
-  4. File permissions are appropriate for content type (0644 for non-secrets, 0600 for credentials)
-  5. Context cancellation properly propagates through PDF parsing operations
-
-**Plans**: 3 plans in 1 wave
-
-Plans:
-- [x] 01-01-PLAN.md — PDF parser bug fixes (debug file, context propagation, temp cleanup)
-- [x] 01-02-PLAN.md — MockLogger state isolation for test verification
-- [x] 01-03-PLAN.md — Security hardening (credential logging, temp file naming, permissions)
-
-### Phase 2: Configuration & State Cleanup
-**Goal**: All configuration flows through DI container with no global state or deprecated functions
-
-**Depends on**: Phase 1
-
-**Requirements**: DEBT-01, ARCH-02, DEBT-02
-
-**Success Criteria** (what must be TRUE):
-  1. No deprecated config functions exist in codebase (MustGetEnv, LoadEnv, GetEnv removed)
-  2. No global mutable state exists in config package (globalConfig, Logger removed)
-  3. Container initialization failures propagate as errors instead of silent fallback creation
-
-**Plans**: 1 plan in 1 wave
-
-Plans:
-- [x] 02-01-PLAN.md — Remove deprecated config functions, global state, and fallback categorizer creation
-
-### Phase 3: Architecture & Error Handling
-**Goal**: Error handling is consistent, predictable, and never panics unexpectedly
-
-**Depends on**: Phase 2
-
-**Requirements**: ARCH-01, ARCH-03, DEBT-03
-
-**Success Criteria** (what must be TRUE):
-  1. Error handling follows documented patterns across all commands (exit vs retry vs continue)
-  2. CLI initialization failures produce clear user-facing error messages instead of panics
-  3. PDF parser uses single temp file path instead of creating multiple temp files
-
-**Plans**: 3 plans in 2 waves
-
-Plans:
-- [x] 03-01-PLAN.md — Define error handling patterns and document in CONVENTIONS.md
-- [x] 03-02-PLAN.md — Apply error patterns to commands and fix categorize init panic
-- [x] 03-03-PLAN.md — Consolidate PDF parser to single temp directory
-
-### Phase 4: Test Coverage & Safety
-**Goal**: Test suite thoroughly validates edge cases and safety features protect user data
-
-**Depends on**: Phase 3
-
-**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, SAFE-01
-
-**Success Criteria** (what must be TRUE):
-  1. Tests verify correct error behavior when container is nil (not just "doesn't panic")
-  2. Concurrent processing tests cover race conditions and context cancellation mid-processing
-  3. PDF format detection tests cover ambiguous cases (partial markers, markers in descriptions)
-  4. Error messages include file path and field context for all parsers
-  5. Category mapping YAML files are backed up with timestamps before auto-learning overwrites
-
-**Plans**: 4 plans in 1 wave
-
-Plans:
-- [x] 04-01-PLAN.md — Nil container error verification tests
-- [x] 04-02-PLAN.md — Concurrent processing edge case tests
-- [x] 04-03-PLAN.md — PDF format detection and error message tests
-- [x] 04-04-PLAN.md — Category backup safety feature
+</details>
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
-| 2. Configuration & State Cleanup | 1/1 | Complete | 2026-02-01 |
-| 3. Architecture & Error Handling | 3/3 | Complete | 2026-02-01 |
-| 4. Test Coverage & Safety | 4/4 | Complete | 2026-02-01 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Critical Bugs & Security | v1.1 | 3/3 | Complete | 2026-02-01 |
+| 2. Configuration & State Cleanup | v1.1 | 1/1 | Complete | 2026-02-01 |
+| 3. Architecture & Error Handling | v1.1 | 3/3 | Complete | 2026-02-01 |
+| 4. Test Coverage & Safety | v1.1 | 4/4 | Complete | 2026-02-01 |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after phase 4 completion*
+*Last updated: 2026-02-01 after v1.1 milestone completion*
