@@ -39,6 +39,12 @@ type Config struct {
 		BackupEnabled bool   `mapstructure:"backup_enabled" yaml:"backup_enabled"`
 	} `mapstructure:"data" yaml:"data"`
 
+	Backup struct {
+		Enabled         bool   `mapstructure:"enabled" yaml:"enabled"`
+		Directory       string `mapstructure:"directory" yaml:"directory"`
+		TimestampFormat string `mapstructure:"timestamp_format" yaml:"timestamp_format"`
+	} `mapstructure:"backup" yaml:"backup"`
+
 	Categorization struct {
 		AutoLearn           bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
 		ConfidenceThreshold float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
@@ -141,6 +147,11 @@ func setDefaults(v *viper.Viper) {
 	// Data defaults
 	v.SetDefault("data.directory", "")
 	v.SetDefault("data.backup_enabled", true)
+
+	// Backup defaults
+	v.SetDefault("backup.enabled", true)
+	v.SetDefault("backup.directory", "") // Empty means same directory as original file
+	v.SetDefault("backup.timestamp_format", "20060102_150405")
 
 	// Categorization defaults
 	v.SetDefault("categorization.auto_learn", true)
