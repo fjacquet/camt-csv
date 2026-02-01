@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add tests for `internal/textutils` package
   - Add tests for `internal/validation` package
 
+### Removed
+
+- **Deprecated Config Functions**: Remove `LoadEnv()`, `GetEnv()`, `MustGetEnv()`, `GetGeminiAPIKey()`, `ConfigureLogging()`, `InitializeGlobalConfig()` from `internal/config/config.go`; all configuration now flows through Viper/Container
+- **Global Mutable State**: Remove `Logger`, `globalConfig`, and `sync.Once` globals from config package; all state flows through DI container
+- **Fallback Categorizer Creation**: Remove silent fallback in `PersistentPostRun` that bypassed dependency injection; nil container now logs warning and returns early
+
 ### Security
 
 - **No Credential Logging**: API key values never appear in log output at any level; only presence/absence is logged

@@ -13,7 +13,7 @@ This milestone transforms camt-csv from a feature-complete but fragile tool into
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Critical Bugs & Security** - Fix user-impacting bugs and security vulnerabilities
-- [ ] **Phase 2: Configuration & State Cleanup** - Remove deprecated config and global state
+- [x] **Phase 2: Configuration & State Cleanup** - Remove deprecated config and global state
 - [ ] **Phase 3: Architecture & Error Handling** - Standardize error patterns and cleanup temp files
 - [ ] **Phase 4: Test Coverage & Safety** - Close coverage gaps and add data protection
 
@@ -55,7 +55,7 @@ Plans:
 **Plans**: 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01-PLAN.md — Remove deprecated config functions, global state, and fallback categorizer creation
+- [x] 02-01-PLAN.md — Remove deprecated config functions, global state, and fallback categorizer creation
 
 ### Phase 3: Architecture & Error Handling
 **Goal**: Error handling is consistent, predictable, and never panics unexpectedly
@@ -101,10 +101,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
-| 2. Configuration & State Cleanup | 0/1 | Not started | - |
+| 2. Configuration & State Cleanup | 1/1 | Complete | 2026-02-01 |
 | 3. Architecture & Error Handling | 0/? | Not started | - |
 | 4. Test Coverage & Safety | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after phase 2 planning*
+*Last updated: 2026-02-01 after phase 2 completion*
