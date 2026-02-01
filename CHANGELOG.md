@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Secure Temp Files**: All temporary files use `os.CreateTemp()` with random naming; no predictable temp file paths
 - **File Permission Standardization**: Non-secret files (YAML category mappings, CSV output) use 0644; secrets use 0600; directories use 0750
 
+### Changed
+
+- **PDF Parser Temp File Consolidation**: Replace individual temp file with single temp directory (`os.MkdirTemp`) for all PDF processing; cleanup uses single `os.RemoveAll` call
+- **PDF Parser ExtractText Optimization**: Eliminate duplicate `ExtractText` call (was called twice: once for validation, once for extraction)
+- **Categorize Command Init**: Replace `panic(err)` with graceful error handling; Cobra framework handles missing required flags at runtime
+
 ### Fixed
 
 - **PDF Debug File Leak**: Remove `debug_pdf_extract.txt` file that accumulated in working directory after PDF parsing

@@ -24,13 +24,13 @@ Requirements for this hardening milestone. Grouped by concern category.
 
 - [x] **DEBT-01**: All deprecated config functions (`MustGetEnv()`, `LoadEnv()`, `GetEnv()`) removed; all configuration flows through Viper/Container
 - [x] **DEBT-02**: Fallback categorizer creation in `PersistentPostRun` removed; if container is nil, error propagates instead of silently creating unmanaged objects
-- [ ] **DEBT-03**: PDF parser double temp file creation consolidated into single temp file handling path
+- [x] **DEBT-03**: PDF parser double temp file creation consolidated into single temp file handling path
 
 ### Architecture
 
-- [ ] **ARCH-01**: Error handling follows documented pattern: define which errors exit immediately vs retry vs log-and-continue; all command handlers follow the pattern consistently
+- [x] **ARCH-01**: Error handling follows documented pattern: define which errors exit immediately vs retry vs log-and-continue; all command handlers follow the pattern consistently
 - [x] **ARCH-02**: Global mutable state (`globalConfig`, `Logger` variables) removed from `internal/config/config.go`; all state flows through DI container
-- [ ] **ARCH-03**: `panic(err)` in `cmd/categorize/categorize.go` `init()` replaced with graceful error handling that produces clear user-facing error message
+- [x] **ARCH-03**: `panic(err)` in `cmd/categorize/categorize.go` `init()` replaced with graceful error handling that produces clear user-facing error message
 
 ### Test Coverage
 
@@ -93,9 +93,9 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | DEBT-01 | Phase 2 | Complete |
 | DEBT-02 | Phase 2 | Complete |
 | ARCH-02 | Phase 2 | Complete |
-| ARCH-01 | Phase 3 | Pending |
-| ARCH-03 | Phase 3 | Pending |
-| DEBT-03 | Phase 3 | Pending |
+| ARCH-01 | Phase 3 | Complete |
+| ARCH-03 | Phase 3 | Complete |
+| DEBT-03 | Phase 3 | Complete |
 | TEST-01 | Phase 4 | Pending |
 | TEST-02 | Phase 4 | Pending |
 | TEST-03 | Phase 4 | Pending |
@@ -109,4 +109,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after phase 2 completion*
+*Last updated: 2026-02-01 after phase 3 completion*
