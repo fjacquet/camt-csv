@@ -86,8 +86,11 @@ func (m *MockLogger) Error(msg string, fields ...Field) {
 func (m *MockLogger) WithError(err error) Logger {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	// Copy Entries slice to prevent state sharing between parent and child loggers
+	entriesCopy := make([]LogEntry, len(m.Entries))
+	copy(entriesCopy, m.Entries)
 	return &MockLogger{
-		Entries:       m.Entries,
+		Entries:       entriesCopy,
 		pendingError:  err,
 		pendingFields: m.pendingFields,
 	}
@@ -103,8 +106,11 @@ func (m *MockLogger) WithFields(fields ...Field) Logger {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	allFields := append(m.pendingFields, fields...)
+	// Copy Entries slice to prevent state sharing between parent and child loggers
+	entriesCopy := make([]LogEntry, len(m.Entries))
+	copy(entriesCopy, m.Entries)
 	return &MockLogger{
-		Entries:       m.Entries,
+		Entries:       entriesCopy,
 		pendingError:  m.pendingError,
 		pendingFields: allFields,
 	}
