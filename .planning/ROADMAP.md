@@ -90,10 +90,13 @@ Plans:
   4. Error messages include file path and field context for all parsers
   5. Category mapping YAML files are backed up with timestamps before auto-learning overwrites
 
-**Plans**: TBD
+**Plans**: 4 plans in 1 wave
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — Nil container error verification tests
+- [ ] 04-02-PLAN.md — Concurrent processing edge case tests
+- [ ] 04-03-PLAN.md — PDF format detection and error message tests
+- [ ] 04-04-PLAN.md — Category backup safety feature
 
 ## Progress
 
@@ -105,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
 | 2. Configuration & State Cleanup | 1/1 | Complete | 2026-02-01 |
 | 3. Architecture & Error Handling | 3/3 | Complete | 2026-02-01 |
-| 4. Test Coverage & Safety | 0/? | Not started | - |
+| 4. Test Coverage & Safety | 0/4 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
