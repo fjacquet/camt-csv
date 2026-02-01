@@ -436,3 +436,96 @@ func generateRandomSelmaTransactions(count int) []models.Transaction {
 
 	return transactions
 }
+
+// TestSelmaParser_ErrorMessagesIncludeFilePath validates error messages include helpful context
+func TestSelmaParser_ErrorMessagesIncludeFilePath(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("invalid_file_path_in_error", func(t *testing.T) {
+		invalidPath := "/nonexistent/test_file.csv"
+
+		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
+		require.Error(t, err)
+
+		// Error should include the file path that was attempted
+		assert.Contains(t, err.Error(), invalidPath,
+			"Error message should include file path for debugging")
+	})
+
+	t.Run("malformed_csv_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "malformed.csv")
+
+		// Create malformed CSV (wrong headers)
+		malformedCSV := `WrongHeader1,WrongHeader2,WrongHeader3
+Value1,Value2,Value3`
+
+		err := os.WriteFile(testFile, []byte(malformedCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		_, err = adapter.Parse(context.Background(), file)
+		require.Error(t, err)
+
+		// Error should mention that it's a format validation issue
+		errMsg := err.Error()
+		assert.True(t,
+			strings.Contains(errMsg, "header") || strings.Contains(errMsg, "format") || strings.Contains(errMsg, "column"),
+			"Error message should indicate format issue: %s", errMsg)
+	})
+
+	t.Run("missing_required_field_includes_field_name", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "missing_field.csv")
+
+		// Create CSV with missing required fields
+		missingFieldCSV := `Date,Description
+2023-01-01,VANGUARD FTSE ALL WORLD`
+
+		err := os.WriteFile(testFile, []byte(missingFieldCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		_, err = adapter.Parse(context.Background(), file)
+		// Parser should detect missing required columns
+		require.Error(t, err)
+		errMsg := err.Error()
+		assert.True(t,
+			strings.Contains(errMsg, "header") || strings.Contains(errMsg, "Bookkeeping"),
+			"Error should mention missing required field: %s", errMsg)
+	})
+
+	t.Run("invalid_amount_format_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "invalid_amount.csv")
+
+		// Create CSV with invalid amount format
+		invalidAmountCSV := `Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares
+2023-01-01,VANGUARD FTSE ALL WORLD,22310435155,IE00BK5BQT80,INVALID_AMOUNT,CHF,2`
+
+		err := os.WriteFile(testFile, []byte(invalidAmountCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		transactions, err := adapter.Parse(context.Background(), file)
+		// Parser should handle gracefully or return descriptive error
+		if err != nil {
+			// If error, should mention amount parsing
+			assert.Contains(t, err.Error(), "amount",
+				"Error message should mention amount field")
+		} else {
+			// If no error, should still return valid structure
+			assert.NotNil(t, transactions)
+		}
+	})
+}

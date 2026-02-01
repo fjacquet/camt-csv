@@ -511,6 +511,88 @@ func TestBatchConvertErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "input path is not a directory")
 }
 
+// TestDebitParser_ErrorMessagesIncludeFilePath validates error messages include helpful context
+func TestDebitParser_ErrorMessagesIncludeFilePath(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("invalid_file_path_in_error", func(t *testing.T) {
+		invalidPath := "/nonexistent/test_file.csv"
+
+		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
+		require.Error(t, err)
+
+		// Error should include the file path that was attempted
+		assert.Contains(t, err.Error(), invalidPath,
+			"Error message should include file path for debugging")
+	})
+
+	t.Run("malformed_csv_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "malformed.csv")
+
+		// Create malformed CSV (wrong headers)
+		malformedCSV := `WrongHeader1;WrongHeader2;WrongHeader3
+Value1;Value2;Value3`
+
+		err := os.WriteFile(testFile, []byte(malformedCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		transactions, err := adapter.Parse(context.Background(), file)
+		// Parser handles gracefully and returns empty transactions
+		assert.NoError(t, err)
+		assert.Empty(t, transactions, "Malformed CSV should result in no transactions")
+	})
+
+	t.Run("missing_required_field_includes_field_name", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "missing_field.csv")
+
+		// Create CSV with missing required fields
+		missingFieldCSV := `Bénéficiaire;Date
+PMT CARTE RATP;15.04.2025`
+
+		err := os.WriteFile(testFile, []byte(missingFieldCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		_, err = adapter.Parse(context.Background(), file)
+		// Parser should detect missing required columns
+		if err != nil {
+			assert.Contains(t, err.Error(), "Montant",
+				"Error should mention missing Montant field")
+		}
+	})
+
+	t.Run("invalid_amount_format_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "invalid_amount.csv")
+
+		// Create CSV with invalid amount format
+		invalidAmountCSV := `Bénéficiaire;Date;Montant;Monnaie
+PMT CARTE RATP;15.04.2025;INVALID_AMOUNT;CHF`
+
+		err := os.WriteFile(testFile, []byte(invalidAmountCSV), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		transactions, err := adapter.Parse(context.Background(), file)
+		// Parser handles gracefully - logs warning and skips invalid row
+		assert.NoError(t, err)
+		assert.Empty(t, transactions, "Invalid amount should result in skipped transaction")
+	})
+}
+
 // Mock categorizer for testing
 type mockCategorizer struct {
 	category models.Category

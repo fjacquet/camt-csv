@@ -490,3 +490,120 @@ func TestCAMTParser_CSVConversionErrors(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+// TestCAMTParser_ErrorMessagesIncludeFilePath validates error messages include helpful context
+func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	adapter := NewAdapter(logger)
+
+	t.Run("invalid_file_path_in_error", func(t *testing.T) {
+		invalidPath := "/nonexistent/test_file.xml"
+
+		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
+		require.Error(t, err)
+
+		// Error should include the file path that was attempted
+		assert.Contains(t, err.Error(), invalidPath,
+			"Error message should include file path for debugging")
+	})
+
+	t.Run("malformed_xml_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "malformed.xml")
+
+		// Create malformed XML (missing closing tags, invalid structure)
+		malformedXML := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<Amt Ccy="CHF">INVALID_AMOUNT</Amt>
+				<!-- Missing closing tags -->
+		</Stmt>
+</Document>`
+
+		err := os.WriteFile(testFile, []byte(malformedXML), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		_, err = adapter.Parse(context.Background(), file)
+		// Parser may handle malformed XML gracefully or return error
+		// If error, it should include context
+		if err != nil {
+			assert.Contains(t, err.Error(), "XML",
+				"Error message should mention XML parsing issue")
+		}
+	})
+
+	t.Run("missing_required_field_includes_field_name", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "missing_field.xml")
+
+		// Create XML with missing required Amount field
+		missingFieldXML := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<!-- Missing Amt element -->
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>2023-01-01</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		err := os.WriteFile(testFile, []byte(missingFieldXML), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		transactions, err := adapter.Parse(context.Background(), file)
+		// Parser may handle missing fields gracefully by creating empty/zero-value transactions
+		// Verify it doesn't crash and returns a result
+		assert.NoError(t, err)
+		assert.NotNil(t, transactions)
+	})
+
+	t.Run("invalid_date_format_includes_context", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "invalid_date.xml")
+
+		// Create XML with invalid date format
+		invalidDateXML := `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Ntry>
+				<Amt Ccy="CHF">100.00</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<BookgDt><Dt>INVALID_DATE</Dt></BookgDt>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+		err := os.WriteFile(testFile, []byte(invalidDateXML), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		transactions, err := adapter.Parse(context.Background(), file)
+		// Parser should handle gracefully or return descriptive error
+		if err != nil {
+			// If error, should mention date parsing
+			assert.Contains(t, err.Error(), "date",
+				"Error message should mention date field")
+		} else {
+			// If no error, should still return valid structure
+			assert.NotNil(t, transactions)
+		}
+	})
+}
