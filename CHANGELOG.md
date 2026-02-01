@@ -34,12 +34,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Coding principles: KISS, DRY, Functional Programming guidelines
   - Dependency injection patterns and interface design guidelines
 
+- **Category YAML Backup System**: Automatic timestamped backups of category mapping files before auto-learn overwrites
+  - Backup enabled by default (`backup.enabled: true` in config)
+  - Configurable backup directory (defaults to same directory as original file)
+  - Configurable timestamp format (default: `YYYYMMDD_HHMMSS`)
+  - Atomic behavior: failed backup prevents save, protecting original file
+  - Supports both creditor and debtor mapping files
+
 - **Test Coverage Improvements**:
   - Add tests for `cmd/batch` package
   - Add tests for `cmd/common` package with mock parser implementation
   - Add tests for `internal/fileutils` package
   - Add tests for `internal/textutils` package
   - Add tests for `internal/validation` package
+  - Add nil container error verification tests for camt, debit, and pdf commands
+  - Add 8 concurrent processing edge case tests: context cancellation (before, during, inflight), race conditions, partial result data integrity
+  - Add 14 PDF Viseca format detection edge case tests: partial markers, false positives, ambiguous formats
+  - Add 20+ error message validation tests across all parsers (CAMT, Debit, Revolut, Selma, PDF) verifying file path and field context
+  - Add 5 category backup tests: backup creation, custom location, failure prevention, disabled mode, multiple timestamps
+  - Add `MockLogger.VerifyFatalLog()` and `VerifyFatalLogWithDebug()` helper methods for test verification
 
 ### Removed
 

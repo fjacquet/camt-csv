@@ -34,14 +34,14 @@ Requirements for this hardening milestone. Grouped by concern category.
 
 ### Test Coverage
 
-- [ ] **TEST-01**: Commands verify correct behavior when container is nil (not just "doesn't panic" but validates error output)
-- [ ] **TEST-02**: Concurrent processor tests cover race conditions, context cancellation mid-processing, and partial result handling
-- [ ] **TEST-03**: PDF format detection tests cover edge cases: partial Viseca markers, markers in transaction descriptions, ambiguous formats
-- [ ] **TEST-04**: Error wrapping tests verify error chain depth and message clarity for each parser; user-facing errors include file path and field context
+- [x] **TEST-01**: Commands verify correct behavior when container is nil (not just "doesn't panic" but validates error output)
+- [x] **TEST-02**: Concurrent processor tests cover race conditions, context cancellation mid-processing, and partial result handling
+- [x] **TEST-03**: PDF format detection tests cover edge cases: partial Viseca markers, markers in transaction descriptions, ambiguous formats
+- [x] **TEST-04**: Error wrapping tests verify error chain depth and message clarity for each parser; user-facing errors include file path and field context
 
 ### Safety Features
 
-- [ ] **SAFE-01**: Category YAML files are backed up (timestamped copy) before auto-learn overwrites; backup location is configurable or defaults to same directory
+- [x] **SAFE-01**: Category YAML files are backed up (timestamped copy) before auto-learn overwrites; backup location is configurable or defaults to same directory
 
 ## v2 Requirements
 
@@ -96,11 +96,11 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | ARCH-01 | Phase 3 | Complete |
 | ARCH-03 | Phase 3 | Complete |
 | DEBT-03 | Phase 3 | Complete |
-| TEST-01 | Phase 4 | Pending |
-| TEST-02 | Phase 4 | Pending |
-| TEST-03 | Phase 4 | Pending |
-| TEST-04 | Phase 4 | Pending |
-| SAFE-01 | Phase 4 | Pending |
+| TEST-01 | Phase 4 | Complete |
+| TEST-02 | Phase 4 | Complete |
+| TEST-03 | Phase 4 | Complete |
+| TEST-04 | Phase 4 | Complete |
+| SAFE-01 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
@@ -109,4 +109,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after phase 3 completion*
+*Last updated: 2026-02-01 after phase 4 completion (milestone complete)*
