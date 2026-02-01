@@ -18,8 +18,14 @@ import (
 )
 
 // GeminiClient implements the AIClient interface for interacting with the Google Gemini API.
+//
+// SECURITY: This client handles sensitive API credentials. The following policies MUST be maintained:
+//   - apiKey field MUST remain private and NEVER be logged at any log level
+//   - API URLs containing the key MUST NOT be logged (URLs are constructed but never logged)
+//   - Error messages MUST NOT include URLs or credentials
+//   - Only response bodies (which don't contain credentials) may be logged for debugging
 type GeminiClient struct {
-	apiKey     string
+	apiKey     string // SECURITY: Never log this field or URLs containing it
 	model      string
 	httpClient *http.Client
 	log        logging.Logger
@@ -314,6 +320,7 @@ Category:`, transaction.PartyName, transaction.Description, transaction.Amount.S
 func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string, error) {
 
 	// Construct the API URL using the configured model
+	// SECURITY: URL contains API key in query parameter - NEVER log this URL
 
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.model, c.apiKey)
 
@@ -609,6 +616,7 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 
 	// use text-embedding-004 for better performance/cost
 	embeddingModel := "text-embedding-004"
+	// SECURITY: URL contains API key in query parameter - NEVER log this URL
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent?key=%s", embeddingModel, c.apiKey)
 
 	request := GeminiEmbeddingRequest{
