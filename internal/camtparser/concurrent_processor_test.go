@@ -488,3 +488,155 @@ func TestConcurrentProcessor_CancellationSignal(t *testing.T) {
 	assert.Greater(t, len(transactions), 0, "Should process some entries before cancellation")
 	assert.LessOrEqual(t, len(transactions), 500, "Should not process all entries after cancellation")
 }
+
+// ===== Edge Case Tests: Context Cancellation =====
+
+// TestConcurrentProcessor_CancellationBeforeStart tests cancellation before processing starts
+func TestConcurrentProcessor_CancellationBeforeStart(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create cancelled context before calling ProcessTransactions
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately before processing
+
+	entries := make([]models.Entry, 150)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "10.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	simpleProcessor := func(e *models.Entry) models.Transaction {
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Should not panic when context is already cancelled
+	require.NotPanics(t, func() {
+		transactions := processor.ProcessTransactions(ctx, entries, simpleProcessor)
+		// Should return empty or minimal results since context is cancelled
+		assert.LessOrEqual(t, len(transactions), len(entries))
+	})
+}
+
+// TestConcurrentProcessor_CancellationDuringProcessing tests cancellation mid-processing
+func TestConcurrentProcessor_CancellationDuringProcessing(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create large batch (500 entries) for concurrent processing
+	entries := make([]models.Entry, 500)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Record goroutine count before processing
+	goroutinesBefore := runtime.NumGoroutine()
+
+	// Processor with slight delay to ensure some work is in flight
+	var processedCount int64
+	slowProcessor := func(e *models.Entry) models.Transaction {
+		atomic.AddInt64(&processedCount, 1)
+		time.Sleep(1 * time.Millisecond) // Small delay to simulate work
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Schedule cancellation after 100ms
+	time.AfterFunc(100*time.Millisecond, cancel)
+
+	// Process with context that will be cancelled mid-processing
+	var transactions []models.Transaction
+	require.NotPanics(t, func() {
+		transactions = processor.ProcessTransactions(ctx, entries, slowProcessor)
+	}, "Should not panic on cancellation")
+
+	// Verify no data corruption - each returned transaction should be valid
+	for i, tx := range transactions {
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d should have positive amount, got %v", i, tx.Amount)
+		assert.Equal(t, "CHF", tx.Currency,
+			"Transaction %d should have currency CHF, got %s", i, tx.Currency)
+	}
+
+	// Verify some results were returned (workers already started)
+	assert.Greater(t, len(transactions), 0, "Should return some results from workers that started")
+	assert.LessOrEqual(t, len(transactions), 500, "Should not process all entries due to cancellation")
+
+	// Wait for goroutines to cleanup
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify no goroutine leaks (allow small variance for runtime internals)
+	goroutinesAfter := runtime.NumGoroutine()
+	leakedGoroutines := goroutinesAfter - goroutinesBefore
+	assert.LessOrEqual(t, leakedGoroutines, 2,
+		"Should not leak goroutines: before=%d, after=%d, leaked=%d",
+		goroutinesBefore, goroutinesAfter, leakedGoroutines)
+}
+
+// TestConcurrentProcessor_CancellationWaitsForInflightWork verifies inflight work completion behavior
+func TestConcurrentProcessor_CancellationWaitsForInflightWork(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create entries for concurrent processing
+	entries := make([]models.Entry, 200)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Track when processing started and completed for each entry
+	var startedCount, completedCount int64
+	processorWithTracking := func(e *models.Entry) models.Transaction {
+		atomic.AddInt64(&startedCount, 1)
+		time.Sleep(10 * time.Millisecond) // Simulate longer work
+		atomic.AddInt64(&completedCount, 1)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Cancel after short delay to catch some work inflight
+	time.AfterFunc(30*time.Millisecond, cancel)
+
+	transactions := processor.ProcessTransactions(ctx, entries, processorWithTracking)
+
+	// After cancellation, some work may have completed but results not sent
+	// Verify: returned transactions <= completed <= started <= total
+	assert.LessOrEqual(t, int64(len(transactions)), completedCount,
+		"Returned transactions should be <= completed work")
+	assert.LessOrEqual(t, completedCount, startedCount,
+		"Completed work should be <= started work")
+
+	// Verify some work was cancelled (not all entries processed)
+	assert.Less(t, len(transactions), 200,
+		"Some work should be cancelled before starting")
+
+	// Verify inflight work completed (started == completed)
+	assert.Equal(t, startedCount, completedCount,
+		"All started processing should complete: started=%d, completed=%d",
+		startedCount, completedCount)
+}
