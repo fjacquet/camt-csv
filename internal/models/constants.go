@@ -27,10 +27,12 @@ const (
 )
 
 // File permissions
+// SECURITY: These constants enforce appropriate permissions based on content type
 const (
-	PermissionConfigFile = 0600
-	PermissionDirectory  = 0750
-	PermissionExecutable = 0755
+	PermissionConfigFile    = 0600 // Secret files (credentials, API keys) - owner read/write only
+	PermissionNonSecretFile = 0644 // Non-secret files (YAML categories, CSV, debug) - owner read/write, group/others read
+	PermissionDirectory     = 0750 // Directories - owner rwx, group rx, others none
+	PermissionExecutable    = 0755 // Executable files - owner rwx, group/others rx
 )
 
 // CSV formatting

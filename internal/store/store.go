@@ -281,7 +281,8 @@ func (s *CategoryStore) SaveCreditorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error marshaling creditor mappings: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, models.PermissionConfigFile); err != nil {
+	// SECURITY: Creditor mappings are non-secret (just category mappings), use 0644 permissions
+	if err := os.WriteFile(filePath, data, models.PermissionNonSecretFile); err != nil {
 		return fmt.Errorf("error writing creditor mappings: %w", err)
 	}
 
@@ -334,7 +335,8 @@ func (s *CategoryStore) SaveDebtorMappings(mappings map[string]string) error {
 		return fmt.Errorf("error marshaling debtor mappings: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, models.PermissionConfigFile); err != nil {
+	// SECURITY: Debtor mappings are non-secret (just category mappings), use 0644 permissions
+	if err := os.WriteFile(filePath, data, models.PermissionNonSecretFile); err != nil {
 		return fmt.Errorf("error writing debtor mappings: %w", err)
 	}
 

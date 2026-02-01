@@ -158,7 +158,8 @@ func ConvertToCSVWithLogger(ctx context.Context, inputFile, outputFile string, l
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(outputFile)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	// SECURITY: Use standard directory permissions constant
+	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
