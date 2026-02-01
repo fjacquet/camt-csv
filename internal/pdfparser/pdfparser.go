@@ -36,56 +36,47 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
 
-	// Read the content of the reader into a temporary file for PDF processing
-	tempFile, err := os.CreateTemp("", "*.pdf")
+	// Create single temp directory for all PDF processing files
+	tempDir, err := os.MkdirTemp("", "pdfparse-*")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary PDF file: %w", err)
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	defer func() {
-		if err := tempFile.Close(); err != nil {
-			logger.WithError(err).Warn("Failed to close temporary file",
-				logging.Field{Key: "file", Value: tempFile.Name()})
-		}
-		if err := os.Remove(tempFile.Name()); err != nil {
-			logger.WithError(err).Warn("Failed to remove temporary file",
-				logging.Field{Key: "file", Value: tempFile.Name()})
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.WithError(err).Warn("Failed to remove temporary directory",
+				logging.Field{Key: "dir", Value: tempDir})
 		}
 	}()
 
-	_, err = io.Copy(tempFile, r)
+	// Create PDF file within temp directory
+	pdfPath := filepath.Join(tempDir, "input.pdf")
+	pdfFile, err := os.OpenFile(pdfPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary PDF file: %w", err)
+	}
+
+	// Read the content of the reader into the PDF file
+	_, err = io.Copy(pdfFile, r)
+	if err != nil {
+		_ = pdfFile.Close()
 		return nil, fmt.Errorf("failed to write to temporary PDF file: %w", err)
 	}
 
-	// Close the file before attempting to extract text
-	// This close is already handled by the defer, but if we need to ensure it's closed
-	// before an external command accesses it, we might close it here and then
-	// re-open if needed, or ensure the external command doesn't hold the file open.
-	// For now, the defer is sufficient for cleanup.
-	// if err := tempFile.Close(); err != nil {
-	// 	return nil, fmt.Errorf("failed to close temporary PDF file: %w", err)
-	// }
-
-	// Validate the file format using the provided extractor
-	_, err = extractor.ExtractText(tempFile.Name())
-	if err != nil {
-		return nil, &parsererror.InvalidFormatError{
-			FilePath:       tempFile.Name(),
-			ExpectedFormat: "PDF",
-			Msg:            "file is not a valid PDF",
-		}
+	// Close the file before external extraction command accesses it
+	if err := pdfFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temporary PDF file: %w", err)
 	}
 
 	logger.Info("Parsing PDF file",
-		logging.Field{Key: "file", Value: tempFile.Name()})
+		logging.Field{Key: "file", Value: pdfPath})
 
-	// Extract text from PDF using the provided extractor
-	text, err := extractor.ExtractText(tempFile.Name())
+	// Extract text from PDF (validates format and extracts in one call)
+	text, err := extractor.ExtractText(pdfPath)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",
 			Field:  "text extraction",
-			Value:  tempFile.Name(),
+			Value:  pdfPath,
 			Err:    err,
 		}
 	}
