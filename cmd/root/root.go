@@ -6,12 +6,10 @@ import (
 	"fjacquet/camt-csv/cmd/implement"
 	"fjacquet/camt-csv/cmd/review"
 	"fjacquet/camt-csv/cmd/tasks"
-	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
-	"fjacquet/camt-csv/internal/store"
 	"log"
 
 	"github.com/sirupsen/logrus"
@@ -64,31 +62,20 @@ It also provides transaction categorization based on the party's name.`,
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			// Save the creditor and debitor mappings back to disk after any command runs
-			if AppContainer != nil {
-				// Use the container's categorizer (preferred method)
-				categorizerInstance := AppContainer.GetCategorizer()
-				err := categorizerInstance.SaveCreditorsToYAML()
-				if err != nil {
-					Log.WithError(err).Warn("Failed to save creditor mappings")
-				}
+			if AppContainer == nil {
+				Log.Warn("Container not initialized, skipping category mapping save")
+				return
+			}
 
-				err = categorizerInstance.SaveDebitorsToYAML()
-				if err != nil {
-					Log.WithError(err).Warn("Failed to save debitor mappings")
-				}
-			} else {
-				// Fallback to old method for backward compatibility
-				// Deprecated: This will be removed in v2.0.0
-				categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), Log)
-				err := categorizerInstance.SaveCreditorsToYAML()
-				if err != nil {
-					Log.WithError(err).Warn("Failed to save creditor mappings")
-				}
+			categorizerInstance := AppContainer.GetCategorizer()
+			err := categorizerInstance.SaveCreditorsToYAML()
+			if err != nil {
+				Log.WithError(err).Warn("Failed to save creditor mappings")
+			}
 
-				err = categorizerInstance.SaveDebitorsToYAML()
-				if err != nil {
-					Log.WithError(err).Warn("Failed to save debitor mappings")
-				}
+			err = categorizerInstance.SaveDebitorsToYAML()
+			if err != nil {
+				Log.WithError(err).Warn("Failed to save debitor mappings")
 			}
 		},
 	}

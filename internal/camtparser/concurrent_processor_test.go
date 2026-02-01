@@ -3,6 +3,7 @@ package camtparser
 import (
 	"context"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -487,4 +488,463 @@ func TestConcurrentProcessor_CancellationSignal(t *testing.T) {
 	// Should process some but not all entries
 	assert.Greater(t, len(transactions), 0, "Should process some entries before cancellation")
 	assert.LessOrEqual(t, len(transactions), 500, "Should not process all entries after cancellation")
+}
+
+// ===== Edge Case Tests: Context Cancellation =====
+
+// TestConcurrentProcessor_CancellationBeforeStart tests cancellation before processing starts
+func TestConcurrentProcessor_CancellationBeforeStart(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create cancelled context before calling ProcessTransactions
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately before processing
+
+	entries := make([]models.Entry, 150)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "10.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	simpleProcessor := func(e *models.Entry) models.Transaction {
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Should not panic when context is already cancelled
+	require.NotPanics(t, func() {
+		transactions := processor.ProcessTransactions(ctx, entries, simpleProcessor)
+		// Should return empty or minimal results since context is cancelled
+		assert.LessOrEqual(t, len(transactions), len(entries))
+	})
+}
+
+// TestConcurrentProcessor_CancellationDuringProcessing tests cancellation mid-processing
+func TestConcurrentProcessor_CancellationDuringProcessing(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create large batch (500 entries) for concurrent processing
+	entries := make([]models.Entry, 500)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Record goroutine count before processing
+	goroutinesBefore := runtime.NumGoroutine()
+
+	// Processor with slight delay to ensure some work is in flight
+	var processedCount int64
+	slowProcessor := func(e *models.Entry) models.Transaction {
+		atomic.AddInt64(&processedCount, 1)
+		time.Sleep(1 * time.Millisecond) // Small delay to simulate work
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Schedule cancellation after 100ms
+	time.AfterFunc(100*time.Millisecond, cancel)
+
+	// Process with context that will be cancelled mid-processing
+	var transactions []models.Transaction
+	require.NotPanics(t, func() {
+		transactions = processor.ProcessTransactions(ctx, entries, slowProcessor)
+	}, "Should not panic on cancellation")
+
+	// Verify no data corruption - each returned transaction should be valid
+	for i, tx := range transactions {
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d should have positive amount, got %v", i, tx.Amount)
+		assert.Equal(t, "CHF", tx.Currency,
+			"Transaction %d should have currency CHF, got %s", i, tx.Currency)
+	}
+
+	// Verify some results were returned (workers already started)
+	assert.Greater(t, len(transactions), 0, "Should return some results from workers that started")
+	assert.LessOrEqual(t, len(transactions), 500, "Should not process all entries due to cancellation")
+
+	// Wait for goroutines to cleanup
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify no goroutine leaks (allow small variance for runtime internals)
+	goroutinesAfter := runtime.NumGoroutine()
+	leakedGoroutines := goroutinesAfter - goroutinesBefore
+	assert.LessOrEqual(t, leakedGoroutines, 2,
+		"Should not leak goroutines: before=%d, after=%d, leaked=%d",
+		goroutinesBefore, goroutinesAfter, leakedGoroutines)
+}
+
+// TestConcurrentProcessor_CancellationWaitsForInflightWork verifies inflight work completion behavior
+func TestConcurrentProcessor_CancellationWaitsForInflightWork(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create entries for concurrent processing
+	entries := make([]models.Entry, 200)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Track when processing started and completed for each entry
+	var startedCount, completedCount int64
+	processorWithTracking := func(e *models.Entry) models.Transaction {
+		atomic.AddInt64(&startedCount, 1)
+		time.Sleep(10 * time.Millisecond) // Simulate longer work
+		atomic.AddInt64(&completedCount, 1)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Cancel after short delay to catch some work inflight
+	time.AfterFunc(30*time.Millisecond, cancel)
+
+	transactions := processor.ProcessTransactions(ctx, entries, processorWithTracking)
+
+	// After cancellation, some work may have completed but results not sent
+	// Verify: returned transactions <= completed <= started <= total
+	assert.LessOrEqual(t, int64(len(transactions)), completedCount,
+		"Returned transactions should be <= completed work")
+	assert.LessOrEqual(t, completedCount, startedCount,
+		"Completed work should be <= started work")
+
+	// Verify some work was cancelled (not all entries processed)
+	assert.Less(t, len(transactions), 200,
+		"Some work should be cancelled before starting")
+
+	// Verify inflight work completed (started == completed)
+	assert.Equal(t, startedCount, completedCount,
+		"All started processing should complete: started=%d, completed=%d",
+		startedCount, completedCount)
+}
+
+// ===== Edge Case Tests: Race Conditions =====
+// Run these tests with: go test -race -v ./internal/camtparser -run Race
+
+// TestConcurrentProcessor_NoRaceConditions tests concurrent processing under high contention
+func TestConcurrentProcessor_NoRaceConditions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create large batch to ensure concurrent processing
+	entryCount := 1000
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+			BookgDt:   models.EntryDate{Dt: "2023-01-01"},
+		}
+	}
+
+	// Use atomic counter to track invocations (thread-safe)
+	var invocationCount int64
+
+	// Processor with random delays to increase race probability
+	racyProcessor := func(e *models.Entry) models.Transaction {
+		// Increment atomic counter
+		atomic.AddInt64(&invocationCount, 1)
+
+		// Random sleep to vary timing and increase race probability
+		sleepDuration := time.Duration(atomic.LoadInt64(&invocationCount)%5) * time.Millisecond
+		time.Sleep(sleepDuration)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Process with high concurrency
+	transactions := processor.ProcessTransactions(context.Background(), entries, racyProcessor)
+
+	// Verify all entries were processed
+	assert.Len(t, transactions, entryCount,
+		"Should process all entries without race conditions")
+
+	// Verify counter matches entry count
+	assert.Equal(t, int64(entryCount), invocationCount,
+		"Processor should be called exactly once per entry: expected=%d, actual=%d",
+		entryCount, invocationCount)
+
+	// Verify no transaction corruption - all amounts should be positive
+	for i, tx := range transactions {
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d should have positive amount, got %v", i, tx.Amount)
+		assert.NotEmpty(t, tx.Currency, "Transaction %d should have currency", i)
+	}
+}
+
+// TestConcurrentProcessor_ResultChannelNoRaceOnClose tests result channel closure safety
+func TestConcurrentProcessor_ResultChannelNoRaceOnClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create entries for concurrent processing
+	entryCount := 500
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "100.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Processor with varying delays to create timing variance
+	var processedCount int64
+	varyingDelayProcessor := func(e *models.Entry) models.Transaction {
+		count := atomic.AddInt64(&processedCount, 1)
+		// First few items process quickly, rest slowly to test channel closure timing
+		if count > 10 {
+			time.Sleep(2 * time.Millisecond)
+		}
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Run multiple times to catch race conditions on channel close
+	for run := 0; run < 5; run++ {
+		processedCount = 0 // Reset counter
+
+		require.NotPanics(t, func() {
+			transactions := processor.ProcessTransactions(context.Background(), entries, varyingDelayProcessor)
+			assert.Len(t, transactions, entryCount,
+				"Run %d: should process all entries", run)
+		}, "Run %d: should not panic when closing result channel", run)
+	}
+}
+
+// TestConcurrentProcessor_ConcurrentReadsNoRace tests concurrent reads of same data
+func TestConcurrentProcessor_ConcurrentReadsNoRace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Shared data structure that all processors will read
+	sharedData := map[string]string{
+		"CHF": "Swiss Franc",
+		"EUR": "Euro",
+		"USD": "US Dollar",
+	}
+
+	// Create entries
+	entryCount := 800
+	entries := make([]models.Entry, entryCount)
+	currencies := []string{"CHF", "EUR", "USD"}
+	for i := range entries {
+		ccy := currencies[i%len(currencies)]
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "50.00", Ccy: ccy},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Processor that reads from shared map (concurrent reads should be safe)
+	readProcessor := func(e *models.Entry) models.Transaction {
+		// Read from shared map
+		_ = sharedData[e.Amt.Ccy]
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Should not cause race conditions (concurrent reads are safe)
+	require.NotPanics(t, func() {
+		transactions := processor.ProcessTransactions(context.Background(), entries, readProcessor)
+		assert.Len(t, transactions, entryCount)
+	})
+}
+
+// ===== Edge Case Tests: Partial Results =====
+
+// TestConcurrentProcessor_PartialResults tests handling of partial results when context is cancelled
+func TestConcurrentProcessor_PartialResults(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create 200 entries for concurrent processing
+	entryCount := 200
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+			BookgDt:   models.EntryDate{Dt: "2023-01-15"},
+			ValDt:     models.EntryDate{Dt: "2023-01-15"},
+		}
+	}
+
+	// Slow processor (10ms per entry) to ensure cancellation happens mid-processing
+	slowProcessor := func(e *models.Entry) models.Transaction {
+		time.Sleep(10 * time.Millisecond)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		date, _ := time.Parse("2006-01-02", e.BookgDt.Dt)
+
+		return models.Transaction{
+			Amount:    amount,
+			Currency:  e.Amt.Ccy,
+			Date:      date,
+			ValueDate: date,
+			Status:    "BOOK",
+		}
+	}
+
+	// Cancel context after 50ms (some workers will have completed)
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	// Process with cancellation mid-processing
+	transactions := processor.ProcessTransactions(ctx, entries, slowProcessor)
+
+	// Verify partial results: should have some but not all
+	assert.Greater(t, len(transactions), 0,
+		"Should return some completed results before cancellation")
+	assert.Less(t, len(transactions), entryCount,
+		"Should not process all entries due to cancellation: got %d, expected < %d",
+		len(transactions), entryCount)
+
+	// Verify all returned transactions are valid (no corruption or partial data)
+	for i, tx := range transactions {
+		// Amount should be valid (positive)
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d: amount should be positive, got %v", i, tx.Amount)
+
+		// Currency should be set
+		assert.Equal(t, "CHF", tx.Currency,
+			"Transaction %d: currency should be CHF, got %s", i, tx.Currency)
+
+		// Date should be valid (not zero time)
+		assert.False(t, tx.Date.IsZero(),
+			"Transaction %d: date should not be zero", i)
+
+		// Status should be set
+		assert.Equal(t, "BOOK", tx.Status,
+			"Transaction %d: status should be BOOK, got %s", i, tx.Status)
+	}
+
+	t.Logf("Processed %d out of %d entries before cancellation (%.1f%%)",
+		len(transactions), entryCount, float64(len(transactions))/float64(entryCount)*100)
+}
+
+// TestConcurrentProcessor_PartialResults_ValidatesDataIntegrity tests data integrity under cancellation
+func TestConcurrentProcessor_PartialResults_ValidatesDataIntegrity(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create entries with unique identifiable amounts
+	entryCount := 300
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		// Use amount as unique identifier (i+1) * 10
+		uniqueAmount := decimal.NewFromInt(int64((i + 1) * 10))
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: uniqueAmount.String(), Ccy: "EUR"},
+			CdtDbtInd: "CRDT",
+		}
+	}
+
+	// Map to track which amounts were processed
+	processedAmounts := make(map[string]bool)
+	var mu sync.Mutex
+
+	processorWithTracking := func(e *models.Entry) models.Transaction {
+		time.Sleep(5 * time.Millisecond)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+
+		// Track this amount
+		mu.Lock()
+		processedAmounts[e.Amt.Value] = true
+		mu.Unlock()
+
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Cancel after 75ms
+	time.AfterFunc(75*time.Millisecond, cancel)
+
+	transactions := processor.ProcessTransactions(ctx, entries, processorWithTracking)
+
+	// Verify each returned transaction corresponds to a valid entry
+	returnedAmounts := make(map[string]int)
+	for i, tx := range transactions {
+		amountStr := tx.Amount.String()
+
+		// Amount should be valid (multiple of 10)
+		amountInt := tx.Amount.IntPart()
+		assert.Equal(t, int64(0), amountInt%10,
+			"Transaction %d: amount %v should be multiple of 10", i, tx.Amount)
+
+		// Track returned amounts
+		returnedAmounts[amountStr]++
+
+		// Should be EUR
+		assert.Equal(t, "EUR", tx.Currency,
+			"Transaction %d: currency should be EUR", i)
+	}
+
+	// Verify no duplicate transactions returned
+	for amount, count := range returnedAmounts {
+		assert.Equal(t, 1, count,
+			"Amount %s should appear exactly once in results, appeared %d times", amount, count)
+	}
+
+	// Verify partial results
+	assert.Less(t, len(transactions), entryCount,
+		"Should process fewer than all entries due to cancellation")
+
+	t.Logf("Data integrity verified: %d unique valid transactions returned",
+		len(returnedAmounts))
 }

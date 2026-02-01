@@ -18,16 +18,16 @@ import (
 
 // Parse extracts and parses transaction data from a PDF file provided as an io.Reader.
 // This function uses the default RealPDFExtractor for backward compatibility.
-func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+func Parse(ctx context.Context, r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
-	return ParseWithExtractor(r, NewRealPDFExtractor(), logger)
+	return ParseWithExtractor(ctx, r, NewRealPDFExtractor(), logger)
 }
 
 // ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
-func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithExtractorAndCategorizer(context.Background(), r, extractor, logger, nil)
+func ParseWithExtractor(ctx context.Context, r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithExtractorAndCategorizer(ctx, r, extractor, logger, nil)
 }
 
 // ParseWithExtractorAndCategorizer extracts and parses transaction data from a PDF file using the provided extractor and categorizer.
@@ -36,71 +36,53 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
 
-	// Read the content of the reader into a temporary file for PDF processing
-	tempFile, err := os.CreateTemp("", "*.pdf")
+	// Create single temp directory for all PDF processing files
+	tempDir, err := os.MkdirTemp("", "pdfparse-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.WithError(err).Warn("Failed to remove temporary directory",
+				logging.Field{Key: "dir", Value: tempDir})
+		}
+	}()
+
+	// Create PDF file within temp directory
+	pdfPath := filepath.Join(tempDir, "input.pdf")
+	pdfFile, err := os.OpenFile(pdfPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary PDF file: %w", err)
 	}
-	defer func() {
-		if err := os.Remove(tempFile.Name()); err != nil {
-			logger.WithError(err).Warn("Failed to remove temporary file",
-				logging.Field{Key: "file", Value: tempFile.Name()})
-		}
-	}()
-	defer func() {
-		if err := tempFile.Close(); err != nil {
-			logger.WithError(err).Warn("Failed to close temporary file",
-				logging.Field{Key: "file", Value: tempFile.Name()})
-		}
-	}()
 
-	_, err = io.Copy(tempFile, r)
+	// Read the content of the reader into the PDF file
+	_, err = io.Copy(pdfFile, r)
 	if err != nil {
+		_ = pdfFile.Close()
 		return nil, fmt.Errorf("failed to write to temporary PDF file: %w", err)
 	}
 
-	// Close the file before attempting to extract text
-	// This close is already handled by the defer, but if we need to ensure it's closed
-	// before an external command accesses it, we might close it here and then
-	// re-open if needed, or ensure the external command doesn't hold the file open.
-	// For now, the defer is sufficient for cleanup.
-	// if err := tempFile.Close(); err != nil {
-	// 	return nil, fmt.Errorf("failed to close temporary PDF file: %w", err)
-	// }
-
-	// Validate the file format using the provided extractor
-	_, err = extractor.ExtractText(tempFile.Name())
-	if err != nil {
-		return nil, &parsererror.InvalidFormatError{
-			FilePath:       tempFile.Name(),
-			ExpectedFormat: "PDF",
-			Msg:            "file is not a valid PDF",
-		}
+	// Close the file before external extraction command accesses it
+	if err := pdfFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temporary PDF file: %w", err)
 	}
 
 	logger.Info("Parsing PDF file",
-		logging.Field{Key: "file", Value: tempFile.Name()})
+		logging.Field{Key: "file", Value: pdfPath})
 
-	// Extract text from PDF using the provided extractor
-	text, err := extractor.ExtractText(tempFile.Name())
+	// Extract text from PDF (validates format and extracts in one call)
+	text, err := extractor.ExtractText(pdfPath)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",
 			Field:  "text extraction",
-			Value:  tempFile.Name(),
+			Value:  pdfPath,
 			Err:    err,
 		}
 	}
 
-	// Write raw PDF text to debug file if in debug mode
-	debugFile := "debug_pdf_extract.txt"
-	err = os.WriteFile(debugFile, []byte(text), 0600)
-	if err != nil {
-		logger.WithError(err).Warn("Failed to write debug file")
-	} else {
-		logger.Debug("Wrote raw PDF text to debug file",
-			logging.Field{Key: "file", Value: debugFile})
-	}
+	logger.Debug("Extracted PDF text for processing",
+		logging.Field{Key: "text_length", Value: len(text)})
 
 	// Preprocess the text to clean it up and identify transaction blocks
 	processedText := preProcessText(text)
@@ -124,11 +106,11 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 
 // ConvertToCSV converts a PDF bank statement to the standard CSV format.
 // This is a convenience function that combines Parse and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string) error {
-	return ConvertToCSVWithLogger(inputFile, outputFile, nil)
+func ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
+	return ConvertToCSVWithLogger(ctx, inputFile, outputFile, nil)
 }
 
-func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger) error {
+func ConvertToCSVWithLogger(ctx context.Context, inputFile, outputFile string, logger logging.Logger) error {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -145,7 +127,7 @@ func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger)
 	}()
 
 	// Parse the file using the new Parse method
-	transactions, err := Parse(file, logger)
+	transactions, err := Parse(ctx, file, logger)
 	if err != nil {
 		return err
 	}
@@ -167,7 +149,8 @@ func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger)
 
 	// Create the directory if it doesn't exist
 	dir := filepath.Dir(outputFile)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	// SECURITY: Use standard directory permissions constant
+	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 

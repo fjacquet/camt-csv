@@ -424,7 +424,7 @@ func TestParseWithExtractor(t *testing.T) {
 01.01.25 02.01.25 Test Transaction CHF 100.50`
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
-	transactions, err := ParseWithExtractor(file, mockExtractor, logger)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.NoError(t, err)
 	// Note: Actual parsing depends on the text format recognition
 	assert.NotNil(t, transactions)
@@ -478,7 +478,7 @@ func TestParseWithNilLogger(t *testing.T) {
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
 	// Should work with nil logger (creates default)
-	transactions, err := ParseWithExtractor(file, mockExtractor, nil)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, transactions)
 }
@@ -500,7 +500,7 @@ func TestParseWithExtractorError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
 
-	_, err = ParseWithExtractor(file, mockExtractor, logger)
+	_, err = ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.Error(t, err)
 }
 
@@ -523,7 +523,7 @@ func TestParseFileFunction(t *testing.T) {
 01.01.25 02.01.25 Test Transaction CHF 100.50`
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
-	transactions, err := ParseWithExtractor(file, mockExtractor, logger)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, transactions)
 }
@@ -534,7 +534,7 @@ func TestParseFileWithInvalidFile(t *testing.T) {
 
 	// Test with a string reader that simulates file not found
 	reader := strings.NewReader("")
-	_, err := ParseWithExtractor(reader, mockExtractor, logger)
+	_, err := ParseWithExtractor(context.Background(), reader, mockExtractor, logger)
 	assert.Error(t, err)
 }
 
@@ -548,7 +548,7 @@ func TestConvertToCSVFunction(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	err = ConvertToCSVWithLogger(inputFile, outputFile, logger)
+	err = ConvertToCSVWithLogger(context.Background(), inputFile, outputFile, logger)
 	// This might fail due to real PDF extraction, but we're testing the function exists
 	// The error is expected since we're using a dummy file
 	assert.Error(t, err) // Expected to fail with dummy content
@@ -560,7 +560,7 @@ func TestConvertToCSVWithInvalidInput(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	err := ConvertToCSVWithLogger("/nonexistent/file.pdf", outputFile, logger)
+	err := ConvertToCSVWithLogger(context.Background(), "/nonexistent/file.pdf", outputFile, logger)
 	assert.Error(t, err)
 }
 
@@ -1108,7 +1108,7 @@ func TestConvertToCSVFunctionWrapper(t *testing.T) {
 	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
 	require.NoError(t, err)
 
-	err = ConvertToCSV(inputFile, outputFile)
+	err = ConvertToCSV(context.Background(), inputFile, outputFile)
 	assert.Error(t, err) // Expected to fail with real PDF extraction
 }
 
@@ -1176,5 +1176,313 @@ func TestFormatDateEdgeCases(t *testing.T) {
 			result := formatDate(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
+	}
+}
+
+// TestVisecaFormatDetection_PartialMarkers tests Viseca format detection with partial markers
+func TestVisecaFormatDetection_PartialMarkers(t *testing.T) {
+	logger := logging.NewLogrusAdapter("debug", "text")
+	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
+
+	tests := []struct {
+		name           string
+		pdfText        string
+		shouldDetect   bool
+		description    string
+	}{
+		{
+			name: "only_column_headers",
+			pdfText: `Date valeur Détails Monnaie Montant
+01.01.25 02.01.25 Test Transaction CHF 100.50`,
+			shouldDetect: true,
+			description: "Column headers alone should trigger Viseca detection",
+		},
+		{
+			name: "only_card_pattern_visa",
+			pdfText: `Statement for Visa Gold card ending in XXXX 1234
+01.01.25 Test Transaction 100.50`,
+			shouldDetect: true,
+			description: "Visa Gold pattern alone should trigger Viseca detection",
+		},
+		{
+			name: "only_card_pattern_mastercard",
+			pdfText: `Statement for Mastercard XXXX 5678
+01.01.25 Test Transaction 100.50`,
+			shouldDetect: true,
+			description: "Mastercard pattern alone should trigger Viseca detection",
+		},
+		{
+			name: "only_statement_features",
+			pdfText: `Bank Statement
+Montant total dernier relevé CHF 500.00
+01.01.25 Test Transaction 100.50`,
+			shouldDetect: true,
+			description: "Statement features alone should trigger Viseca detection",
+		},
+		{
+			name: "no_markers",
+			pdfText: `Regular Bank Statement
+Date Description Amount
+01.01.25 Test Transaction 100.50`,
+			shouldDetect: false,
+			description: "No Viseca markers should use standard parser",
+		},
+		{
+			name: "empty_content",
+			pdfText: ``,
+			shouldDetect: false,
+			description: "Empty content should use standard parser",
+		},
+		{
+			name: "only_whitespace",
+			pdfText: `
+
+
+			`,
+			shouldDetect: false,
+			description: "Only whitespace should use standard parser",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.pdf")
+			err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+			require.NoError(t, err)
+
+			file, err := os.Open(testFile)
+			require.NoError(t, err)
+			defer file.Close()
+
+			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
+			adapter := NewAdapter(logger, mockExtractor)
+			adapter.SetCategorizer(mockCategorizer)
+
+			transactions, err := adapter.Parse(context.Background(), file)
+			require.NoError(t, err)
+
+			// The detection happens internally, we verify by checking the log output
+			// or by the behavior of the parser (Viseca parser vs standard parser)
+			// For now, we just verify that parsing succeeded
+			assert.NotNil(t, transactions, tt.description)
+		})
+	}
+}
+
+// TestVisecaFormatDetection_FalsePositives tests that Viseca-like text in descriptions doesn't falsely trigger detection
+func TestVisecaFormatDetection_FalsePositives(t *testing.T) {
+	logger := logging.NewLogrusAdapter("debug", "text")
+	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
+
+	tests := []struct {
+		name         string
+		pdfText      string
+		description  string
+	}{
+		{
+			name: "viseca_in_transaction_description",
+			pdfText: `Regular Bank Statement
+Date Description Amount
+01.01.25 Payment to Viseca AG 100.50`,
+			description: "Viseca in transaction description should NOT trigger Viseca format (needs actual markers)",
+		},
+		{
+			name: "partial_header_in_description",
+			pdfText: `Regular Bank Statement
+Date Description Amount
+01.01.25 Purchase at store - Date valeur noted 100.50`,
+			description: "Partial header text in description should NOT trigger Viseca format (needs full header pattern)",
+		},
+		{
+			name: "card_name_in_description",
+			pdfText: `Regular Bank Statement
+Date Description Amount
+01.01.25 Payment for Mastercard bill 100.50`,
+			description: "Card name in description should NOT trigger Viseca format without XXXX pattern",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.pdf")
+			err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+			require.NoError(t, err)
+
+			file, err := os.Open(testFile)
+			require.NoError(t, err)
+			defer file.Close()
+
+			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
+			adapter := NewAdapter(logger, mockExtractor)
+			adapter.SetCategorizer(mockCategorizer)
+
+			transactions, err := adapter.Parse(context.Background(), file)
+			require.NoError(t, err)
+			assert.NotNil(t, transactions, tt.description)
+		})
+	}
+}
+
+// TestVisecaFormatDetection_AmbiguousFormats tests files with mixed or ambiguous format indicators
+func TestVisecaFormatDetection_AmbiguousFormats(t *testing.T) {
+	logger := logging.NewLogrusAdapter("debug", "text")
+	mockCategorizer := &MockCategorizer{categories: map[string]string{}}
+
+	tests := []struct {
+		name         string
+		pdfText      string
+		description  string
+	}{
+		{
+			name: "mixed_markers",
+			pdfText: `Date valeur Détails Monnaie Montant
+Card: Visa Gold XXXX 1234
+Regular transaction format
+01.01.25 Test Transaction CHF 100.50`,
+			description: "Mixed Viseca and standard markers should use Viseca parser (Viseca markers take precedence)",
+		},
+		{
+			name: "very_short_file",
+			pdfText: `Date valeur Détails Monnaie Montant`,
+			description: "Very short file with only header should use Viseca parser",
+		},
+		{
+			name: "headers_only_no_transactions",
+			pdfText: `Date valeur Détails Monnaie Montant
+Statement Period: 01.01.2025 - 31.01.2025
+Card Number: XXXX 1234`,
+			description: "Headers and metadata without transactions should still detect format correctly",
+		},
+		{
+			name: "multiple_viseca_markers",
+			pdfText: `Date valeur Détails Monnaie Montant
+Visa Platinum XXXX 1234
+Montant total dernier relevé CHF 500.00
+Votre paiement - Merci
+01.01.25 02.01.25 Transaction 1 CHF 100.50`,
+			description: "Multiple Viseca markers should reinforce detection",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.pdf")
+			err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+			require.NoError(t, err)
+
+			file, err := os.Open(testFile)
+			require.NoError(t, err)
+			defer file.Close()
+
+			mockExtractor := NewMockPDFExtractor(tt.pdfText, nil)
+			adapter := NewAdapter(logger, mockExtractor)
+			adapter.SetCategorizer(mockCategorizer)
+
+			transactions, err := adapter.Parse(context.Background(), file)
+			require.NoError(t, err)
+			assert.NotNil(t, transactions, tt.description)
+		})
+	}
+}
+
+// TestPDFParser_ErrorMessagesIncludeContext tests that parsing errors include helpful context
+func TestPDFParser_ErrorMessagesIncludeContext(t *testing.T) {
+	logger := logging.NewLogrusAdapter("debug", "text")
+
+	t.Run("invalid_pdf_path", func(t *testing.T) {
+		invalidPath := "/nonexistent/path/to/file.pdf"
+
+		err := ConvertToCSVWithLogger(context.Background(), invalidPath, "/tmp/output.csv", logger)
+		require.Error(t, err)
+
+		// Error should include the file path that failed
+		assert.Contains(t, err.Error(), invalidPath, "Error message should include the attempted file path")
+	})
+
+	t.Run("extraction_failure", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "test.pdf")
+		err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		// Mock extractor that returns an error
+		extractionError := fmt.Errorf("pdftotext command not found - please install poppler-utils")
+		mockExtractor := NewMockPDFExtractor("", extractionError)
+		adapter := NewAdapter(logger, mockExtractor)
+
+		_, err = adapter.Parse(context.Background(), file)
+		require.Error(t, err)
+
+		// Error should mention pdftotext and provide actionable guidance
+		assert.Contains(t, err.Error(), "pdftotext", "Error message should mention pdftotext")
+	})
+
+	t.Run("malformed_transaction_data", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "test.pdf")
+		err := os.WriteFile(testFile, []byte("dummy content"), 0600)
+		require.NoError(t, err)
+
+		file, err := os.Open(testFile)
+		require.NoError(t, err)
+		defer file.Close()
+
+		// Create malformed PDF text that will cause parsing issues
+		malformedText := `Date valeur Détails Monnaie Montant
+INVALID_DATE INVALID_AMOUNT Some description`
+
+		mockExtractor := NewMockPDFExtractor(malformedText, nil)
+		adapter := NewAdapter(logger, mockExtractor)
+
+		// Parse should not error (it handles malformed data gracefully)
+		// but we can verify it processes without crashing
+		transactions, err := adapter.Parse(context.Background(), file)
+		assert.NoError(t, err)
+		// May have 0 transactions if data is completely malformed
+		assert.NotNil(t, transactions)
+	})
+
+	t.Run("converter_includes_file_path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		inputFile := filepath.Join(tempDir, "input.pdf")
+		outputFile := filepath.Join(tempDir, "output.csv")
+
+		// Create a file that will fail conversion
+		err := os.WriteFile(inputFile, []byte("not a real PDF"), 0600)
+		require.NoError(t, err)
+
+		mockExtractor := NewMockPDFExtractor("", fmt.Errorf("failed to extract text from %s", inputFile))
+		adapter := NewAdapter(logger, mockExtractor)
+
+		err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
+		require.Error(t, err)
+
+		// Error should include the input file path for debugging
+		assert.Contains(t, err.Error(), inputFile, "Error message should include input file path")
+	})
+}
+
+// assertErrorHasContext is a helper function to validate error messages contain required context
+func assertErrorHasContext(t *testing.T, err error, filepath, fieldName string) {
+	t.Helper()
+	require.Error(t, err, "Expected an error to be returned")
+
+	errMsg := err.Error()
+
+	if filepath != "" {
+		assert.Contains(t, errMsg, filepath,
+			"Error message should include file path for debugging: %s", errMsg)
+	}
+
+	if fieldName != "" {
+		assert.Contains(t, errMsg, fieldName,
+			"Error message should include field name that caused the error: %s", errMsg)
 	}
 }

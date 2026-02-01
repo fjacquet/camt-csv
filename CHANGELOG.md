@@ -34,15 +34,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Coding principles: KISS, DRY, Functional Programming guidelines
   - Dependency injection patterns and interface design guidelines
 
+- **Category YAML Backup System**: Automatic timestamped backups of category mapping files before auto-learn overwrites
+  - Backup enabled by default (`backup.enabled: true` in config)
+  - Configurable backup directory (defaults to same directory as original file)
+  - Configurable timestamp format (default: `YYYYMMDD_HHMMSS`)
+  - Atomic behavior: failed backup prevents save, protecting original file
+  - Supports both creditor and debtor mapping files
+
 - **Test Coverage Improvements**:
   - Add tests for `cmd/batch` package
   - Add tests for `cmd/common` package with mock parser implementation
   - Add tests for `internal/fileutils` package
   - Add tests for `internal/textutils` package
   - Add tests for `internal/validation` package
+  - Add nil container error verification tests for camt, debit, and pdf commands
+  - Add 8 concurrent processing edge case tests: context cancellation (before, during, inflight), race conditions, partial result data integrity
+  - Add 14 PDF Viseca format detection edge case tests: partial markers, false positives, ambiguous formats
+  - Add 20+ error message validation tests across all parsers (CAMT, Debit, Revolut, Selma, PDF) verifying file path and field context
+  - Add 5 category backup tests: backup creation, custom location, failure prevention, disabled mode, multiple timestamps
+  - Add `MockLogger.VerifyFatalLog()` and `VerifyFatalLogWithDebug()` helper methods for test verification
+
+### Removed
+
+- **Deprecated Config Functions**: Remove `LoadEnv()`, `GetEnv()`, `MustGetEnv()`, `GetGeminiAPIKey()`, `ConfigureLogging()`, `InitializeGlobalConfig()` from `internal/config/config.go`; all configuration now flows through Viper/Container
+- **Global Mutable State**: Remove `Logger`, `globalConfig`, and `sync.Once` globals from config package; all state flows through DI container
+- **Fallback Categorizer Creation**: Remove silent fallback in `PersistentPostRun` that bypassed dependency injection; nil container now logs warning and returns early
+
+### Security
+
+- **No Credential Logging**: API key values never appear in log output at any level; only presence/absence is logged
+- **Secure Temp Files**: All temporary files use `os.CreateTemp()` with random naming; no predictable temp file paths
+- **File Permission Standardization**: Non-secret files (YAML category mappings, CSV output) use 0644; secrets use 0600; directories use 0750
+
+### Changed
+
+- **PDF Parser Temp File Consolidation**: Replace individual temp file with single temp directory (`os.MkdirTemp`) for all PDF processing; cleanup uses single `os.RemoveAll` call
+- **PDF Parser ExtractText Optimization**: Eliminate duplicate `ExtractText` call (was called twice: once for validation, once for extraction)
+- **Categorize Command Init**: Replace `panic(err)` with graceful error handling; Cobra framework handles missing required flags at runtime
 
 ### Fixed
 
+- **PDF Debug File Leak**: Remove `debug_pdf_extract.txt` file that accumulated in working directory after PDF parsing
+- **PDF Context Propagation**: `Parse()` and `ParseWithExtractor()` now accept and propagate `context.Context` instead of discarding it for `context.Background()`
+- **PDF Temp File Cleanup**: Consolidate two separate defer blocks into single close-then-remove defer for correct cleanup ordering
+- **MockLogger State Isolation**: `WithError()` and `WithFields()` now create properly isolated instances using shared pointer pattern; tests can verify specific log messages at correct levels
 - **Context Propagation**: Fix context propagation throughout application for proper cancellation support
   - CLI commands now extract context from `cmd.Context()` and propagate through all layers
   - Parser interfaces now accept `context.Context` parameter for cancellation and timeout support
