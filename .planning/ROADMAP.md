@@ -12,7 +12,7 @@ This milestone transforms camt-csv from a feature-complete but fragile tool into
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Critical Bugs & Security** - Fix user-impacting bugs and security vulnerabilities
+- [x] **Phase 1: Critical Bugs & Security** - Fix user-impacting bugs and security vulnerabilities
 - [ ] **Phase 2: Configuration & State Cleanup** - Remove deprecated config and global state
 - [ ] **Phase 3: Architecture & Error Handling** - Standardize error patterns and cleanup temp files
 - [ ] **Phase 4: Test Coverage & Safety** - Close coverage gaps and add data protection
@@ -36,9 +36,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans in 1 wave
 
 Plans:
-- [ ] 01-01-PLAN.md — PDF parser bug fixes (debug file, context propagation, temp cleanup)
-- [ ] 01-02-PLAN.md — MockLogger state isolation for test verification
-- [ ] 01-03-PLAN.md — Security hardening (credential logging, temp file naming, permissions)
+- [x] 01-01-PLAN.md — PDF parser bug fixes (debug file, context propagation, temp cleanup)
+- [x] 01-02-PLAN.md — MockLogger state isolation for test verification
+- [x] 01-03-PLAN.md — Security hardening (credential logging, temp file naming, permissions)
 
 ### Phase 2: Configuration & State Cleanup
 **Goal**: All configuration flows through DI container with no global state or deprecated functions
@@ -100,11 +100,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bugs & Security | 0/3 | Ready to execute | - |
+| 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
 | 2. Configuration & State Cleanup | 0/? | Not started | - |
 | 3. Architecture & Error Handling | 0/? | Not started | - |
 | 4. Test Coverage & Safety | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after phase 1 planning*
+*Last updated: 2026-02-01 after phase 1 completion*

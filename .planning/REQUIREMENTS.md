@@ -9,16 +9,16 @@ Requirements for this hardening milestone. Grouped by concern category.
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: PDF parser stops writing `debug_pdf_extract.txt` to current working directory; debug output uses OS temp directory or is removed entirely
-- [ ] **BUG-02**: MockLogger properly isolates state so `WithError()` and `WithFields()` create independent instances; tests can verify specific log messages were emitted at correct levels
-- [ ] **BUG-03**: `ParseWithExtractor()` uses the passed context instead of discarding it for `context.Background()`
-- [ ] **BUG-04**: PDF parser temp file cleanup uses single defer block with correct close-then-remove ordering
+- [x] **BUG-01**: PDF parser stops writing `debug_pdf_extract.txt` to current working directory; debug output uses OS temp directory or is removed entirely
+- [x] **BUG-02**: MockLogger properly isolates state so `WithError()` and `WithFields()` create independent instances; tests can verify specific log messages were emitted at correct levels
+- [x] **BUG-03**: `ParseWithExtractor()` uses the passed context instead of discarding it for `context.Background()`
+- [x] **BUG-04**: PDF parser temp file cleanup uses single defer block with correct close-then-remove ordering
 
 ### Security
 
-- [ ] **SEC-01**: No API credentials (GEMINI_API_KEY or its value) appear in any log output at any level; only log presence/absence of key
-- [ ] **SEC-02**: All temporary files use `os.CreateTemp()` with random naming; no predictable temp file paths in any parser
-- [ ] **SEC-03**: File permissions use 0644 for non-secret files (CSV output, debug) and 0600 only for files containing credentials or sensitive data
+- [x] **SEC-01**: No API credentials (GEMINI_API_KEY or its value) appear in any log output at any level; only log presence/absence of key
+- [x] **SEC-02**: All temporary files use `os.CreateTemp()` with random naming; no predictable temp file paths in any parser
+- [x] **SEC-03**: File permissions use 0644 for non-secret files (CSV output, debug) and 0600 only for files containing credentials or sensitive data
 
 ### Tech Debt
 
@@ -83,13 +83,13 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 1 | Pending |
-| BUG-02 | Phase 1 | Pending |
-| BUG-03 | Phase 1 | Pending |
-| BUG-04 | Phase 1 | Pending |
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
+| BUG-01 | Phase 1 | Complete |
+| BUG-02 | Phase 1 | Complete |
+| BUG-03 | Phase 1 | Complete |
+| BUG-04 | Phase 1 | Complete |
+| SEC-01 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| SEC-03 | Phase 1 | Complete |
 | DEBT-01 | Phase 2 | Pending |
 | DEBT-02 | Phase 2 | Pending |
 | ARCH-02 | Phase 2 | Pending |
@@ -109,4 +109,4 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after roadmap creation*
+*Last updated: 2026-02-01 after phase 1 completion*

@@ -41,8 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add tests for `internal/textutils` package
   - Add tests for `internal/validation` package
 
+### Security
+
+- **No Credential Logging**: API key values never appear in log output at any level; only presence/absence is logged
+- **Secure Temp Files**: All temporary files use `os.CreateTemp()` with random naming; no predictable temp file paths
+- **File Permission Standardization**: Non-secret files (YAML category mappings, CSV output) use 0644; secrets use 0600; directories use 0750
+
 ### Fixed
 
+- **PDF Debug File Leak**: Remove `debug_pdf_extract.txt` file that accumulated in working directory after PDF parsing
+- **PDF Context Propagation**: `Parse()` and `ParseWithExtractor()` now accept and propagate `context.Context` instead of discarding it for `context.Background()`
+- **PDF Temp File Cleanup**: Consolidate two separate defer blocks into single close-then-remove defer for correct cleanup ordering
+- **MockLogger State Isolation**: `WithError()` and `WithFields()` now create properly isolated instances using shared pointer pattern; tests can verify specific log messages at correct levels
 - **Context Propagation**: Fix context propagation throughout application for proper cancellation support
   - CLI commands now extract context from `cmd.Context()` and propagate through all layers
   - Parser interfaces now accept `context.Context` parameter for cancellation and timeout support
