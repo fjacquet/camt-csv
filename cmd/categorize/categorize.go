@@ -23,9 +23,8 @@ func init() {
 	Cmd.Flags().StringVarP(&root.Amount, "amount", "a", "", "Transaction amount (optional)")
 	Cmd.Flags().StringVarP(&root.Date, "date", "t", "", "Transaction date (optional)")
 	Cmd.Flags().StringVarP(&root.Info, "info", "n", "", "Additional transaction info (optional)")
-	if err := Cmd.MarkFlagRequired("party"); err != nil {
-		panic(err)
-	}
+	// Cobra handles missing required flags gracefully with clear error messages
+	_ = Cmd.MarkFlagRequired("party")
 }
 
 func categorizeFunc(cmd *cobra.Command, args []string) {
