@@ -171,10 +171,26 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCategory, category.Name)
 
-			// For now, skip the logging verification since MockLogger has issues
-			// Just verify that the correct category was returned
-			// TODO: Fix MockLogger and re-enable logging verification
-			_ = tt.expectedStrategy
+			// Verify logging based on expected strategy
+			if tt.expectedStrategy != "" {
+				logEntries := mockLogger.GetEntriesByLevel("DEBUG")
+				var found bool
+				for _, entry := range logEntries {
+					// Check if the expected strategy succeeded
+					if entry.Message == "Transaction categorized successfully" {
+						for _, field := range entry.Fields {
+							if field.Key == "strategy" && field.Value == tt.expectedStrategy {
+								found = true
+								break
+							}
+						}
+					}
+					if found {
+						break
+					}
+				}
+				assert.True(t, found, "Expected strategy %s to log success message", tt.expectedStrategy)
+			}
 		})
 	}
 }
@@ -227,9 +243,23 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 	// DirectMapping should win over Keyword and AI
 	assert.Equal(t, models.CategoryGroceries, category.Name)
 
-	// For now, skip the logging verification since MockLogger has issues
-	// Just verify that the correct category was returned (DirectMapping should win)
-	// TODO: Fix MockLogger and re-enable logging verification
+	// Verify that DirectMapping strategy was used
+	logEntries := mockLogger.GetEntriesByLevel("DEBUG")
+	var foundDirectMapping bool
+	for _, entry := range logEntries {
+		if entry.Message == "Transaction categorized successfully" {
+			for _, field := range entry.Fields {
+				if field.Key == "strategy" && field.Value == "DirectMapping" {
+					foundDirectMapping = true
+					break
+				}
+			}
+		}
+		if foundDirectMapping {
+			break
+		}
+	}
+	assert.True(t, foundDirectMapping, "Expected DirectMapping strategy to log success message")
 }
 
 func TestCategorizer_StrategyErrorHandling(t *testing.T) {
@@ -276,8 +306,32 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	// Should fall back to Keyword strategy (which should work with COOP)
 	assert.Equal(t, models.CategoryGroceries, category.Name)
 
-	// For now, skip the logging verification since MockLogger has issues
-	// TODO: Fix MockLogger and re-enable logging verification
+	// Verify that Keyword strategy was used (DirectMapping should not have matched)
+	logEntries := mockLogger.GetEntriesByLevel("DEBUG")
+	var foundKeywordSuccess bool
+	var foundDirectMappingNoMatch bool
+	for _, entry := range logEntries {
+		// Check for Keyword strategy success
+		if entry.Message == "Transaction categorized successfully" {
+			for _, field := range entry.Fields {
+				if field.Key == "strategy" && field.Value == "Keyword" {
+					foundKeywordSuccess = true
+					break
+				}
+			}
+		}
+		// Check that DirectMapping was tried but didn't find a match
+		if entry.Message == "Strategy did not find a match" {
+			for _, field := range entry.Fields {
+				if field.Key == "strategy" && field.Value == "DirectMapping" {
+					foundDirectMappingNoMatch = true
+					break
+				}
+			}
+		}
+	}
+	assert.True(t, foundKeywordSuccess, "Expected Keyword strategy to log success message")
+	assert.True(t, foundDirectMappingNoMatch, "Expected DirectMapping strategy to try and not find a match")
 }
 
 func TestCategorizer_BackwardCompatibility(t *testing.T) {
