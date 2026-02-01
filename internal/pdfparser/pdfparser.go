@@ -92,15 +92,8 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 		}
 	}
 
-	// Write raw PDF text to debug file if in debug mode
-	debugFile := "debug_pdf_extract.txt"
-	err = os.WriteFile(debugFile, []byte(text), 0600)
-	if err != nil {
-		logger.WithError(err).Warn("Failed to write debug file")
-	} else {
-		logger.Debug("Wrote raw PDF text to debug file",
-			logging.Field{Key: "file", Value: debugFile})
-	}
+	logger.Debug("Extracted PDF text for processing",
+		logging.Field{Key: "text_length", Value: len(text)})
 
 	// Preprocess the text to clean it up and identify transaction blocks
 	processedText := preProcessText(text)
