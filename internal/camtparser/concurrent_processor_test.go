@@ -3,6 +3,7 @@ package camtparser
 import (
 	"context"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -795,4 +796,155 @@ func TestConcurrentProcessor_ConcurrentReadsNoRace(t *testing.T) {
 		transactions := processor.ProcessTransactions(context.Background(), entries, readProcessor)
 		assert.Len(t, transactions, entryCount)
 	})
+}
+
+// ===== Edge Case Tests: Partial Results =====
+
+// TestConcurrentProcessor_PartialResults tests handling of partial results when context is cancelled
+func TestConcurrentProcessor_PartialResults(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create 200 entries for concurrent processing
+	entryCount := 200
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+			BookgDt:   models.EntryDate{Dt: "2023-01-15"},
+			ValDt:     models.EntryDate{Dt: "2023-01-15"},
+		}
+	}
+
+	// Slow processor (10ms per entry) to ensure cancellation happens mid-processing
+	slowProcessor := func(e *models.Entry) models.Transaction {
+		time.Sleep(10 * time.Millisecond)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		date, _ := time.Parse("2006-01-02", e.BookgDt.Dt)
+
+		return models.Transaction{
+			Amount:    amount,
+			Currency:  e.Amt.Ccy,
+			Date:      date,
+			ValueDate: date,
+			Status:    "BOOK",
+		}
+	}
+
+	// Cancel context after 50ms (some workers will have completed)
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	// Process with cancellation mid-processing
+	transactions := processor.ProcessTransactions(ctx, entries, slowProcessor)
+
+	// Verify partial results: should have some but not all
+	assert.Greater(t, len(transactions), 0,
+		"Should return some completed results before cancellation")
+	assert.Less(t, len(transactions), entryCount,
+		"Should not process all entries due to cancellation: got %d, expected < %d",
+		len(transactions), entryCount)
+
+	// Verify all returned transactions are valid (no corruption or partial data)
+	for i, tx := range transactions {
+		// Amount should be valid (positive)
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d: amount should be positive, got %v", i, tx.Amount)
+
+		// Currency should be set
+		assert.Equal(t, "CHF", tx.Currency,
+			"Transaction %d: currency should be CHF, got %s", i, tx.Currency)
+
+		// Date should be valid (not zero time)
+		assert.False(t, tx.Date.IsZero(),
+			"Transaction %d: date should not be zero", i)
+
+		// Status should be set
+		assert.Equal(t, "BOOK", tx.Status,
+			"Transaction %d: status should be BOOK, got %s", i, tx.Status)
+	}
+
+	t.Logf("Processed %d out of %d entries before cancellation (%.1f%%)",
+		len(transactions), entryCount, float64(len(transactions))/float64(entryCount)*100)
+}
+
+// TestConcurrentProcessor_PartialResults_ValidatesDataIntegrity tests data integrity under cancellation
+func TestConcurrentProcessor_PartialResults_ValidatesDataIntegrity(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create entries with unique identifiable amounts
+	entryCount := 300
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		// Use amount as unique identifier (i+1) * 10
+		uniqueAmount := decimal.NewFromInt(int64((i + 1) * 10))
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: uniqueAmount.String(), Ccy: "EUR"},
+			CdtDbtInd: "CRDT",
+		}
+	}
+
+	// Map to track which amounts were processed
+	processedAmounts := make(map[string]bool)
+	var mu sync.Mutex
+
+	processorWithTracking := func(e *models.Entry) models.Transaction {
+		time.Sleep(5 * time.Millisecond)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+
+		// Track this amount
+		mu.Lock()
+		processedAmounts[e.Amt.Value] = true
+		mu.Unlock()
+
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Cancel after 75ms
+	time.AfterFunc(75*time.Millisecond, cancel)
+
+	transactions := processor.ProcessTransactions(ctx, entries, processorWithTracking)
+
+	// Verify each returned transaction corresponds to a valid entry
+	returnedAmounts := make(map[string]int)
+	for i, tx := range transactions {
+		amountStr := tx.Amount.String()
+
+		// Amount should be valid (multiple of 10)
+		amountInt := tx.Amount.IntPart()
+		assert.Equal(t, int64(0), amountInt%10,
+			"Transaction %d: amount %v should be multiple of 10", i, tx.Amount)
+
+		// Track returned amounts
+		returnedAmounts[amountStr]++
+
+		// Should be EUR
+		assert.Equal(t, "EUR", tx.Currency,
+			"Transaction %d: currency should be EUR", i)
+	}
+
+	// Verify no duplicate transactions returned
+	for amount, count := range returnedAmounts {
+		assert.Equal(t, 1, count,
+			"Amount %s should appear exactly once in results, appeared %d times", amount, count)
+	}
+
+	// Verify partial results
+	assert.Less(t, len(transactions), entryCount,
+		"Should process fewer than all entries due to cancellation")
+
+	t.Logf("Data integrity verified: %d unique valid transactions returned",
+		len(returnedAmounts))
 }
