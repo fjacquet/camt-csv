@@ -640,3 +640,159 @@ func TestConcurrentProcessor_CancellationWaitsForInflightWork(t *testing.T) {
 		"All started processing should complete: started=%d, completed=%d",
 		startedCount, completedCount)
 }
+
+// ===== Edge Case Tests: Race Conditions =====
+// Run these tests with: go test -race -v ./internal/camtparser -run Race
+
+// TestConcurrentProcessor_NoRaceConditions tests concurrent processing under high contention
+func TestConcurrentProcessor_NoRaceConditions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create large batch to ensure concurrent processing
+	entryCount := 1000
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: decimal.NewFromInt(int64(i + 1)).String(), Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+			BookgDt:   models.EntryDate{Dt: "2023-01-01"},
+		}
+	}
+
+	// Use atomic counter to track invocations (thread-safe)
+	var invocationCount int64
+
+	// Processor with random delays to increase race probability
+	racyProcessor := func(e *models.Entry) models.Transaction {
+		// Increment atomic counter
+		atomic.AddInt64(&invocationCount, 1)
+
+		// Random sleep to vary timing and increase race probability
+		sleepDuration := time.Duration(atomic.LoadInt64(&invocationCount)%5) * time.Millisecond
+		time.Sleep(sleepDuration)
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Process with high concurrency
+	transactions := processor.ProcessTransactions(context.Background(), entries, racyProcessor)
+
+	// Verify all entries were processed
+	assert.Len(t, transactions, entryCount,
+		"Should process all entries without race conditions")
+
+	// Verify counter matches entry count
+	assert.Equal(t, int64(entryCount), invocationCount,
+		"Processor should be called exactly once per entry: expected=%d, actual=%d",
+		entryCount, invocationCount)
+
+	// Verify no transaction corruption - all amounts should be positive
+	for i, tx := range transactions {
+		assert.True(t, tx.Amount.GreaterThan(decimal.Zero),
+			"Transaction %d should have positive amount, got %v", i, tx.Amount)
+		assert.NotEmpty(t, tx.Currency, "Transaction %d should have currency", i)
+	}
+}
+
+// TestConcurrentProcessor_ResultChannelNoRaceOnClose tests result channel closure safety
+func TestConcurrentProcessor_ResultChannelNoRaceOnClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Create entries for concurrent processing
+	entryCount := 500
+	entries := make([]models.Entry, entryCount)
+	for i := range entries {
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "100.00", Ccy: "CHF"},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Processor with varying delays to create timing variance
+	var processedCount int64
+	varyingDelayProcessor := func(e *models.Entry) models.Transaction {
+		count := atomic.AddInt64(&processedCount, 1)
+		// First few items process quickly, rest slowly to test channel closure timing
+		if count > 10 {
+			time.Sleep(2 * time.Millisecond)
+		}
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Run multiple times to catch race conditions on channel close
+	for run := 0; run < 5; run++ {
+		processedCount = 0 // Reset counter
+
+		require.NotPanics(t, func() {
+			transactions := processor.ProcessTransactions(context.Background(), entries, varyingDelayProcessor)
+			assert.Len(t, transactions, entryCount,
+				"Run %d: should process all entries", run)
+		}, "Run %d: should not panic when closing result channel", run)
+	}
+}
+
+// TestConcurrentProcessor_ConcurrentReadsNoRace tests concurrent reads of same data
+func TestConcurrentProcessor_ConcurrentReadsNoRace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	processor := NewConcurrentProcessor(logger)
+
+	// Shared data structure that all processors will read
+	sharedData := map[string]string{
+		"CHF": "Swiss Franc",
+		"EUR": "Euro",
+		"USD": "US Dollar",
+	}
+
+	// Create entries
+	entryCount := 800
+	entries := make([]models.Entry, entryCount)
+	currencies := []string{"CHF", "EUR", "USD"}
+	for i := range entries {
+		ccy := currencies[i%len(currencies)]
+		entries[i] = models.Entry{
+			Amt:       models.Amount{Value: "50.00", Ccy: ccy},
+			CdtDbtInd: "DBIT",
+		}
+	}
+
+	// Processor that reads from shared map (concurrent reads should be safe)
+	readProcessor := func(e *models.Entry) models.Transaction {
+		// Read from shared map
+		_ = sharedData[e.Amt.Ccy]
+
+		amount, _ := decimal.NewFromString(e.Amt.Value)
+		return models.Transaction{
+			Amount:   amount,
+			Currency: e.Amt.Ccy,
+		}
+	}
+
+	// Should not cause race conditions (concurrent reads are safe)
+	require.NotPanics(t, func() {
+		transactions := processor.ProcessTransactions(context.Background(), entries, readProcessor)
+		assert.Len(t, transactions, entryCount)
+	})
+}
