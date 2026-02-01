@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -223,4 +224,41 @@ func (m *MockLogger) HasEntry(level, message string) bool {
 		}
 	}
 	return false
+}
+
+// VerifyFatalLog checks if at least one FATAL log entry contains the expected message substring.
+// Returns true if found, false otherwise.
+// If verification fails and entries exist, prints all log entries for debugging.
+func (m *MockLogger) VerifyFatalLog(expectedMessage string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.entries == nil {
+		return false
+	}
+	for _, entry := range *m.entries {
+		if entry.Level == "FATAL" && strings.Contains(entry.Message, expectedMessage) {
+			return true
+		}
+	}
+	return false
+}
+
+// VerifyFatalLogWithDebug is like VerifyFatalLog but prints all entries if verification fails.
+// Useful for debugging test failures.
+func (m *MockLogger) VerifyFatalLogWithDebug(expectedMessage string) bool {
+	found := m.VerifyFatalLog(expectedMessage)
+	if !found && m.entries != nil && len(*m.entries) > 0 {
+		fmt.Println("VerifyFatalLog failed. All log entries:")
+		for i, entry := range *m.entries {
+			fmt.Printf("  [%d] %s: %s", i, entry.Level, entry.Message)
+			if entry.Error != nil {
+				fmt.Printf(" (error: %v)", entry.Error)
+			}
+			if len(entry.Fields) > 0 {
+				fmt.Printf(" %+v", entry.Fields)
+			}
+			fmt.Println()
+		}
+	}
+	return found
 }
