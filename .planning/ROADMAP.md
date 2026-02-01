@@ -52,10 +52,10 @@ Plans:
   2. No global mutable state exists in config package (globalConfig, Logger removed)
   3. Container initialization failures propagate as errors instead of silent fallback creation
 
-**Plans**: TBD
+**Plans**: 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — Remove deprecated config functions, global state, and fallback categorizer creation
 
 ### Phase 3: Architecture & Error Handling
 **Goal**: Error handling is consistent, predictable, and never panics unexpectedly
@@ -101,10 +101,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
-| 2. Configuration & State Cleanup | 0/? | Not started | - |
+| 2. Configuration & State Cleanup | 0/1 | Not started | - |
 | 3. Architecture & Error Handling | 0/? | Not started | - |
 | 4. Test Coverage & Safety | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after phase 1 completion*
+*Last updated: 2026-02-01 after phase 2 planning*
