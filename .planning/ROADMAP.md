@@ -33,10 +33,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. File permissions are appropriate for content type (0644 for non-secrets, 0600 for credentials)
   5. Context cancellation properly propagates through PDF parsing operations
 
-**Plans**: TBD
+**Plans**: 3 plans in 1 wave
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md — PDF parser bug fixes (debug file, context propagation, temp cleanup)
+- [ ] 01-02-PLAN.md — MockLogger state isolation for test verification
+- [ ] 01-03-PLAN.md — Security hardening (credential logging, temp file naming, permissions)
 
 ### Phase 2: Configuration & State Cleanup
 **Goal**: All configuration flows through DI container with no global state or deprecated functions
@@ -98,11 +100,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Critical Bugs & Security | 0/? | Not started | - |
+| 1. Critical Bugs & Security | 0/3 | Ready to execute | - |
 | 2. Configuration & State Cleanup | 0/? | Not started | - |
 | 3. Architecture & Error Handling | 0/? | Not started | - |
 | 4. Test Coverage & Safety | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after roadmap initialization*
+*Last updated: 2026-02-01 after phase 1 planning*
