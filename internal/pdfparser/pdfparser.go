@@ -42,14 +42,12 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 		return nil, fmt.Errorf("failed to create temporary PDF file: %w", err)
 	}
 	defer func() {
-		if err := os.Remove(tempFile.Name()); err != nil {
-			logger.WithError(err).Warn("Failed to remove temporary file",
-				logging.Field{Key: "file", Value: tempFile.Name()})
-		}
-	}()
-	defer func() {
 		if err := tempFile.Close(); err != nil {
 			logger.WithError(err).Warn("Failed to close temporary file",
+				logging.Field{Key: "file", Value: tempFile.Name()})
+		}
+		if err := os.Remove(tempFile.Name()); err != nil {
+			logger.WithError(err).Warn("Failed to remove temporary file",
 				logging.Field{Key: "file", Value: tempFile.Name()})
 		}
 	}()
