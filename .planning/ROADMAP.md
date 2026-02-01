@@ -69,10 +69,12 @@ Plans:
   2. CLI initialization failures produce clear user-facing error messages instead of panics
   3. PDF parser uses single temp file path instead of creating multiple temp files
 
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Define error handling patterns and document in CONVENTIONS.md
+- [ ] 03-02-PLAN.md — Apply error patterns to commands and fix categorize init panic
+- [ ] 03-03-PLAN.md — Consolidate PDF parser to single temp directory
 
 ### Phase 4: Test Coverage & Safety
 **Goal**: Test suite thoroughly validates edge cases and safety features protect user data
@@ -102,9 +104,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Critical Bugs & Security | 3/3 | Complete | 2026-02-01 |
 | 2. Configuration & State Cleanup | 1/1 | Complete | 2026-02-01 |
-| 3. Architecture & Error Handling | 0/? | Not started | - |
+| 3. Architecture & Error Handling | 0/3 | Ready to execute | - |
 | 4. Test Coverage & Safety | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-01 after phase 2 completion*
+*Last updated: 2026-02-01 after phase 3 planning*
