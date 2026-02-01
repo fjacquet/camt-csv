@@ -18,16 +18,16 @@ import (
 
 // Parse extracts and parses transaction data from a PDF file provided as an io.Reader.
 // This function uses the default RealPDFExtractor for backward compatibility.
-func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
+func Parse(ctx context.Context, r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
-	return ParseWithExtractor(r, NewRealPDFExtractor(), logger)
+	return ParseWithExtractor(ctx, r, NewRealPDFExtractor(), logger)
 }
 
 // ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
-func ParseWithExtractor(r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithExtractorAndCategorizer(context.Background(), r, extractor, logger, nil)
+func ParseWithExtractor(ctx context.Context, r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
+	return ParseWithExtractorAndCategorizer(ctx, r, extractor, logger, nil)
 }
 
 // ParseWithExtractorAndCategorizer extracts and parses transaction data from a PDF file using the provided extractor and categorizer.
@@ -117,11 +117,11 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 
 // ConvertToCSV converts a PDF bank statement to the standard CSV format.
 // This is a convenience function that combines Parse and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string) error {
-	return ConvertToCSVWithLogger(inputFile, outputFile, nil)
+func ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
+	return ConvertToCSVWithLogger(ctx, inputFile, outputFile, nil)
 }
 
-func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger) error {
+func ConvertToCSVWithLogger(ctx context.Context, inputFile, outputFile string, logger logging.Logger) error {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -138,7 +138,7 @@ func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger)
 	}()
 
 	// Parse the file using the new Parse method
-	transactions, err := Parse(file, logger)
+	transactions, err := Parse(ctx, file, logger)
 	if err != nil {
 		return err
 	}

@@ -424,7 +424,7 @@ func TestParseWithExtractor(t *testing.T) {
 01.01.25 02.01.25 Test Transaction CHF 100.50`
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
-	transactions, err := ParseWithExtractor(file, mockExtractor, logger)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.NoError(t, err)
 	// Note: Actual parsing depends on the text format recognition
 	assert.NotNil(t, transactions)
@@ -478,7 +478,7 @@ func TestParseWithNilLogger(t *testing.T) {
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
 	// Should work with nil logger (creates default)
-	transactions, err := ParseWithExtractor(file, mockExtractor, nil)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, transactions)
 }
@@ -500,7 +500,7 @@ func TestParseWithExtractorError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
 
-	_, err = ParseWithExtractor(file, mockExtractor, logger)
+	_, err = ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.Error(t, err)
 }
 
@@ -523,7 +523,7 @@ func TestParseFileFunction(t *testing.T) {
 01.01.25 02.01.25 Test Transaction CHF 100.50`
 	mockExtractor := NewMockPDFExtractor(mockText, nil)
 
-	transactions, err := ParseWithExtractor(file, mockExtractor, logger)
+	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, transactions)
 }
@@ -534,7 +534,7 @@ func TestParseFileWithInvalidFile(t *testing.T) {
 
 	// Test with a string reader that simulates file not found
 	reader := strings.NewReader("")
-	_, err := ParseWithExtractor(reader, mockExtractor, logger)
+	_, err := ParseWithExtractor(context.Background(), reader, mockExtractor, logger)
 	assert.Error(t, err)
 }
 
@@ -548,7 +548,7 @@ func TestConvertToCSVFunction(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	err = ConvertToCSVWithLogger(inputFile, outputFile, logger)
+	err = ConvertToCSVWithLogger(context.Background(), inputFile, outputFile, logger)
 	// This might fail due to real PDF extraction, but we're testing the function exists
 	// The error is expected since we're using a dummy file
 	assert.Error(t, err) // Expected to fail with dummy content
@@ -560,7 +560,7 @@ func TestConvertToCSVWithInvalidInput(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	err := ConvertToCSVWithLogger("/nonexistent/file.pdf", outputFile, logger)
+	err := ConvertToCSVWithLogger(context.Background(), "/nonexistent/file.pdf", outputFile, logger)
 	assert.Error(t, err)
 }
 
@@ -1108,7 +1108,7 @@ func TestConvertToCSVFunctionWrapper(t *testing.T) {
 	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
 	require.NoError(t, err)
 
-	err = ConvertToCSV(inputFile, outputFile)
+	err = ConvertToCSV(context.Background(), inputFile, outputFile)
 	assert.Error(t, err) // Expected to fail with real PDF extraction
 }
 
