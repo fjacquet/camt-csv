@@ -9,7 +9,9 @@ import (
 // NewMockLogger creates a new MockLogger instance for testing.
 func NewMockLogger() *MockLogger {
 	entries := make([]LogEntry, 0)
+	mu := &sync.RWMutex{}
 	return &MockLogger{
+		mu:            mu,
 		entries:       &entries,
 		pendingError:  nil,
 		pendingFields: nil,
@@ -20,11 +22,11 @@ func NewMockLogger() *MockLogger {
 // It captures log entries for verification in tests.
 // It is thread-safe for concurrent use.
 //
-// Note: entries is a pointer to a slice, which allows child loggers created
-// via WithError/WithFields to share the same log entry collection with the
-// parent logger, while maintaining independent pending fields and errors.
+// Note: entries and mu are pointers shared across parent and child loggers
+// created via WithError/WithFields, ensuring the same mutex protects the
+// same entries slice even when accessed from different MockLogger instances.
 type MockLogger struct {
-	mu            sync.RWMutex
+	mu            *sync.RWMutex
 	entries       *[]LogEntry // Shared across parent and child loggers
 	pendingError  error
 	pendingFields []Field
@@ -33,6 +35,7 @@ type MockLogger struct {
 // Entries returns all captured log entries.
 // Deprecated: Use GetEntries() instead for thread-safe access.
 func (m *MockLogger) Entries() []LogEntry {
+	m.ensureMutexInitialized()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
@@ -51,6 +54,7 @@ type LogEntry struct {
 
 // Debug logs a debug-level message with optional fields.
 func (m *MockLogger) Debug(msg string, fields ...Field) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -61,6 +65,15 @@ func (m *MockLogger) Debug(msg string, fields ...Field) {
 		Fields:  allFields,
 		Error:   m.pendingError,
 	})
+}
+
+// ensureMutexInitialized ensures the mutex pointer is initialized.
+// This handles cases where MockLogger is created via struct literal instead of NewMockLogger.
+// NOT thread-safe itself — callers must handle initialization ordering.
+func (m *MockLogger) ensureMutexInitialized() {
+	if m.mu == nil {
+		m.mu = &sync.RWMutex{}
+	}
 }
 
 // ensureEntriesInitialized ensures the entries pointer is initialized.
@@ -75,6 +88,7 @@ func (m *MockLogger) ensureEntriesInitialized() {
 
 // Info logs an info-level message with optional fields.
 func (m *MockLogger) Info(msg string, fields ...Field) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -89,6 +103,7 @@ func (m *MockLogger) Info(msg string, fields ...Field) {
 
 // Warn logs a warning-level message with optional fields.
 func (m *MockLogger) Warn(msg string, fields ...Field) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -103,6 +118,7 @@ func (m *MockLogger) Warn(msg string, fields ...Field) {
 
 // Error logs an error-level message with optional fields.
 func (m *MockLogger) Error(msg string, fields ...Field) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -116,12 +132,14 @@ func (m *MockLogger) Error(msg string, fields ...Field) {
 }
 
 // WithError returns a new logger with an error field attached.
-// The child logger shares the same entries collection but has independent pending error.
+// The child logger shares the same entries collection and mutex but has independent pending error.
 func (m *MockLogger) WithError(err error) Logger {
+	m.ensureMutexInitialized()
 	m.mu.Lock() // Need write lock to potentially initialize entries
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized() // Ensure entries are initialized before sharing
 	return &MockLogger{
+		mu:            m.mu,      // Share the same mutex
 		entries:       m.entries, // Share the same entries pointer
 		pendingError:  err,
 		pendingFields: m.pendingFields,
@@ -134,13 +152,15 @@ func (m *MockLogger) WithField(key string, value interface{}) Logger {
 }
 
 // WithFields returns a new logger with multiple fields attached.
-// The child logger shares the same entries collection but has independent pending fields.
+// The child logger shares the same entries collection and mutex but has independent pending fields.
 func (m *MockLogger) WithFields(fields ...Field) Logger {
+	m.ensureMutexInitialized()
 	m.mu.Lock() // Need write lock to potentially initialize entries
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized() // Ensure entries are initialized before sharing
 	allFields := append(m.pendingFields, fields...)
 	return &MockLogger{
+		mu:            m.mu,      // Share the same mutex
 		entries:       m.entries, // Share the same entries pointer
 		pendingError:  m.pendingError,
 		pendingFields: allFields,
@@ -150,6 +170,7 @@ func (m *MockLogger) WithFields(fields ...Field) Logger {
 // Fatal logs a fatal-level message and exits the program.
 // In the mock implementation, we don't actually exit.
 func (m *MockLogger) Fatal(msg string, fields ...Field) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -165,6 +186,7 @@ func (m *MockLogger) Fatal(msg string, fields ...Field) {
 // Fatalf logs a fatal-level message with formatting and exits the program.
 // In the mock implementation, we don't actually exit.
 func (m *MockLogger) Fatalf(msg string, args ...interface{}) {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ensureEntriesInitialized()
@@ -178,6 +200,7 @@ func (m *MockLogger) Fatalf(msg string, args ...interface{}) {
 
 // GetEntries returns all captured log entries.
 func (m *MockLogger) GetEntries() []LogEntry {
+	m.ensureMutexInitialized()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
@@ -188,6 +211,7 @@ func (m *MockLogger) GetEntries() []LogEntry {
 
 // GetEntriesByLevel returns all log entries of a specific level.
 func (m *MockLogger) GetEntriesByLevel(level string) []LogEntry {
+	m.ensureMutexInitialized()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
@@ -204,6 +228,7 @@ func (m *MockLogger) GetEntriesByLevel(level string) []LogEntry {
 
 // Clear removes all captured log entries.
 func (m *MockLogger) Clear() {
+	m.ensureMutexInitialized()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.entries != nil {
@@ -213,6 +238,7 @@ func (m *MockLogger) Clear() {
 
 // HasEntry checks if a log entry with the given level and message exists.
 func (m *MockLogger) HasEntry(level, message string) bool {
+	m.ensureMutexInitialized()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
@@ -230,6 +256,7 @@ func (m *MockLogger) HasEntry(level, message string) bool {
 // Returns true if found, false otherwise.
 // If verification fails and entries exist, prints all log entries for debugging.
 func (m *MockLogger) VerifyFatalLog(expectedMessage string) bool {
+	m.ensureMutexInitialized()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.entries == nil {
