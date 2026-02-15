@@ -48,6 +48,9 @@ Recent decisions affecting v1.2:
 - v1.2: Revolut parser upgrade to 35-column format for consistency
 - v1.2: Exchange transactions preserved with both currencies visible
 - v1.2: AI auto-learn defaults to OFF (user must enable)
+- v1.2: Revolut Savings product maps to separate iCompta account ("Revolut CHF Vacances")
+- v1.2: Account routing by Product+Currency: Current/CHF→Revolut CHF, Savings/CHF→Revolut CHF Vacances, Current/EUR→Revolut EUR
+- v1.2: iCompta import plugins already exist in user's DB (CSV-Revolut-CHF, CSV-Revolut-EUR, CSV-RevInvest) — match their column names and use semicolon separator + dd.MM.yyyy dates
 
 ### Pending Todos
 
