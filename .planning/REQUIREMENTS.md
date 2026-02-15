@@ -73,30 +73,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REV-01 | — | Pending |
-| REV-02 | — | Pending |
-| REV-03 | — | Pending |
-| REV-04 | — | Pending |
-| REV-05 | — | Pending |
-| RINV-01 | — | Pending |
-| RINV-02 | — | Pending |
-| RINV-03 | — | Pending |
-| OUT-01 | — | Pending |
-| OUT-02 | — | Pending |
-| OUT-03 | — | Pending |
-| OUT-04 | — | Pending |
-| AI-01 | — | Pending |
-| AI-02 | — | Pending |
-| AI-03 | — | Pending |
-| BATCH-01 | — | Pending |
-| BATCH-02 | — | Pending |
-| BATCH-03 | — | Pending |
+| OUT-01 | Phase 5 | Pending |
+| OUT-02 | Phase 5 | Pending |
+| OUT-03 | Phase 5 | Pending |
+| OUT-04 | Phase 5 | Pending |
+| REV-01 | Phase 6 | Pending |
+| REV-02 | Phase 6 | Pending |
+| REV-03 | Phase 6 | Pending |
+| REV-04 | Phase 6 | Pending |
+| REV-05 | Phase 6 | Pending |
+| RINV-01 | Phase 6 | Pending |
+| RINV-02 | Phase 6 | Pending |
+| RINV-03 | Phase 6 | Pending |
+| BATCH-02 | Phase 6 | Pending |
+| BATCH-01 | Phase 7 | Pending |
+| BATCH-03 | Phase 7 | Pending |
+| AI-01 | Phase 8 | Pending |
+| AI-02 | Phase 8 | Pending |
+| AI-03 | Phase 8 | Pending |
 
 **Coverage:**
+
 - v1.2 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18/18 ✓
+- Unmapped: 0
+
+**Note:** BATCH-02 (Revolut Investment batch support) and RINV-03 (Batch conversion support) cover the same capability and are both mapped to Phase 6.
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after initial definition*
+*Last updated: 2026-02-15 after roadmap creation*
