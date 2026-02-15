@@ -5,6 +5,7 @@
 ## APIs & External Services
 
 **AI Categorization:**
+
 - **Google Gemini API** - LLM-based transaction categorization fallback
   - SDK/Client: Native HTTP client via `net/http`
   - Implementation: `internal/categorizer/gemini_client.go`
@@ -18,12 +19,15 @@
 ## Data Storage
 
 **Databases:**
+
 - **None** - No relational or NoSQL database required
 
 **File Storage:**
+
 - Local filesystem only - YAML configuration files serve as persistent storage
 
 **YAML Configuration Database:**
+
 - Location: `database/` directory (relative) or from Viper config path resolution
 - Files:
   - `categories.yaml` - Category definitions with keyword rules
@@ -38,14 +42,17 @@
   4. `$HOME/.config/camt-csv/` (home directory fallback)
 
 **Caching:**
+
 - None - All data loaded from YAML files on demand
 
 ## Authentication & Identity
 
 **Auth Provider:**
+
 - None - No user authentication system
 
 **API Authentication:**
+
 - **Gemini API**: API Key via `GEMINI_API_KEY` environment variable
   - Requirement: Must be set in environment when `CAMT_AI_ENABLED=true`
   - Configuration validation enforces this in `internal/config/viper.go`
@@ -54,9 +61,11 @@
 ## Monitoring & Observability
 
 **Error Tracking:**
+
 - None - Application logs errors to console/file via logrus
 
 **Logs:**
+
 - Structured logging via **sirupsen/logrus**
 - Format: Text (default) or JSON
 - Levels: trace, debug, info, warn, error, fatal, panic
@@ -66,10 +75,12 @@
 ## CI/CD & Deployment
 
 **Hosting:**
+
 - Deployed as standalone binary (no container/serverless requirement)
 - Statically compilable with `CGO_ENABLED=0 go build`
 
 **CI Pipeline:**
+
 - SLSA GoReleaser configured (`.slsa-goreleaser.yml`) for release automation
 - Version injection via git tags in build process
 - GitHub Actions capability (`.github/` directory present)
@@ -77,9 +88,11 @@
 ## Environment Configuration
 
 **Required env vars (when AI enabled):**
+
 - `GEMINI_API_KEY` - Google Gemini API key (required if `CAMT_AI_ENABLED=true`)
 
 **Optional env vars:**
+
 - `CAMT_LOG_LEVEL` - Log level (default: info)
 - `CAMT_LOG_FORMAT` - Log format (default: text)
 - `CAMT_AI_ENABLED` - Enable AI categorization (default: false)
@@ -88,6 +101,7 @@
 - `CAMT_DATA_DIRECTORY` - Data directory path (optional)
 
 **Secrets location:**
+
 - Environment variables only
 - `.env` file auto-loaded from current directory via `github.com/joho/godotenv`
 - Environment file NOT committed (`.env` in `.gitignore`)
@@ -95,14 +109,17 @@
 ## Webhooks & Callbacks
 
 **Incoming:**
+
 - None - CLI application, no webhook endpoints
 
 **Outgoing:**
+
 - None - No outbound callbacks or notifications
 
 ## External System Dependencies
 
 **OS-Level Tool:**
+
 - **pdftotext** (from Poppler utils) - Required for PDF statement parsing
   - Invoked via `os/exec` in `internal/pdfparser/pdfparser_helpers.go`
   - Command: `pdftotext -layout -raw <input> <output>`
@@ -111,6 +128,7 @@
 ## Data Format Support (Input)
 
 **File Formats Parsed:**
+
 - CAMT.053 XML (ISO 20022) - Bank statements from XML exports
 - PDF - Bank statements (requires pdftotext extraction + parsing)
 - CSV - Revolut export format
@@ -119,11 +137,13 @@
 - JSON/YAML - Investment transaction exports (Revolut investment accounts)
 
 **Output Format:**
+
 - CSV (standardized format with configurable delimiter)
 
 ## Rate Limiting & Quotas
 
 **Gemini API:**
+
 - Default: 10 requests per minute (configurable via `CAMT_AI_MODEL`)
 - Timeout per request: 30 seconds (hardcoded)
 - No automatic retry logic (caller must handle)

@@ -43,6 +43,7 @@ Reliable, maintainable financial data conversion with intelligent categorization
 **Goal:** Overhaul Revolut parsers with transaction-type intelligence, standardize CSV output across all parsers for iCompta import compatibility, add AI auto-learn safety, and bring batch support everywhere.
 
 **Target features:**
+
 - Revolut transaction type intelligence (Exchange, Card Payment, Transfer, Deposit, Fee, Refund, Charge)
 - Revolut multi-currency/multi-product awareness (Current/Savings, CHF/EUR per-file)
 - Standardize Revolut output to full CSV format matching other parsers
@@ -74,6 +75,7 @@ Key tables: ICAccount, ICTransaction, ICTransactionSplit, ICCategory, ICCurrency
 iCompta supports CSV import via configurable ICImportPlugin with column mapping.
 
 **Real Revolut data profile** (from 2022-2026 exports):
+
 - File 1 (CHF): 2,126 txns — Transfer (1,237), Card Payment (683), Exchange (135), Deposit (64), Fee (4), Charge (2), Card Refund (1)
 - File 2 (EUR): 184 txns — Exchange (90), Card Payment (84), Transfer (6), Card Refund (3), Deposit (1)
 - Products: Current + Savings. States: COMPLETED (2,121), REVERTED (4), PENDING (1)

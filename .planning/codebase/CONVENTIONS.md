@@ -112,6 +112,7 @@ This section defines three error severity levels that guide when to exit, retry,
 Use when the application cannot continue because core requirements are not met.
 
 **When to use:**
+
 - Configuration file missing or invalid (cannot load config)
 - Container initialization failure (dependency injection broken)
 - Required CLI flags missing (user input validation failure)
@@ -121,6 +122,7 @@ Use when the application cannot continue because core requirements are not met.
 **Log level:** `Fatal` (exits immediately with non-zero status)
 
 **Pattern:**
+
 ```go
 if appContainer == nil {
     log.Fatal("Container not initialized - check configuration")
@@ -128,6 +130,7 @@ if appContainer == nil {
 ```
 
 **Error message format:**
+
 - Include specific context: file path, missing flag, configuration key
 - Provide actionable guidance: what to fix, where to look
 - Example: `"Failed to read input file: /path/to/file.xml: permission denied"`
@@ -137,6 +140,7 @@ if appContainer == nil {
 Use for transient failures that may succeed on retry. Currently logged and gracefully degraded; future versions may implement automatic retry logic.
 
 **When to use:**
+
 - Network errors (AI API calls, external services)
 - Temporary file system issues (disk full, temporary lock contention)
 - Rate limiting from external APIs
@@ -145,6 +149,7 @@ Use for transient failures that may succeed on retry. Currently logged and grace
 **Log level:** `Warn` (operation failed but application continues)
 
 **Pattern:**
+
 ```go
 // Currently: log and continue with degraded functionality
 if err := categorizer.Categorize(ctx, tx); err != nil {
@@ -155,6 +160,7 @@ if err := categorizer.Categorize(ctx, tx); err != nil {
 ```
 
 **Error message format:**
+
 - Include operation context: which transaction, which API
 - Indicate degraded state: "transaction left uncategorized"
 - Example: `"AI categorization failed for party 'Amazon': rate limit exceeded - transaction uncategorized"`
@@ -166,6 +172,7 @@ if err := categorizer.Categorize(ctx, tx); err != nil {
 Use for non-critical failures that don't affect core functionality.
 
 **When to use:**
+
 - Single transaction parsing failures (when batch continues)
 - Optional categorization failures (transaction still saved)
 - Non-critical file cleanup failures (temp files, logging files)
@@ -175,6 +182,7 @@ Use for non-critical failures that don't affect core functionality.
 **Log level:** `Warn` (for user awareness) or `Debug` (for troubleshooting)
 
 **Pattern:**
+
 ```go
 // Cleanup failure example
 if err := tempFile.Close(); err != nil {
@@ -196,6 +204,7 @@ logger.WithError(parseErr).Warn("Transaction parsing failed - using fallback",
 ```
 
 **Error message format:**
+
 - Include failed operation details: file path, transaction index
 - Indicate impact: "transaction created with minimal data", "cleanup skipped"
 - Example: `"Failed to close temporary file: /tmp/pdf-12345.tmp - file may remain on disk"`
@@ -205,6 +214,7 @@ logger.WithError(parseErr).Warn("Transaction parsing failed - using fallback",
 All custom error types are defined in `internal/parsererror/` and implement the `error` interface with `Unwrap()` support for error chain inspection.
 
 **Available types:**
+
 - `ParseError` - Parsing failures with parser name, field, value
 - `ValidationError` - Format validation failures with reason
 - `CategorizationError` - Categorization strategy failures
@@ -212,6 +222,7 @@ All custom error types are defined in `internal/parsererror/` and implement the 
 - `DataExtractionError` - Field extraction failures with raw data snippet
 
 **Integration with severity levels:**
+
 - Custom errors wrapped with context using `fmt.Errorf("...: %w", err)`
 - Checked with `errors.Is()` and `errors.As()` for specific handling
 - Fatal errors: propagate to command handler → `log.Fatal()`
@@ -219,6 +230,7 @@ All custom error types are defined in `internal/parsererror/` and implement the 
 - Recoverable errors: log at Warn/Debug level, continue
 
 **Example:**
+
 ```go
 // From cmd/common/process.go
 if err := p.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
@@ -229,6 +241,7 @@ if err := p.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
 #### init() Function Error Handling
 
 **AVOID: panic in init()**
+
 ```go
 // BAD: Crashes immediately with poor error context
 func init() {
@@ -239,6 +252,7 @@ func init() {
 ```
 
 **PREFER: Let Cobra handle flag errors**
+
 ```go
 // GOOD: Cobra provides clear error messages for missing required flags
 func init() {
@@ -248,12 +262,14 @@ func init() {
 ```
 
 **Rationale:**
+
 - `panic()` in `init()` causes immediate crash with stack trace, poor user experience
 - Cobra automatically validates required flags and shows clear usage message
 - `MarkFlagRequired()` errors are programmer errors (flag doesn't exist), not runtime errors
 - If flag name is wrong, unit tests will catch it during command initialization
 
 **Alternative for critical init errors:**
+
 ```go
 // For truly critical initialization that must run
 var initErr error

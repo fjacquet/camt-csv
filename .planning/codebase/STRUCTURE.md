@@ -82,23 +82,27 @@ camt-csv/
 ## Directory Purposes
 
 **cmd/ - CLI Commands:**
+
 - Purpose: Expose application functionality through command-line interface using Cobra
 - Contains: Command definitions, flag parsing, user-facing error messages
 - Key files: Root command orchestration in `cmd/root/root.go`
 - Convention: Each format has a directory with `convert.go` containing the command handler
 
 **internal/parser/ - Parser Interfaces & Base:**
+
 - Purpose: Define segregated parser interfaces and provide base implementation
 - Key files: `parser.go` (interfaces), `base.go` (BaseParser for embedding)
 - Pattern: All parsers embed BaseParser and implement segregated interfaces from here
 
 **internal/{format}parser/ - Format-Specific Parsers:**
+
 - Purpose: Transform format-specific input into standardized Transaction model
 - Structure: `adapter.go` (implements FullParser), `{format}parser.go` (core logic), `adapter_test.go`
 - Pattern: Adapter embeds BaseParser, implements Parse() with format-specific logic
 - Examples: `internal/camtparser/adapter.go`, `internal/revolutparser/adapter.go`
 
 **internal/categorizer/ - Categorization Engine:**
+
 - Purpose: Apply multi-strategy transaction categorization with auto-learning
 - Key files:
   - `categorizer.go` - Orchestrator that runs strategies in priority order
@@ -110,6 +114,7 @@ camt-csv/
 - Pattern: Strategies implement common interface, executed in sequence until match
 
 **internal/models/ - Core Data Structures:**
+
 - Purpose: Define domain models used throughout application
 - Key files:
   - `transaction.go` - Transaction model (64 fields for various formats)
@@ -118,12 +123,14 @@ camt-csv/
 - Convention: Export models with many fields for flexibility across parser formats
 
 **internal/container/ - Dependency Injection:**
+
 - Purpose: Centralized wiring of all dependencies at application startup
 - Key file: `container.go` - Creates logger, config, store, categorizer, all parsers
 - Pattern: Immutable Container with private fields, public getter methods
 - Usage: Get from root command via `root.GetContainer()`
 
 **internal/config/ - Configuration Management:**
+
 - Purpose: Load application configuration from multiple sources with hierarchy
 - Key files:
   - `viper.go` - Viper-based configuration loading
@@ -132,18 +139,21 @@ camt-csv/
 - Usage: Loaded in root.Init() and passed to Container
 
 **internal/store/ - Persistence:**
+
 - Purpose: Load and save category configurations to YAML files
 - Key file: `store.go` - CategoryStore for finding and loading YAML files
 - Files managed: `database/categories.yaml`, `database/creditors.yaml`, `database/debtors.yaml`
 - Pattern: FindConfigFile() searches standard locations (current dir, ./database/, ~/.config/)
 
 **internal/logging/ - Structured Logging:**
+
 - Purpose: Abstract logging implementation behind interface for testability
 - Key files: `logrus_adapter.go` (implements Logger interface), `logger.go` (interface)
 - Pattern: LogrusAdapter wraps sirupsen/logrus, exposes Logger interface
 - Usage: Passed to components via SetLogger() method
 
 **internal/parsererror/ - Error Types:**
+
 - Purpose: Custom error types with structured context for better error handling
 - Types:
   - ParseError - Parser failures with field/value context
@@ -154,6 +164,7 @@ camt-csv/
 - Pattern: All implement error interface with Unwrap() for error chain inspection
 
 **database/ - Configuration Data:**
+
 - Purpose: Store category definitions and auto-learned mappings
 - Files (not generated, committed):
   - `categories.yaml` - Category definitions with matching keywords
@@ -164,20 +175,24 @@ camt-csv/
 ## Key File Locations
 
 **Entry Points:**
+
 - `main.go` (line 1-89) - Binary entry point, loads .env, calls root.Init(), executes CLI
 - `cmd/root/root.go` - Root command definition, container initialization, shared flags
 
 **Configuration & DI:**
+
 - `internal/config/viper.go` - Config loading with Viper hierarchy
 - `internal/container/container.go` - Dependency injection setup, parser registration
 
 **Interfaces & Abstractions:**
+
 - `internal/parser/parser.go` - Segregated parser interfaces (Parser, Validator, CSVConverter, etc.)
 - `internal/models/categorizer.go` - TransactionCategorizer interface
 - `internal/models/transaction.go` - Transaction model with 64 exported fields
 - `internal/parser/base.go` - BaseParser for embedding in concrete parsers
 
 **Core Parsers (by file count & complexity):**
+
 - `internal/camtparser/` - CAMT.053 XML parser (most complex, ISO 20022 standard)
 - `internal/pdfparser/` - PDF text extraction parser
 - `internal/revolutparser/` - Revolut CSV parser
@@ -186,6 +201,7 @@ camt-csv/
 - `internal/revolutinvestmentparser/` - Investment statement parser
 
 **Categorization:**
+
 - `internal/categorizer/categorizer.go` - Multi-strategy orchestrator
 - `internal/categorizer/direct_mapping.go` - Exact name lookup
 - `internal/categorizer/keyword.go` - Keyword-based matching
@@ -193,6 +209,7 @@ camt-csv/
 - `internal/categorizer/gemini_client.go` - Gemini API client
 
 **Testing & Mocks:**
+
 - Each internal package has `*_test.go` files
 - Mock implementations: `container/container_test.go`, `store/mock.go`
 - Test data: `internal/categorizer/testdata/`
@@ -200,6 +217,7 @@ camt-csv/
 ## Naming Conventions
 
 **Files:**
+
 - Go source: `{descriptor}.go` (e.g., `transaction.go`, `categorizer.go`, `adapter.go`)
 - Tests: `{descriptor}_test.go` (e.g., `transaction_test.go`, `adapter_test.go`)
 - Acceptance/special tests: `{descriptor}_internal_test.go` (e.g., `convert_internal_test.go`)
@@ -207,16 +225,19 @@ camt-csv/
 - Documentation: `*.md` in `docs/` and root directory
 
 **Directories:**
+
 - Internal packages: All lowercase with no underscores (e.g., `camtparser`, `revolutparser`, `categorizer`)
 - Format prefixes: `{format}parser` (e.g., `camtparser`, `pdfparser`, `revolutparser`)
 - Utility packages: Descriptive names (e.g., `dateutils`, `textutils`, `xmlutils`)
 
 **Types (Go structs/interfaces):**
+
 - Public: PascalCase (e.g., `Transaction`, `Categorizer`, `BaseParser`)
 - Interfaces: PascalCase with descriptive names (e.g., `Parser`, `FullParser`, `Validator`, `TransactionCategorizer`)
 - Private: camelCase (e.g., `logger`, `categorizer`, `strategies`)
 
 **Functions/Methods:**
+
 - Public: PascalCase (e.g., `NewAdapter()`, `Parse()`, `Categorize()`, `GetLogger()`)
 - Getter pattern: `Get{Name}()` (e.g., `GetLogger()`, `GetCategorizer()`, `GetParser()`)
 - Setter pattern: `Set{Name}()` (e.g., `SetLogger()`, `SetCategorizer()`)
@@ -224,16 +245,19 @@ camt-csv/
 - Private: camelCase (e.g., `parseTransaction()`, `normalizeString()`)
 
 **Constants:**
+
 - Public: ALL_CAPS with underscores (e.g., `CAMT`, `PDF`, `Revolut` for ParserType)
 - Actually: Most constants use their descriptive names (e.g., `ErrInvalidFormat`, `OverallStatusCompliant`)
 
 **Packages:**
+
 - Lowercase single word (e.g., `models`, `container`, `categorizer`)
 - Multiple concepts: use shorter name (e.g., `camtparser` not `camt_parser`)
 
 ## Where to Add New Code
 
 **New Parser Format:**
+
 - Create: `internal/{format}parser/` directory
 - Files needed:
   - `{format}parser.go` - Core parsing logic
@@ -245,18 +269,21 @@ camt-csv/
 - Wire: Add to `main.go` init() via `root.Cmd.AddCommand()`
 
 **New Categorization Strategy:**
+
 - Create: File in `internal/categorizer/` named `{strategy_name}.go`
 - Implement: `CategorizationStrategy` interface from `internal/categorizer/strategy.go`
 - Register: Add to strategy slice in `internal/categorizer/categorizer.go`
 - Pattern: See `direct_mapping.go`, `keyword.go`, `semantic_strategy.go` as examples
 
 **New Utility Package:**
+
 - Create: `internal/{concept}utils/` directory (e.g., `newutils/`)
 - Convention: Keep focused on single responsibility
 - Export: Public functions with clear names
 - Test: Include `_test.go` with table-driven tests
 
 **New CLI Command:**
+
 - Create: `cmd/{command}/` directory with at least one `*.go` file
 - Pattern: Create Cobra Command and assign to `Cmd` variable
 - Wire: In `main.go` init(), add `root.Cmd.AddCommand({command}.Cmd)`
@@ -264,6 +291,7 @@ camt-csv/
 - Container: Get from root with `root.GetContainer()`
 
 **Adding Fields to Transaction Model:**
+
 - Edit: `internal/models/transaction.go`
 - Pattern: Add struct tag with `csv:"FieldName"` for CSV output
 - Use: `csv:"-"` to exclude from CSV output (e.g., `Payee`, `Payer` kept for backward compatibility)
@@ -271,12 +299,14 @@ camt-csv/
 - Tests: Add to test data in appropriate parser test files
 
 **New Logging:**
+
 - Pattern: Inject logger via constructor or SetLogger() method
 - Usage: `logger.Info("message")`, `logger.WithError(err).Warn("message")`
 - Structured fields: `logger.WithField("key", value).Debug("message")`
 - Never: Use `log` package directly or global loggers
 
 **New Configuration Options:**
+
 - Edit: `internal/config/config.go` - Add to Config struct
 - YAML: Add section to `internal/config/viper.go` configuration loading
 - Environment: Add env var mapping in viper.SetDefault() or BindEnv()
@@ -286,6 +316,7 @@ camt-csv/
 ## Special Directories
 
 **database/ - Configuration & Mappings:**
+
 - Purpose: Store category definitions and learned mappings
 - Generated: `creditors.yaml` and `debtors.yaml` are generated/auto-learned
 - Committed: `categories.yaml` is committed (canonical definitions)
@@ -293,30 +324,35 @@ camt-csv/
 - Location: Can be in project directory or user's `~/.camt-csv/` (store.FindConfigFile searches)
 
 **samples/ - Example Files:**
+
 - Purpose: Reference input files for each format for testing and documentation
 - Committed: Yes, checked into version control
 - Usage: Developers use for manual testing, documentation shows examples
 - Subdirectories: `camt053/`, `pdf/`, `revolut/`, `selma/`, `debit/`
 
 **docs/ - Documentation:**
+
 - Purpose: User guides, developer guides, architecture records
 - ADR: `docs/adr/` contains Architecture Decision Records
 - Committed: Yes, documentation is versioned
 - Format: Markdown files with clear structure
 
 **specs/ - Specification Documents:**
+
 - Purpose: Technical specifications and requirements
 - Contains: Implementation contracts, feature specs, issue details
 - Format: Markdown and YAML
 - Usage: References for development
 
 **temp/ and work/ - Scratch Directories:**
+
 - Purpose: Temporary working files during development
 - Committed: NO - these are .gitignored
 - Cleanup: Safe to delete, regenerated as needed
 - Usage: Debug output, test scripts, scratch notes
 
 **vendor/ - Dependencies (if used):**
+
 - Purpose: Would contain pinned Go module dependencies
 - Currently: Not present, using go.mod/go.sum instead
 - Behavior: `go mod download` fetches to GOPATH

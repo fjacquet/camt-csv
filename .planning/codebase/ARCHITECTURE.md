@@ -7,6 +7,7 @@
 **Overall:** Layered architecture with dependency injection container and interface-segregated components
 
 **Key Characteristics:**
+
 - Segregated parser interfaces following Interface Segregation Principle (ISP)
 - Dependency injection via centralized Container for wiring dependencies
 - Strategy pattern for transaction categorization with multiple strategies applied in priority order
@@ -17,6 +18,7 @@
 ## Layers
 
 **Presentation (CLI):**
+
 - Purpose: Expose application functionality through command-line interface
 - Location: `cmd/` directory with subcommands (camt, pdf, revolut, selma, debit, revolut-investment, batch, categorize, etc.)
 - Contains: Cobra commands, flag definitions, command handlers
@@ -24,6 +26,7 @@
 - Used by: End users through CLI
 
 **Application/Orchestration:**
+
 - Purpose: Coordinate execution of parsers and handle common processing workflows
 - Location: `cmd/common/process.go` and command handlers
 - Contains: File processing pipelines, validation logic, error handling orchestration
@@ -31,6 +34,7 @@
 - Used by: CLI commands
 
 **Parser Layer:**
+
 - Purpose: Transform various input formats into standardized Transaction model
 - Location: `internal/{format}parser/` packages (camtparser, pdfparser, revolutparser, selmaparser, debitparser, revolutinvestmentparser)
 - Contains: Format-specific parsing logic, validation, CSV conversion
@@ -38,6 +42,7 @@
 - Used by: Application layer and Container
 
 **Categorization Layer:**
+
 - Purpose: Apply multi-strategy transaction categorization with auto-learning
 - Location: `internal/categorizer/`
 - Contains: Strategy implementations (DirectMapping, Keyword, AI/Semantic), categorizer orchestrator
@@ -45,6 +50,7 @@
 - Used by: Parsers during transaction processing
 
 **Persistence Layer:**
+
 - Purpose: Load and save category configurations and mappings
 - Location: `internal/store/store.go`
 - Contains: YAML file I/O for categories.yaml, creditors.yaml, debtors.yaml
@@ -52,6 +58,7 @@
 - Used by: Categorizer, Container initialization
 
 **Configuration Layer:**
+
 - Purpose: Load and manage application configuration from files, environment, CLI flags
 - Location: `internal/config/` with Viper-based hierarchical configuration
 - Contains: Config struct, Viper initialization, logging configuration
@@ -59,6 +66,7 @@
 - Used by: Container, root command initialization
 
 **Support Layers:**
+
 - Logging: `internal/logging/` - LogrusAdapter abstraction for structured logging
 - Models: `internal/models/` - Core Transaction and Category data structures
 - Utilities: `internal/{dateutils, currencyutils, textutils, validation, xmlutils, fileutils}` - Reusable helpers
@@ -138,31 +146,37 @@
 ## Entry Points
 
 **main() → `main.go` line 84-89:**
+
 - Location: `/Users/fjacquet/Projects/camt-csv/main.go`
 - Triggers: Binary execution with any CLI command
 - Responsibilities: Load .env, configure logging, initialize root command, execute Cobra
 
 **init() → `main.go` line 22-43:**
+
 - Location: `/Users/fjacquet/Projects/camt-csv/main.go`
 - Triggers: Before main() when binary is loaded
 - Responsibilities: Register all subcommands (camt, pdf, revolut, etc.), call root.Init()
 
 **root.Init() → `cmd/root/root.go` line 169-201:**
+
 - Location: `/Users/fjacquet/Projects/camt-csv/cmd/root/root.go`
 - Triggers: Called during init()
 - Responsibilities: Define persistent flags, bind to Viper, add management commands
 
 **Cmd.PersistentPreRun → `cmd/root/root.go` line 50-63:**
+
 - Location: `/Users/fjacquet/Projects/camt-csv/cmd/root/root.go`
 - Triggers: Before ANY subcommand execution
 - Responsibilities: Initialize configuration via Viper, create Container with DI
 
 **Cmd.PersistentPostRun → `cmd/root/root.go` line 64-93:**
+
 - Location: `/Users/fjacquet/Projects/camt-csv/cmd/root/root.go`
 - Triggers: After ANY subcommand execution (success or failure with hook still running)
 - Responsibilities: Save discovered mappings to creditors.yaml and debtors.yaml
 
 **Subcommand Handlers → `cmd/{format}/convert.go`:**
+
 - Location: `cmd/camt/convert.go`, `cmd/pdf/convert.go`, etc.
 - Triggers: User runs `camt-csv camt --input X --output Y`
 - Responsibilities: Get parser from container, call common.ProcessFile(), handle user output
@@ -191,6 +205,7 @@
 ## Cross-Cutting Concerns
 
 **Logging:**
+
 - Framework: Logrus via LogrusAdapter abstraction
 - Approach: Structured logging with fields, passed as Logger interface
 - Initialization: `config.ConfigureLoggingFromConfig()` sets level/format from Config
@@ -198,6 +213,7 @@
 - Fields: `logging.Field{Key: "...", Value: ...}` for structured data
 
 **Configuration:**
+
 - Framework: Viper with hierarchical loading
 - Sources: YAML file → environment variables → CLI flags (CLI overrides)
 - Initialization: `config.InitializeConfig()` called in PersistentPreRun
@@ -205,11 +221,13 @@
 - Environment vars: `CAMT_LOG_LEVEL`, `GEMINI_API_KEY`, `CAMT_AI_ENABLED`, etc.
 
 **Context Propagation:**
+
 - Pattern: Context passed through call chains for cancellation/timeout
 - Usage: `Parse(ctx, reader)`, `Categorize(ctx, ...)`, `ConvertToCSV(ctx, ...)`
 - Benefit: Enables graceful cancellation of long-running operations (e.g., AI API calls)
 
 **Dependency Injection:**
+
 - Container pattern centralizes wiring at startup
 - All components receive dependencies via constructor parameters or SetXxx() methods
 - Immutable Container ensures consistent dependency graph throughout execution
