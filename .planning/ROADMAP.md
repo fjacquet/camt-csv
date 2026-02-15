@@ -53,7 +53,13 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
   3. User can configure date format in output (DD.MM.YYYY, YYYY-MM-DD, etc.)
   4. All parsers (CAMT, PDF, Revolut, Selma, Debit) support both standard and iCompta formats
   5. Legacy CSV output remains unchanged when using standard format (backward compatible)
-**Plans**: TBD
+
+**Plans**: 3 plans in 3 waves
+
+Plans:
+- [ ] 05-01-PLAN.md — Create OutputFormatter interface and implementations
+- [ ] 05-02-PLAN.md — Integrate formatters with CSV writing and DI container
+- [ ] 05-03-PLAN.md — Add CLI flags to all parser commands
 
 ### Phase 6: Revolut Parsers Overhaul
 
@@ -107,7 +113,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 | 2. Configuration & State Cleanup | v1.1 | 1/1 | Complete | 2026-02-01 |
 | 3. Architecture & Error Handling | v1.1 | 3/3 | Complete | 2026-02-01 |
 | 4. Test Coverage & Safety | v1.1 | 4/4 | Complete | 2026-02-01 |
-| 5. Output Framework | v1.2 | 0/? | Not started | - |
+| 5. Output Framework | v1.2 | 0/3 | Not started | - |
 | 6. Revolut Parsers Overhaul | v1.2 | 0/? | Not started | - |
 | 7. Batch Infrastructure | v1.2 | 0/? | Not started | - |
 | 8. AI Safety Controls | v1.2 | 0/? | Not started | - |
