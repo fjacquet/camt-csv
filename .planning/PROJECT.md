@@ -108,6 +108,15 @@ Known technical debt:
 | Shared pointer pattern for MockLogger | State isolation while maintaining entry collection | ✓ Good — tests can verify specific log messages |
 | Category backup enabled by default | Protects user data during auto-learning | ✓ Good — atomic behavior prevents data loss |
 | Accept TEST-01 as adequate | os.Exit testing is known Go limitation | ⚠️ Revisit — refactor logger injection if needed |
+| Target iCompta as import destination | User's actual finance app; CSV import with configurable field mapping | — v1.2 |
+| Include all Revolut transaction types | User wants full visibility; filtering can be done in iCompta | — v1.2 |
+| Include Exchange transactions as-is | Tagged with type, not hidden; cross-file pairing deferred to future | — v1.2 |
+| Separate iCompta account for Revolut Savings | CHF Vacances pocket has 688 txns; needs own account for proper tracking | — v1.2 |
+| Route by Product+Currency to iCompta account | Current/CHF→Revolut CHF, Savings/CHF→Revolut CHF Vacances, Current/EUR→Revolut EUR | — v1.2 |
+| Match existing iCompta import plugins | CSV-Revolut-CHF/EUR already configured in user's DB; use semicolon separator + dd.MM.yyyy | — v1.2 |
+| Output formatter is cross-parser | --format flag (standard, icompta) works on all parsers, not just Revolut | — v1.2 |
+| AI auto-learn defaults to OFF | Prevent silent miscategorization; user must opt-in with --auto-learn flag | — v1.2 |
+| No cross-file exchange pairing in v1.2 | Complex timing/rounding matching; each file processed independently | — Deferred |
 
 ---
 *Last updated: 2026-02-15 after v1.2 milestone start*
