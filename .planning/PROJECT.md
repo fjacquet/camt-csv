@@ -38,12 +38,25 @@ Reliable, maintainable financial data conversion with intelligent categorization
 
 ### Active
 
-(None yet — next milestone to be defined)
+**Current Milestone: v1.2 Full Polish**
+
+**Goal:** Overhaul Revolut parsers with transaction-type intelligence, standardize CSV output across all parsers for iCompta import compatibility, add AI auto-learn safety, and bring batch support everywhere.
+
+**Target features:**
+- Revolut transaction type intelligence (Exchange, Card Payment, Transfer, Deposit, Fee, Refund, Charge)
+- Revolut multi-currency/multi-product awareness (Current/Savings, CHF/EUR per-file)
+- Standardize Revolut output to full CSV format matching other parsers
+- Complete Revolut Investment parser (SELL, CUSTODY_FEE, batch support)
+- iCompta-compatible CSV output (field mapping for ICTransaction/ICTransactionSplit import)
+- AI auto-learn safety (--auto-learn flag, review before save)
+- Batch conversion support for PDF and Revolut Investment parsers
+- Configurable date format output
+- Gemini API rate limiting / resilience
 
 ### Out of Scope
 
-- Full PDF parser strategy pattern refactor — too large; minimal bug fixes only in v1.1
-- New input format parsers — hardening milestone, not feature development
+- Full PDF parser strategy pattern refactor — deferred to v2
+- New input format parsers (MT940, OFX, QIF) — future milestone
 - UI/web interface — CLI-only tool
 - Database backend — YAML file storage is sufficient for current scale
 - Replacing pdftotext dependency — separate initiative requiring evaluation of Go PDF libraries
@@ -56,11 +69,22 @@ External dependency on `pdftotext` (Poppler utils) for PDF parsing.
 Optional dependency on Google Gemini API for AI categorization.
 Codebase map available at `.planning/codebase/` with 7 analysis documents.
 
+**Target import app:** iCompta (macOS personal finance). Schema at `.planning/reference/icompta-schema.sql`.
+Key tables: ICAccount, ICTransaction, ICTransactionSplit, ICCategory, ICCurrency.
+iCompta supports CSV import via configurable ICImportPlugin with column mapping.
+
+**Real Revolut data profile** (from 2022-2026 exports):
+- File 1 (CHF): 2,126 txns — Transfer (1,237), Card Payment (683), Exchange (135), Deposit (64), Fee (4), Charge (2), Card Refund (1)
+- File 2 (EUR): 184 txns — Exchange (90), Card Payment (84), Transfer (6), Card Refund (3), Deposit (1)
+- Products: Current + Savings. States: COMPLETED (2,121), REVERTED (4), PENDING (1)
+- One file per currency, all account types mixed
+
 Known technical debt:
 
 - GetLogrusAdapter() creates new logger when mock injected (testing limitation)
 - YAML store lacks concurrent access protection (single-threaded per command currently)
 - PDF parser would benefit from strategy pattern refactor (deferred)
+- Revolut parser outputs simplified 4-column CSV while all others use 35-column standardized format
 
 ## Constraints
 
@@ -84,4 +108,4 @@ Known technical debt:
 | Accept TEST-01 as adequate | os.Exit testing is known Go limitation | ⚠️ Revisit — refactor logger injection if needed |
 
 ---
-*Last updated: 2026-02-01 after v1.1 milestone*
+*Last updated: 2026-02-15 after v1.2 milestone start*
