@@ -40,7 +40,7 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ iCompta format maps fields to ICTransaction columns with category — v1.2
 - ✓ Configurable --date-format flag on all parsers — v1.2
 - ✓ Revolut parser identifies all 8 transaction types — v1.2
-- ✓ Revolut parser outputs 35-column standardized CSV format — v1.2
+- ✓ Revolut parser outputs standardized CSV format (29 columns after v1.3 trim) — v1.2
 - ✓ Exchange transactions preserve original currency/amount metadata — v1.2
 - ✓ Product field (Current/Savings) in Transaction model and CSV output — v1.2
 - ✓ REVERTED/PENDING transactions logged when skipped — v1.2
@@ -56,15 +56,14 @@ Reliable, maintainable financial data conversion with intelligent categorization
 
 ### Active
 
-## Current Milestone: v1.3 Standard CSV Trim
+None — ready for next milestone.
 
-**Goal:** Remove redundant and dead fields from the 35-column standard CSV format, keeping only fields that carry actual data.
+### Shipped (v1.3)
 
-**Target features:**
-- Identify and remove clearly redundant fields (IsDebit, Recipient, etc.)
-- Update Transaction model, MarshalCSV, and StandardFormatter header
-- Update all parser tests and integration tests for new column count
-- Maintain backward compatibility of iCompta formatter (unchanged)
+- ✓ Standard CSV format trimmed from 35 to 29 columns — v1.3
+- ✓ Removed BookkeepingNumber, IsDebit, Debit, Credit, Recipient, AmountTax — v1.3
+- ✓ All parser tests and integration tests updated for 29-column format — v1.3
+- ✓ End-to-end tests for both standard and iCompta formats — v1.3
 
 ### Out of Scope
 
@@ -77,7 +76,7 @@ Reliable, maintainable financial data conversion with intelligent categorization
 
 ## Context
 
-Shipped v1.2 Full Polish with 43,619 LOC Go across 132 modified files.
+Shipped v1.3 Standard CSV Trim (29-column format). Previously shipped v1.2 Full Polish with 43,619 LOC Go across 132 modified files.
 Tech stack: Go 1.24.2, Cobra 1.10.2, Viper 1.21.0, Logrus 1.9.4.
 External dependency on `pdftotext` (Poppler utils) for PDF parsing.
 Optional dependency on Google Gemini API for AI categorization.
@@ -137,4 +136,4 @@ Known technical debt:
 | Confidence scoring per strategy tier | Audit trail for categorization decisions | ✓ Good — 1.0/0.95/0.90/0.8 per tier |
 
 ---
-*Last updated: 2026-02-16 after v1.3 milestone started*
+*Last updated: 2026-02-16 — v1.3 shipped*

@@ -7,10 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-02-16
+
+### Changed
+
+- **Standard CSV Format Trimmed to 29 Columns** (Phase 10): Remove 6 redundant/dead fields from standard CSV output
+  - Remove BookkeepingNumber (never populated by any parser)
+  - Remove IsDebit/DebitFlag (redundant with CreditDebit field)
+  - Remove Debit (derived from Amount + CreditDebit)
+  - Remove Credit (derived from Amount + CreditDebit)
+  - Remove Recipient (redundant with Name/PartyName)
+  - Remove AmountTax (never populated by any parser)
+  - Update MarshalCSV/UnmarshalCSV for 29-column format
+  - Update StandardFormatter header from 35 to 29 columns
+  - Fix hardcoded header in common/csv.go WriteTransactionsToCSVWithLogger
+
+### Added
+
+- **End-to-End Format Tests** (Phase 11): Integration tests verifying both output formats
+  - TestEndToEndConversion_StandardFormat validates 29-column standard CSV output
+  - TestEndToEndConversion_iComptaFormat validates 10-column semicolon-delimited output
+  - Explicit 29-column assertions in TestCrossParserConsistency
+
+## [1.2.0] - 2026-02-16
+
 ### Added
 
 - **Output Formatter Framework** (Phase 5): Pluggable CSV output formatting with strategy pattern
-  - `OutputFormatter` interface with `StandardFormatter` (34→35-column, comma-delimited) and `iComptaFormatter` (10-column, semicolon-delimited, dd.MM.yyyy dates)
+  - `OutputFormatter` interface with `StandardFormatter` (29-column, comma-delimited) and `iComptaFormatter` (10-column, semicolon-delimited, dd.MM.yyyy dates)
   - `FormatterRegistry` for managing formatters by name
   - `--format` CLI flag on all parser commands (camt, pdf, revolut, selma, debit, revolut-investment)
   - `ProcessFile()` refactored to use `Parse()` + `WriteTransactionsToCSVWithFormatter` pipeline
