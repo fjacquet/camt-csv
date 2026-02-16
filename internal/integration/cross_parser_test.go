@@ -63,11 +63,19 @@ func TestCrossParserConsistency(t *testing.T) {
 	assert.Equal(t, camtHeaders, selmaHeaders, "CAMT and Selma parsers should produce identical CSV headers")
 	assert.Equal(t, pdfHeaders, selmaHeaders, "PDF and Selma parsers should produce identical CSV headers")
 
-	// Verify essential columns are present
+	// Verify column count is exactly 29
+	assert.Equal(t, 29, len(camtHeaders), "CAMT CSV should have exactly 29 columns")
+	assert.Equal(t, 29, len(pdfHeaders), "PDF CSV should have exactly 29 columns")
+	assert.Equal(t, 29, len(selmaHeaders), "Selma CSV should have exactly 29 columns")
+
+	// Verify essential columns are present (29 columns total, removed dead fields)
 	expectedColumns := []string{
-		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName",
-		"PartyIBAN", "Description", "RemittanceInfo", "Amount", "CreditDebit",
-		"IsDebit", "Debit", "Credit", "Currency", "Category", "Type",
+		"Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+		"Description", "RemittanceInfo", "Amount", "CreditDebit", "Currency",
+		"Product", "AmountExclTax", "TaxRate", "InvestmentType", "Number",
+		"Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
+		"EntryReference", "Reference", "AccountServicer", "BankTxCode",
+		"OriginalCurrency", "OriginalAmount", "ExchangeRate",
 	}
 
 	for _, column := range expectedColumns {
