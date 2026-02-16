@@ -338,11 +338,12 @@ func TestConvertRowToTransaction_CashTopUpType(t *testing.T) {
 	assert.Equal(t, "1000", txn.Amount.String())
 }
 
-func TestConvertRowToTransaction_DefaultType(t *testing.T) {
+func TestConvertRowToTransaction_SellType(t *testing.T) {
 	row := RevolutInvestmentCSVRow{
 		Date:        "2025-05-30T10:31:05.452Z",
 		Ticker:      "TSLA",
-		Type:        "SELL",
+		Type:        "SELL - MARKET",
+		Quantity:    "10",
 		TotalAmount: "$500",
 		Currency:    "USD",
 		FXRate:      "1.0",
@@ -352,7 +353,47 @@ func TestConvertRowToTransaction_DefaultType(t *testing.T) {
 	txn, err := convertRowToTransaction(row, logger)
 	require.NoError(t, err)
 
-	assert.Equal(t, "SELL transaction for TSLA", txn.Description)
+	assert.Equal(t, "Sold 10 shares of TSLA", txn.Description)
+	assert.Equal(t, models.TransactionTypeCredit, txn.CreditDebit) // SELL is credit (money in)
+	assert.Equal(t, "500", txn.Amount.String())
+	assert.Equal(t, 10, txn.NumberOfShares)
+}
+
+func TestConvertRowToTransaction_CustodyFeeType(t *testing.T) {
+	row := RevolutInvestmentCSVRow{
+		Date:        "2025-05-30T10:31:05.452Z",
+		Ticker:      "AAPL",
+		Type:        "CUSTODY_FEE",
+		TotalAmount: "$2.50",
+		Currency:    "USD",
+		FXRate:      "1.0",
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	txn, err := convertRowToTransaction(row, logger)
+	require.NoError(t, err)
+
+	assert.Equal(t, "Custody fee for AAPL", txn.Description)
+	assert.Equal(t, models.TransactionTypeDebit, txn.CreditDebit) // Fees are debit (money out)
+	assert.Equal(t, "2.5", txn.Amount.String())
+	assert.Equal(t, "2.5", txn.Fees.String())
+}
+
+func TestConvertRowToTransaction_DefaultType(t *testing.T) {
+	row := RevolutInvestmentCSVRow{
+		Date:        "2025-05-30T10:31:05.452Z",
+		Ticker:      "TSLA",
+		Type:        "OTHER",
+		TotalAmount: "$500",
+		Currency:    "USD",
+		FXRate:      "1.0",
+	}
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	txn, err := convertRowToTransaction(row, logger)
+	require.NoError(t, err)
+
+	assert.Equal(t, "OTHER transaction for TSLA", txn.Description)
 	assert.Equal(t, models.TransactionTypeDebit, txn.CreditDebit)
 }
 

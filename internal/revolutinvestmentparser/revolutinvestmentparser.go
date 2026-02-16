@@ -230,6 +230,44 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 		builder = builder.WithDescription(fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)).
 			WithPayee(partyName, "")
 
+	case strings.Contains(row.Type, "SELL"):
+		logger.Debug("Processing SELL transaction")
+
+		// Parse quantity
+		if row.Quantity != "" {
+			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
+				builder = builder.WithNumberOfShares(int(quantity.IntPart()))
+			} else {
+				return models.Transaction{}, &parsererror.DataExtractionError{
+					FilePath:       "(from reader)",
+					FieldName:      "Quantity",
+					RawDataSnippet: row.Quantity,
+					Msg:            fmt.Sprintf("failed to parse quantity: %v", err),
+				}
+			}
+		}
+
+		// Parse total amount
+		amount := models.ParseAmount(row.TotalAmount)
+		builder = builder.WithAmount(amount, row.Currency).AsCredit() // SELL is incoming money
+
+		// Set description
+		description := fmt.Sprintf("Sold %s shares of %s", row.Quantity, row.Ticker)
+		builder = builder.WithDescription(description).WithPayer(partyName, "")
+
+	case strings.Contains(row.Type, "CUSTODY_FEE"):
+		logger.Debug("Processing CUSTODY_FEE transaction")
+
+		// Parse fee amount
+		amount := models.ParseAmount(row.TotalAmount)
+		builder = builder.WithAmount(amount, row.Currency).
+			AsDebit(). // Fees are outgoing
+			WithFees(amount)
+
+		// Set description
+		description := fmt.Sprintf("Custody fee for %s", row.Ticker)
+		builder = builder.WithDescription(description).WithPayee(partyName, "")
+
 	case strings.Contains(row.Type, "DIVIDEND"):
 		logger.Debug("Processing DIVIDEND transaction")
 
