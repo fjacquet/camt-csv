@@ -15,6 +15,7 @@ import (
 	"fjacquet/camt-csv/internal/models"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 // GeminiClient implements the AIClient interface for interacting with the Google Gemini API.
@@ -25,10 +26,12 @@ import (
 //   - Error messages MUST NOT include URLs or credentials
 //   - Only response bodies (which don't contain credentials) may be logged for debugging
 type GeminiClient struct {
-	apiKey     string // SECURITY: Never log this field or URLs containing it
-	model      string
-	httpClient *http.Client
-	log        logging.Logger
+	apiKey         string // SECURITY: Never log this field or URLs containing it
+	model          string
+	httpClient     *http.Client
+	log            logging.Logger
+	limiter        *rate.Limiter
+	requestsPerMin int // Store for reference in error messages
 }
 
 // GeminiRequest represents the request structure for Gemini API
@@ -68,7 +71,7 @@ type GeminiEmbeddingValues struct {
 }
 
 // NewGeminiClient creates a new instance of GeminiClient.
-func NewGeminiClient(logger logging.Logger) *GeminiClient {
+func NewGeminiClient(logger logging.Logger, requestsPerMinute int) *GeminiClient {
 	if logger == nil {
 		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
@@ -86,13 +89,25 @@ func NewGeminiClient(logger logging.Logger) *GeminiClient {
 		logger.WithField("model", model).Debug("Using GEMINI_MODEL from environment")
 	}
 
+	if requestsPerMinute <= 0 {
+		requestsPerMinute = 10 // Default fallback
+	}
+
+	// Create rate limiter: requestsPerMinute / 60 = requests per second
+	limiter := rate.NewLimiter(
+		rate.Limit(float64(requestsPerMinute)/60.0),
+		1, // Burst size = 1 (strict rate limiting, no bursting)
+	)
+
 	return &GeminiClient{
 		apiKey: apiKey,
 		model:  model,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		log: logger,
+		log:            logger,
+		limiter:        limiter,
+		requestsPerMin: requestsPerMinute,
 	}
 }
 
@@ -113,6 +128,12 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 		logging.Field{Key: "party_name", Value: transaction.PartyName},
 		logging.Field{Key: "description", Value: transaction.Description},
 	).Debug("Attempting to categorize transaction using Gemini API")
+
+	// Check rate limit before making API call
+	if !c.limiter.Allow() {
+		c.log.Warn("Rate limit exceeded, skipping categorization request")
+		return transaction, fmt.Errorf("rate limit exceeded: %d requests per minute limit reached", c.requestsPerMin)
+	}
 
 	// Make the API call
 	category, err := c.callGeminiAPI(ctx, prompt)

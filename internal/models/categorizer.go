@@ -7,6 +7,8 @@ import "context"
 type Category struct {
 	Name        string
 	Description string
+	Confidence  float64 // Range 0.0-1.0, representing confidence score
+	Source      string  // Strategy that produced this categorization (e.g., "direct_mapping", "keyword", "semantic", "ai")
 }
 
 // TransactionCategorizer defines the interface for categorizing transactions.
