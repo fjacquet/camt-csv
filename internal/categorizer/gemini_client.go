@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -135,8 +137,8 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 		return transaction, fmt.Errorf("rate limit exceeded: %d requests per minute limit reached", c.requestsPerMin)
 	}
 
-	// Make the API call
-	category, err := c.callGeminiAPI(ctx, prompt)
+	// Make the API call with retry logic
+	category, err := c.callGeminiAPIWithRetry(ctx, prompt)
 	if err != nil {
 		c.log.WithError(err).WithFields(
 			logging.Field{Key: "party_name", Value: transaction.PartyName},
@@ -162,6 +164,93 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 	}
 
 	return transaction, nil
+}
+
+// isRetryableError checks if an error is worth retrying
+func (c *GeminiClient) isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for timeout
+	if os.IsTimeout(err) {
+		return true
+	}
+
+	// Check for HTTP status codes in error message
+	errStr := err.Error()
+	if strings.Contains(errStr, "status 429") || // Too Many Requests
+		strings.Contains(errStr, "status 503") || // Service Unavailable
+		strings.Contains(errStr, "status 500") { // Internal Server Error (sometimes retryable)
+		return true
+	}
+
+	// Network errors are retryable
+	if strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "temporary failure") {
+		return true
+	}
+
+	return false
+}
+
+// callGeminiAPIWithRetry wraps callGeminiAPI with retry-backoff logic
+func (c *GeminiClient) callGeminiAPIWithRetry(ctx context.Context, prompt string) (string, error) {
+	const (
+		maxRetries        = 3
+		baseDelay         = 1 * time.Second
+		backoffMultiplier = 2.0
+		jitterFraction    = 0.2 // ±20% jitter
+	)
+
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Call API
+		category, err := c.callGeminiAPI(ctx, prompt)
+
+		if err == nil {
+			return category, nil
+		}
+
+		lastErr = err
+
+		// If error is not retryable, return immediately
+		if !c.isRetryableError(err) {
+			c.log.WithError(err).Warn("Non-retryable error from Gemini API")
+			return "", err
+		}
+
+		// If this was the last retry, return error
+		if attempt == maxRetries {
+			c.log.WithError(err).WithField("attempts", attempt+1).Warn("All retry attempts exhausted")
+			return "", fmt.Errorf("API request failed after %d attempts: %w", maxRetries+1, err)
+		}
+
+		// Calculate backoff delay with jitter
+		delayMs := int64(math.Pow(backoffMultiplier, float64(attempt)) * float64(baseDelay.Milliseconds()))
+		jitterMs := int64(float64(delayMs) * jitterFraction * (2*rand.Float64() - 1)) // ±jitter
+		totalDelay := time.Duration(delayMs+jitterMs) * time.Millisecond
+
+		c.log.WithFields(
+			logging.Field{Key: "attempt", Value: attempt + 1},
+			logging.Field{Key: "max_attempts", Value: maxRetries + 1},
+			logging.Field{Key: "retry_delay_ms", Value: totalDelay.Milliseconds()},
+			logging.Field{Key: "error", Value: err.Error()},
+		).Info("Retrying API request due to transient error")
+
+		// Wait before retry (or until context cancelled)
+		select {
+		case <-time.After(totalDelay):
+			// Continue to next attempt
+		case <-ctx.Done():
+			c.log.WithError(ctx.Err()).Warn("Context cancelled during retry wait")
+			return "", fmt.Errorf("context cancelled: %w", ctx.Err())
+		}
+	}
+
+	return "", lastErr
 }
 
 // buildCategorizationPrompt creates a prompt for the Gemini API to categorize the transaction
