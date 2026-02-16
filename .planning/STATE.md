@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 9 of 9 (Batch-Formatter Integration)
-Plan: 0 of 3 in current phase
-Status: Not started (needs planning)
-Last activity: 2026-02-16 — Milestone audit completed, gap closure phase created
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-16 — Completed Plan 09-01 (Batch-Formatter Integration)
 
-Progress: [████████████████████░░] 85% (v1.2 phases 5-9: 10/13 plans)
+Progress: [████████████████████░░] 88% (v1.2 phases 5-9: 11/13 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18 (v1.1: 11, v1.2: 7)
-- Average duration: 424 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 51 min (v1.2)
+- Total plans completed: 19 (v1.1: 11, v1.2: 8)
+- Average duration: 411 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 55 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -45,6 +45,7 @@ Starting fresh with Phase 5.
 | Phase 08 P02 | 1133 | 3 tasks | 4 files |
 | Phase 08 P01 | 1135 | 3 tasks | 7 files |
 | Phase 08 P03 | 480 | 3 tasks | 10 files |
+| Phase 09 P01 | 225 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting v1.2:
 - [Phase 08-01]: Heuristic confidence estimation for AI categorizations (0.9 for known categories, 0.8 for unknown)
 - [Phase 08-01]: INFO-level logging for audit trail in production (not DEBUG)
 - [Phase 08]: Auto-learn defaults to OFF per v1.2 decision D-11 for safety
+- [Phase 09-01]: Formatter parameter optional (nil = StandardFormatter) for backward compatibility
+- [Phase 09-01]: processFile uses WriteTransactionsToCSVWithFormatter for formatter integration
+- [Phase 09-01]: Delimiter comes from formatter.Delimiter() method, not hardcoded
 
 ### Pending Todos
 
@@ -95,9 +99,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Created Phase 9 gap closure from milestone audit
+Stopped at: Completed Phase 09 Plan 01 (Batch-Formatter Integration)
 Resume file: .planning/ROADMAP.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 8 complete: 3/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 9 in progress: 1/3 plans)*
