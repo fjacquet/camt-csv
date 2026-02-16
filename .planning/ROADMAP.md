@@ -34,8 +34,8 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 **Milestone Goal:** Overhaul Revolut parsers with transaction-type intelligence, standardize CSV output across all parsers for iCompta import compatibility, add AI auto-learn safety, and bring batch support everywhere.
 
-- [ ] **Phase 5: Output Framework** - Standardize CSV output with iCompta compatibility
-- [ ] **Phase 6: Revolut Parsers Overhaul** - Transaction type intelligence and investment support
+- [x] **Phase 5: Output Framework** - Standardize CSV output with iCompta compatibility (completed 2026-02-16)
+- [x] **Phase 6: Revolut Parsers Overhaul** - Transaction type intelligence and investment support (completed 2026-02-16)
 - [ ] **Phase 7: Batch Infrastructure** - Universal batch processing with error handling
 - [ ] **Phase 8: AI Safety Controls** - Safe AI auto-learning with rate limiting
 
@@ -57,9 +57,9 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 05-01-PLAN.md — Create OutputFormatter interface and implementations
-- [ ] 05-02-PLAN.md — Integrate formatters with CSV writing and DI container
-- [ ] 05-03-PLAN.md — Add CLI flags to all parser commands
+- [x] 05-01-PLAN.md — Create OutputFormatter interface and implementations
+- [x] 05-02-PLAN.md — Integrate formatters with CSV writing and DI container
+- [x] 05-03-PLAN.md — Add CLI flags to all parser commands
 
 ### Phase 6: Revolut Parsers Overhaul
 
@@ -80,9 +80,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 06-01-PLAN.md — Add Product field to Transaction model and builder
-- [ ] 06-02-PLAN.md — Add SELL/CUSTODY_FEE handling and batch support to investment parser
-- [ ] 06-03-PLAN.md — Enhance Revolut parser to populate all 35 fields with Product and exchange metadata
+- [x] 06-01-PLAN.md — Add Product field to Transaction model and builder
+- [x] 06-02-PLAN.md — Add SELL/CUSTODY_FEE handling and batch support to investment parser
+- [x] 06-03-PLAN.md — Enhance Revolut parser to populate all 35 fields with Product and exchange metadata
 
 ### Phase 7: Batch Infrastructure
 
@@ -96,7 +96,12 @@ Plans:
   3. Batch processing continues after individual file failures
   4. Failed files are logged with specific error messages
   5. Exit code reflects batch status (0=all success, 1=partial, 2=all failed)
-**Plans**: TBD
+
+**Plans**: 2 plans in 2 waves
+
+Plans:
+- [ ] 07-01-PLAN.md — Create shared BatchProcessor infrastructure with manifest generation
+- [ ] 07-02-PLAN.md — Integrate PDF parser with batch infrastructure and standardize exit codes
 
 ### Phase 8: AI Safety Controls
 
@@ -119,9 +124,9 @@ Plans:
 | 2. Configuration & State Cleanup | v1.1 | 1/1 | Complete | 2026-02-01 |
 | 3. Architecture & Error Handling | v1.1 | 3/3 | Complete | 2026-02-01 |
 | 4. Test Coverage & Safety | v1.1 | 4/4 | Complete | 2026-02-01 |
-| 5. Output Framework | v1.2 | 0/3 | Not started | - |
-| 6. Revolut Parsers Overhaul | v1.2 | 0/3 | Not started | - |
-| 7. Batch Infrastructure | v1.2 | 0/? | Not started | - |
+| 5. Output Framework | v1.2 | 3/3 | Complete | 2026-02-16 |
+| 6. Revolut Parsers Overhaul | v1.2 | 3/3 | Complete | 2026-02-16 |
+| 7. Batch Infrastructure | v1.2 | 0/2 | Not started | - |
 | 8. AI Safety Controls | v1.2 | 0/? | Not started | - |
 
 ---
