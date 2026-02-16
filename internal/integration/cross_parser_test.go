@@ -15,6 +15,7 @@ import (
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
@@ -231,6 +232,73 @@ func TestBatchProcessingWithMixedFileTypes(t *testing.T) {
 		"Output filename should contain account ID")
 	assert.True(t, strings.HasSuffix(outputFilename, ".csv"),
 		"Output filename should have .csv extension")
+}
+
+// TestEndToEndConversion_StandardFormat verifies end-to-end conversion produces 29-column standard CSV
+// **Feature: csv-format-trim, Success Criteria 4**
+// **Validates: Requirements INT-03**
+func TestEndToEndConversion_StandardFormat(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Setup container with default (standard) formatter
+	cfg := &config.Config{}
+	cfg.Log.Level = "error"
+	cfg.Log.Format = "text"
+	cfg.AI.Enabled = false
+	cfg.Categories.File = filepath.Join(tempDir, "categories.yaml")
+	cfg.Categories.CreditorsFile = filepath.Join(tempDir, "creditors.yaml")
+	cfg.Categories.DebtorsFile = filepath.Join(tempDir, "debtors.yaml")
+
+	// Create minimal category YAML files
+	createMinimalCategoryFiles(t, tempDir)
+
+	cont, err := container.NewContainer(cfg)
+	require.NoError(t, err)
+
+	// Test each parser type
+	testCases := []struct {
+		parserType  container.ParserType
+		sampleFile  string
+		description string
+	}{
+		{container.CAMT, "../../samples/camt053/camt53-47.xml", "CAMT parser"},
+		// Add more when we have stable sample files for other parsers
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// Skip if sample file doesn't exist
+			if _, err := os.Stat(tc.sampleFile); os.IsNotExist(err) {
+				t.Skipf("Sample file not found: %s", tc.sampleFile)
+				return
+			}
+
+			parser, err := cont.GetParser(tc.parserType)
+			require.NoError(t, err)
+
+			outputFile := filepath.Join(tempDir, fmt.Sprintf("%s_output.csv", tc.parserType))
+
+			// Convert file
+			err = parser.ConvertToCSV(context.Background(), tc.sampleFile, outputFile)
+			require.NoError(t, err, "Conversion should succeed for %s", tc.description)
+
+			// Read and verify output
+			headers := readCSVHeaders(t, outputFile)
+
+			// Verify exactly 29 columns
+			assert.Equal(t, 29, len(headers), "%s should produce 29 columns", tc.description)
+
+			// Verify header matches StandardFormatter
+			expectedHeaders := formatter.NewStandardFormatter().Header()
+			assert.Equal(t, expectedHeaders, headers, "%s should produce standard headers", tc.description)
+		})
+	}
+}
+
+func createMinimalCategoryFiles(t *testing.T, dir string) {
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "categories.yaml"), []byte("categories: {}"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "creditors.yaml"), []byte("creditors: {}"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "debtors.yaml"), []byte("debtors: {}"), 0600))
 }
 
 // TestAutoLearningMechanism tests the auto-learning mechanism with new parsers
