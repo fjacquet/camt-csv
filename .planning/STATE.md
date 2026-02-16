@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 9 of 9 (Batch-Formatter Integration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-16 — Completed Plan 09-01 (Batch-Formatter Integration)
+Last activity: 2026-02-16 — Completed Plan 09-02 (Revolut Batch Formatter Integration)
 
-Progress: [████████████████████░░] 88% (v1.2 phases 5-9: 11/13 plans)
+Progress: [████████████████████░░] 92% (v1.2 phases 5-9: 12/13 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (v1.1: 11, v1.2: 8)
-- Average duration: 411 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 55 min (v1.2)
+- Total plans completed: 20 (v1.1: 11, v1.2: 9)
+- Average duration: 382 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 57 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -46,6 +46,7 @@ Starting fresh with Phase 5.
 | Phase 08 P01 | 1135 | 3 tasks | 7 files |
 | Phase 08 P03 | 480 | 3 tasks | 10 files |
 | Phase 09 P01 | 225 | 2 tasks | 3 files |
+| Phase 09 P02 | 161 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting v1.2:
 - [Phase 09-01]: Formatter parameter optional (nil = StandardFormatter) for backward compatibility
 - [Phase 09-01]: processFile uses WriteTransactionsToCSVWithFormatter for formatter integration
 - [Phase 09-01]: Delimiter comes from formatter.Delimiter() method, not hardcoded
+- [Phase 09]: Revolut adapter.BatchConvert uses BatchProcessor with nil formatter (CLI resolves formatter)
+- [Phase 09]: Revolut CLI batchConvert bypasses adapter in favor of direct BatchProcessor composition
 
 ### Pending Todos
 
@@ -99,9 +102,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 09 Plan 01 (Batch-Formatter Integration)
+Stopped at: Completed Phase 09 Plan 02 (Revolut Batch Formatter Integration)
 Resume file: .planning/ROADMAP.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 9 in progress: 1/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 9 in progress: 2/3 plans)*
