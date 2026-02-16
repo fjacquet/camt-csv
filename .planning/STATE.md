@@ -13,7 +13,7 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 Phase: 6 of 8 (Revolut Parsers Overhaul)
 Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-02-16 — Completed 06-02-PLAN.md (Investment parser enhancement)
+Last activity: 2026-02-16 — Completed 06-01-PLAN.md (Product field model support)
 
 Progress: [████████░░░░░░░░░░░░] 33% (v1.2 phases 5-8: 4/12 plans)
 
@@ -38,7 +38,7 @@ Starting fresh with Phase 5.
 | Phase 05 P01 | 5 | 2 tasks | 4 files |
 | Phase 05 P02 | 113 | 2 tasks | 2 files |
 | Phase 05 P03 | 489 | 2 tasks | 8 files |
-| Phase 06 P02 | 281 | 2 tasks | 3 files |
+| Phase 06 P01 | 496 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -58,9 +58,9 @@ Recent decisions affecting v1.2:
 - [Phase 05]: Strategy pattern chosen for formatters (not inheritance or monolithic switch)
 - [Phase 05]: Status mapping for iCompta: BOOK/RCVD→cleared, PDNG→pending, REVD/CANC→reverted
 - [Phase 05]: ProcessFile() refactored to use Parse() + WriteTransactionsToCSVWithFormatter (not ConvertToCSV)
-- [Phase 06-02]: SELL transactions are credit (incoming money from sales)
-- [Phase 06-02]: CUSTODY_FEE transactions are debit (outgoing fees) with fee tracking
-- [Phase 06-02]: BatchConvert validates each file before conversion, continues on errors
+- [Phase 06-01]: Product field positioned after Currency for logical grouping of account-level fields
+- [Phase 06-01]: CSV format expanded from 34 to 35 columns to include Product field
+- [Phase 06-01]: No validation on Product field values - accepts any string from source data
 
 ### Pending Todos
 
@@ -73,9 +73,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 06-02-PLAN.md (Investment parser enhancement)
-Resume file: .planning/phases/06-revolut-parsers-overhaul/06-02-SUMMARY.md
+Stopped at: Completed 06-01-PLAN.md (Product field model support)
+Resume file: .planning/phases/06-revolut-parsers-overhaul/06-01-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 6 in progress: 2/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 6 in progress: 1/3 plans)*
