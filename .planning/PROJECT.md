@@ -56,7 +56,15 @@ Reliable, maintainable financial data conversion with intelligent categorization
 
 ### Active
 
-No active requirements. Next milestone not yet planned.
+## Current Milestone: v1.3 Standard CSV Trim
+
+**Goal:** Remove redundant and dead fields from the 35-column standard CSV format, keeping only fields that carry actual data.
+
+**Target features:**
+- Identify and remove clearly redundant fields (IsDebit, Recipient, etc.)
+- Update Transaction model, MarshalCSV, and StandardFormatter header
+- Update all parser tests and integration tests for new column count
+- Maintain backward compatibility of iCompta formatter (unchanged)
 
 ### Out of Scope
 
@@ -129,4 +137,4 @@ Known technical debt:
 | Confidence scoring per strategy tier | Audit trail for categorization decisions | ✓ Good — 1.0/0.95/0.90/0.8 per tier |
 
 ---
-*Last updated: 2026-02-16 after v1.2 milestone complete*
+*Last updated: 2026-02-16 after v1.3 milestone started*

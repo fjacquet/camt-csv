@@ -6,15 +6,14 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** v1.2 shipped. Next milestone not yet planned.
+**Current focus:** v1.3 Standard CSV Trim
 
 ## Current Position
 
-Milestone: v1.2 Full Polish — SHIPPED
-Status: Complete
-Last activity: 2026-02-16 — Milestone archived
-
-Progress: [██████████████████████] 100% (v1.1: 4 phases, v1.2: 5 phases)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-16 — Milestone v1.3 started
 
 ## Performance Metrics
 
@@ -28,6 +27,7 @@ Progress: [██████████████████████] 1
 |-----------|--------|-------|--------|---------|
 | v1.1 Hardening | 1-4 | 11 | Complete | 2026-02-01 |
 | v1.2 Full Polish | 5-9 | 14 | Complete | 2026-02-16 |
+| v1.3 Standard CSV Trim | TBD | — | Defining | — |
 
 ## Accumulated Context
 
@@ -46,9 +46,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: v1.2 milestone archived and tagged
+Stopped at: Milestone v1.3 initialization
 Resume file: .planning/ROADMAP.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 milestone complete)*
+*Last updated: 2026-02-16 (v1.3 milestone started)*
