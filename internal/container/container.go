@@ -10,6 +10,7 @@ import (
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/debitparser"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/pdfparser"
@@ -48,6 +49,9 @@ type Container struct {
 
 	// Parser registry (private for immutability)
 	parsers map[ParserType]parser.FullParser
+
+	// Formatter registry (lazily initialized)
+	formatterRegistry *formatter.FormatterRegistry
 }
 
 // NewContainer creates and wires all application dependencies.
@@ -189,6 +193,19 @@ func (c *Container) GetStore() *store.CategoryStore {
 // Returns nil if AI is not enabled.
 func (c *Container) GetAIClient() categorizer.AIClient {
 	return c.aiClient
+}
+
+// GetFormatterRegistry returns the formatter registry for output format selection.
+// The registry is lazily initialized on first access with built-in formatters
+// ("standard" and "icompta") pre-registered.
+//
+// Returns:
+// - *formatter.FormatterRegistry: registry containing available output formatters
+func (c *Container) GetFormatterRegistry() *formatter.FormatterRegistry {
+	if c.formatterRegistry == nil {
+		c.formatterRegistry = formatter.NewFormatterRegistry()
+	}
+	return c.formatterRegistry
 }
 
 // Close performs cleanup of container resources.
