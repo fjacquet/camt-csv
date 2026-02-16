@@ -84,6 +84,8 @@ func (s *KeywordStrategy) Categorize(ctx context.Context, tx Transaction) (model
 				category := models.Category{
 					Name:        categoryConfig.Name,
 					Description: categoryDescriptionFromName(categoryConfig.Name),
+					Confidence:  0.95, // High confidence for keyword matches
+					Source:      "keyword",
 				}
 
 				return category, true, nil
@@ -237,6 +239,8 @@ func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (model
 			return models.Category{
 				Name:        category,
 				Description: categoryDescriptionFromName(category),
+				Confidence:  0.95, // High confidence for keyword matches
+				Source:      "keyword",
 			}, true
 		}
 	}
@@ -256,6 +260,8 @@ func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (model
 			return models.Category{
 				Name:        category,
 				Description: categoryDescriptionFromName(category),
+				Confidence:  0.95, // High confidence for keyword matches
+				Source:      "keyword",
 			}, true
 		}
 	}
@@ -280,6 +286,8 @@ func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (model
 				return models.Category{
 					Name:        models.CategoryShopping,
 					Description: categoryDescriptionFromName(models.CategoryShopping),
+					Confidence:  0.95, // High confidence for keyword matches
+					Source:      "keyword",
 				}, true
 			}
 		}

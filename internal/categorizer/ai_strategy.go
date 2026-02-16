@@ -74,7 +74,10 @@ func (s *AIStrategy) Categorize(ctx context.Context, tx Transaction) (models.Cat
 			logging.Field{Key: "party", Value: tx.PartyName},
 			logging.Field{Key: "ai_category", Value: categorizedTransaction.Category},
 		).Debug("AI returned uncategorized result")
-		return models.Category{}, false, nil
+		return models.Category{
+			Confidence: 0.0,
+			Source:     "ai",
+		}, false, nil
 	}
 
 	s.logger.WithFields(
@@ -83,13 +86,50 @@ func (s *AIStrategy) Categorize(ctx context.Context, tx Transaction) (models.Cat
 		logging.Field{Key: "category", Value: categorizedTransaction.Category},
 	).Debug("Transaction categorized using AI")
 
+	// Gemini API does not provide explicit confidence scores; estimated based on response completeness and category match.
+	// Estimate confidence heuristically:
+	// - If category name matches known category list: Confidence: 0.9
+	// - Otherwise: Confidence: 0.8 (default AI estimate)
+	confidence := s.estimateConfidence(categorizedTransaction.Category)
+
 	// Return the category from the AI response
 	category := models.Category{
 		Name:        categorizedTransaction.Category,
 		Description: categoryDescriptionFromName(categorizedTransaction.Category),
+		Confidence:  confidence,
+		Source:      "ai",
 	}
 
 	return category, true, nil
+}
+
+// estimateConfidence estimates the confidence level for an AI-generated category.
+// Since Gemini API does not provide explicit confidence scores, we use heuristics:
+// - Known categories (matching constants): 0.9 confidence
+// - Other categories: 0.8 confidence (default AI estimate)
+func (s *AIStrategy) estimateConfidence(categoryName string) float64 {
+	// List of known category constants
+	knownCategories := []string{
+		models.CategoryUncategorized,
+		models.CategorySalary,
+		models.CategoryFood,
+		models.CategoryGroceries,
+		models.CategoryRestaurants,
+		models.CategoryTransport,
+		models.CategoryShopping,
+		models.CategoryWithdrawals,
+		models.CategoryTransfers,
+	}
+
+	// Check if category matches a known category
+	for _, known := range knownCategories {
+		if categoryName == known {
+			return 0.9
+		}
+	}
+
+	// Default AI confidence for unknown categories
+	return 0.8
 }
 
 // convertToModelTransaction converts a categorizer Transaction to a models.Transaction

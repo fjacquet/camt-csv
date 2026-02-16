@@ -90,7 +90,12 @@ func (s *SemanticStrategy) Categorize(ctx context.Context, tx Transaction) (mode
 			logging.Field{Key: "score", Value: maxScore},
 			logging.Field{Key: "party", Value: tx.PartyName},
 		).Debug("Semantic match found")
-		return models.Category{Name: bestCategory, Description: "Semantic match"}, true, nil
+		return models.Category{
+			Name:        bestCategory,
+			Description: "Semantic match",
+			Confidence:  0.90, // High confidence for semantic matches above threshold
+			Source:      "semantic",
+		}, true, nil
 	}
 
 	return models.Category{}, false, nil

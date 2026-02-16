@@ -107,13 +107,18 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 				logging.Field{Key: "category", Value: categoryName},
 			).Debug("Found previous failed AI attempt, allowing retry with other strategies")
 		}
-		return models.Category{}, false, nil
+		return models.Category{
+			Confidence: 0.0,
+			Source:     "none",
+		}, false, nil
 	}
 
 	// Create category with name and description
 	category := models.Category{
 		Name:        categoryName,
 		Description: categoryDescriptionFromName(categoryName),
+		Confidence:  1.0, // Highest confidence for direct mappings
+		Source:      "direct_mapping",
 	}
 
 	return category, true, nil
