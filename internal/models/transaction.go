@@ -346,81 +346,63 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 }
 
 func (t *Transaction) UnmarshalCSV(record []string) error {
-	t.BookkeepingNumber = record[0]
-	t.Status = record[1]
+	t.Status = record[0]
 	var err error
-	t.Date, err = t.parseDateFromCSV(record[2])
+	t.Date, err = t.parseDateFromCSV(record[1])
 	if err != nil {
 		return fmt.Errorf("failed to parse date: %w", err)
 	}
-	t.ValueDate, err = t.parseDateFromCSV(record[3])
+	t.ValueDate, err = t.parseDateFromCSV(record[2])
 	if err != nil {
 		return fmt.Errorf("failed to parse value date: %w", err)
 	}
-	t.Name = record[4]
-	t.PartyName = record[5]
-	t.PartyIBAN = record[6]
-	t.Description = record[7]
-	t.RemittanceInfo = record[8]
-	t.Amount, err = decimal.NewFromString(record[9])
+	t.Name = record[3]
+	t.PartyName = record[4]
+	t.PartyIBAN = record[5]
+	t.Description = record[6]
+	t.RemittanceInfo = record[7]
+	t.Amount, err = decimal.NewFromString(record[8])
 	if err != nil {
 		return err
 	}
-	t.CreditDebit = record[10]
-	t.DebitFlag, err = strconv.ParseBool(record[11])
+	t.CreditDebit = record[9]
+	t.Currency = record[10]
+	t.Product = record[11]
+	t.AmountExclTax, err = decimal.NewFromString(record[12])
 	if err != nil {
 		return err
 	}
-	t.Debit, err = decimal.NewFromString(record[12])
+	t.TaxRate, err = decimal.NewFromString(record[13])
 	if err != nil {
 		return err
 	}
-	t.Credit, err = decimal.NewFromString(record[13])
-	if err != nil {
-		return err
-	}
-	t.Currency = record[14]
-	t.Product = record[15]
-	t.AmountExclTax, err = decimal.NewFromString(record[16])
-	if err != nil {
-		return err
-	}
-	t.AmountTax, err = decimal.NewFromString(record[17])
-	if err != nil {
-		return err
-	}
-	t.TaxRate, err = decimal.NewFromString(record[18])
-	if err != nil {
-		return err
-	}
-	t.Recipient = record[19]
-	t.Investment = record[20]
-	t.Number = record[21]
-	t.Category = record[22]
-	t.Type = record[23]
-	t.Fund = record[24]
+	t.Investment = record[14]
+	t.Number = record[15]
+	t.Category = record[16]
+	t.Type = record[17]
+	t.Fund = record[18]
 	var numberOfShares int
-	numberOfShares, err = strconv.Atoi(record[25])
+	numberOfShares, err = strconv.Atoi(record[19])
 	if err != nil {
 		return err
 	}
 	t.NumberOfShares = numberOfShares
 	// Fees includes stamp duty
-	t.Fees, err = decimal.NewFromString(record[26])
+	t.Fees, err = decimal.NewFromString(record[20])
 	if err != nil {
 		return err
 	}
-	t.IBAN = record[27]
-	t.EntryReference = record[28]
-	t.Reference = record[29]
-	t.AccountServicer = record[30]
-	t.BankTxCode = record[31]
-	t.OriginalCurrency = record[32]
-	t.OriginalAmount, err = decimal.NewFromString(record[33])
+	t.IBAN = record[21]
+	t.EntryReference = record[22]
+	t.Reference = record[23]
+	t.AccountServicer = record[24]
+	t.BankTxCode = record[25]
+	t.OriginalCurrency = record[26]
+	t.OriginalAmount, err = decimal.NewFromString(record[27])
 	if err != nil {
 		return err
 	}
-	t.ExchangeRate, err = decimal.NewFromString(record[34])
+	t.ExchangeRate, err = decimal.NewFromString(record[28])
 	if err != nil {
 		return err
 	}
