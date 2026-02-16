@@ -49,3 +49,6 @@ sbom.json
 coverage.html
 .grepai
 .serena
+
+# MkDocs build output
+site/
