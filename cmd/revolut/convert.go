@@ -3,7 +3,6 @@ package revolut
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +11,9 @@ import (
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/spf13/cobra"
 )
@@ -67,7 +68,7 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 
 	if fileInfo.IsDir() {
 		// Directory mode - batch conversion
-		batchConvert(ctx, p, inputPath, outputPath, logger)
+		batchConvert(ctx, p, inputPath, outputPath, logger, format, dateFormat)
 	} else {
 		// File mode - single file conversion
 		common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
@@ -75,49 +76,49 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 	}
 }
 
-// batchConvert processes all files in a directory using BatchConvert
-func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string, logger logging.Logger) {
-	// Cast to BatchConverter interface
-	batchConverter, ok := p.(interface {
-		BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
-	})
+// batchConvert processes all files in a directory using BatchProcessor with formatter
+func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string,
+	logger logging.Logger, format string, dateFormat string) {
+
+	// Cast to FullParser interface
+	fullParser, ok := p.(parser.FullParser)
 	if !ok {
 		logger.Error("Parser does not support batch conversion")
 		os.Exit(1)
 	}
 
-	count, err := batchConverter.BatchConvert(ctx, inputDir, outputDir)
+	// Resolve formatter from registry
+	formatterReg := formatter.NewFormatterRegistry()
+	outFormatter, err := formatterReg.Get(format)
+	if err != nil {
+		logger.WithError(err).Error("Invalid format",
+			logging.Field{Key: "format", Value: format})
+		os.Exit(1)
+	}
+
+	// Create BatchProcessor with formatter (CLI layer composition)
+	processor := batch.NewBatchProcessor(fullParser, logger, outFormatter)
+
+	// Process directory
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {
 		logger.WithError(err).Error("Batch conversion failed")
 		os.Exit(1)
 	}
 
-	// Load manifest to get exit code
+	// Write manifest
 	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		logger.WithError(err).Warn("Could not read manifest")
-		// Fallback: exit 0 if count > 0, else exit 1
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
-	}
-
-	var manifest batch.BatchManifest
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		logger.WithError(err).Warn("Could not parse manifest")
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
+	if err := manifest.WriteManifest(manifestPath); err != nil {
+		logger.WithError(err).Warn("Failed to write manifest")
 	}
 
 	// Log summary
-	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded", manifest.SuccessCount, manifest.TotalFiles))
+	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
+		manifest.SuccessCount, manifest.TotalFiles))
 
 	if manifest.FailureCount > 0 {
-		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)", manifest.FailureCount, manifestPath))
+		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
+			manifest.FailureCount, manifestPath))
 	}
 
 	// Exit with semantic code
