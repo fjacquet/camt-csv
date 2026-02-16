@@ -41,23 +41,23 @@ None — this is a focused cleanup milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CSV-01 | — | Pending |
-| CSV-02 | — | Pending |
-| CSV-03 | — | Pending |
-| CSV-04 | — | Pending |
-| CSV-05 | — | Pending |
-| CSV-06 | — | Pending |
-| INT-01 | — | Pending |
-| INT-02 | — | Pending |
-| INT-03 | — | Pending |
-| INT-04 | — | Pending |
-| INT-05 | — | Pending |
+| CSV-01 | Phase 10 | Pending |
+| CSV-02 | Phase 10 | Pending |
+| CSV-03 | Phase 10 | Pending |
+| CSV-04 | Phase 10 | Pending |
+| CSV-05 | Phase 10 | Pending |
+| CSV-06 | Phase 10 | Pending |
+| INT-01 | Phase 10 | Pending |
+| INT-02 | Phase 10 | Pending |
+| INT-03 | Phase 11 | Pending |
+| INT-04 | Phase 11 | Pending |
+| INT-05 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-16*
-*Last updated: 2026-02-16 after initial definition*
+*Last updated: 2026-02-16 after roadmap creation (100% coverage)*
