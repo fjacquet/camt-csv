@@ -207,7 +207,25 @@ func convertRevolutRowToTransaction(row RevolutCSVRow, logger logging.Logger) (m
 		WithPartyName(row.Description).
 		WithType(row.Type).
 		WithInvestment(row.Type).
-		WithFees(feeDecimal)
+		WithFees(feeDecimal).
+		WithProduct(row.Product)
+
+	// Handle exchange transactions - preserve both currencies
+	if row.Type == "EXCHANGE" {
+		// For EXCHANGE type, the Amount is in the account's currency (Currency field)
+		// The original currency being exchanged is implied by the sign and description
+		// Store exchange metadata for reference
+		if !amountDecimal.IsZero() {
+			// Exchange rate calculation: if we have FX data in future, use it
+			// For now, preserve the currencies and amounts we have
+			builder = builder.WithOriginalAmount(amountDecimal, row.Currency)
+
+			logger.Debug("Processing EXCHANGE transaction",
+				logging.Field{Key: "amount", Value: amountDecimal.String()},
+				logging.Field{Key: "currency", Value: row.Currency},
+				logging.Field{Key: "description", Value: row.Description})
+		}
+	}
 
 	// Set transaction direction
 	if isDebit {
