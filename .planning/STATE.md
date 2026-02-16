@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** Phase 5 — Output Framework (iCompta compatibility)
+**Current focus:** Phase 6 — Revolut Parsers Overhaul
 
 ## Current Position
 
-Phase: 5 of 8 (Output Framework)
-Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-02-16 — Completed 05-03-PLAN.md (CLI format integration)
+Phase: 6 of 8 (Revolut Parsers Overhaul)
+Plan: 2 of 3 in current phase
+Status: In Progress
+Last activity: 2026-02-16 — Completed 06-02-PLAN.md (Investment parser enhancement)
 
-Progress: [██████░░░░░░░░░░░░░░] 25% (v1.2 phases 5-8: 3/12 plans)
+Progress: [████████░░░░░░░░░░░░] 33% (v1.2 phases 5-8: 4/12 plans)
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Starting fresh with Phase 5.
 | Phase 05 P01 | 5 | 2 tasks | 4 files |
 | Phase 05 P02 | 113 | 2 tasks | 2 files |
 | Phase 05 P03 | 489 | 2 tasks | 8 files |
+| Phase 06 P02 | 281 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,9 @@ Recent decisions affecting v1.2:
 - [Phase 05]: Strategy pattern chosen for formatters (not inheritance or monolithic switch)
 - [Phase 05]: Status mapping for iCompta: BOOK/RCVD→cleared, PDNG→pending, REVD/CANC→reverted
 - [Phase 05]: ProcessFile() refactored to use Parse() + WriteTransactionsToCSVWithFormatter (not ConvertToCSV)
+- [Phase 06-02]: SELL transactions are credit (incoming money from sales)
+- [Phase 06-02]: CUSTODY_FEE transactions are debit (outgoing fees) with fee tracking
+- [Phase 06-02]: BatchConvert validates each file before conversion, continues on errors
 
 ### Pending Todos
 
@@ -69,9 +73,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 05-03-PLAN.md (CLI format integration) — Phase 05 complete!
-Resume file: .planning/phases/05-output-framework/05-03-SUMMARY.md
+Stopped at: Completed 06-02-PLAN.md (Investment parser enhancement)
+Resume file: .planning/phases/06-revolut-parsers-overhaul/06-02-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 5 complete: 3/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 6 in progress: 2/3 plans)*
