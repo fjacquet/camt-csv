@@ -301,6 +301,85 @@ func createMinimalCategoryFiles(t *testing.T, dir string) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "debtors.yaml"), []byte("debtors: {}"), 0600))
 }
 
+// TestEndToEndConversion_iComptaFormat verifies iCompta format remains at 10 columns with semicolon delimiter
+// **Feature: csv-format-trim, Success Criteria 5**
+// **Validates: Requirements INT-05**
+func TestEndToEndConversion_iComptaFormat(t *testing.T) {
+	tempDir := t.TempDir()
+	logger := logging.NewMockLogger()
+
+	// Setup container
+	cfg := &config.Config{}
+	cfg.Log.Level = "error"
+	cfg.Log.Format = "text"
+	cfg.AI.Enabled = false
+	cfg.Categories.File = filepath.Join(tempDir, "categories.yaml")
+	cfg.Categories.CreditorsFile = filepath.Join(tempDir, "creditors.yaml")
+	cfg.Categories.DebtorsFile = filepath.Join(tempDir, "debtors.yaml")
+
+	createMinimalCategoryFiles(t, tempDir)
+
+	cont, err := container.NewContainer(cfg)
+	require.NoError(t, err)
+
+	// Test with CAMT parser
+	sampleFile := "../../samples/camt053/camt53-47.xml"
+	if _, err := os.Stat(sampleFile); os.IsNotExist(err) {
+		t.Skipf("Sample file not found: %s", sampleFile)
+		return
+	}
+
+	parser, err := cont.GetParser(container.CAMT)
+	require.NoError(t, err)
+
+	// Parse transactions
+	file, err := os.Open(sampleFile)
+	require.NoError(t, err)
+	defer file.Close()
+
+	transactions, err := parser.Parse(context.Background(), file)
+	require.NoError(t, err, "Parsing should succeed")
+	require.NotEmpty(t, transactions, "Should have at least one transaction")
+
+	outputFile := filepath.Join(tempDir, "icompta_output.csv")
+
+	// Get iCompta formatter from registry
+	iComptaFormatter := formatter.NewIComptaFormatter()
+
+	// Write transactions using iCompta formatter
+	err = common.WriteTransactionsToCSVWithFormatter(
+		transactions, outputFile, logger, iComptaFormatter, iComptaFormatter.Delimiter())
+	require.NoError(t, err, "iCompta conversion should succeed")
+
+	// Read output file
+	content, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+
+	lines := strings.Split(string(content), "\n")
+	require.GreaterOrEqual(t, len(lines), 1, "CSV should have at least header line")
+
+	// Split by semicolon (iCompta delimiter)
+	headers := strings.Split(lines[0], ";")
+
+	// Clean headers
+	for i, h := range headers {
+		headers[i] = strings.Trim(strings.TrimSpace(h), "\"")
+	}
+
+	// Verify exactly 10 columns
+	assert.Equal(t, 10, len(headers), "iCompta format should have exactly 10 columns")
+
+	// Verify iCompta header order
+	expectedHeaders := formatter.NewIComptaFormatter().Header()
+	assert.Equal(t, expectedHeaders, headers, "iCompta format should match expected header order")
+
+	// Verify at least one data row uses semicolon delimiter
+	if len(lines) > 1 && lines[1] != "" {
+		dataFields := strings.Split(lines[1], ";")
+		assert.Equal(t, 10, len(dataFields), "iCompta data rows should have 10 fields")
+	}
+}
+
 // TestAutoLearningMechanism tests the auto-learning mechanism with new parsers
 // **Feature: parser-enhancements, Property 12: Auto-learning mechanism consistency**
 // **Validates: Requirements 5.4**
