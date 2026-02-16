@@ -237,11 +237,11 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	csvWriter := csv.NewWriter(file)
 	csvWriter.Comma = Delimiter
 
-	// Write header manually to ensure correct order
+	// Write header manually to ensure correct order (29-column format matching StandardFormatter)
 	header := []string{
-		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
-		"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit", "Currency",
-		"Product", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType", "Number", "Category",
+		"Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+		"Description", "RemittanceInfo", "Amount", "CreditDebit", "Currency",
+		"Product", "AmountExclTax", "TaxRate", "InvestmentType", "Number", "Category",
 		"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
 		"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
 	}
