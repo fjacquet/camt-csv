@@ -7,7 +7,7 @@ This roadmap tracks the evolution of camt-csv from a functional MVP (v1.0) throu
 ## Milestones
 
 - ✅ **v1.1 Hardening** - Phases 1-4 (shipped 2026-02-01)
-- 🚧 **v1.2 Full Polish** - Phases 5-8 (in progress)
+- 🚧 **v1.2 Full Polish** - Phases 5-9 (in progress)
 
 ## Phases
 
@@ -36,8 +36,9 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 - [x] **Phase 5: Output Framework** - Standardize CSV output with iCompta compatibility (completed 2026-02-16)
 - [x] **Phase 6: Revolut Parsers Overhaul** - Transaction type intelligence and investment support (completed 2026-02-16)
-- [ ] **Phase 7: Batch Infrastructure** - Universal batch processing with error handling
-- [ ] **Phase 8: AI Safety Controls** - Safe AI auto-learning with rate limiting
+- [x] **Phase 7: Batch Infrastructure** - Universal batch processing with error handling (completed 2026-02-16)
+- [x] **Phase 8: AI Safety Controls** - Safe AI auto-learning with rate limiting (completed 2026-02-16)
+- [ ] **Phase 9: Batch-Formatter Integration** - Close audit gaps: formatter support in batch/consolidation paths
 
 ## Phase Details
 
@@ -100,8 +101,8 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Create shared BatchProcessor infrastructure with manifest generation
-- [ ] 07-02-PLAN.md — Integrate PDF parser with batch infrastructure and standardize exit codes
+- [x] 07-01-PLAN.md — Create shared BatchProcessor infrastructure with manifest generation
+- [x] 07-02-PLAN.md — Integrate PDF parser with batch infrastructure and standardize exit codes
 
 ### Phase 8: AI Safety Controls
 
@@ -118,9 +119,30 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 08-01-PLAN.md — Add confidence metadata and pre-save logging infrastructure
-- [ ] 08-02-PLAN.md — Implement rate limiting and retry logic in GeminiClient
-- [ ] 08-03-PLAN.md — Wire --auto-learn flag and gate auto-save behavior
+- [x] 08-01-PLAN.md — Add confidence metadata and pre-save logging infrastructure
+- [x] 08-02-PLAN.md — Implement rate limiting and retry logic in GeminiClient
+- [x] 08-03-PLAN.md — Wire --auto-learn flag and gate auto-save behavior
+
+### Phase 9: Batch-Formatter Integration
+
+**Goal**: Batch and consolidation code paths use the formatter pipeline and BatchProcessor infrastructure
+**Depends on**: Phase 8
+**Requirements**: OUT-01 (full), OUT-04 (full), BATCH-03 (full)
+**Gap Closure**: Closes all gaps from v1.2 milestone audit
+**Success Criteria** (what must be TRUE):
+
+  1. BatchProcessor supports formatter configuration (format + date-format options)
+  2. PDF batch mode (`--batch`) passes format/dateFormat flags through to output
+  3. PDF consolidation mode uses formatter pipeline instead of legacy writer
+  4. Revolut adapter.BatchConvert uses BatchProcessor (with manifest + exit codes)
+  5. `--format icompta` produces correct output in all modes: single file, batch, consolidation
+
+**Plans**: 3 plans in 2 waves
+
+Plans:
+- [ ] 09-01-PLAN.md — Add formatter support to BatchProcessor API
+- [ ] 09-02-PLAN.md — Migrate Revolut batch to BatchProcessor composition
+- [ ] 09-03-PLAN.md — Wire formatters through PDF batch and consolidation paths
 
 ## Progress
 
@@ -132,9 +154,10 @@ Plans:
 | 4. Test Coverage & Safety | v1.1 | 4/4 | Complete | 2026-02-01 |
 | 5. Output Framework | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 6. Revolut Parsers Overhaul | v1.2 | 3/3 | Complete | 2026-02-16 |
-| 7. Batch Infrastructure | v1.2 | 0/2 | Not started | - |
-| 8. AI Safety Controls | v1.2 | 0/3 | Not started | - |
+| 7. Batch Infrastructure | v1.2 | 2/2 | Complete | 2026-02-16 |
+| 8. AI Safety Controls | v1.2 | 3/3 | Complete | 2026-02-16 |
+| 9. Batch-Formatter Integration | v1.2 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-16 for Phase 6 planning*
+*Last updated: 2026-02-16 — added Phase 9 gap closure from milestone audit*
