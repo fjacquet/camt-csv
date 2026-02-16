@@ -614,8 +614,8 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 		return nil, fmt.Errorf("API key not set")
 	}
 
-	// use text-embedding-004 for better performance/cost
-	embeddingModel := "text-embedding-004"
+	// use gemini-embedding-001 (text-embedding-004 was deprecated Nov 2025)
+	embeddingModel := "gemini-embedding-001"
 	// SECURITY: URL contains API key in query parameter - NEVER log this URL
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent?key=%s", embeddingModel, c.apiKey)
 
