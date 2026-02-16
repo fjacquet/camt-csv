@@ -33,7 +33,7 @@ func TestInitializeConfig_Defaults(t *testing.T) {
 	assert.Equal(t, models.CategoryUncategorized, config.AI.FallbackCategory)
 	assert.Equal(t, "", config.Data.Directory)
 	assert.True(t, config.Data.BackupEnabled)
-	assert.True(t, config.Categorization.AutoLearn)
+	assert.False(t, config.Categorization.AutoLearn)
 	assert.Equal(t, 0.8, config.Categorization.ConfidenceThreshold)
 	assert.False(t, config.Categorization.CaseSensitive)
 	assert.True(t, config.Parsers.CAMT.StrictValidation)

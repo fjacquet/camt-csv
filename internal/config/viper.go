@@ -154,7 +154,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("backup.timestamp_format", "20060102_150405")
 
 	// Categorization defaults
-	v.SetDefault("categorization.auto_learn", true)
+	v.SetDefault("categorization.auto_learn", false) // Default: OFF per v1.2 D-11
 	v.SetDefault("categorization.confidence_threshold", 0.8)
 	v.SetDefault("categorization.case_sensitive", false)
 

@@ -166,6 +166,7 @@ func Init() {
 	Cmd.PersistentFlags().String("log-format", "", "Log format (text, json)")
 	Cmd.PersistentFlags().String("csv-delimiter", "", "CSV delimiter character")
 	Cmd.PersistentFlags().Bool("ai-enabled", false, "Enable AI categorization")
+	Cmd.PersistentFlags().Bool("auto-learn", false, "Enable AI auto-learning of categorizations (default: false)")
 
 	Cmd.AddCommand(review.GetReviewCommand())
 	Cmd.AddCommand(analyze.AnalyzeCmd)
@@ -184,5 +185,8 @@ func Init() {
 	}
 	if err := viper.BindPFlag("ai.enabled", Cmd.PersistentFlags().Lookup("ai-enabled")); err != nil {
 		log.Printf("Warning: failed to bind ai-enabled flag: %v", err)
+	}
+	if err := viper.BindPFlag("categorization.auto_learn", Cmd.PersistentFlags().Lookup("auto-learn")); err != nil {
+		log.Printf("Warning: failed to bind auto-learn flag: %v", err)
 	}
 }
