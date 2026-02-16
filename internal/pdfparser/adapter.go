@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -69,7 +71,28 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	return true, nil
 }
 
-// BatchConvert is not implemented for this parser.
+// BatchConvert processes all PDF files in inputDir and writes converted CSV files to outputDir.
+// Returns the number of successfully converted files.
 func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	return 0, fmt.Errorf("not implemented")
+	processor := batch.NewBatchProcessor(a, a.GetLogger())
+
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
+	if err != nil {
+		// Config/permission error (not file-level errors)
+		return 0, err
+	}
+
+	// Log summary
+	a.GetLogger().Info("Batch processing completed",
+		logging.Field{Key: "total", Value: manifest.TotalFiles},
+		logging.Field{Key: "succeeded", Value: manifest.SuccessCount},
+		logging.Field{Key: "failed", Value: manifest.FailureCount})
+
+	// Write manifest
+	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	if err := manifest.WriteManifest(manifestPath); err != nil {
+		a.GetLogger().WithError(err).Warn("Failed to write manifest")
+	}
+
+	return manifest.SuccessCount, nil
 }
