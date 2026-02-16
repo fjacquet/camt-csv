@@ -87,7 +87,11 @@ func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inp
 	if err != nil {
 		return fmt.Errorf("error opening input file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.WithError(err).Warn("Failed to close file")
+		}
+	}()
 
 	// Parse transactions
 	transactions, err := p.Parse(ctx, file)

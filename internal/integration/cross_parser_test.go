@@ -335,7 +335,7 @@ func TestEndToEndConversion_iComptaFormat(t *testing.T) {
 	// Parse transactions
 	file, err := os.Open(sampleFile)
 	require.NoError(t, err)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	transactions, err := parser.Parse(context.Background(), file)
 	require.NoError(t, err, "Parsing should succeed")

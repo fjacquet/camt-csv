@@ -119,25 +119,25 @@ func TestStandardFormatter(t *testing.T) {
 		assert.Len(t, rows[0], 29) // 29 columns (removed 6 redundant fields)
 
 		// Verify key fields
-		assert.Equal(t, "BOOK", rows[0][0])         // Status
-		assert.Equal(t, "15.02.2026", rows[0][1])   // Date
-		assert.Equal(t, "Coffee Shop", rows[0][3])  // Name
-		assert.Equal(t, "-15.50", rows[0][8])       // Amount
-		assert.Equal(t, "CHF", rows[0][10])         // Currency
-		assert.Equal(t, "", rows[0][11])            // Product (empty for this test)
+		assert.Equal(t, "BOOK", rows[0][0])           // Status
+		assert.Equal(t, "15.02.2026", rows[0][1])     // Date
+		assert.Equal(t, "Coffee Shop", rows[0][3])    // Name
+		assert.Equal(t, "-15.50", rows[0][8])         // Amount
+		assert.Equal(t, "CHF", rows[0][10])           // Currency
+		assert.Equal(t, "", rows[0][11])              // Product (empty for this test)
 		assert.Equal(t, "Food & Dining", rows[0][16]) // Category
 	})
 
 	t.Run("Format multiple transactions", func(t *testing.T) {
 		tx1 := createTestTransaction()
 		tx2 := createTestTransaction()
-		tx2.Payee = "Gas Station"  // Payee is used to set Name for debit transactions
+		tx2.Payee = "Gas Station" // Payee is used to set Name for debit transactions
 		tx2.Name = "Gas Station"
 
 		rows, err := formatter.Format([]models.Transaction{tx1, tx2})
 		require.NoError(t, err)
 		assert.Len(t, rows, 2)
-		assert.Equal(t, "Coffee Shop", rows[0][3])  // Name is now at index 3
+		assert.Equal(t, "Coffee Shop", rows[0][3]) // Name is now at index 3
 		assert.Equal(t, "Gas Station", rows[1][3])
 	})
 
@@ -172,16 +172,16 @@ func TestIComptaFormatter(t *testing.T) {
 		assert.Len(t, rows[0], 10) // 10 columns
 
 		// Verify key fields
-		assert.Equal(t, "15.02.2026", rows[0][0])     // Date in dd.MM.yyyy
-		assert.Equal(t, "Coffee Shop", rows[0][1])    // Name
-		assert.Equal(t, "-15.50", rows[0][2])         // Amount
+		assert.Equal(t, "15.02.2026", rows[0][0])      // Date in dd.MM.yyyy
+		assert.Equal(t, "Coffee Shop", rows[0][1])     // Name
+		assert.Equal(t, "-15.50", rows[0][2])          // Amount
 		assert.Equal(t, "Coffee purchase", rows[0][3]) // Description
-		assert.Equal(t, "cleared", rows[0][4])        // Status (BOOK→cleared)
-		assert.Equal(t, "Food & Dining", rows[0][5])  // Category
-		assert.Equal(t, "-15.50", rows[0][6])         // SplitAmount
-		assert.Equal(t, "-14.00", rows[0][7])         // SplitAmountExclTax
-		assert.Equal(t, "7.70", rows[0][8])           // SplitTaxRate
-		assert.Equal(t, "Card Payment", rows[0][9])   // Type
+		assert.Equal(t, "cleared", rows[0][4])         // Status (BOOK→cleared)
+		assert.Equal(t, "Food & Dining", rows[0][5])   // Category
+		assert.Equal(t, "-15.50", rows[0][6])          // SplitAmount
+		assert.Equal(t, "-14.00", rows[0][7])          // SplitAmountExclTax
+		assert.Equal(t, "7.70", rows[0][8])            // SplitTaxRate
+		assert.Equal(t, "Card Payment", rows[0][9])    // Type
 	})
 
 	t.Run("Date format is dd.MM.yyyy", func(t *testing.T) {
@@ -255,9 +255,9 @@ func TestIComptaFormatter(t *testing.T) {
 
 		rows, err := formatter.Format([]models.Transaction{tx})
 		require.NoError(t, err)
-		assert.Equal(t, "1234.57", rows[0][2])   // Amount
-		assert.Equal(t, "1000.00", rows[0][7])   // AmountExclTax
-		assert.Equal(t, "8.12", rows[0][8])      // TaxRate
+		assert.Equal(t, "1234.57", rows[0][2]) // Amount
+		assert.Equal(t, "1000.00", rows[0][7]) // AmountExclTax
+		assert.Equal(t, "8.12", rows[0][8])    // TaxRate
 	})
 
 	t.Run("Format multiple transactions", func(t *testing.T) {
