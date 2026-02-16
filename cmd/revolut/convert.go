@@ -2,9 +2,17 @@
 package revolut
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
+	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -28,8 +36,12 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
 	logger := root.GetLogrusAdapter()
 	root.Log.Info("Revolut convert command called")
-	logger.Infof("Input file: %s", root.SharedFlags.Input)
-	logger.Infof("Output file: %s", root.SharedFlags.Output)
+
+	inputPath := root.SharedFlags.Input
+	outputPath := root.SharedFlags.Output
+
+	logger.Infof("Input: %s", inputPath)
+	logger.Infof("Output: %s", outputPath)
 
 	// Get format flags
 	format, _ := cmd.Flags().GetString("format")
@@ -47,6 +59,69 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Error getting Revolut parser: %v", err)
 	}
 
-	common.ProcessFile(ctx, p, root.SharedFlags.Input, root.SharedFlags.Output, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
-	root.Log.Info("Revolut to CSV conversion completed successfully!")
+	// Check if input is directory or file
+	fileInfo, err := os.Stat(inputPath)
+	if err != nil {
+		logger.Fatalf("Error accessing input path: %v", err)
+	}
+
+	if fileInfo.IsDir() {
+		// Directory mode - batch conversion
+		batchConvert(ctx, p, inputPath, outputPath, logger)
+	} else {
+		// File mode - single file conversion
+		common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
+		root.Log.Info("Revolut to CSV conversion completed successfully!")
+	}
+}
+
+// batchConvert processes all files in a directory using BatchConvert
+func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string, logger logging.Logger) {
+	// Cast to BatchConverter interface
+	batchConverter, ok := p.(interface {
+		BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
+	})
+	if !ok {
+		logger.Error("Parser does not support batch conversion")
+		os.Exit(1)
+	}
+
+	count, err := batchConverter.BatchConvert(ctx, inputDir, outputDir)
+	if err != nil {
+		logger.WithError(err).Error("Batch conversion failed")
+		os.Exit(1)
+	}
+
+	// Load manifest to get exit code
+	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		logger.WithError(err).Warn("Could not read manifest")
+		// Fallback: exit 0 if count > 0, else exit 1
+		if count == 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	var manifest batch.BatchManifest
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		logger.WithError(err).Warn("Could not parse manifest")
+		if count == 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Log summary
+	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded", manifest.SuccessCount, manifest.TotalFiles))
+
+	if manifest.FailureCount > 0 {
+		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)", manifest.FailureCount, manifestPath))
+	}
+
+	// Exit with semantic code
+	if manifest.ExitCode() != 0 {
+		os.Exit(manifest.ExitCode())
+	}
 }
