@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 6 of 8 (Revolut Parsers Overhaul)
-Plan: 2 of 3 in current phase
-Status: In Progress
-Last activity: 2026-02-16 — Completed 06-01-PLAN.md (Product field model support)
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-02-16 — Completed 06-03-PLAN.md (Revolut parser field population)
 
-Progress: [████████░░░░░░░░░░░░] 33% (v1.2 phases 5-8: 4/12 plans)
+Progress: [██████████░░░░░░░░░░] 42% (v1.2 phases 5-8: 5/12 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (v1.1: 11, v1.2: 3)
-- Average duration: 202 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 10 min (v1.2)
+- Total plans completed: 15 (v1.1: 11, v1.2: 4)
+- Average duration: 235 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 16 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -39,6 +39,7 @@ Starting fresh with Phase 5.
 | Phase 05 P02 | 113 | 2 tasks | 2 files |
 | Phase 05 P03 | 489 | 2 tasks | 8 files |
 | Phase 06 P01 | 496 | 2 tasks | 7 files |
+| Phase 06 P03 | 192 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,8 @@ Recent decisions affecting v1.2:
 - [Phase 06-01]: Product field positioned after Currency for logical grouping of account-level fields
 - [Phase 06-01]: CSV format expanded from 34 to 35 columns to include Product field
 - [Phase 06-01]: No validation on Product field values - accepts any string from source data
+- [Phase 06-03]: Exchange transactions preserve metadata in OriginalAmount/OriginalCurrency for future FX handling
+- [Phase 06-03]: REVERTED and PENDING transactions are logged when skipped for user visibility
 
 ### Pending Todos
 
@@ -73,9 +76,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 06-01-PLAN.md (Product field model support)
-Resume file: .planning/phases/06-revolut-parsers-overhaul/06-01-SUMMARY.md
+Stopped at: Completed 06-03-PLAN.md (Revolut parser field population)
+Resume file: .planning/phases/06-revolut-parsers-overhaul/06-03-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 6 in progress: 1/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 6 complete: 3/3 plans)*
