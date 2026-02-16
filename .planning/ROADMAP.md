@@ -76,7 +76,13 @@ Plans:
   6. Revolut Investment parser handles SELL transactions correctly
   7. Revolut Investment parser handles CUSTODY_FEE transactions correctly
   8. Revolut Investment parser supports batch conversion mode
-**Plans**: TBD
+
+**Plans**: 3 plans in 2 waves
+
+Plans:
+- [ ] 06-01-PLAN.md — Add Product field to Transaction model and builder
+- [ ] 06-02-PLAN.md — Add SELL/CUSTODY_FEE handling and batch support to investment parser
+- [ ] 06-03-PLAN.md — Enhance Revolut parser to populate all 35 fields with Product and exchange metadata
 
 ### Phase 7: Batch Infrastructure
 
@@ -114,10 +120,10 @@ Plans:
 | 3. Architecture & Error Handling | v1.1 | 3/3 | Complete | 2026-02-01 |
 | 4. Test Coverage & Safety | v1.1 | 4/4 | Complete | 2026-02-01 |
 | 5. Output Framework | v1.2 | 0/3 | Not started | - |
-| 6. Revolut Parsers Overhaul | v1.2 | 0/? | Not started | - |
+| 6. Revolut Parsers Overhaul | v1.2 | 0/3 | Not started | - |
 | 7. Batch Infrastructure | v1.2 | 0/? | Not started | - |
 | 8. AI Safety Controls | v1.2 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-15 for v1.2 milestone*
+*Last updated: 2026-02-16 for Phase 6 planning*
