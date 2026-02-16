@@ -92,8 +92,14 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			continue
 		}
 
-		// Only include completed transactions
+		// Only include completed transactions (log others for visibility)
 		if revolutRows[i].State != models.StatusCompleted {
+			logger.Info("Skipping non-completed transaction",
+				logging.Field{Key: "state", Value: revolutRows[i].State},
+				logging.Field{Key: "date", Value: revolutRows[i].CompletedDate},
+				logging.Field{Key: "description", Value: revolutRows[i].Description},
+				logging.Field{Key: "amount", Value: revolutRows[i].Amount},
+				logging.Field{Key: "currency", Value: revolutRows[i].Currency})
 			continue
 		}
 
