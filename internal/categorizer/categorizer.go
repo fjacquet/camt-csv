@@ -225,7 +225,10 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 			cat.logger.WithFields(
 				logging.Field{Key: "party", Value: transaction.PartyName},
 				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning debitor mapping")
+				logging.Field{Key: "confidence", Value: category.Confidence},
+				logging.Field{Key: "source", Value: category.Source},
+				logging.Field{Key: "action", Value: "auto_learn_pending"},
+			).Info("Categorization found (auto-learning enabled)")
 			cat.updateDebitorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := cat.SaveDebitorsToYAML(); err != nil {
@@ -237,7 +240,10 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 			cat.logger.WithFields(
 				logging.Field{Key: "party", Value: transaction.PartyName},
 				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning creditor mapping")
+				logging.Field{Key: "confidence", Value: category.Confidence},
+				logging.Field{Key: "source", Value: category.Source},
+				logging.Field{Key: "action", Value: "auto_learn_pending"},
+			).Info("Categorization found (auto-learning enabled)")
 			cat.updateCreditorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := cat.SaveCreditorsToYAML(); err != nil {
@@ -245,6 +251,11 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 			} else {
 				cat.logger.Debug("Successfully saved new creditor mapping to disk")
 			}
+		}
+	} else {
+		// Log when categorization is skipped (uncategorized or empty)
+		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
+			cat.logger.WithField("party", transaction.PartyName).Debug("No categorization found, skipping auto-learn")
 		}
 	}
 
@@ -310,7 +321,10 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 			c.logger.WithFields(
 				logging.Field{Key: "party", Value: partyName},
 				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning debitor mapping")
+				logging.Field{Key: "confidence", Value: category.Confidence},
+				logging.Field{Key: "source", Value: category.Source},
+				logging.Field{Key: "action", Value: "auto_learn_pending"},
+			).Info("Categorization found (auto-learning enabled)")
 			c.updateDebitorCategory(partyName, category.Name)
 			if saveErr := c.SaveDebitorsToYAML(); saveErr != nil {
 				c.logger.WithError(saveErr).Warn("Failed to save debitor mapping")
@@ -319,11 +333,19 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 			c.logger.WithFields(
 				logging.Field{Key: "party", Value: partyName},
 				logging.Field{Key: "category", Value: category.Name},
-			).Debug("Auto-learning creditor mapping")
+				logging.Field{Key: "confidence", Value: category.Confidence},
+				logging.Field{Key: "source", Value: category.Source},
+				logging.Field{Key: "action", Value: "auto_learn_pending"},
+			).Info("Categorization found (auto-learning enabled)")
 			c.updateCreditorCategory(partyName, category.Name)
 			if saveErr := c.SaveCreditorsToYAML(); saveErr != nil {
 				c.logger.WithError(saveErr).Warn("Failed to save creditor mapping")
 			}
+		}
+	} else {
+		// Log when categorization is skipped (uncategorized or empty)
+		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
+			c.logger.WithField("party", partyName).Debug("No categorization found, skipping auto-learn")
 		}
 	}
 
