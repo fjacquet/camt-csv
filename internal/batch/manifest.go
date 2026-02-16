@@ -53,7 +53,7 @@ func (m *BatchManifest) WriteManifest(filePath string) error {
 	}
 
 	// Write to file with appropriate permissions
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write manifest file: %w", err)
 	}
 
