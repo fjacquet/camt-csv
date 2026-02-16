@@ -276,6 +276,22 @@ func pdfBatchConvert(ctx context.Context, p parser.FullParser, inputDir, outputD
 	}
 }
 
+// Format flag behavior verification:
+//
+// Single-file mode:
+//   camt-csv pdf --format icompta -i file.pdf -o output.csv
+//   → Uses ProcessFile → WriteTransactionsToCSVWithFormatter
+//
+// Batch mode (--batch):
+//   camt-csv pdf --batch --format icompta -i pdfs/ -o output_dir/
+//   → Uses pdfBatchConvert → BatchProcessor(formatter) → WriteTransactionsToCSVWithFormatter
+//
+// Consolidation mode (default for directory):
+//   camt-csv pdf --format icompta -i pdfs/ -o consolidated.csv
+//   → Uses consolidatePDFDirectory → WriteTransactionsToCSVWithFormatter
+//
+// All three modes should produce identical CSV format for same input data.
+
 // sortTransactionsChronologically sorts transactions by date, then value date, then amount
 func sortTransactionsChronologically(transactions []models.Transaction) {
 	sort.Slice(transactions, func(i, j int) bool {
