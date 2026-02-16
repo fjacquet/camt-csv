@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Output Formatter Framework** (Phase 5): Pluggable CSV output formatting with strategy pattern
+  - `OutputFormatter` interface with `StandardFormatter` (34→35-column, comma-delimited) and `iComptaFormatter` (10-column, semicolon-delimited, dd.MM.yyyy dates)
+  - `FormatterRegistry` for managing formatters by name
+  - `--format` CLI flag on all parser commands (camt, pdf, revolut, selma, debit, revolut-investment)
+  - `ProcessFile()` refactored to use `Parse()` + `WriteTransactionsToCSVWithFormatter` pipeline
+  - DI container exposes `FormatterRegistry` for consistent formatter access
+
+- **Product Field** (Phase 6): Transaction model expanded from 34 to 35 columns
+  - New `Product` field (Current/Savings) positioned after Currency
+  - Builder pattern updated with `WithProduct()` method
+  - All formatters and CSV writers updated for 35-column output
+
+- **Revolut Investment Parser Enhancements** (Phase 6): Complete transaction type coverage
+  - SELL transaction support (credit/incoming money from sales)
+  - CUSTODY_FEE transaction support (debit/outgoing fees with fee tracking)
+  - Batch conversion mode for investment CSV files
+
+- **Revolut Parser Field Population** (Phase 6): Full 35-field standardized output
+  - All transaction fields populated via builder pattern
+  - Exchange transactions preserve OriginalAmount/OriginalCurrency metadata
+  - Product field populated from source data
+  - REVERTED and PENDING transactions logged when skipped
+
+- **Batch Infrastructure** (Phase 7): Universal batch processing with error reporting
+  - Reusable `BatchProcessor` using composition pattern (wraps any parser)
+  - `BatchManifest` with JSON serialization and semantic exit codes (0=all success, 1=partial, 2=all failed)
+  - PDF parser `--batch` flag for individual file conversion mode
+  - All 6 CLI commands generate `.manifest.json` and exit with semantic codes
+  - Batch processing continues after individual file failures
+
+- **AI Safety Controls** (Phase 8): Safety gates for AI categorization
+  - `--auto-learn` flag controls auto-save of AI categorizations (default: OFF)
+  - Gemini API rate limiting via token bucket (configurable RPM, default 10)
+  - Exponential backoff with jitter for transient API failures (429, 503, timeouts)
+  - Confidence metadata on all categorizations (direct=1.0, keyword=0.95, semantic=0.90, AI=0.8-0.9)
+  - Pre-save audit logging with confidence scores and source strategy
+
+### Previously added
+
 - **PDF Directory Consolidation**: The `pdf` command now accepts a directory as input, consolidating all PDF files into a single CSV output
   - Single file mode: `camt-csv pdf -i file.pdf -o output.csv` (existing behavior)
   - Directory mode: `camt-csv pdf -i pdf_dir/ -o consolidated.csv` (new feature)
