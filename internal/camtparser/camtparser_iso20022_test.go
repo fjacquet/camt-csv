@@ -515,10 +515,10 @@ func TestISO20022Parser_CreateEmptyCSVFile(t *testing.T) {
 		_, err = os.Stat(outputFile)
 		assert.NoError(t, err)
 
-		// Verify content has headers
+		// Verify content has headers (29-column format)
 		content, err := os.ReadFile(outputFile)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "BookkeepingNumber")
+		assert.Contains(t, string(content), "Status")
 		assert.Contains(t, string(content), "Amount")
 		assert.Contains(t, string(content), "Category")
 	})
