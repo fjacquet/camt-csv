@@ -49,7 +49,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Remove 6 redundant/dead fields from 35-column standard CSV format, keeping only fields with actual data.
 
 - [x] **Phase 10: CSV Format Trim** (1 plan) - Remove 6 fields from StandardFormatter and update model (completed 2026-02-16)
-- [ ] **Phase 11: Integration Verification** - Verify all parsers and tests pass with new 29-column format
+- [ ] **Phase 11: Integration Verification** (2 plans) - Verify all parsers and tests pass with new 29-column format
 
 ## Phase Details
 
@@ -66,7 +66,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Plans**: 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md — Update StandardFormatter and Transaction CSV methods to 29 columns
+- [x] 10-01-PLAN.md — Update StandardFormatter and Transaction CSV methods to 29 columns
 
 ### Phase 11: Integration Verification
 **Goal**: All parsers and tests work correctly with 29-column format
@@ -78,7 +78,11 @@ Plans:
   3. iCompta formatter remains unchanged at 10 columns with semicolon separator
   4. End-to-end test: convert sample file from each parser, verify 29 columns in standard format
   5. End-to-end test: convert sample file from each parser, verify 10 columns in iCompta format
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Update all parser unit tests to expect 29-column format
+- [ ] 11-02-PLAN.md — Update integration tests with explicit 29-column verification and end-to-end tests
 
 ## Progress
 
@@ -96,9 +100,9 @@ Phases execute in numeric order: 10 → 11
 | 7. Batch Infrastructure | v1.2 | 2/2 | Complete | 2026-02-16 |
 | 8. AI Safety Controls | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 9. Batch-Formatter Integration | v1.2 | 3/3 | Complete | 2026-02-16 |
-| 10. CSV Format Trim | v1.3 | Complete    | 2026-02-16 | - |
-| 11. Integration Verification | v1.3 | 0/? | Not started | - |
+| 10. CSV Format Trim | v1.3 | 1/1 | Complete | 2026-02-16 |
+| 11. Integration Verification | v1.3 | 0/2 | Planning complete | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-16 — v1.3 Phase 10 planning complete*
+*Last updated: 2026-02-16 — Phase 11 planning complete*
