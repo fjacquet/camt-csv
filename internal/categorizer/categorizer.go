@@ -89,6 +89,9 @@ type Categorizer struct {
 	// Lazy initialization for AI client
 	aiClient  AIClient // New field for AIClient interface
 	aiFactory func() AIClient
+
+	// Auto-learning control
+	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
 }
 
 // Note: log variable removed as part of dependency injection refactoring
@@ -104,22 +107,23 @@ type Config interface {
 	GetCategorizationConfidenceThreshold() float64
 }
 
-// NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, and logger.
-func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger) *Categorizer {
+// NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, and auto-learn setting.
+func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool) *Categorizer {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
 
 	c := &Categorizer{
-		categories:       make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
-		creditorMappings: make(map[string]string, 100),         // Pre-allocate with size hint
-		debitorMappings:  make(map[string]string, 100),         // Pre-allocate with size hint
-		configMutex:      sync.RWMutex{},
-		isDirtyCreditors: false,
-		isDirtyDebitors:  false,
-		store:            store,
-		logger:           logger,
-		aiClient:         aiClient,
+		categories:         make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		creditorMappings:   make(map[string]string, 100),         // Pre-allocate with size hint
+		debitorMappings:    make(map[string]string, 100),         // Pre-allocate with size hint
+		configMutex:        sync.RWMutex{},
+		isDirtyCreditors:   false,
+		isDirtyDebitors:    false,
+		store:              store,
+		logger:             logger,
+		aiClient:           aiClient,
+		isAutoLearnEnabled: autoLearnEnabled,
 	}
 
 	// Load categories from YAML
@@ -217,9 +221,10 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 	// Get the actual categorization
 	category, err := cat.CategorizeTransaction(ctx, transaction)
 
-	// If we successfully found a category via AI, let's immediately save it to the database
-	// so we don't need to recategorize similar transactions in the future
-	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
+	// If we successfully found a category via AI AND auto-learning is enabled,
+	// let's immediately save it to the database so we don't need to recategorize
+	// similar transactions in the future
+	if err == nil && cat.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
 		// Auto-learn this categorization by saving it to the appropriate database
 		if transaction.IsDebtor {
 			cat.logger.WithFields(
@@ -228,7 +233,7 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 				logging.Field{Key: "confidence", Value: category.Confidence},
 				logging.Field{Key: "source", Value: category.Source},
 				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Categorization found (auto-learning enabled)")
+			).Info("Auto-learning debitor mapping")
 			cat.updateDebitorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := cat.SaveDebitorsToYAML(); err != nil {
@@ -243,7 +248,7 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 				logging.Field{Key: "confidence", Value: category.Confidence},
 				logging.Field{Key: "source", Value: category.Source},
 				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Categorization found (auto-learning enabled)")
+			).Info("Auto-learning creditor mapping")
 			cat.updateCreditorCategory(transaction.PartyName, category.Name)
 			// Force immediate save to disk
 			if err := cat.SaveCreditorsToYAML(); err != nil {
@@ -252,6 +257,14 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 				cat.logger.Debug("Successfully saved new creditor mapping to disk")
 			}
 		}
+	} else if err == nil && !cat.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
+		// Log that auto-learning is disabled but categorization succeeded
+		cat.logger.WithFields(
+			logging.Field{Key: "party", Value: transaction.PartyName},
+			logging.Field{Key: "category", Value: category.Name},
+			logging.Field{Key: "action", Value: "skip_auto_learn"},
+			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
+		).Debug("Categorization found but auto-learning disabled")
 	} else {
 		// Log when categorization is skipped (uncategorized or empty)
 		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
@@ -314,9 +327,9 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 
 	category, err := c.categorizeTransaction(ctx, transaction)
 
-	// Auto-learn: if we successfully found a category, save it to the database
-	// so we don't need to recategorize similar transactions in the future
-	if err == nil && category.Name != "" && category.Name != models.CategoryUncategorized {
+	// Auto-learn: if we successfully found a category AND auto-learning is enabled,
+	// save it to the database so we don't need to recategorize similar transactions in the future
+	if err == nil && c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
 		if isDebtor {
 			c.logger.WithFields(
 				logging.Field{Key: "party", Value: partyName},
@@ -324,7 +337,7 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 				logging.Field{Key: "confidence", Value: category.Confidence},
 				logging.Field{Key: "source", Value: category.Source},
 				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Categorization found (auto-learning enabled)")
+			).Info("Auto-learning debitor mapping")
 			c.updateDebitorCategory(partyName, category.Name)
 			if saveErr := c.SaveDebitorsToYAML(); saveErr != nil {
 				c.logger.WithError(saveErr).Warn("Failed to save debitor mapping")
@@ -336,12 +349,20 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 				logging.Field{Key: "confidence", Value: category.Confidence},
 				logging.Field{Key: "source", Value: category.Source},
 				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Categorization found (auto-learning enabled)")
+			).Info("Auto-learning creditor mapping")
 			c.updateCreditorCategory(partyName, category.Name)
 			if saveErr := c.SaveCreditorsToYAML(); saveErr != nil {
 				c.logger.WithError(saveErr).Warn("Failed to save creditor mapping")
 			}
 		}
+	} else if err == nil && !c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
+		// Log that auto-learning is disabled but categorization succeeded
+		c.logger.WithFields(
+			logging.Field{Key: "party", Value: partyName},
+			logging.Field{Key: "category", Value: category.Name},
+			logging.Field{Key: "action", Value: "skip_auto_learn"},
+			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
+		).Debug("Categorization found but auto-learning disabled")
 	} else {
 		// Log when categorization is skipped (uncategorized or empty)
 		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {

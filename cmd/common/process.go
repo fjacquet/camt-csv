@@ -182,7 +182,7 @@ func ProcessFileLegacy(ctx context.Context, parser models.Parser, inputFile, out
 //	    log.Error("Failed to save debtor mappings", err)
 //	}
 func SaveMappings(log *logrus.Logger) {
-	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), logging.NewLogrusAdapterFromLogger(log))
+	categorizerInstance := categorizer.NewCategorizer(nil, store.NewCategoryStore("categories.yaml", "creditors.yaml", "debitors.yaml"), logging.NewLogrusAdapterFromLogger(log), false)
 	err := categorizerInstance.SaveCreditorsToYAML()
 	if err != nil {
 		log.Warnf("Failed to save creditor mappings: %v", err)

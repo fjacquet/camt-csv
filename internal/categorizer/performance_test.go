@@ -161,7 +161,7 @@ func BenchmarkCategorizer_FullFlow(b *testing.B) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create categorizer
-	categorizer := NewCategorizer(nil, mockStore, mockLogger)
+	categorizer := NewCategorizer(nil, mockStore, mockLogger, true)
 
 	// Test transactions with various scenarios
 	transactions := []Transaction{
