@@ -298,6 +298,15 @@ func (b *TransactionBuilder) WithType(transactionType string) *TransactionBuilde
 	return b
 }
 
+// WithProduct sets the product type (e.g., Current, Savings)
+func (b *TransactionBuilder) WithProduct(product string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.Product = product
+	return b
+}
+
 // WithFund sets the fund name
 func (b *TransactionBuilder) WithFund(fund string) *TransactionBuilder {
 	if b.err != nil {

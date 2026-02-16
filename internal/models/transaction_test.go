@@ -487,16 +487,17 @@ func TestTransaction_DateFormattingIndirect(t *testing.T) {
 			"15.01.2025",     // Date
 			"16.01.2025",     // ValueDate
 			"Test Name",      // Name
-			"Test Desc",      // Description
-			"Test Info",      // RemittanceInfo
 			"Test Party",     // PartyName
 			"CH123456789",    // PartyIBAN
+			"Test Desc",      // Description
+			"Test Info",      // RemittanceInfo
 			"100",            // Amount
 			"CRDT",           // CreditDebit
 			"false",          // IsDebit
 			"0",              // Debit
 			"100",            // Credit
 			"CHF",            // Currency
+			"",               // Product
 			"0",              // AmountExclTax
 			"0",              // AmountTax
 			"0",              // TaxRate

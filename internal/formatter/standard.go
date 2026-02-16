@@ -4,7 +4,7 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
-// StandardFormatter produces the backward-compatible 34-column CSV format.
+// StandardFormatter produces the backward-compatible 35-column CSV format.
 // This formatter maintains compatibility with existing camt-csv output,
 // using comma delimiters and delegating to Transaction.MarshalCSV().
 type StandardFormatter struct{}
@@ -14,12 +14,12 @@ func NewStandardFormatter() *StandardFormatter {
 	return &StandardFormatter{}
 }
 
-// Header returns the 34 standard column names.
+// Header returns the 35 standard column names (including Product field).
 func (f *StandardFormatter) Header() []string {
 	return []string{
 		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
 		"Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit", "Debit", "Credit", "Currency",
-		"AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType", "Number", "Category",
+		"Product", "AmountExclTax", "AmountTax", "TaxRate", "Recipient", "InvestmentType", "Number", "Category",
 		"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
 		"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
 	}

@@ -98,13 +98,13 @@ func TestFormatterRegistry(t *testing.T) {
 func TestStandardFormatter(t *testing.T) {
 	formatter := NewStandardFormatter()
 
-	t.Run("Header returns 34 columns", func(t *testing.T) {
+	t.Run("Header returns 35 columns", func(t *testing.T) {
 		header := formatter.Header()
-		assert.Len(t, header, 34)
+		assert.Len(t, header, 35)
 		assert.Equal(t, "BookkeepingNumber", header[0])
 		assert.Equal(t, "Status", header[1])
 		assert.Equal(t, "Date", header[2])
-		assert.Equal(t, "ExchangeRate", header[33]) // Last column
+		assert.Equal(t, "ExchangeRate", header[34]) // Last column
 	})
 
 	t.Run("Delimiter is comma", func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestStandardFormatter(t *testing.T) {
 		rows, err := formatter.Format([]models.Transaction{tx})
 		require.NoError(t, err)
 		assert.Len(t, rows, 1)
-		assert.Len(t, rows[0], 34) // 34 columns
+		assert.Len(t, rows[0], 35) // 35 columns (added Product field)
 
 		// Verify key fields
 		assert.Equal(t, "TXN001", rows[0][0])       // BookkeepingNumber
@@ -125,7 +125,8 @@ func TestStandardFormatter(t *testing.T) {
 		assert.Equal(t, "Coffee Shop", rows[0][4])  // Name
 		assert.Equal(t, "-15.50", rows[0][9])       // Amount
 		assert.Equal(t, "CHF", rows[0][14])         // Currency
-		assert.Equal(t, "Food & Dining", rows[0][21]) // Category
+		assert.Equal(t, "", rows[0][15])            // Product (new field, empty for this test)
+		assert.Equal(t, "Food & Dining", rows[0][22]) // Category (shifted by 1)
 	})
 
 	t.Run("Format multiple transactions", func(t *testing.T) {
