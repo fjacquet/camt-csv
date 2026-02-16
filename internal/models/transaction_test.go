@@ -474,49 +474,44 @@ func TestTransaction_DateFormattingIndirect(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify dates are formatted correctly in CSV (DD.MM.YYYY format)
-		assert.Contains(t, csvData[2], "15.01.2025") // Date field
-		assert.Contains(t, csvData[3], "16.01.2025") // ValueDate field
+		// In new 29-column format: Date is index 1, ValueDate is index 2
+		assert.Contains(t, csvData[1], "15.01.2025") // Date field
+		assert.Contains(t, csvData[2], "16.01.2025") // ValueDate field
 	})
 
 	t.Run("CSV unmarshaling with dates", func(t *testing.T) {
 		// Test that date parsing works through CSV unmarshaling
-		// Create a complete CSV record with all required fields
+		// Create a complete CSV record with all required fields (29 columns)
 		csvData := []string{
-			"TXN-001",        // BookkeepingNumber
-			"COMPLETED",      // Status
-			"15.01.2025",     // Date
-			"16.01.2025",     // ValueDate
-			"Test Name",      // Name
-			"Test Party",     // PartyName
-			"CH123456789",    // PartyIBAN
-			"Test Desc",      // Description
-			"Test Info",      // RemittanceInfo
-			"100",            // Amount
-			"CRDT",           // CreditDebit
-			"false",          // IsDebit
-			"0",              // Debit
-			"100",            // Credit
-			"CHF",            // Currency
-			"",               // Product
-			"0",              // AmountExclTax
-			"0",              // AmountTax
-			"0",              // TaxRate
-			"Test Recipient", // Recipient
-			"",               // InvestmentType
-			"1",              // Number
-			"Shopping",       // Category
-			"",               // Type
-			"",               // Fund
-			"0",              // NumberOfShares
-			"0",              // Fees
-			"CH123456789",    // IBAN
-			"REF-001",        // EntryReference
-			"REF-001",        // Reference
-			"BANK-CH",        // AccountServicer
-			"PMNT",           // BankTxCode
-			"CHF",            // OriginalCurrency
-			"100",            // OriginalAmount
-			"1",              // ExchangeRate
+			"COMPLETED",   // Status
+			"15.01.2025",  // Date
+			"16.01.2025",  // ValueDate
+			"Test Name",   // Name
+			"Test Party",  // PartyName
+			"CH123456789", // PartyIBAN
+			"Test Desc",   // Description
+			"Test Info",   // RemittanceInfo
+			"100",         // Amount
+			"CRDT",        // CreditDebit
+			"CHF",         // Currency
+			"",            // Product
+			"0",           // AmountExclTax
+			"0",           // TaxRate
+			"",            // InvestmentType
+			"1",           // Number
+			"Shopping",    // Category
+			"",            // Type
+			"",            // Fund
+			"0",           // NumberOfShares
+			"0",           // Fees
+			"CH123456789", // IBAN
+			"REF-001",     // EntryReference
+			"REF-001",     // Reference
+			"BANK-CH",     // AccountServicer
+			"PMNT",        // BankTxCode
+			"CHF",         // OriginalCurrency
+			"100",         // OriginalAmount
+			"1",           // ExchangeRate
 		}
 
 		var tx Transaction

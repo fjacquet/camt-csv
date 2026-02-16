@@ -864,7 +864,8 @@ func TestTransaction_CSVAccuracy(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify critical fields are preserved
-	assert.Equal(t, original.BookkeepingNumber, restored.BookkeepingNumber)
+	// Note: BookkeepingNumber, DebitFlag, Debit, Credit, Recipient, AmountTax
+	// are no longer serialized in the 29-column CSV format
 	assert.Equal(t, original.Status, restored.Status)
 	assert.Equal(t, original.Date, restored.Date)
 	assert.Equal(t, original.ValueDate, restored.ValueDate)
@@ -873,7 +874,6 @@ func TestTransaction_CSVAccuracy(t *testing.T) {
 	assert.Equal(t, original.Currency, restored.Currency)
 	assert.Equal(t, original.Description, restored.Description)
 	assert.Equal(t, original.CreditDebit, restored.CreditDebit)
-	assert.Equal(t, original.DebitFlag, restored.DebitFlag)
 	assert.Equal(t, original.Category, restored.Category)
 	assert.True(t, original.Fees.Equal(restored.Fees))
 	assert.True(t, original.OriginalAmount.Equal(restored.OriginalAmount))
