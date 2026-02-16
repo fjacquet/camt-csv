@@ -88,7 +88,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	}
 
 	// Create categorizer with all dependencies
-	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger)
+	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger, cfg.Categorization.AutoLearn)
 
 	// Create parsers with dependency injection
 	parsers := make(map[ParserType]parser.FullParser)
