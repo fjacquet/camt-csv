@@ -27,6 +27,7 @@ type Transaction struct {
 	Debit             decimal.Decimal `csv:"Debit"`             // Debit amount (negative)
 	Credit            decimal.Decimal `csv:"Credit"`            // Credit amount (positive)
 	Currency          string          `csv:"Currency"`          // Currency code (CHF, EUR, etc)
+	Product           string          `csv:"Product"`           // Product type (Current, Savings)
 	AmountExclTax     decimal.Decimal `csv:"AmountExclTax"`     // Amount excluding tax
 	AmountTax         decimal.Decimal `csv:"AmountTax"`         // Tax amount
 	TaxRate           decimal.Decimal `csv:"TaxRate"`           // Tax rate percentage
@@ -327,6 +328,7 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 		t.Debit.StringFixed(2),
 		t.Credit.StringFixed(2),
 		t.Currency,
+		t.Product,
 		t.AmountExclTax.StringFixed(2),
 		t.AmountTax.StringFixed(2),
 		t.TaxRate.StringFixed(2),
@@ -384,46 +386,47 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 		return err
 	}
 	t.Currency = record[14]
-	t.AmountExclTax, err = decimal.NewFromString(record[15])
+	t.Product = record[15]
+	t.AmountExclTax, err = decimal.NewFromString(record[16])
 	if err != nil {
 		return err
 	}
-	t.AmountTax, err = decimal.NewFromString(record[16])
+	t.AmountTax, err = decimal.NewFromString(record[17])
 	if err != nil {
 		return err
 	}
-	t.TaxRate, err = decimal.NewFromString(record[17])
+	t.TaxRate, err = decimal.NewFromString(record[18])
 	if err != nil {
 		return err
 	}
-	t.Recipient = record[18]
-	t.Investment = record[19]
-	t.Number = record[20]
-	t.Category = record[21]
-	t.Type = record[22]
-	t.Fund = record[23]
+	t.Recipient = record[19]
+	t.Investment = record[20]
+	t.Number = record[21]
+	t.Category = record[22]
+	t.Type = record[23]
+	t.Fund = record[24]
 	var numberOfShares int
-	numberOfShares, err = strconv.Atoi(record[24])
+	numberOfShares, err = strconv.Atoi(record[25])
 	if err != nil {
 		return err
 	}
 	t.NumberOfShares = numberOfShares
 	// Fees includes stamp duty
-	t.Fees, err = decimal.NewFromString(record[25])
+	t.Fees, err = decimal.NewFromString(record[26])
 	if err != nil {
 		return err
 	}
-	t.IBAN = record[26]
-	t.EntryReference = record[27]
-	t.Reference = record[28]
-	t.AccountServicer = record[29]
-	t.BankTxCode = record[30]
-	t.OriginalCurrency = record[31]
-	t.OriginalAmount, err = decimal.NewFromString(record[32])
+	t.IBAN = record[27]
+	t.EntryReference = record[28]
+	t.Reference = record[29]
+	t.AccountServicer = record[30]
+	t.BankTxCode = record[31]
+	t.OriginalCurrency = record[32]
+	t.OriginalAmount, err = decimal.NewFromString(record[33])
 	if err != nil {
 		return err
 	}
-	t.ExchangeRate, err = decimal.NewFromString(record[33])
+	t.ExchangeRate, err = decimal.NewFromString(record[34])
 	if err != nil {
 		return err
 	}
