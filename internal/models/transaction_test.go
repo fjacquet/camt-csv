@@ -618,11 +618,11 @@ func (m *MockLogger) Info(msg string, fields ...logging.Field)               {}
 func (m *MockLogger) Warn(msg string, fields ...logging.Field)               {}
 func (m *MockLogger) Error(msg string, fields ...logging.Field)              {}
 func (m *MockLogger) Fatal(msg string, fields ...logging.Field)              {}
-func (m *MockLogger) Debugf(format string, args ...interface{})              {}
-func (m *MockLogger) Infof(format string, args ...interface{})               {}
-func (m *MockLogger) Warnf(format string, args ...interface{})               {}
-func (m *MockLogger) Errorf(format string, args ...interface{})              {}
-func (m *MockLogger) Fatalf(format string, args ...interface{})              {}
-func (m *MockLogger) WithError(err error) logging.Logger                     { return m }
-func (m *MockLogger) WithField(key string, value interface{}) logging.Logger { return m }
+func (m *MockLogger) Debugf(format string, args ...any)              {}
+func (m *MockLogger) Infof(format string, args ...any)               {}
+func (m *MockLogger) Warnf(format string, args ...any)               {}
+func (m *MockLogger) Errorf(format string, args ...any)              {}
+func (m *MockLogger) Fatalf(format string, args ...any)              {}
+func (m *MockLogger) WithError(err error) logging.Logger             { return m }
+func (m *MockLogger) WithField(key string, value any) logging.Logger { return m }
 func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger      { return m }
