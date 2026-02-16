@@ -7,7 +7,7 @@ This roadmap tracks the evolution of camt-csv from a functional MVP (v1.0) throu
 ## Milestones
 
 - ✅ **v1.1 Hardening** - Phases 1-4 (shipped 2026-02-01)
-- 🚧 **v1.2 Full Polish** - Phases 5-9 (in progress)
+- ✅ **v1.2 Full Polish** - Phases 5-9 (all phases complete, pending milestone close)
 
 ## Phases
 
@@ -38,7 +38,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 6: Revolut Parsers Overhaul** - Transaction type intelligence and investment support (completed 2026-02-16)
 - [x] **Phase 7: Batch Infrastructure** - Universal batch processing with error handling (completed 2026-02-16)
 - [x] **Phase 8: AI Safety Controls** - Safe AI auto-learning with rate limiting (completed 2026-02-16)
-- [ ] **Phase 9: Batch-Formatter Integration** - Close audit gaps: formatter support in batch/consolidation paths
+- [x] **Phase 9: Batch-Formatter Integration** - Close audit gaps: formatter support in batch/consolidation paths (completed 2026-02-16)
 
 ## Phase Details
 
@@ -140,9 +140,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 09-01-PLAN.md — Add formatter support to BatchProcessor API
-- [ ] 09-02-PLAN.md — Migrate Revolut batch to BatchProcessor composition
-- [ ] 09-03-PLAN.md — Wire formatters through PDF batch and consolidation paths
+- [x] 09-01-PLAN.md — Add formatter support to BatchProcessor API
+- [x] 09-02-PLAN.md — Migrate Revolut batch to BatchProcessor composition
+- [x] 09-03-PLAN.md — Wire formatters through PDF batch and consolidation paths
 
 ## Progress
 
@@ -156,8 +156,8 @@ Plans:
 | 6. Revolut Parsers Overhaul | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 7. Batch Infrastructure | v1.2 | 2/2 | Complete | 2026-02-16 |
 | 8. AI Safety Controls | v1.2 | 3/3 | Complete | 2026-02-16 |
-| 9. Batch-Formatter Integration | v1.2 | 0/3 | Not started | - |
+| 9. Batch-Formatter Integration | v1.2 | 3/3 | Complete | 2026-02-16 |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-16 — added Phase 9 gap closure from milestone audit*
+*Last updated: 2026-02-16 — Phase 9 complete, all v1.2 phases done*
