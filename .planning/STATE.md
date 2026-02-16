@@ -6,23 +6,23 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** Phase 6 — Revolut Parsers Overhaul
+**Current focus:** Phase 7 — Batch Infrastructure
 
 ## Current Position
 
-Phase: 6 of 8 (Revolut Parsers Overhaul)
-Plan: 3 of 3 in current phase
+Phase: 7 of 8 (Batch Infrastructure)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-02-16 — Completed 06-03-PLAN.md (Revolut parser field population)
+Last activity: 2026-02-16 — Completed 07-01-PLAN.md (Batch processing infrastructure)
 
-Progress: [██████████░░░░░░░░░░] 42% (v1.2 phases 5-8: 5/12 plans)
+Progress: [████████████░░░░░░░░] 50% (v1.2 phases 5-8: 6/12 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (v1.1: 11, v1.2: 4)
-- Average duration: 235 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 16 min (v1.2)
+- Total plans completed: 16 (v1.1: 11, v1.2: 5)
+- Average duration: 283 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 24 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -40,6 +40,7 @@ Starting fresh with Phase 5.
 | Phase 05 P03 | 489 | 2 tasks | 8 files |
 | Phase 06 P01 | 496 | 2 tasks | 7 files |
 | Phase 06 P03 | 192 | 2 tasks | 1 files |
+| Phase 07 P01 | 472 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Recent decisions affecting v1.2:
 - [Phase 06-01]: No validation on Product field values - accepts any string from source data
 - [Phase 06-03]: Exchange transactions preserve metadata in OriginalAmount/OriginalCurrency for future FX handling
 - [Phase 06-03]: REVERTED and PENDING transactions are logged when skipped for user visibility
+- [Phase 07-01]: Sequential processing chosen over parallel for Phase 7 (simplicity, error isolation)
+- [Phase 07-01]: Manifest always written to {outputDir}/.manifest.json before returning
+- [Phase 07-01]: Exit code semantics standardized: 0=all success, 1=partial success, 2=all failed or no files
 
 ### Pending Todos
 
@@ -76,9 +80,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 06-03-PLAN.md (Revolut parser field population)
-Resume file: .planning/phases/06-revolut-parsers-overhaul/06-03-SUMMARY.md
+Stopped at: Completed 07-01-PLAN.md (Batch processing infrastructure)
+Resume file: .planning/phases/07-batch-infrastructure/07-01-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 6 complete: 3/3 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 7 complete: 1/1 plans)*
