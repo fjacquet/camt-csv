@@ -313,7 +313,6 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 	t.UpdateInvestmentTypeFromLegacyField()
 
 	return []string{
-		t.BookkeepingNumber,
 		t.Status,
 		t.formatDateForCSV(t.Date),
 		t.formatDateForCSV(t.ValueDate),
@@ -324,15 +323,10 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 		t.RemittanceInfo,
 		t.Amount.StringFixed(2),
 		t.CreditDebit,
-		fmt.Sprintf("%t", t.DebitFlag),
-		t.Debit.StringFixed(2),
-		t.Credit.StringFixed(2),
 		t.Currency,
 		t.Product,
 		t.AmountExclTax.StringFixed(2),
-		t.AmountTax.StringFixed(2),
 		t.TaxRate.StringFixed(2),
-		t.Recipient,
 		t.Investment,
 		t.Number,
 		t.Category,
