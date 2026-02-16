@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 7 of 8 (Batch Infrastructure)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-16 — Completed 07-02-PLAN.md (CLI batch support with exit codes)
+Phase: 8 of 8 (AI Safety Controls)
+Plan: 2 of 3 in current phase
+Status: In Progress
+Last activity: 2026-02-16 — Completed 08-02-PLAN.md (Rate limiting and retry logic)
 
-Progress: [██████████████░░░░░░] 58% (v1.2 phases 5-8: 7/12 plans)
+Progress: [████████████████░░░░] 67% (v1.2 phases 5-8: 8/12 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16 (v1.1: 11, v1.2: 5)
-- Average duration: 283 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 24 min (v1.2)
+- Total plans completed: 17 (v1.1: 11, v1.2: 6)
+- Average duration: 380 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 43 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -42,6 +42,8 @@ Starting fresh with Phase 5.
 | Phase 06 P03 | 192 | 2 tasks | 1 files |
 | Phase 07 P01 | 472 | 2 tasks | 4 files |
 | Phase 07 P02 | 854 | 2 tasks | 8 files |
+| Phase 08 P02 | 1133 | 3 tasks | 4 files |
+| Phase 08 P01 | 1135 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -74,6 +76,11 @@ Recent decisions affecting v1.2:
 - [Phase 07-02]: All CLI commands detect directory input and invoke BatchConvert automatically
 - [Phase 07-02]: Manifest loading happens in CLI layer for exit code determination
 - [Phase 07-02]: Exit code fallback strategy if manifest unreadable: exit based on success count
+- [Phase 08-02]: Strict rate limiting with burst=1 (no bursting allowed) for API quota protection
+- [Phase 08-02]: Exponential backoff retry (3 attempts, 2x multiplier, ±20% jitter) for transient failures
+- [Phase 08-02]: Rate limit check before API call (fail fast on exceeded limit)
+- [Phase 08-01]: Heuristic confidence estimation for AI categorizations (0.9 for known categories, 0.8 for unknown)
+- [Phase 08-01]: INFO-level logging for audit trail in production (not DEBUG)
 
 ### Pending Todos
 
@@ -86,9 +93,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 07-02-PLAN.md (CLI batch support with exit codes)
-Resume file: .planning/phases/07-batch-infrastructure/07-02-SUMMARY.md
+Stopped at: Completed 08-02-PLAN.md (Rate limiting and retry logic)
+Resume file: .planning/phases/08-ai-safety-controls/08-02-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 7 complete: 2/2 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 8 in progress: 2/3 plans)*
