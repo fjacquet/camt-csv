@@ -1,8 +1,10 @@
 ---
 phase: 07-batch-infrastructure
 verified: 2026-02-16T08:00:00Z
-status: gaps_found
-score: 4/5 must-haves verified
+status: passed
+score: 5/5 must-haves verified
+re_verified: 2026-02-16T09:30:00Z
+note: "Gap resolved by commit 1507049 — added --batch flag and pdfBatchConvert to cmd/pdf/convert.go"
 gaps:
   - truth: "PDF parser supports batch conversion mode"
     status: partial
