@@ -3,7 +3,6 @@ package pdf
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"fjacquet/camt-csv/internal/batch"
 	internalcommon "fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -93,7 +93,7 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 
 	if fileInfo.IsDir() && batchMode {
 		// Batch mode - each PDF → individual CSV
-		pdfBatchConvert(ctx, p, inputPath, root.SharedFlags.Output, logger)
+		pdfBatchConvert(ctx, p, inputPath, root.SharedFlags.Output, logger, format, dateFormat)
 	} else if fileInfo.IsDir() {
 		// Consolidation mode - all PDFs → single CSV
 		count, err := consolidatePDFDirectory(ctx, p, inputPath,
@@ -228,40 +228,36 @@ func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
 }
 
 // pdfBatchConvert processes all PDF files in a directory using BatchConvert
-func pdfBatchConvert(ctx context.Context, p parser.FullParser, inputDir, outputDir string, logger logging.Logger) {
-	count, err := p.BatchConvert(ctx, inputDir, outputDir)
+func pdfBatchConvert(ctx context.Context, p parser.FullParser, inputDir, outputDir string, logger logging.Logger,
+	format string, dateFormat string) {
+
+	// Resolve formatter
+	formatterReg := formatter.NewFormatterRegistry()
+	outputFormatter, err := formatterReg.Get(format)
+	if err != nil {
+		logger.WithError(err).Error("Invalid format",
+			logging.Field{Key: "format", Value: format})
+		os.Exit(1)
+	}
+
+	// Create batch processor with formatter
+	processor := batch.NewBatchProcessor(p, logger, outputFormatter)
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {
 		logger.Fatalf("Batch conversion failed: %v", err)
 	}
 
-	// Load manifest to get exit code
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		logger.Warn(fmt.Sprintf("Could not read manifest: %v", err))
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
-	}
-
-	var manifest batch.BatchManifest
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		logger.Warn(fmt.Sprintf("Could not parse manifest: %v", err))
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
-	}
-
+	// Log results
 	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
 		manifest.SuccessCount, manifest.TotalFiles))
 
 	if manifest.FailureCount > 0 {
+		manifestPath := filepath.Join(outputDir, ".manifest.json")
 		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
 			manifest.FailureCount, manifestPath))
 	}
 
+	// Exit with appropriate code
 	if manifest.ExitCode() != 0 {
 		os.Exit(manifest.ExitCode())
 	}
