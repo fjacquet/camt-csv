@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -432,4 +433,115 @@ func TestProcessFile_WriteError(t *testing.T) {
 	assert.False(t, result.Success)
 	assert.Contains(t, result.Error, "write_error")
 	assert.Equal(t, 0, result.RecordCount)
+}
+
+func TestBatchProcessorWithFormatter(t *testing.T) {
+	// Setup
+	tempDir := t.TempDir()
+	inputDir := filepath.Join(tempDir, "input")
+	outputDir := filepath.Join(tempDir, "output")
+	require.NoError(t, os.MkdirAll(inputDir, 0750))
+
+	// Create a test file
+	testFile := filepath.Join(inputDir, "test.xml")
+	require.NoError(t, os.WriteFile(testFile, []byte("test data"), 0644)) // #nosec G306 -- test file
+
+	// Setup mock parser
+	mockParser := newMockParser()
+	mockParser.validateFunc = func(filePath string) (bool, error) {
+		return true, nil
+	}
+	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
+		// Create a test transaction with known data
+		tx, _ := models.NewTransactionBuilder().
+			WithDatetime(time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC)).
+			WithAmount(decimal.NewFromFloat(100.50), "CHF").
+			WithDescription("Test payment").
+			Build()
+		return []models.Transaction{tx}, nil
+	}
+
+	logger := logging.NewLogrusAdapter("error", "text")
+
+	// Test with IComptaFormatter
+	icomptaFormatter := &testIComptaFormatter{}
+	processor := NewBatchProcessor(mockParser, logger, icomptaFormatter)
+
+	// Execute
+	ctx := context.Background()
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
+
+	// Assert
+	require.NoError(t, err)
+	require.NotNil(t, manifest)
+	assert.Equal(t, 1, manifest.SuccessCount)
+	assert.Equal(t, 0, manifest.FailureCount)
+
+	// Verify output CSV was created
+	csvPath := filepath.Join(outputDir, "test.csv")
+	assert.FileExists(t, csvPath)
+
+	// Read CSV file and verify delimiter and column count
+	content, err := os.ReadFile(csvPath)
+	require.NoError(t, err)
+
+	lines := strings.Split(string(content), "\n")
+	require.Greater(t, len(lines), 1, "CSV should have at least header and one data row")
+
+	// Verify semicolon delimiter is used
+	headerLine := lines[0]
+	assert.Contains(t, headerLine, ";", "CSV should use semicolon delimiter")
+
+	// Verify 10 columns (iCompta format)
+	headerFields := strings.Split(headerLine, ";")
+	assert.Equal(t, 10, len(headerFields), "iCompta format should have 10 columns")
+
+	// Verify data row uses semicolon
+	if len(lines) > 1 && lines[1] != "" {
+		dataFields := strings.Split(lines[1], ";")
+		assert.Equal(t, 10, len(dataFields), "Data row should have 10 fields")
+	}
+}
+
+// testIComptaFormatter is a minimal test implementation of OutputFormatter
+// that mimics iCompta format (semicolon delimiter, 10 columns)
+type testIComptaFormatter struct{}
+
+func (f *testIComptaFormatter) Header() []string {
+	return []string{
+		"Date",
+		"Description",
+		"Category",
+		"Debit",
+		"Credit",
+		"Currency",
+		"Account",
+		"Status",
+		"Reference",
+		"Notes",
+	}
+}
+
+func (f *testIComptaFormatter) Format(transactions []models.Transaction) ([][]string, error) {
+	rows := make([][]string, 0, len(transactions))
+	for _, tx := range transactions {
+		row := []string{
+			tx.Date.Format("02.01.2006"),
+			tx.Description,
+			tx.Category,
+			tx.Debit.String(),
+			tx.Credit.String(),
+			tx.Currency,
+			tx.IBAN,
+			tx.Status,
+			tx.Reference,
+			tx.RemittanceInfo,
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+
+func (f *testIComptaFormatter) Delimiter() rune {
+	return ';'
 }

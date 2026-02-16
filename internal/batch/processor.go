@@ -213,8 +213,10 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir s
 	outputFileName := baseName + ".csv"
 	outputPath := filepath.Join(outputDir, outputFileName)
 
-	// Step 4: Write CSV
-	if err := common.ExportTransactionsToCSVWithLogger(transactions, outputPath, bp.logger); err != nil {
+	// Step 4: Write CSV using formatter
+	delimiter := bp.formatter.Delimiter()
+	if err := common.WriteTransactionsToCSVWithFormatter(
+		transactions, outputPath, bp.logger, bp.formatter, delimiter); err != nil {
 		result.Error = fmt.Sprintf("write_error: %v", err)
 		bp.logger.WithError(err).Warn("Failed to write CSV",
 			logging.Field{Key: "file", Value: fileName},
