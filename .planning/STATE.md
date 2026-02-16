@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 7 of 8 (Batch Infrastructure)
-Plan: 1 of 1 in current phase
+Plan: 2 of 2 in current phase
 Status: Complete
-Last activity: 2026-02-16 — Completed 07-01-PLAN.md (Batch processing infrastructure)
+Last activity: 2026-02-16 — Completed 07-02-PLAN.md (CLI batch support with exit codes)
 
-Progress: [████████████░░░░░░░░] 50% (v1.2 phases 5-8: 6/12 plans)
+Progress: [██████████████░░░░░░] 58% (v1.2 phases 5-8: 7/12 plans)
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ Starting fresh with Phase 5.
 | Phase 06 P01 | 496 | 2 tasks | 7 files |
 | Phase 06 P03 | 192 | 2 tasks | 1 files |
 | Phase 07 P01 | 472 | 2 tasks | 4 files |
+| Phase 07 P02 | 854 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,11 @@ Recent decisions affecting v1.2:
 - [Phase 07-01]: Sequential processing chosen over parallel for Phase 7 (simplicity, error isolation)
 - [Phase 07-01]: Manifest always written to {outputDir}/.manifest.json before returning
 - [Phase 07-01]: Exit code semantics standardized: 0=all success, 1=partial success, 2=all failed or no files
+- [Phase 07-02]: PDF parser migrated from stub to BatchProcessor composition pattern
+- [Phase 07-02]: PDF command supports both batch mode (--batch flag) and consolidation mode (default)
+- [Phase 07-02]: All CLI commands detect directory input and invoke BatchConvert automatically
+- [Phase 07-02]: Manifest loading happens in CLI layer for exit code determination
+- [Phase 07-02]: Exit code fallback strategy if manifest unreadable: exit based on success count
 
 ### Pending Todos
 
@@ -80,9 +86,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 07-01-PLAN.md (Batch processing infrastructure)
-Resume file: .planning/phases/07-batch-infrastructure/07-01-SUMMARY.md
+Stopped at: Completed 07-02-PLAN.md (CLI batch support with exit codes)
+Resume file: .planning/phases/07-batch-infrastructure/07-02-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 7 complete: 1/1 plans)*
+*Last updated: 2026-02-16 (v1.2 phase 7 complete: 2/2 plans)*
