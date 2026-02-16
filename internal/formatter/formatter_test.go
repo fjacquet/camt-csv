@@ -98,13 +98,13 @@ func TestFormatterRegistry(t *testing.T) {
 func TestStandardFormatter(t *testing.T) {
 	formatter := NewStandardFormatter()
 
-	t.Run("Header returns 35 columns", func(t *testing.T) {
+	t.Run("Header returns 29 columns", func(t *testing.T) {
 		header := formatter.Header()
-		assert.Len(t, header, 35)
-		assert.Equal(t, "BookkeepingNumber", header[0])
-		assert.Equal(t, "Status", header[1])
-		assert.Equal(t, "Date", header[2])
-		assert.Equal(t, "ExchangeRate", header[34]) // Last column
+		assert.Len(t, header, 29)
+		assert.Equal(t, "Status", header[0])
+		assert.Equal(t, "Date", header[1])
+		assert.Equal(t, "ValueDate", header[2])
+		assert.Equal(t, "ExchangeRate", header[28]) // Last column
 	})
 
 	t.Run("Delimiter is comma", func(t *testing.T) {
@@ -116,30 +116,29 @@ func TestStandardFormatter(t *testing.T) {
 		rows, err := formatter.Format([]models.Transaction{tx})
 		require.NoError(t, err)
 		assert.Len(t, rows, 1)
-		assert.Len(t, rows[0], 35) // 35 columns (added Product field)
+		assert.Len(t, rows[0], 29) // 29 columns (removed 6 redundant fields)
 
 		// Verify key fields
-		assert.Equal(t, "TXN001", rows[0][0])       // BookkeepingNumber
-		assert.Equal(t, "BOOK", rows[0][1])         // Status
-		assert.Equal(t, "15.02.2026", rows[0][2])   // Date
-		assert.Equal(t, "Coffee Shop", rows[0][4])  // Name
-		assert.Equal(t, "-15.50", rows[0][9])       // Amount
-		assert.Equal(t, "CHF", rows[0][14])         // Currency
-		assert.Equal(t, "", rows[0][15])            // Product (new field, empty for this test)
-		assert.Equal(t, "Food & Dining", rows[0][22]) // Category (shifted by 1)
+		assert.Equal(t, "BOOK", rows[0][0])         // Status
+		assert.Equal(t, "15.02.2026", rows[0][1])   // Date
+		assert.Equal(t, "Coffee Shop", rows[0][3])  // Name
+		assert.Equal(t, "-15.50", rows[0][8])       // Amount
+		assert.Equal(t, "CHF", rows[0][10])         // Currency
+		assert.Equal(t, "", rows[0][11])            // Product (empty for this test)
+		assert.Equal(t, "Food & Dining", rows[0][16]) // Category
 	})
 
 	t.Run("Format multiple transactions", func(t *testing.T) {
 		tx1 := createTestTransaction()
 		tx2 := createTestTransaction()
-		tx2.BookkeepingNumber = "TXN002"
+		tx2.Payee = "Gas Station"  // Payee is used to set Name for debit transactions
 		tx2.Name = "Gas Station"
 
 		rows, err := formatter.Format([]models.Transaction{tx1, tx2})
 		require.NoError(t, err)
 		assert.Len(t, rows, 2)
-		assert.Equal(t, "TXN001", rows[0][0])
-		assert.Equal(t, "TXN002", rows[1][0])
+		assert.Equal(t, "Coffee Shop", rows[0][3])  // Name is now at index 3
+		assert.Equal(t, "Gas Station", rows[1][3])
 	})
 
 	t.Run("Format empty transactions", func(t *testing.T) {
