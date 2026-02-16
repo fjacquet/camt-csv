@@ -81,7 +81,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// Create AI client (if enabled)
 	var aiClient categorizer.AIClient
 	if cfg.AI.Enabled && cfg.AI.APIKey != "" {
-		aiClient = categorizer.NewGeminiClient(logger)
+		aiClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute)
 		logger.Info("AI categorization enabled")
 	} else {
 		logger.Info("AI categorization disabled")
