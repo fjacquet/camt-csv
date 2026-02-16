@@ -166,7 +166,7 @@ func TestConsolidatePDFDirectory_Success(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	// Execute
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	// Assert
 	require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestConsolidatePDFDirectory_EmptyDirectory(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, count)
@@ -226,7 +226,7 @@ func TestConsolidatePDFDirectory_MixedValidInvalid(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "Should only process 2 valid PDF files")
@@ -266,7 +266,7 @@ func TestConsolidatePDFDirectory_ValidationEnabled(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	// Execute with validation enabled
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, true, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, true, logger, "standard", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, count, "Should only process valid PDF")
@@ -311,7 +311,7 @@ func TestConsolidatePDFDirectory_ContextCancellation(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(ctx, mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(ctx, mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
@@ -357,7 +357,7 @@ func TestConsolidatePDFDirectory_ParseErrors(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	// Should succeed but skip the bad file
 	require.NoError(t, err)
@@ -380,7 +380,7 @@ func TestConsolidatePDFDirectory_NoTransactions(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no transactions extracted")
@@ -414,7 +414,7 @@ func TestConsolidatePDFDirectory_CaseInsensitivePDFExtension(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, 3, count, "Should process all PDF files regardless of case")
@@ -463,7 +463,7 @@ func TestConsolidatePDFDirectory_TransactionsSorted(t *testing.T) {
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger)
+	count, err := consolidatePDFDirectory(context.Background(), mockParser, tempDir, outputFile, false, logger, "standard", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
