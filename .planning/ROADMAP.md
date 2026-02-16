@@ -48,7 +48,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Milestone Goal:** Remove 6 redundant/dead fields from 35-column standard CSV format, keeping only fields with actual data.
 
-- [ ] **Phase 10: CSV Format Trim** (1 plan) - Remove 6 fields from StandardFormatter and update model
+- [x] **Phase 10: CSV Format Trim** (1 plan) - Remove 6 fields from StandardFormatter and update model (completed 2026-02-16)
 - [ ] **Phase 11: Integration Verification** - Verify all parsers and tests pass with new 29-column format
 
 ## Phase Details
@@ -96,7 +96,7 @@ Phases execute in numeric order: 10 → 11
 | 7. Batch Infrastructure | v1.2 | 2/2 | Complete | 2026-02-16 |
 | 8. AI Safety Controls | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 9. Batch-Formatter Integration | v1.2 | 3/3 | Complete | 2026-02-16 |
-| 10. CSV Format Trim | v1.3 | 0/1 | Not started | - |
+| 10. CSV Format Trim | v1.3 | Complete    | 2026-02-16 | - |
 | 11. Integration Verification | v1.3 | 0/? | Not started | - |
 
 ---
