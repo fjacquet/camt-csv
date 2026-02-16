@@ -114,7 +114,13 @@ Plans:
   2. Gemini API calls respect rate limits to avoid quota exhaustion
   3. Gemini API calls retry with exponential backoff on transient failures
   4. AI categorizations are logged with confidence scores before saving
-**Plans**: TBD
+
+**Plans**: 3 plans in 2 waves
+
+Plans:
+- [ ] 08-01-PLAN.md — Add confidence metadata and pre-save logging infrastructure
+- [ ] 08-02-PLAN.md — Implement rate limiting and retry logic in GeminiClient
+- [ ] 08-03-PLAN.md — Wire --auto-learn flag and gate auto-save behavior
 
 ## Progress
 
@@ -127,7 +133,7 @@ Plans:
 | 5. Output Framework | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 6. Revolut Parsers Overhaul | v1.2 | 3/3 | Complete | 2026-02-16 |
 | 7. Batch Infrastructure | v1.2 | 0/2 | Not started | - |
-| 8. AI Safety Controls | v1.2 | 0/? | Not started | - |
+| 8. AI Safety Controls | v1.2 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
