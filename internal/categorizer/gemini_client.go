@@ -230,7 +230,7 @@ func (c *GeminiClient) callGeminiAPIWithRetry(ctx context.Context, prompt string
 
 		// Calculate backoff delay with jitter
 		delayMs := int64(math.Pow(backoffMultiplier, float64(attempt)) * float64(baseDelay.Milliseconds()))
-		jitterMs := int64(float64(delayMs) * jitterFraction * (2*rand.Float64() - 1)) // ±jitter
+		jitterMs := int64(float64(delayMs) * jitterFraction * (2*rand.Float64() - 1)) // #nosec G404 -- jitter for retry backoff, not security-sensitive
 		totalDelay := time.Duration(delayMs+jitterMs) * time.Millisecond
 
 		c.log.WithFields(
