@@ -10,22 +10,31 @@ import (
 	"time"
 
 	"fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 )
 
 // BatchProcessor handles standardized batch processing for any parser
 type BatchProcessor struct {
-	parser parser.FullParser
-	logger logging.Logger
+	parser    parser.FullParser
+	logger    logging.Logger
+	formatter formatter.OutputFormatter
 }
 
 // NewBatchProcessor creates a new BatchProcessor instance that wraps the provided parser.
 // The processor will use the parser for validation, parsing, and CSV writing operations.
-func NewBatchProcessor(p parser.FullParser, logger logging.Logger) *BatchProcessor {
+// If fmt is nil, a StandardFormatter will be used by default for backward compatibility.
+func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter.OutputFormatter) *BatchProcessor {
+	// Default to StandardFormatter if formatter is nil (backward compatibility)
+	if fmt == nil {
+		fmt = formatter.NewStandardFormatter()
+	}
+
 	return &BatchProcessor{
-		parser: p,
-		logger: logger,
+		parser:    p,
+		logger:    logger,
+		formatter: fmt,
 	}
 }
 

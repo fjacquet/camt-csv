@@ -108,7 +108,7 @@ func TestProcessDirectory_AllSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -164,7 +164,7 @@ func TestProcessDirectory_PartialSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -206,7 +206,7 @@ func TestProcessDirectory_AllFailed(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -239,7 +239,7 @@ func TestProcessDirectory_EmptyDirectory(t *testing.T) {
 
 	mockParser := newMockParser()
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -275,7 +275,7 @@ func TestProcessDirectory_WritesManifest(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -324,7 +324,7 @@ func TestProcessDirectory_ContinuesOnError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -360,7 +360,7 @@ func TestProcessFile_ValidationFailure(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -391,7 +391,7 @@ func TestProcessFile_ParseError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -423,7 +423,7 @@ func TestProcessFile_WriteError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger)
+	processor := NewBatchProcessor(mockParser, logger, nil)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)

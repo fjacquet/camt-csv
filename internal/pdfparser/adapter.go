@@ -74,7 +74,7 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 // BatchConvert processes all PDF files in inputDir and writes converted CSV files to outputDir.
 // Returns the number of successfully converted files.
 func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	processor := batch.NewBatchProcessor(a, a.GetLogger())
+	processor := batch.NewBatchProcessor(a, a.GetLogger(), nil)
 
 	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {
