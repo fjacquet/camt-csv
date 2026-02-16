@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 5 of 8 (Output Framework)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-16 — Completed 05-02-PLAN.md (CSV writer integration with formatters)
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-02-16 — Completed 05-03-PLAN.md (CLI format integration)
 
-Progress: [█████░░░░░░░░░░░░░░░] 17% (v1.2 phases 5-8: 2/12 plans)
+Progress: [██████░░░░░░░░░░░░░░] 25% (v1.2 phases 5-8: 3/12 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13 (v1.1: 11, v1.2: 2)
-- Average duration: 59 sec (v1.2)
-- Total execution time: ~1 day (v1.1) + 2 min (v1.2)
+- Total plans completed: 14 (v1.1: 11, v1.2: 3)
+- Average duration: 202 sec (v1.2)
+- Total execution time: ~1 day (v1.1) + 10 min (v1.2)
 
 **By Phase (v1.1 completed):**
 
@@ -37,6 +37,7 @@ Progress: [█████░░░░░░░░░░░░░░░] 17% (v1
 Starting fresh with Phase 5.
 | Phase 05 P01 | 5 | 2 tasks | 4 files |
 | Phase 05 P02 | 113 | 2 tasks | 2 files |
+| Phase 05 P03 | 489 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -55,6 +56,7 @@ Recent decisions affecting v1.2:
 - v1.2: iCompta import plugins already exist in user's DB (CSV-Revolut-CHF, CSV-Revolut-EUR, CSV-RevInvest) — match their column names and use semicolon separator + dd.MM.yyyy dates
 - [Phase 05]: Strategy pattern chosen for formatters (not inheritance or monolithic switch)
 - [Phase 05]: Status mapping for iCompta: BOOK/RCVD→cleared, PDNG→pending, REVD/CANC→reverted
+- [Phase 05]: ProcessFile() refactored to use Parse() + WriteTransactionsToCSVWithFormatter (not ConvertToCSV)
 
 ### Pending Todos
 
@@ -67,9 +69,9 @@ None at roadmap stage.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 05-02-PLAN.md (CSV writer integration with formatters)
-Resume file: .planning/phases/05-output-framework/05-02-SUMMARY.md
+Stopped at: Completed 05-03-PLAN.md (CLI format integration) — Phase 05 complete!
+Resume file: .planning/phases/05-output-framework/05-03-SUMMARY.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-16 (v1.2 phase 5 plan 2 complete)*
+*Last updated: 2026-02-16 (v1.2 phase 5 complete: 3/3 plans)*
