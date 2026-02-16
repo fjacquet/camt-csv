@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -66,6 +67,108 @@ func ReadCSVFile[TCSVRow any](filePath string, logger logging.Logger) ([]TCSVRow
 // - error: nil on success, or an error describing what went wrong
 func WriteTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
 	return WriteTransactionsToCSVWithLogger(transactions, csvFile, nil)
+}
+
+// WriteTransactionsToCSVWithFormatter writes transactions to a CSV file using a custom formatter.
+// This function enables format-specific output (standard CSV, iCompta, etc.) through the
+// OutputFormatter interface.
+//
+// Parameters:
+// - transactions: slice of Transaction objects to write
+// - csvFile: path to the output CSV file
+// - logger: logging instance (will create default if nil)
+// - formatter: OutputFormatter implementation for controlling format
+// - delimiter: CSV delimiter to use (overrides formatter.Delimiter() if different)
+//
+// The formatter parameter controls column layout and value formatting.
+// The delimiter parameter allows runtime override of the formatter's preferred delimiter.
+//
+// Returns:
+// - error: nil on success, or an error describing what went wrong
+func WriteTransactionsToCSVWithFormatter(
+	transactions []models.Transaction,
+	csvFile string,
+	logger logging.Logger,
+	formatter formatter.OutputFormatter,
+	delimiter rune,
+) error {
+	if logger == nil {
+		logger = logging.NewLogrusAdapter("info", "text")
+	}
+	if transactions == nil {
+		return fmt.Errorf("cannot write nil transactions to CSV")
+	}
+
+	logger.WithFields(
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+		logging.Field{Key: "delimiter", Value: string(delimiter)},
+	).Info("Writing transactions to CSV file with custom formatter")
+
+	// Create the directory if it doesn't exist
+	dir := filepath.Dir(csvFile)
+	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
+		logger.WithError(err).Error("Failed to create directory")
+		return fmt.Errorf("error creating directory: %w", err)
+	}
+
+	// Pre-process transactions to ensure derived fields are correctly set
+	for i := range transactions {
+		transactions[i].UpdateNameFromParties()
+		transactions[i].UpdateRecipientFromPayee()
+		transactions[i].UpdateDebitCreditAmounts()
+	}
+
+	// Format transactions using the provided formatter
+	rows, err := formatter.Format(transactions)
+	if err != nil {
+		logger.WithError(err).Error("Failed to format transactions")
+		return fmt.Errorf("error formatting transactions: %w", err)
+	}
+
+	// Create the file
+	file, err := os.Create(csvFile) // #nosec G304 -- CLI tool requires user-provided output paths
+	if err != nil {
+		logger.WithError(err).Error("Failed to create CSV file")
+		return fmt.Errorf("error creating CSV file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			logger.WithError(err).Warn("Failed to close file")
+		}
+	}()
+
+	// Configure CSV writer with the specified delimiter
+	csvWriter := csv.NewWriter(file)
+	csvWriter.Comma = delimiter
+
+	// Write header from formatter
+	if err := csvWriter.Write(formatter.Header()); err != nil {
+		logger.WithError(err).Error("Failed to write CSV header")
+		return fmt.Errorf("error writing CSV header: %w", err)
+	}
+
+	// Write formatted rows
+	for _, row := range rows {
+		if err := csvWriter.Write(row); err != nil {
+			logger.WithError(err).Error("Failed to write CSV record")
+			return fmt.Errorf("error writing CSV record: %w", err)
+		}
+	}
+
+	// Flush the writer
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		logger.WithError(err).Error("Failed to flush CSV writer")
+		return fmt.Errorf("error flushing CSV writer: %w", err)
+	}
+
+	logger.WithFields(
+		logging.Field{Key: "file", Value: csvFile},
+		logging.Field{Key: "count", Value: len(transactions)},
+	).Info("Successfully wrote transactions to CSV file with custom formatter")
+
+	return nil
 }
 
 // WriteTransactionsToCSVWithLogger writes transactions to a CSV file with a logger
