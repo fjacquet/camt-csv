@@ -74,7 +74,7 @@ func (m *mockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir s
 // Helper to create test transactions
 func createTestTransactions(count int) []models.Transaction {
 	transactions := make([]models.Transaction, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		tx, _ := models.NewTransactionBuilder().
 			WithDatetime(time.Now()).
 			WithAmount(decimal.NewFromInt(int64(100+i)), "CHF").
