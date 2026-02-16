@@ -179,8 +179,8 @@ func TestConvertToCSV(t *testing.T) {
 
 			// The output should contain some content at minimum
 			assert.NotEmpty(t, content)
-			// Check for the new simplified header format
-			assert.Contains(t, string(content), "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
+			// Check for the 29-column header format
+			assert.Contains(t, string(content), "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
 			// Check for transaction data - updated to match actual parser output
 			assert.Contains(t, string(content), "02.01.2023")
 			assert.Contains(t, string(content), "Salary")
@@ -233,8 +233,8 @@ func TestWriteToCSV(t *testing.T) {
 
 	csvContent := string(content)
 
-	// Check for the header format
-	assert.Contains(t, csvContent, "BookkeepingNumber,Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
+	// Check for the 29-column header format
+	assert.Contains(t, csvContent, "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo")
 
 	// Check for the transactions in the output - updated to match actual parser output
 	assert.Contains(t, csvContent, "15.01.2023")
@@ -387,13 +387,12 @@ func TestProperty_SelmaConsistentCSVOutputFormat(t *testing.T) {
 
 			csvContent := string(content)
 
-			// Verify standard CSV headers are present (based on actual Transaction.MarshalCSV output)
+			// Verify standard CSV headers are present (29-column format matching StandardFormatter)
 			expectedHeaders := []string{
-				"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "PartyName",
-				"PartyIBAN", "Description", "RemittanceInfo", "Amount", "CreditDebit", "IsDebit",
-				"Debit", "Credit", "Currency", "AmountExclTax", "AmountTax", "TaxRate",
-				"Recipient", "InvestmentType", "Number", "Category", "Type", "Fund",
-				"NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
+				"Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
+				"Description", "RemittanceInfo", "Amount", "CreditDebit", "Currency",
+				"Product", "AmountExclTax", "TaxRate", "InvestmentType", "Number", "Category",
+				"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
 				"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
 			}
 
