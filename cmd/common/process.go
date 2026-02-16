@@ -5,8 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"fjacquet/camt-csv/internal/categorizer"
+	internalcommon "fjacquet/camt-csv/internal/common"
+	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -43,12 +46,62 @@ func ProcessFileWithError(ctx context.Context, p parser.FullParser, inputFile, o
 	return nil
 }
 
-// ProcessFile processes a single file using the given parser.
+// ProcessFile processes a single file using the given parser with formatter support.
 // Deprecated: Use ProcessFileWithError instead for better error handling and testability.
-func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) {
-	if err := ProcessFileWithError(ctx, p, inputFile, outputFile, validate, log); err != nil {
+func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string, dateFormat string) {
+	if err := ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile, validate, log, c, format, dateFormat); err != nil {
 		log.Fatalf("%v", err)
 	}
+}
+
+// ProcessFileWithErrorFormatted processes a single file using the given parser with formatter support and returns an error on failure.
+func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string, dateFormat string) error {
+	// Set the logger on the parser using the new interface
+	p.SetLogger(log)
+
+	// Get formatter registry from container
+	registry := c.GetFormatterRegistry()
+	formatter, err := registry.Get(format)
+	if err != nil {
+		return fmt.Errorf("invalid format '%s': %w. Valid formats: standard, icompta", format, err)
+	}
+
+	// Get delimiter from formatter
+	delimiter := formatter.Delimiter()
+	log.WithField("format", format).WithField("delimiter", string(delimiter)).Info("Using output format")
+
+	if validate {
+		log.Info("Validating format...")
+		valid, err := p.ValidateFormat(inputFile)
+		if err != nil {
+			return fmt.Errorf("error validating file: %w", err)
+		}
+		if !valid {
+			return ErrInvalidFormat
+		}
+		log.Info("Validation successful.")
+	}
+
+	// Open and parse the input file
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
+	if err != nil {
+		return fmt.Errorf("error opening input file: %w", err)
+	}
+	defer file.Close()
+
+	// Parse transactions
+	transactions, err := p.Parse(ctx, file)
+	if err != nil {
+		return fmt.Errorf("error parsing file: %w", err)
+	}
+
+	// Write transactions using the selected formatter
+	if err := internalcommon.WriteTransactionsToCSVWithFormatter(transactions, outputFile, log, formatter, delimiter); err != nil {
+		return fmt.Errorf("error writing CSV: %w", err)
+	}
+
+	log.Info("Conversion completed successfully!")
+	return nil
 }
 
 // ProcessFileLegacyWithError processes a single file using the legacy parser interface and returns an error on failure.
