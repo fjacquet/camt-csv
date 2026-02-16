@@ -97,7 +97,8 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 	} else if fileInfo.IsDir() {
 		// Consolidation mode - all PDFs → single CSV
 		count, err := consolidatePDFDirectory(ctx, p, inputPath,
-			root.SharedFlags.Output, root.SharedFlags.Validate, logger)
+			root.SharedFlags.Output, root.SharedFlags.Validate, logger,
+			format, dateFormat)
 		if err != nil {
 			logger.Fatalf("Error consolidating PDFs: %v", err)
 		}
@@ -112,7 +113,8 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 
 // consolidatePDFDirectory consolidates all PDF files in a directory into a single CSV
 func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
-	inputDir, outputFile string, validate bool, logger logging.Logger) (int, error) {
+	inputDir, outputFile string, validate bool, logger logging.Logger,
+	format string, dateFormat string) (int, error) {
 
 	logger.Info("Consolidating PDF files from directory",
 		logging.Field{Key: "inputDir", Value: inputDir},
@@ -210,13 +212,24 @@ func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
 	// Sort transactions chronologically
 	sortTransactionsChronologically(allTransactions)
 
+	// Resolve formatter from registry
+	formatterReg := formatter.NewFormatterRegistry()
+	outputFormatter, err := formatterReg.Get(format)
+	if err != nil {
+		logger.WithError(err).Error("Invalid format",
+			logging.Field{Key: "format", Value: format})
+		return processedCount, err
+	}
+
 	logger.Info("Writing consolidated transactions",
 		logging.Field{Key: "total_transactions", Value: len(allTransactions)},
 		logging.Field{Key: "output", Value: outputFile})
 
-	// Write consolidated CSV
-	if err := internalcommon.WriteTransactionsToCSVWithLogger(allTransactions, outputFile, logger); err != nil {
-		return processedCount, fmt.Errorf("failed to write consolidated CSV: %w", err)
+	// Write consolidated CSV with formatter
+	delimiter := outputFormatter.Delimiter()
+	if err := internalcommon.WriteTransactionsToCSVWithFormatter(
+		allTransactions, outputFile, logger, outputFormatter, delimiter); err != nil {
+		return processedCount, fmt.Errorf("failed to write CSV: %w", err)
 	}
 
 	logger.Info("Successfully wrote consolidated CSV",
