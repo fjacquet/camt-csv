@@ -99,6 +99,7 @@ brews:
   - repository:
       owner: fjacquet
       name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/fjacquet/camt-csv"
     description: "Convert financial statements (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) to standardized CSV with AI-powered categorization"
