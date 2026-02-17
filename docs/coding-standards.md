@@ -92,12 +92,24 @@
   - **BaseParser Embedding**: All parsers should embed `parser.BaseParser` for common functionality
   - **Constructor Pattern**: Accept logger through constructor: `NewMyParser(logger logging.Logger)`
   - **Interface Implementation**: Implement only the interfaces your parser needs
+  - **Context Convention**: All parser methods MUST take `context.Context` as first parameter for cancellation support
+    ```go
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
+    ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
+    BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
+    ```
 * **Constants Usage**: Use constants from `internal/models/constants.go` instead of magic strings:
   ```go
   transaction.CreditDebit = models.TransactionTypeDebit  // Not "DBIT"
   transaction.Category = models.CategoryUncategorized   // Not "Uncategorized"
   ```
 * **AIClient Interface**: When interacting with external AI services, define an `AIClient` interface to decouple the application from the specific AI provider. This allows for easier testing and swapping of AI backends.
+* **Strategy Pattern**: The categorization system uses the strategy pattern with three tiers:
+  1. Direct mapping (exact match from YAML)
+  2. Keyword matching (rules from categories.yaml)
+  3. AI fallback (Gemini API via AIClient interface)
+
+  This pattern allows for graceful degradation and testability through dependency injection.
 
 ## 5. Logging
 

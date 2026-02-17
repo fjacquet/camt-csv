@@ -10,18 +10,19 @@ This document provides formal specifications for all APIs, interfaces, and contr
 
 ```go
 type Parser interface {
-    Parse(r io.Reader) ([]models.Transaction, error)
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
 }
 ```
 
 #### Parse Method Specification
 
-**Signature**: `Parse(r io.Reader) ([]models.Transaction, error)`
+**Signature**: `Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)`
 
 **Purpose**: Extract financial transactions from a source reader
 
 **Preconditions**:
 
+- `ctx` MUST be a valid `context.Context`
 - `r` MUST be a valid `io.Reader`
 - The data from the reader MUST be in the format supported by the specific parser
 
@@ -54,57 +55,44 @@ ParseError{Line: int, Reason: string}
 
 ```go
 type Transaction struct {
-    // Core Fields (REQUIRED)
-    Date            string          `json:"date" validate:"required,date_format=DD.MM.YYYY"`
-    Amount          decimal.Decimal `json:"amount" validate:"required"`
-    Currency        string          `json:"currency" validate:"required,iso4217"`
-    CreditDebit     string          `json:"credit_debit" validate:"required,oneof=CRDT DBIT"`
-    
-    // Identification Fields
-    BookkeepingNumber string `json:"bookkeeping_number"`
-    EntryReference    string `json:"entry_reference"`
-    Reference         string `json:"reference"`
-    
-    // Party Information
-    Name              string `json:"name"`
-    PartyName         string `json:"party_name"`
-    PartyIBAN         string `json:"party_iban" validate:"omitempty,iban"`
-    
-    // Transaction Details
-    Description       string          `json:"description"`
-    Category          string          `json:"category"`
-    Type              string          `json:"type"`
-    Status            string          `json:"status"`
-    
-    // Financial Details
-    Debit             decimal.Decimal `json:"debit"`
-    Credit            decimal.Decimal `json:"credit"`
-    AmountExclTax     decimal.Decimal `json:"amount_excl_tax"`
-    AmountTax         decimal.Decimal `json:"amount_tax"`
-    TaxRate           decimal.Decimal `json:"tax_rate"`
-    Fees              decimal.Decimal `json:"fees"`
-    
-    // Investment Fields
-    Investment        string          `json:"investment"`
-    Fund              string          `json:"fund"`
-    NumberOfShares    float64         `json:"number_of_shares"`
-    
-    // Additional Fields
-    ValueDate         string          `json:"value_date" validate:"omitempty,date_format=DD.MM.YYYY"`
-    IBAN              string          `json:"iban" validate:"omitempty,iban"`
-    BankTxCode        string          `json:"bank_tx_code"`
-    AccountServicer   string          `json:"account_servicer"`
-    
-    // Legacy Compatibility
-    Payer             string          `json:"payer"`
-    Payee             string          `json:"payee"`
-    Recipient         string          `json:"recipient"`
-    DebitFlag         bool            `json:"debit_flag"`
-    
-    // Multi-currency Support
-    OriginalCurrency  string          `json:"original_currency" validate:"omitempty,iso4217"`
-    OriginalAmount    decimal.Decimal `json:"original_amount"`
-    ExchangeRate      decimal.Decimal `json:"exchange_rate"`
+    BookkeepingNumber string          `csv:"BookkeepingNumber"`
+    Status            string          `csv:"Status"`
+    Date              time.Time       `csv:"Date"`
+    ValueDate         time.Time       `csv:"ValueDate"`
+    Name              string          `csv:"Name"`
+    PartyName         string          `csv:"PartyName"`
+    PartyIBAN         string          `csv:"PartyIBAN"`
+    Description       string          `csv:"Description"`
+    RemittanceInfo    string          `csv:"RemittanceInfo"`
+    Amount            decimal.Decimal `csv:"Amount"`
+    CreditDebit       string          `csv:"CreditDebit"`
+    DebitFlag         bool            `csv:"IsDebit"`
+    Debit             decimal.Decimal `csv:"Debit"`
+    Credit            decimal.Decimal `csv:"Credit"`
+    Currency          string          `csv:"Currency"`
+    Product           string          `csv:"Product"`
+    AmountExclTax     decimal.Decimal `csv:"AmountExclTax"`
+    AmountTax         decimal.Decimal `csv:"AmountTax"`
+    TaxRate           decimal.Decimal `csv:"TaxRate"`
+    Recipient         string          `csv:"Recipient"`
+    Investment        string          `csv:"InvestmentType"`
+    Number            string          `csv:"Number"`
+    Category          string          `csv:"Category"`
+    Type              string          `csv:"Type"`
+    Fund              string          `csv:"Fund"`
+    NumberOfShares    int             `csv:"NumberOfShares"`
+    Fees              decimal.Decimal `csv:"Fees"`
+    IBAN              string          `csv:"IBAN"`
+    EntryReference    string          `csv:"EntryReference"`
+    Reference         string          `csv:"Reference"`
+    AccountServicer   string          `csv:"AccountServicer"`
+    BankTxCode        string          `csv:"BankTxCode"`
+    OriginalCurrency  string          `csv:"OriginalCurrency"`
+    OriginalAmount    decimal.Decimal `csv:"OriginalAmount"`
+    ExchangeRate      decimal.Decimal `csv:"ExchangeRate"`
+    // Internal fields (not exported to CSV)
+    Payee string `csv:"-"`
+    Payer string `csv:"-"`
 }
 ```
 
@@ -112,7 +100,7 @@ type Transaction struct {
 
 **Required Fields**:
 
-- `Date`: Must be in DD.MM.YYYY format
+- `Date`: Must be valid `time.Time`
 - `Amount`: Must be valid decimal, can be negative
 - `Currency`: Must be valid ISO 4217 currency code
 - `CreditDebit`: Must be either "CRDT" or "DBIT"
@@ -120,8 +108,9 @@ type Transaction struct {
 **Format Constraints**:
 
 - IBAN fields: Must pass IBAN validation if present
-- Date fields: Must be parseable as DD.MM.YYYY
+- Date fields: Stored as `time.Time`, exported to CSV as DD.MM.YYYY
 - Decimal fields: Must use `decimal.Decimal` for precision
+- Internal fields (Payee, Payer): Not exported to CSV (csv:"-")
 
 **Business Rules**:
 
@@ -129,47 +118,81 @@ type Transaction struct {
 - If `CreditDebit` is "CRDT", `Credit` should equal `Amount`
 - `AmountExclTax + AmountTax` should equal `Amount` when tax fields are used
 
-#### Helper Methods Specification
-
-```go
-// UpdateDebitCreditAmounts ensures Debit/Credit fields match CreditDebit indicator
-func (t *Transaction) UpdateDebitCreditAmounts()
-
-// UpdateNameFromParties sets Name field based on transaction direction
-func (t *Transaction) UpdateNameFromParties()
-
-// Validate performs comprehensive validation of all fields
-func (t *Transaction) Validate() error
-```
+**Note**: Helper methods (UpdateDebitCreditAmounts, UpdateNameFromParties, ToBuilder, etc.) were removed in v2.0.0. Transactions are now immutable value objects. Parsers construct transactions with all fields set correctly during parsing.
 
 ## Categorization Service Specification
 
-### Categorizer Interface
+### TransactionCategorizer Interface
 
 ```go
-type Categorizer interface {
-    CategorizeTransaction(tx CategorizeTransaction) (*Category, error)
-    UpdateCreditorCategory(creditor, category string) error
-    UpdateDebtorCategory(debtor, category string) error
-    SetTestCategoryStore(store *CategoryStore)
+type TransactionCategorizer interface {
+    Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (Category, error)
 }
 ```
 
-### CategorizeTransaction Specification
+**Parameters**:
 
-**Input**: `CategorizeTransaction` struct
+- `ctx`: Context for cancellation and timeouts
+- `partyName`: Name of the party (creditor or debtor)
+- `isDebtor`: true if this is a debit transaction
+- `amount`: Transaction amount as string
+- `date`: Transaction date as string
+- `info`: Additional information (description, remittance info)
+
+### OutputFormatter Interface
 
 ```go
-type CategorizeTransaction struct {
-    PartyName   string
-    IsDebtor    bool
-    Description string
-    Amount      decimal.Decimal
-    Currency    string
+type OutputFormatter interface {
+    Header() []string
+    Format(transactions []models.Transaction) ([][]string, error)
+    Delimiter() rune
 }
 ```
 
-**Algorithm**:
+**Methods**:
+
+- `Header()`: Returns CSV header row
+- `Format()`: Converts transactions to CSV rows
+- `Delimiter()`: Returns CSV delimiter character (e.g., ';', ',')
+
+### Parser Interfaces
+
+```go
+type Parser interface {
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
+}
+
+type Validator interface {
+    ValidateFormat(filePath string) (bool, error)
+}
+
+type CSVConverter interface {
+    ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
+}
+
+type LoggerConfigurable interface {
+    SetLogger(logger logging.Logger)
+}
+
+type CategorizerConfigurable interface {
+    SetCategorizer(categorizer models.TransactionCategorizer)
+}
+
+type BatchConverter interface {
+    BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
+}
+
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+    CategorizerConfigurable
+    BatchConverter
+}
+```
+
+**Categorization Algorithm**:
 
 1. **Direct Mapping**: Check exact match in creditor/debtor mappings
 2. **Keyword Matching**: Match against category keywords
@@ -177,7 +200,7 @@ type CategorizeTransaction struct {
 
 **Rate Limiting**: AI calls limited by `GEMINI_REQUESTS_PER_MINUTE`
 
-**Learning**: Successful AI categorizations automatically saved to mappings
+**Learning**: Successful AI categorizations can be saved to mappings (when auto-learn is enabled)
 
 ## Configuration Specification
 

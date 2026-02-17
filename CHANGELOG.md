@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-02-17
+
+### Removed
+
+- **Deprecated Transaction methods**: `GetPayee()`, `GetPayer()`, `GetAmountAsFloat()`, `GetDebitAsFloat()`, `GetCreditAsFloat()`, `GetFeesAsFloat()`, `ToBuilder()`, `SetPayerInfo()`, `SetPayeeInfo()`, `SetAmountFromFloat()` — use `GetCounterparty()`, `*AsDecimal()` variants, and `TransactionBuilder` instead
+- **Deprecated process functions**: `ProcessFileLegacy()`, `ProcessFileLegacyWithError()`, `SaveMappings()` — use `ProcessFileWithError()` and container-based categorizer
+- **Deprecated root command function**: `GetConfig()` — use `GetContainer().GetConfig()`
+- **Deprecated mock logger field**: `Entries` on `MockLogger` — use `GetEntries()`
+- **Deprecated XPath constants**: `Camt053XPaths` var — use `DefaultCamt053XPaths()`
+
+### Changed
+
+- **README.md slimmed down** from ~287 lines to ~107 lines; detailed content moved to docs site
+- **Documentation restructured**: 7 stale docs deleted (3 migration guides, deprecation timeline, 3 meta-docs), migration content consolidated into developer guide
+- **All documentation updated** to reflect current codebase:
+  - `api-specifications.md`: Corrected Transaction struct, Categorizer interface, added OutputFormatter
+  - `architecture.md`: Added SemanticStrategy (4th categorization tier), Formatter system, context.Context
+  - `design-principles.md`: Added Registry Pattern, updated method signatures
+  - `developer-guide.md`: Fixed interface signatures, added v1.x→v2.0.0 migration guide
+  - `user-guide.md`: Complete configuration reference with all flags, env vars, and YAML options
+  - `testing-strategy.md`: Removed stale `SetTestCategoryStore()` refs, added DI-based testing patterns
+  - `operations.md`: Removed fictional Prometheus/health check sections, updated CI/CD pipeline
+  - `coding-standards.md`: Added context.Context convention, strategy pattern reference
+
 ## [1.3.0] - 2026-02-16
 
 ### Changed

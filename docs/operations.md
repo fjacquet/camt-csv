@@ -9,6 +9,12 @@ This document provides comprehensive guidance for building, deploying, monitorin
 ### 1. Local Development Build
 
 ```bash
+# Using Makefile (recommended)
+make build            # Build the application
+make all              # Lint, test, and build
+make install-tools    # Install dev tools (golangci-lint, gosec, cyclonedx-gomod)
+
+# Direct commands (for specific cases)
 # Clean build
 go clean -cache
 go mod tidy
@@ -335,69 +341,35 @@ services:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
 ```
 
-### 2. Metrics Collection
+**Note**: This is a CLI tool without an HTTP server, so there are no Prometheus metrics endpoints or health check endpoints. Monitoring is done through:
 
-**Application Metrics**:
+- Structured logging (JSON format for machine processing)
+- Exit codes (0 for success, non-zero for errors)
+- File-based audit logs when needed
+- CI/CD pipeline checks (golangci-lint, gosec, tests with coverage via codecov)
+- SBOM generation via cyclonedx-gomod
+- GitHub Pages documentation at https://fjacquet.github.io/camt-csv/
 
-```go
-// Add to main application
-import "github.com/prometheus/client_golang/prometheus"
+**CI/CD Pipeline** uses:
 
-var (
-    filesProcessed = prometheus.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "camt_files_processed_total",
-            Help: "Total number of files processed",
-        },
-        []string{"parser", "status"},
-    )
-    
-    processingDuration = prometheus.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name: "camt_processing_duration_seconds",
-            Help: "Time spent processing files",
-        },
-        []string{"parser"},
-    )
-)
-```
+- Go 1.24.2
+- golangci-lint for code quality
+- gosec for security scanning (with SARIF output)
+- cyclonedx-gomod for SBOM generation (CycloneDX format)
+- codecov for coverage reporting
 
-**System Metrics**:
+**Makefile Targets**:
 
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'camt-csv'
-    static_configs:
-      - targets: ['localhost:8080']
-```
-
-### 3. Health Checks
-
-```go
-// Health check endpoint
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    health := map[string]interface{}{
-        "status":    "healthy",
-        "timestamp": time.Now(),
-        "version":   Version,
-        "uptime":    time.Since(startTime),
-    }
-    
-    // Check dependencies
-    if aiEnabled {
-        if err := checkAIService(); err != nil {
-            health["status"] = "degraded"
-            health["ai_service"] = "unavailable"
-        }
-    }
-    
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(health)
-}
+```bash
+make build         # Build the application
+make test          # Run all tests
+make test-race     # Run tests with race detector
+make coverage      # Generate HTML coverage report
+make lint          # Run golangci-lint
+make security      # Run gosec security scan
+make sbom          # Generate SBOM
+make all           # Lint, test, and build
+make install-tools # Install dev tools
 ```
 
 ## Performance Optimization

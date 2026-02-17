@@ -11,7 +11,6 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -54,42 +53,6 @@ func (m *MockFullParser) ValidateFormat(file string) (bool, error) {
 func (m *MockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
 	args := m.Called(ctx, inputDir, outputDir)
 	return args.Int(0), args.Error(1)
-}
-
-// MockLegacyParser implements models.Parser for testing legacy functions
-type MockLegacyParser struct {
-	mock.Mock
-	logger logging.Logger
-}
-
-func (m *MockLegacyParser) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	args := m.Called(ctx, inputFile, outputFile)
-	return args.Error(0)
-}
-
-func (m *MockLegacyParser) SetLogger(logger logging.Logger) {
-	m.Called(logger)
-	m.logger = logger
-}
-
-func (m *MockLegacyParser) ValidateFormat(file string) (bool, error) {
-	args := m.Called(file)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockLegacyParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	args := m.Called(ctx, inputDir, outputDir)
-	return args.Int(0), args.Error(1)
-}
-
-func (m *MockLegacyParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-	args := m.Called(ctx, r)
-	return args.Get(0).([]models.Transaction), args.Error(1)
-}
-
-func (m *MockLegacyParser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	args := m.Called(transactions, csvFile)
-	return args.Error(0)
 }
 
 // Test ProcessFileWithError function
@@ -170,115 +133,6 @@ func TestProcessFileWithError_NoValidation(t *testing.T) {
 
 	assert.NoError(t, err)
 	mockParser.AssertExpectations(t)
-}
-
-// Test ProcessFile function (deprecated)
-// NOTE: This test is skipped because ProcessFile now requires formatter integration
-// which needs actual file I/O. The new signature is tested through integration tests.
-func TestProcessFile_Success(t *testing.T) {
-	t.Skip("ProcessFile signature changed to include formatter support - requires integration test with real files")
-
-	// Original test kept for reference:
-	// mockParser := &MockFullParser{}
-	// mockLogger := logging.NewLogrusAdapter("info", "text")
-	// mockParser.On("SetLogger", mockLogger).Return()
-	// mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
-	// assert.NotPanics(t, func() {
-	//     common.ProcessFile(context.Background(), mockParser, "input.xml", "output.csv", false, mockLogger, nil, "standard", "DD.MM.YYYY")
-	// })
-	// mockParser.AssertExpectations(t)
-}
-
-// Test ProcessFileLegacyWithError function
-func TestProcessFileLegacyWithError_Success(t *testing.T) {
-	mockParser := &MockLegacyParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(true, nil)
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
-
-	// Test with validation
-	err := common.ProcessFileLegacyWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.NoError(t, err)
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileLegacyWithError_ValidationError(t *testing.T) {
-	mockParser := &MockLegacyParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(false, errors.New("validation failed"))
-
-	// Test with validation error
-	err := common.ProcessFileLegacyWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error validating file")
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileLegacyWithError_InvalidFormat(t *testing.T) {
-	mockParser := &MockLegacyParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(false, nil)
-
-	// Test with invalid format
-	err := common.ProcessFileLegacyWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.Error(t, err)
-	assert.Equal(t, common.ErrInvalidFormat, err)
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileLegacyWithError_ConversionError(t *testing.T) {
-	mockParser := &MockLegacyParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(errors.New("conversion failed"))
-
-	// Test without validation
-	err := common.ProcessFileLegacyWithError(context.Background(), mockParser, "input.xml", "output.csv", false, mockLogger)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error converting to CSV")
-	mockParser.AssertExpectations(t)
-}
-
-// Test ProcessFileLegacy function (deprecated)
-func TestProcessFileLegacy_Success(t *testing.T) {
-	mockParser := &MockLegacyParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
-
-	// Test without validation
-	assert.NotPanics(t, func() {
-		common.ProcessFileLegacy(context.Background(), mockParser, "input.xml", "output.csv", false, mockLogger)
-	})
-
-	mockParser.AssertExpectations(t)
-}
-
-// Test SaveMappings function (deprecated)
-func TestSaveMappings(t *testing.T) {
-	logger := logrus.New()
-
-	// Test that SaveMappings doesn't panic
-	assert.NotPanics(t, func() {
-		common.SaveMappings(logger)
-	})
 }
 
 // Test error constants

@@ -80,13 +80,13 @@ type Container struct {
 func NewContainer(cfg *config.Config) (*Container, error) {
     logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
     store := store.NewCategoryStore(cfg.Categories.File, cfg.Categories.CreditorsFile, cfg.Categories.DebtorsFile)
-    
+
     var aiClient categorizer.AIClient
     if cfg.AI.Enabled {
-        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger)
+        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger, cfg.AI.RequestsPerMinute)
     }
-    
-    cat := categorizer.NewCategorizer(store, aiClient, logger)
+
+    cat := categorizer.NewCategorizer(aiClient, store, logger, cfg.AI.AutoLearnEnabled)
     
     return &Container{
         Logger:      logger,
@@ -140,7 +140,8 @@ type CategorizationStrategy interface {
 **Strategy Implementations:**
 - **DirectMappingStrategy**: Exact name matches from YAML files (fastest)
 - **KeywordStrategy**: Pattern matching from configuration (local processing)
-- **AIStrategy**: AI-based categorization with auto-learning (optional)
+- **SemanticStrategy**: Vector-based embedding similarity matching to category concepts (local AI)
+- **AIStrategy**: AI-based categorization with auto-learning (optional, controlled by `autoLearnEnabled`)
 
 **Orchestration:**
 ```go
@@ -256,15 +257,31 @@ logger.Info("Processing transaction",
 **Implementation**:
 
 - YAML-based configuration files for categories and mappings
-- Configurable CSV delimiters and output formats
+- Configurable output formatters via `--format` flag
+- FormatterRegistry for runtime formatter selection
 - Environment-specific settings
 - Runtime parser selection
+- Auto-learn toggle for AI categorization
+
+**Formatter System:**
+```go
+type OutputFormatter interface {
+    Header() []string
+    Format(transactions []models.Transaction) ([][]string, error)
+    Delimiter() rune
+}
+```
+
+**Built-in Formatters:**
+- **StandardFormatter**: 29-column CSV with comma delimiter (default)
+- **iComptaFormatter**: 10-column CSV with semicolon delimiter and dd.MM.yyyy date format
 
 **Benefits**:
 
-- Adaptability to different environments
+- Adaptability to different environments and import targets
 - User customization without code changes
 - Easy deployment across different setups
+- Cross-parser output format consistency
 
 ### 9. **Error Handling & Recovery**
 
@@ -341,6 +358,12 @@ if err != nil {
 - Common CSV writing logic with format-specific customizations
 - Shared validation patterns with format-specific rules
 
+### Registry Pattern
+
+- **FormatterRegistry**: Manages output formatters by name
+- Thread-safe formatter registration and retrieval
+- Extensible formatter system for different output formats
+
 ## Anti-Patterns Avoided
 
 ### God Objects
@@ -390,12 +413,12 @@ func NewMyParser(logger logging.Logger) *MyParser {
     }
 }
 
-func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+func (p *MyParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
     p.GetLogger().Info("Starting parse operation")
-    
+
     // Use constants instead of magic strings
     transaction.CreditDebit = models.TransactionTypeDebit
-    
+
     // Use custom error types with context
     if err != nil {
         return nil, &parsererror.ParseError{
@@ -405,7 +428,7 @@ func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
             Err:    err,
         }
     }
-    
+
     return transactions, nil
 }
 ```

@@ -49,11 +49,6 @@ markdown_extensions:
 nav:
   - Home: index.md
   - User Guide: user-guide.md
-  - Configuration:
-      - Migration Guide: configuration-migration-guide.md
-      - Migration Guide V2: MIGRATION_GUIDE_V2.md
-      - Deprecation Timeline: DEPRECATION_TIMELINE.md
-      - General Migration: migration-guide.md
   - Development:
       - Developer Guide: developer-guide.md
       - Architecture: architecture.md
@@ -64,7 +59,7 @@ nav:
       - Operations: operations.md
   - Parsers:
       - Revolut Investment: revolut-investment-parser.md
-      - Codebase Documentation: codebase_documentation.md
+      - Codebase Overview: codebase_documentation.md
   - Architecture Decision Records:
       - ADR-001 Parser Interface: adr/ADR-001-parser-interface-standardization.md
       - ADR-002 Hybrid Categorization: adr/ADR-002-hybrid-categorization-approach.md

@@ -643,43 +643,12 @@ func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	t.Run("GetPayee backward compatibility", func(t *testing.T) {
-		// For debit: GetPayee should return the payee (who receives money)
-		assert.Equal(t, "Store", debitTx.GetPayee())
-
-		// For credit: GetPayee should return the payer (who sent money to us)
-		assert.Equal(t, "Sender", creditTx.GetPayee())
-	})
-
-	t.Run("GetPayer backward compatibility", func(t *testing.T) {
-		// For debit: GetPayer should return the payer (account holder)
-		assert.Equal(t, "Account Holder", debitTx.GetPayer())
-
-		// For credit: GetPayer should return the payee (account holder perspective)
-		assert.Equal(t, "Account Holder", creditTx.GetPayer())
-	})
-
 	t.Run("GetCounterparty", func(t *testing.T) {
 		// For debit: counterparty is the payee
 		assert.Equal(t, "Store", debitTx.GetCounterparty())
 
 		// For credit: counterparty is the payer
 		assert.Equal(t, "Sender", creditTx.GetCounterparty())
-	})
-
-	t.Run("GetAmountAsFloat backward compatibility", func(t *testing.T) {
-		assert.Equal(t, 100.50, debitTx.GetAmountAsFloat())
-		assert.Equal(t, 200.75, creditTx.GetAmountAsFloat())
-	})
-
-	t.Run("Float conversion methods", func(t *testing.T) {
-		// Test debit amounts
-		assert.Equal(t, 100.50, debitTx.GetDebitAsFloat())
-		assert.Equal(t, 0.0, debitTx.GetCreditAsFloat())
-
-		// Test credit amounts
-		assert.Equal(t, 0.0, creditTx.GetDebitAsFloat())
-		assert.Equal(t, 200.75, creditTx.GetCreditAsFloat())
 	})
 
 	t.Run("Decimal accessor methods", func(t *testing.T) {
@@ -786,13 +755,8 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 		// Verify precision is maintained
 		assert.True(t, preciseAmount.Equal(tx.GetAmountAsDecimal()))
 
-		// Test that float conversion may lose precision (expected behavior)
-		floatAmount := tx.GetAmountAsFloat()
-		backToDecimal := decimal.NewFromFloat(floatAmount)
-
-		// The float conversion should be close but may not be exactly equal
-		diff := preciseAmount.Sub(backToDecimal).Abs()
-		assert.True(t, diff.LessThan(decimal.NewFromFloat(0.000001)))
+		// Verify decimal precision is maintained exactly
+		assert.True(t, preciseAmount.Equal(tx.Amount))
 	})
 
 	t.Run("large number handling", func(t *testing.T) {
@@ -824,7 +788,6 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 		}
 
 		assert.True(t, decimal.Zero.Equal(tx.GetAmountAsDecimal()))
-		assert.Equal(t, 0.0, tx.GetAmountAsFloat())
 	})
 }
 

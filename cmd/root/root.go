@@ -133,26 +133,6 @@ func GetContainer() *container.Container {
 	return AppContainer
 }
 
-// GetConfig returns the global configuration instance
-//
-// Deprecated: Use GetContainer().GetConfig() instead for dependency injection.
-// This function will be removed in v3.0.0.
-//
-// Migration example:
-//
-//	// Old code:
-//	config := GetConfig()
-//
-//	// New code:
-//	container, err := container.NewContainer(config.Load())
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	config := container.GetConfig()
-func GetConfig() *config.Config {
-	return AppConfig
-}
-
 // Init initializes the root command and all flags
 func Init() {
 	// Add persistent flags to root command for common options

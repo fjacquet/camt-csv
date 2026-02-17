@@ -62,13 +62,13 @@ type Container struct {
 func NewContainer(cfg *config.Config) (*Container, error) {
     logger := logging.NewLogrusAdapter(cfg.Log.Level, cfg.Log.Format)
     store := store.NewCategoryStore(cfg.Categories.File, cfg.Categories.CreditorsFile, cfg.Categories.DebtorsFile)
-    
+
     var aiClient categorizer.AIClient
     if cfg.AI.Enabled {
-        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger)
+        aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger, cfg.AI.RequestsPerMinute)
     }
-    
-    cat := categorizer.NewCategorizer(store, aiClient, logger)
+
+    cat := categorizer.NewCategorizer(aiClient, store, logger, cfg.AI.AutoLearnEnabled)
     
     parsers := make(map[parser.ParserType]parser.FullParser)
     parsers[parser.CAMT] = camtparser.NewParser(logger)
@@ -99,7 +99,7 @@ Parsers implement segregated interfaces based on their capabilities:
 
 ```go
 type Parser interface {
-    Parse(r io.Reader) ([]models.Transaction, error)
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
 }
 
 type Validator interface {
@@ -107,7 +107,7 @@ type Validator interface {
 }
 
 type CSVConverter interface {
-    ConvertToCSV(inputFile, outputFile string) error
+    ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
 }
 
 type LoggerConfigurable interface {
@@ -119,7 +119,7 @@ type CategorizerConfigurable interface {
 }
 
 type BatchConverter interface {
-    BatchConvert(inputDir, outputDir string) (int, error)
+    BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
 }
 
 type FullParser interface {
@@ -194,7 +194,7 @@ func NewMyParser(logger logging.Logger) *MyParser {
     }
 }
 
-func (p *MyParser) Parse(r io.Reader) ([]models.Transaction, error) {
+func (p *MyParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
     p.GetLogger().Info("Starting parse operation")
     // implementation
 }
@@ -216,19 +216,21 @@ type Categorizer struct {
     mu         sync.RWMutex
 }
 
-func NewCategorizer(store *store.CategoryStore, aiClient AIClient, logger logging.Logger) *Categorizer {
+func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool) *Categorizer {
     c := &Categorizer{
-        store:  store,
-        logger: logger,
+        store:               store,
+        logger:              logger,
+        isAutoLearnEnabled:  autoLearnEnabled,
     }
-    
+
     // Initialize strategies in priority order
     c.strategies = []CategorizationStrategy{
         NewDirectMappingStrategy(store, logger),
         NewKeywordStrategy(store, logger),
+        NewSemanticStrategy(aiClient, logger, c.categories),
         NewAIStrategy(aiClient, logger),
     }
-    
+
     return c
 }
 
@@ -253,10 +255,11 @@ func (c *Categorizer) Categorize(ctx context.Context, tx Transaction) (Category,
 }
 ```
 
-**Three-Tier Strategy Approach:**
+**Four-Tier Strategy Approach:**
 1. **DirectMappingStrategy**: Exact name matches from creditors.yaml/debtors.yaml (fastest)
 2. **KeywordStrategy**: Pattern matching from categories.yaml (local processing)
-3. **AIStrategy**: Gemini API fallback with auto-learning and rate limiting (optional)
+3. **SemanticStrategy**: Vector-based embedding similarity matching transactions to category concepts (local AI)
+4. **AIStrategy**: Gemini API fallback with auto-learning and rate limiting (optional, controlled by `autoLearnEnabled`)
 
 ### Data Layer
 
@@ -680,13 +683,72 @@ func (a *LegacyTransactionAdapter) GetAmountAsFloat() float64 {
 3. **Phase 3**: Migrate internal usage to new patterns
 4. **Phase 4**: Remove deprecated code in major version bump
 
+## Formatter Architecture
+
+### Output Formatter System
+
+**Formatter Interface:**
+```go
+type OutputFormatter interface {
+    Header() []string
+    Format(transactions []models.Transaction) ([][]string, error)
+    Delimiter() rune
+}
+```
+
+**FormatterRegistry Pattern:**
+```go
+type FormatterRegistry struct {
+    formatters map[string]OutputFormatter
+    mu         sync.RWMutex
+}
+
+func (r *FormatterRegistry) Register(name string, formatter OutputFormatter) {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    r.formatters[name] = formatter
+}
+
+func (r *FormatterRegistry) Get(name string) (OutputFormatter, error) {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+    formatter, ok := r.formatters[name]
+    if !ok {
+        return nil, fmt.Errorf("formatter not found: %s", name)
+    }
+    return formatter, nil
+}
+```
+
+**Built-in Formatters:**
+- **StandardFormatter**: 29-column CSV with comma delimiter (default)
+- **iComptaFormatter**: 10-column CSV with semicolon delimiter and dd.MM.yyyy date format
+
+**Usage:**
+```go
+registry := container.GetFormatterRegistry()
+formatter, err := registry.Get("icompta")
+if err != nil {
+    return err
+}
+
+rows, err := formatter.Format(transactions)
+csvFile.SetDelimiter(formatter.Delimiter())
+```
+
+**Benefits:**
+- Cross-parser output formatting
+- Easy addition of new export formats
+- Consistent formatting across all parsers
+- User-selectable output format via `--format` flag
+
 ## Extension Points
 
 ### Adding New Parsers
 
 1. Create package: `internal/<format>parser/`
 2. Embed BaseParser: `parser.BaseParser`
-3. Implement interfaces: `parser.Parser` (minimum)
+3. Implement interfaces: `parser.Parser` (minimum) with `context.Context` parameter
 4. Use dependency injection: Accept logger in constructor
 5. Follow error handling patterns: Use custom error types
 6. Add comprehensive tests: Mock dependencies

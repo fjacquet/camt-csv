@@ -32,18 +32,6 @@ type MockLogger struct {
 	pendingFields []Field
 }
 
-// Entries returns all captured log entries.
-// Deprecated: Use GetEntries() instead for thread-safe access.
-func (m *MockLogger) Entries() []LogEntry {
-	m.ensureMutexInitialized()
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.entries == nil {
-		return nil
-	}
-	return *m.entries
-}
-
 // LogEntry represents a single log entry captured by MockLogger.
 type LogEntry struct {
 	Level   string

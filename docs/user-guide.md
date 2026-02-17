@@ -65,7 +65,7 @@ CAMT-CSV uses a hierarchical configuration system, allowing you to manage settin
 
 1.  **CLI Flags**: Options passed directly on the command line (e.g., `--log-level debug`).
 2.  **Environment Variables**: Variables prefixed with `CAMT_` (e.g., `CAMT_LOG_LEVEL=debug`).
-3.  **Configuration File**: A `camt-csv.yaml` file located in `~/.camt-csv/`.
+3.  **Configuration File**: A `camt-csv.yaml` file located in `~/.camt-csv/` or `.camt-csv/config.yaml`.
 
 ### Setting Up Configuration
 
@@ -76,29 +76,150 @@ mkdir -p ~/.camt-csv
 nano ~/.camt-csv/camt-csv.yaml  # or your preferred editor
 ```
 
-### Configuration Options
+### Global Configuration Options
 
-| YAML Key (`camt-csv.yaml`) | Environment Variable | CLI Flag | Description | Default |
-| :--- | :--- | :--- | :--- | :--- |
-| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` | Logging verbosity | `info` |
-| `log.format` | `CAMT_LOG_FORMAT` | `--log-format` | Log output format (`text`, `json`) | `text` |
-| `csv.delimiter` | `CAMT_CSV_DELIMITER` | `--csv-delimiter` | CSV output delimiter | `,` |
-| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` | Enable/disable AI categorization | `false` |
-| `ai.model` | `CAMT_AI_MODEL` | - | Gemini model for categorization | `gemini-2.0-flash` |
-| `ai.api_key` | `GEMINI_API_KEY` | - | API key for Gemini | - |
+All commands support these global flags and configuration options:
+
+#### Core Options
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| - | - | `--config` | `$HOME/.camt-csv/config.yaml` | Config file path |
+| - | - | `-i, --input` | - | Input file or directory |
+| - | - | `-o, --output` | - | Output file or directory |
+| - | - | `-v, --validate` | `false` | Validate format before conversion |
+
+#### Logging
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `log.level` | `CAMT_LOG_LEVEL` | `--log-level` | `info` | Log level (debug, info, warn, error) |
+| `log.format` | `CAMT_LOG_FORMAT` | `--log-format` | `text` | Log format (text, json) |
+
+#### CSV Output
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `csv.delimiter` | `CAMT_CSV_DELIMITER` | `--csv-delimiter` | `,` | CSV delimiter character |
+| `csv.date_format` | `CAMT_CSV_DATE_FORMAT` | - | `DD.MM.YYYY` | Date format for CSV output |
+| `csv.include_headers` | `CAMT_CSV_INCLUDE_HEADERS` | - | `true` | Include CSV header row |
+| `csv.quote_all` | `CAMT_CSV_QUOTE_ALL` | - | `false` | Quote all CSV fields |
+
+#### AI Categorization
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `ai.enabled` | `CAMT_AI_ENABLED` | `--ai-enabled` | `false` | Enable AI categorization |
+| `ai.api_key` | `GEMINI_API_KEY` | - | - | Gemini API key |
+| `ai.model` | `CAMT_AI_MODEL` | - | `gemini-2.0-flash` | AI model to use |
+| `ai.requests_per_minute` | `CAMT_AI_REQUESTS_PER_MINUTE` | - | `10` | API rate limit |
+| `ai.timeout_seconds` | `CAMT_AI_TIMEOUT_SECONDS` | - | `30` | API request timeout |
+| `ai.fallback_category` | `CAMT_AI_FALLBACK_CATEGORY` | - | `Uncategorized` | Category when AI fails |
+
+#### Categorization
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `categorization.auto_learn` | `CAMT_CATEGORIZATION_AUTO_LEARN` | `--auto-learn` | `false` | Auto-save AI categorizations to YAML |
+| `categorization.confidence_threshold` | `CAMT_CATEGORIZATION_CONFIDENCE_THRESHOLD` | - | `0.8` | Minimum confidence threshold |
+| `categorization.case_sensitive` | `CAMT_CATEGORIZATION_CASE_SENSITIVE` | - | `false` | Case-sensitive matching |
+
+**Auto-Learn Safety**: When `--auto-learn` is enabled, AI categorizations are automatically saved back to YAML files (`creditors.yaml`/`debtors.yaml`). Backups are created automatically before any write operation to protect against data loss.
+
+#### Data and Backup
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `data.directory` | `CAMT_DATA_DIRECTORY` | - | - | Custom data directory |
+| `data.backup_enabled` | `CAMT_DATA_BACKUP_ENABLED` | - | `true` | Enable backups |
+| `backup.enabled` | `CAMT_BACKUP_ENABLED` | - | `true` | Enable backup system |
+| `backup.directory` | `CAMT_BACKUP_DIRECTORY` | - | - | Backup directory |
+| `categories.file` | `CAMT_CATEGORIES_FILE` | - | `categories.yaml` | Categories file |
+| `categories.creditors_file` | `CAMT_CATEGORIES_CREDITORS_FILE` | - | `creditors.yaml` | Creditors mapping file |
+| `categories.debtors_file` | `CAMT_CATEGORIES_DEBTORS_FILE` | - | `debtors.yaml` | Debtors mapping file |
+
+#### Parser-Specific Settings
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `parsers.camt.strict_validation` | `CAMT_PARSERS_CAMT_STRICT_VALIDATION` | - | `true` | Strict CAMT validation |
+| `parsers.pdf.ocr_enabled` | `CAMT_PARSERS_PDF_OCR_ENABLED` | - | `false` | Enable OCR for PDF |
+| `parsers.revolut.date_format_detection` | `CAMT_PARSERS_REVOLUT_DATE_FORMAT_DETECTION` | - | `true` | Auto-detect date format |
+
+### Command-Specific Flags
+
+#### Parser Commands (camt, pdf, revolut, revolut-investment, selma, debit)
+
+| CLI Flag | Default | Description |
+|----------|---------|-------------|
+| `-f, --format` | `standard` | Output format: `standard` (29-col, comma) or `icompta` (10-col, semicolon, dd.MM.yyyy) |
+| `--date-format` | `DD.MM.YYYY` | Date format in output |
+
+#### PDF Command Only
+
+| CLI Flag | Default | Description |
+|----------|---------|-------------|
+| `--batch` | `false` | Batch mode: convert each PDF individually |
+
+#### Categorize Command
+
+| CLI Flag | Default | Description |
+|----------|---------|-------------|
+| `-p, --party` | - | Party name (required) |
+| `-d, --debtor` | `false` | Whether party is debtor |
+| `-a, --amount` | - | Transaction amount |
+| `-t, --date` | - | Transaction date |
+| `-n, --info` | - | Additional info |
 
 ### Example Configuration
 
+Complete example of `~/.camt-csv/camt-csv.yaml`:
+
 ```yaml
-# ~/.camt-csv/camt-csv.yaml example
+# Logging configuration
 log:
   level: "info"
   format: "text"
+
+# CSV output settings
 csv:
   delimiter: ";"
+  date_format: "DD.MM.YYYY"
+  include_headers: true
+  quote_all: false
+
+# AI categorization
 ai:
   enabled: true
   model: "gemini-2.0-flash"
+  requests_per_minute: 10
+  timeout_seconds: 30
+  fallback_category: "Uncategorized"
+
+# Categorization behavior
+categorization:
+  auto_learn: false
+  confidence_threshold: 0.8
+  case_sensitive: false
+
+# Data management
+data:
+  backup_enabled: true
+
+# Category files
+categories:
+  file: "categories.yaml"
+  creditors_file: "creditors.yaml"
+  debtors_file: "debtors.yaml"
+
+# Parser-specific settings
+parsers:
+  camt:
+    strict_validation: true
+  pdf:
+    ocr_enabled: false
+  revolut:
+    date_format_detection: true
 ```
 
 To set the API key, use the environment variable:
@@ -344,7 +465,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 
 ### How Categorization Works
 
-CAMT-CSV uses a sophisticated **Strategy Pattern** with three-tier categorization:
+CAMT-CSV uses a sophisticated **Strategy Pattern** with four-tier categorization:
 
 1. **Direct Mapping Strategy** (Fastest):
    - Checks `database/creditors.yaml` and `database/debtors.yaml`
@@ -358,7 +479,13 @@ CAMT-CSV uses a sophisticated **Strategy Pattern** with three-tier categorizatio
    - Configurable keyword patterns and rules
    - No API calls required, fully local processing
 
-3. **AI Strategy** (Optional Fallback):
+3. **Semantic Strategy** (Advanced Matching):
+   - Advanced pattern matching using semantic analysis
+   - Handles variations in transaction descriptions
+   - More intelligent than simple keyword matching
+   - Still local processing, no external API calls
+
+4. **AI Strategy** (Optional Fallback):
    - Fallback to Gemini AI when local methods fail
    - Context-aware analysis of transaction details
    - Automatically learns new patterns and saves to YAML files

@@ -98,27 +98,28 @@ func TestParser_ParseTransaction(t *testing.T) {
 
 ```go
 func TestCAMTParser_Integration(t *testing.T) {
-    // Setup test environment
+    // IMPORTANT: Use t.TempDir() for all file system tests
+    // It provides automatic cleanup and isolation
     tempDir := t.TempDir()
     testFile := filepath.Join(tempDir, "test.xml")
     outputFile := filepath.Join(tempDir, "output.csv")
-    
+
     // Create test data
     err := os.WriteFile(testFile, []byte(validCAMTXML), 0644)
     require.NoError(t, err)
-    
-    // Execute integration
+
+    // Execute integration (note: context.Context is first parameter)
     parser := camtparser.New()
-    err = parser.ConvertToCSV(testFile, outputFile)
-    
+    err = parser.ConvertToCSV(context.Background(), testFile, outputFile)
+
     // Verify results
     assert.NoError(t, err)
     assert.FileExists(t, outputFile)
-    
+
     // Verify CSV content
     content, err := os.ReadFile(outputFile)
     require.NoError(t, err)
-    
+
     lines := strings.Split(string(content), "\n")
     assert.Contains(t, lines[0], "Date,Description,Amount")
     assert.Greater(t, len(lines), 1)
@@ -214,18 +215,17 @@ func (m *MockAIService) CategorizeTransaction(ctx context.Context, tx models.Cat
 }
 
 func TestCategorizer_WithAIFallback(t *testing.T) {
+    // Tests use dependency injection via NewCategorizer() with mock stores
+    mockStore := &MockCategoryStore{}
     mockAI := new(MockAIService)
-    mockAI.On("CategorizeTransaction", mock.Anything, mock.Anything).
-        Return(&models.Category{Name: "AI_Category"}, nil)
-    
-    categorizer := NewCategorizer(WithAIService(mockAI))
-    
-    tx := models.CategorizeTransaction{Description: "Unknown Transaction"}
-    category, err := categorizer.CategorizeTransaction(tx)
-    
+
+    categorizer := NewCategorizer(mockStore, mockAI)
+
+    // TransactionCategorizer interface signature
+    category, err := categorizer.Categorize(context.Background(), "Unknown Transaction", false, "100", "01.01.2024", "")
+
     assert.NoError(t, err)
     assert.Equal(t, "AI_Category", category.Name)
-    mockAI.AssertExpectations(t)
 }
 ```
 
@@ -393,20 +393,20 @@ func TestE2E_ConvertCommand_Success(t *testing.T) {}
 ### 1. Local Development
 
 ```bash
-# Run all tests
-go test ./...
+# Using Makefile (recommended)
+make test             # Run all tests
+make test-race        # Run tests with race detector
+make coverage         # Generate HTML coverage report
+make lint             # Run golangci-lint
+make security         # Run gosec security scan
 
-# Run tests with coverage
-go test -cover ./...
-
-# Run specific test package
-go test ./internal/camtparser
-
-# Run benchmarks
-go test -bench=. ./...
-
-# Run tests with race detection
-go test -race ./...
+# Direct commands (for specific cases)
+go test ./...                        # Run all tests
+go test -cover ./...                 # Run tests with coverage
+go test ./internal/camtparser        # Run specific test package
+go test -bench=. ./...               # Run benchmarks
+go test -race ./...                  # Run tests with race detection
+go test -v -run TestFunctionName ./path/to/package  # Single test
 ```
 
 ### 2. CI/CD Pipeline

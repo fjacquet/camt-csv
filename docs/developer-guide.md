@@ -159,17 +159,19 @@ func main() {
     }
     
     // Process files
-    transactions, err := parser.Parse(inputReader)
+    transactions, err := parser.Parse(ctx, inputReader)
     if err != nil {
         container.GetLogger().Error("Parse failed", logging.Field{Key: "error", Value: err})
         return
     }
-    
+
     // Categorize transactions
+    cat := container.GetCategorizer()
     for i, tx := range transactions {
-        category, err := container.GetCategorizer().CategorizeTransaction(tx)
+        category, err := cat.Categorize(ctx, tx.GetCounterparty(), tx.IsDebit(),
+            tx.Amount.String(), tx.Date.String(), tx.Description)
         if err != nil {
-            container.GetLogger().Warn("Categorization failed", 
+            container.GetLogger().Warn("Categorization failed",
                 logging.Field{Key: "transaction", Value: tx.Number},
                 logging.Field{Key: "error", Value: err})
             continue
@@ -185,7 +187,7 @@ Parsers implement only the interfaces they need:
 
 ```go
 type Parser interface {
-    Parse(r io.Reader) ([]models.Transaction, error)
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
 }
 
 type Validator interface {
@@ -193,7 +195,20 @@ type Validator interface {
 }
 
 type CSVConverter interface {
-    ConvertToCSV(inputFile, outputFile string) error
+    ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
+}
+
+type BatchConverter interface {
+    BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
+}
+
+type FullParser interface {
+    Parser
+    Validator
+    CSVConverter
+    LoggerConfigurable
+    CategorizerConfigurable
+    BatchConverter
 }
 ```
 
@@ -237,32 +252,20 @@ type Transaction struct {
 }
 ```
 
-### Backward Compatibility Methods
+### Party Access Methods
 
-The Transaction model provides enhanced backward compatibility methods with direction-based logic:
+Use `GetCounterparty()` to get the other party in a transaction:
 
-#### GetPayee() Method
 ```go
-// Returns appropriate party based on transaction direction
-otherParty := tx.GetPayee()
+// Returns the "other party" based on transaction direction
+counterparty := tx.GetCounterparty()
 // For debit: returns payee (who receives money)
 // For credit: returns payer (who sent money to us)
 ```
 
-#### GetPayer() Method
-```go
-// Returns appropriate party based on transaction direction
-accountHolder := tx.GetPayer()
-// For debit: returns payer (account holder)
-// For credit: returns payee (account holder)
-```
+For direct field access when you know the direction: `tx.Payer` and `tx.Payee`.
 
-#### GetCounterparty() Method
-```go
-// Recommended for new code - clearer semantics
-counterparty := tx.GetCounterparty()
-// Always returns the "other party" in the transaction
-```
+> **v2.0.0 Breaking Change**: `GetPayee()`, `GetPayer()`, `GetAmountAsFloat()`, `SetPayerInfo()`, `SetPayeeInfo()`, `SetAmountFromFloat()`, and `ToBuilder()` were removed. Use `GetCounterparty()`, `GetAmountAsDecimal()`, and the `TransactionBuilder` pattern instead.
 
 ### TransactionBuilder Pattern
 
@@ -1108,5 +1111,67 @@ Fixes #123
 - [ ] Updates documentation
 - [ ] Passes all quality checks
 - [ ] Maintains backward compatibility
+
+## Migration from v1.x to v2.0.0
+
+### Breaking Changes
+
+v2.0.0 removes all deprecated APIs that were flagged for removal:
+
+#### Removed Transaction Methods
+
+| Removed | Replacement |
+|---------|-------------|
+| `GetPayee()` | `GetCounterparty()` or `tx.Payee` directly |
+| `GetPayer()` | `GetCounterparty()` or `tx.Payer` directly |
+| `GetAmountAsFloat()` | `GetAmountAsDecimal()` |
+| `GetDebitAsFloat()` | `tx.Debit` (decimal.Decimal) |
+| `GetCreditAsFloat()` | `tx.Credit` (decimal.Decimal) |
+| `GetFeesAsFloat()` | `GetFeesAsDecimal()` |
+| `ToBuilder()` | Create new `NewTransactionBuilder()` and copy fields |
+| `SetPayerInfo()` | `TransactionBuilder.WithPayer()` |
+| `SetPayeeInfo()` | `TransactionBuilder.WithPayee()` |
+| `SetAmountFromFloat()` | `TransactionBuilder.WithAmountFromFloat()` or `SetAmountFromDecimal()` |
+
+#### Removed Functions
+
+| Removed | Replacement |
+|---------|-------------|
+| `root.GetConfig()` | `root.GetContainer().GetConfig()` |
+| `common.ProcessFileLegacy()` | `common.ProcessFileWithErrorFormatted()` |
+| `common.SaveMappings()` | Use container-based categorizer |
+| `mock.Entries()` | `mock.GetEntries()` |
+
+#### Removed Constants
+
+| Removed | Replacement |
+|---------|-------------|
+| `xmlutils.XPath*` constants | `xmlutils.DefaultCamt053XPaths()` struct |
+
+### Configuration Migration
+
+If migrating from environment variables to config file:
+
+```yaml
+# ~/.camt-csv/camt-csv.yaml
+log:
+  level: "info"      # was CAMT_LOG_LEVEL
+  format: "text"     # was CAMT_LOG_FORMAT
+csv:
+  delimiter: ","      # was CAMT_CSV_DELIMITER
+ai:
+  enabled: false      # was CAMT_AI_ENABLED
+  model: "gemini-2.0-flash"
+categorization:
+  auto_learn: false   # NEW in v1.2 — controls AI auto-learning
+backup:
+  enabled: true       # backups before YAML overwrites
+```
+
+Environment variables still work — config file is optional.
+
+### Debtor File Rename
+
+The debtor mapping file was renamed from `debitors.yaml` to `debtors.yaml` for standard English spelling. Rename your file if you have one. The application loads `debtors.yaml` by default.
 
 This developer guide provides the foundation for contributing to the CAMT-CSV project while maintaining code quality and architectural consistency.

@@ -145,13 +145,6 @@ func TestGetContainer(t *testing.T) {
 	})
 }
 
-func TestGetConfig(t *testing.T) {
-	// Test that the function doesn't panic
-	assert.NotPanics(t, func() {
-		root.GetConfig()
-	})
-}
-
 func TestInit_FlagBinding(t *testing.T) {
 	// Test that Init() doesn't panic when called
 	// Note: We can't easily test multiple Init() calls due to flag redefinition
@@ -310,10 +303,6 @@ func TestRootCommand_ExecutionFlow(t *testing.T) {
 
 func TestRootCommand_ConfigurationIntegration(t *testing.T) {
 	// Test that configuration-related functions exist and don't panic
-	assert.NotPanics(t, func() {
-		root.GetConfig()
-	})
-
 	assert.NotPanics(t, func() {
 		root.GetContainer()
 	})
