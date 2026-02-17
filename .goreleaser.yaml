@@ -54,7 +54,9 @@ dockers:
     image_templates:
       - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-amd64"
       - "ghcr.io/fjacquet/camt-csv:latest-amd64"
+    use: buildx
     build_flag_templates:
+      - "--pull"
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
       - "--label=org.opencontainers.image.version={{ .Version }}"
@@ -71,7 +73,9 @@ dockers:
     image_templates:
       - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-arm64"
       - "ghcr.io/fjacquet/camt-csv:latest-arm64"
+    use: buildx
     build_flag_templates:
+      - "--pull"
       - "--platform=linux/arm64"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
       - "--label=org.opencontainers.image.version={{ .Version }}"
