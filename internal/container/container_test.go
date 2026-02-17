@@ -66,7 +66,7 @@ func TestNewContainer(t *testing.T) {
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-					APIKey            string `mapstructure:"api_key" yaml:"-"`
+					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 				}{
 					Enabled: false,
 				},
@@ -98,7 +98,7 @@ func TestNewContainer(t *testing.T) {
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-					APIKey            string `mapstructure:"api_key" yaml:"-"`
+					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 				}{
 					Enabled: true,
 					APIKey:  "test-api-key",
@@ -172,7 +172,7 @@ func TestContainer_GetParser(t *testing.T) {
 			RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 			TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 			FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-			APIKey            string `mapstructure:"api_key" yaml:"-"`
+			APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 		}{
 			Enabled: false,
 		},
@@ -263,7 +263,7 @@ func TestContainer_ConvenienceMethods(t *testing.T) {
 			RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 			TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 			FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-			APIKey            string `mapstructure:"api_key" yaml:"-"`
+			APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 		}{
 			Enabled: true,
 			APIKey:  "test-key",
@@ -335,7 +335,7 @@ func TestProperty_ConfigurationConsistency(t *testing.T) {
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-					APIKey            string `mapstructure:"api_key" yaml:"-"`
+					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 				}{
 					Enabled: aiEnabled,
 					APIKey:  apiKey,

@@ -46,6 +46,64 @@ archives:
       - LICENSE
       - CHANGELOG.md
 
+dockers:
+  - id: amd64
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
+      - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-amd64"
+      - "ghcr.io/fjacquet/camt-csv:latest-amd64"
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/fjacquet/camt-csv"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .CommitDate }}"
+    extra_files:
+      - database
+
+  - id: arm64
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
+      - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-arm64"
+      - "ghcr.io/fjacquet/camt-csv:latest-arm64"
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/fjacquet/camt-csv"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .CommitDate }}"
+    extra_files:
+      - database
+
+docker_manifests:
+  - name_template: "ghcr.io/fjacquet/camt-csv:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-amd64"
+      - "ghcr.io/fjacquet/camt-csv:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/fjacquet/camt-csv:latest"
+    image_templates:
+      - "ghcr.io/fjacquet/camt-csv:latest-amd64"
+      - "ghcr.io/fjacquet/camt-csv:latest-arm64"
+
+brews:
+  - repository:
+      owner: fjacquet
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/fjacquet/camt-csv"
+    description: "Convert financial statements (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) to standardized CSV with AI-powered categorization"
+    license: "MIT"
+    install: |
+      bin.install "camt-csv"
+    test: |
+      system "#{bin}/camt-csv", "--version"
+
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256

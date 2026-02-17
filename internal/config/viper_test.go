@@ -262,7 +262,7 @@ func TestValidateConfig_InvalidValues(t *testing.T) {
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
-					APIKey            string `mapstructure:"api_key" yaml:"-"`
+					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 				}{
 					RequestsPerMinute: 10,
 					TimeoutSeconds:    30,

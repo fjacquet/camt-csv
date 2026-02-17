@@ -473,11 +473,8 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 	req.Header.Set("Content-Type", "application/json")
 
 	// Make the request
-
-	resp, err := c.httpClient.Do(req)
-
+	resp, err := c.httpClient.Do(req) // #nosec G704 -- URL is built from config, not user input
 	if err != nil {
-
 		return "", fmt.Errorf("failed to make API request: %w", err)
 
 	}
@@ -749,7 +746,7 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704 -- URL is built from config, not user input
 	if err != nil {
 		return nil, fmt.Errorf("failed to make API request: %w", err)
 	}

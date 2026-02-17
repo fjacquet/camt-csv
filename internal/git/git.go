@@ -4,12 +4,27 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
+// validGitRef matches safe git references (branches, tags, SHAs, HEAD, etc.)
+var validGitRef = regexp.MustCompile(`^[a-zA-Z0-9_./~^@{}-]+$`)
+
+// sanitizeGitRef validates that a git reference contains only safe characters.
+func sanitizeGitRef(ref string) error {
+	if !validGitRef.MatchString(ref) {
+		return fmt.Errorf("invalid git reference: %q", ref)
+	}
+	return nil
+}
+
 // GetDiff returns the diff between the current working directory and a specified Git reference.
 func GetDiff(gitRef string) (string, error) {
-	cmd := exec.Command("git", "diff", gitRef)
+	if err := sanitizeGitRef(gitRef); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("git", "diff", gitRef) // #nosec G204 -- gitRef is sanitized above
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
@@ -48,7 +63,10 @@ func IsGitRepo() bool {
 // GetChangedFiles returns a list of files changed between the working tree and a git reference.
 // This uses `git diff --name-only` for simple, reliable path extraction.
 func GetChangedFiles(gitRef string) ([]string, error) {
-	cmd := exec.Command("git", "diff", "--name-only", gitRef)
+	if err := sanitizeGitRef(gitRef); err != nil {
+		return nil, err
+	}
+	cmd := exec.Command("git", "diff", "--name-only", gitRef) // #nosec G204 -- gitRef is sanitized above
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out

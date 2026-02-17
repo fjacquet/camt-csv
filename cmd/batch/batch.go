@@ -280,7 +280,7 @@ func writeConsolidatedCSV(transactions []models.Transaction, outputPath, headerC
 	if cerr := tempFile.Close(); cerr != nil {
 		logger.WithError(cerr).Warn("Failed to close temporary file before reading")
 	}
-	tempContent, err := os.ReadFile(tempFileName) // #nosec G304 -- Reading from temp file we just created
+	tempContent, err := os.ReadFile(tempFileName) // #nosec G304,G703 -- Reading from temp file we just created
 	if err != nil {
 		return fmt.Errorf("failed to read temporary file: %w", err)
 	}

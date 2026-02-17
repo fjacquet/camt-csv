@@ -104,14 +104,14 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 
 	// Use pdftotext command-line tool to extract text
 	// Add the -raw option to preserve the original text layout
-	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFileName) // #nosec G204 -- Expected subprocess for PDF text extraction
+	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFileName) // #nosec G204,G702 -- Expected subprocess for PDF text extraction
 	err = cmd.Run()
 	if err != nil {
 		return "", fmt.Errorf("error running pdftotext: %w", err)
 	}
 
 	// Read the extracted text
-	output, err := os.ReadFile(tempFileName) // #nosec G304 -- reading from app-generated temp file
+	output, err := os.ReadFile(tempFileName) // #nosec G304,G703 -- reading from app-generated temp file
 	if err != nil {
 		return "", fmt.Errorf("error reading extracted text: %w", err)
 	}

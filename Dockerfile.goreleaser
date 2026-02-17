@@ -1,0 +1,25 @@
+# Runtime-only Dockerfile for GoReleaser
+# GoReleaser pre-builds the binary and COPYs it in
+FROM alpine:3.21
+
+WORKDIR /app
+
+# Install runtime dependencies (poppler for PDF support)
+RUN apk add --no-cache ca-certificates poppler-utils
+
+# Create non-root user
+RUN adduser -D -g '' appuser
+
+# Copy pre-built binary from GoReleaser
+COPY camt-csv .
+
+# Copy database files (categories, etc.)
+COPY database ./database
+
+# Set ownership
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+ENTRYPOINT ["./camt-csv"]
+CMD ["--help"]
