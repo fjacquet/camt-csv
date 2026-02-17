@@ -4,6 +4,11 @@
 
 [![Go CI](https://github.com/fjacquet/camt-csv/actions/workflows/go.yml/badge.svg)](https://github.com/fjacquet/camt-csv/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/fjacquet/camt-csv/graph/badge.svg?token=ST9KKUV81N)](https://codecov.io/gh/fjacquet/camt-csv)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fjacquet/camt-csv)](https://goreportcard.com/report/github.com/fjacquet/camt-csv)
+[![Go Reference](https://pkg.go.dev/badge/github.com/fjacquet/camt-csv.svg)](https://pkg.go.dev/github.com/fjacquet/camt-csv)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/v/release/fjacquet/camt-csv)](https://github.com/fjacquet/camt-csv/releases/latest)
+[![Docker Pulls](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/fjacquet/camt-csv/pkgs/container/camt-csv)
 
 CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) into standardized CSV files with AI-powered transaction categorization.
 
