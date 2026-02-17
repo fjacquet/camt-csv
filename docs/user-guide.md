@@ -124,7 +124,17 @@ All commands support these global flags and configuration options:
 | `categorization.confidence_threshold` | `CAMT_CATEGORIZATION_CONFIDENCE_THRESHOLD` | - | `0.8` | Minimum confidence threshold |
 | `categorization.case_sensitive` | `CAMT_CATEGORIZATION_CASE_SENSITIVE` | - | `false` | Case-sensitive matching |
 
-**Auto-Learn Safety**: When `--auto-learn` is enabled, AI categorizations are automatically saved back to YAML files (`creditors.yaml`/`debtors.yaml`). Backups are created automatically before any write operation to protect against data loss.
+**Auto-Learn Behavior**:
+- **`--auto-learn` enabled**: AI categorizations are saved directly to `creditors.yaml`/`debtors.yaml`. Backups are created automatically before each write.
+- **`--auto-learn` disabled** (default): AI categorizations are saved to staging files (`staging_creditors.yaml`/`staging_debtors.yaml`) for manual review. You can copy approved entries to the main files.
+
+#### Staging
+
+| YAML Key | Environment Variable | CLI Flag | Default | Description |
+|----------|---------------------|----------|---------|-------------|
+| `staging.enabled` | `CAMT_STAGING_ENABLED` | - | `true` | Save AI suggestions to staging files when auto-learn is off |
+| `staging.creditors_file` | `CAMT_STAGING_CREDITORS_FILE` | - | `staging_creditors.yaml` | Staging file for creditor suggestions |
+| `staging.debtors_file` | `CAMT_STAGING_DEBTORS_FILE` | - | `staging_debtors.yaml` | Staging file for debtor suggestions |
 
 #### Data and Backup
 
@@ -211,6 +221,12 @@ categories:
   file: "categories.yaml"
   creditors_file: "creditors.yaml"
   debtors_file: "debtors.yaml"
+
+# Staging (AI suggestions when auto-learn is off)
+staging:
+  enabled: true
+  creditors_file: "staging_creditors.yaml"
+  debtors_file: "staging_debtors.yaml"
 
 # Parser-specific settings
 parsers:
@@ -488,7 +504,8 @@ CAMT-CSV uses a sophisticated **Strategy Pattern** with four-tier categorization
 4. **AI Strategy** (Optional Fallback):
    - Fallback to Gemini AI when local methods fail
    - Context-aware analysis of transaction details
-   - Automatically learns new patterns and saves to YAML files
+   - With `--auto-learn`: saves results directly to main YAML files
+   - Without `--auto-learn`: saves results to staging files for review
    - Rate limiting to prevent API quota exceeded
    - Lazy initialization for optimal performance
 
@@ -633,7 +650,7 @@ Configure logging output format and level:
 
 1.  **Command Help**: `./camt-csv [command] --help`
 2.  **General Help**: `./camt-csv --help`
-3.  **Version Info**: `./camt-csv version`
+3.  **Version Info**: `./camt-csv --version`
 
 ## Examples
 

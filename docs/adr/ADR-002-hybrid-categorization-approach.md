@@ -32,7 +32,10 @@ Transaction → Direct Mapping → Found? → Return Category
                      ↓ No
               AI Enabled? → No → Return "Uncategorized"
                      ↓ Yes
-              AI Categorization → Success? → Save Mapping & Return Category
+              AI Categorization → Success? → Return Category
+                     │                         │
+                     │              Auto-learn ON? → Save to main YAML
+                     │              Auto-learn OFF? → Save to staging YAML
                      ↓ No
               Return "Uncategorized"
 ```
@@ -42,7 +45,7 @@ Transaction → Direct Mapping → Found? → Return Category
 ### Positive
 
 - **Performance**: Fast local lookups for known transactions
-- **Learning**: AI results automatically improve local mappings
+- **Learning**: AI results improve local mappings (directly with auto-learn, or via staging files for review)
 - **Cost Control**: AI only used when necessary
 - **Offline Capability**: Works without internet for known patterns
 - **Privacy**: Sensitive transactions can be handled locally
@@ -93,7 +96,7 @@ categories:
 - Uses Google Gemini API with configurable model
 - Rate limited to prevent quota exhaustion
 - Structured prompts for consistent categorization
-- Automatic learning from successful categorizations
+- Automatic learning from successful categorizations (direct save or staging)
 
 ## Configuration
 

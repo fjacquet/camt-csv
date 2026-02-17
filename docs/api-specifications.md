@@ -200,7 +200,7 @@ type FullParser interface {
 
 **Rate Limiting**: AI calls limited by `GEMINI_REQUESTS_PER_MINUTE`
 
-**Learning**: Successful AI categorizations can be saved to mappings (when auto-learn is enabled)
+**Learning**: When auto-learn is enabled, AI categorizations are saved directly to main mapping files. When disabled, suggestions are saved to staging files (`staging_creditors.yaml`/`staging_debtors.yaml`) for manual review via `StagingStoreInterface`
 
 ## Configuration Specification
 

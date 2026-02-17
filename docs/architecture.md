@@ -68,8 +68,14 @@ func NewContainer(cfg *config.Config) (*Container, error) {
         aiClient = categorizer.NewGeminiClient(cfg.AI.APIKey, logger, cfg.AI.RequestsPerMinute)
     }
 
-    cat := categorizer.NewCategorizer(aiClient, store, logger, cfg.AI.AutoLearnEnabled)
-    
+    cat := categorizer.NewCategorizer(aiClient, store, logger, cfg.Categorization.AutoLearn)
+
+    // Wire staging store when AI is on but auto-learn is off
+    if cfg.AI.Enabled && !cfg.Categorization.AutoLearn && cfg.Staging.Enabled {
+        stagingStore := store.NewStagingStore(cfg.Staging.CreditorsFile, cfg.Staging.DebtorsFile)
+        cat.SetStagingStore(stagingStore)
+    }
+
     parsers := make(map[parser.ParserType]parser.FullParser)
     parsers[parser.CAMT] = camtparser.NewParser(logger)
     parsers[parser.PDF] = pdfparser.NewParser(logger)
@@ -259,7 +265,12 @@ func (c *Categorizer) Categorize(ctx context.Context, tx Transaction) (Category,
 1. **DirectMappingStrategy**: Exact name matches from creditors.yaml/debtors.yaml (fastest)
 2. **KeywordStrategy**: Pattern matching from categories.yaml (local processing)
 3. **SemanticStrategy**: Vector-based embedding similarity matching transactions to category concepts (local AI)
-4. **AIStrategy**: Gemini API fallback with auto-learning and rate limiting (optional, controlled by `autoLearnEnabled`)
+4. **AIStrategy**: Gemini API fallback with rate limiting (optional, controlled by `autoLearnEnabled`)
+
+**AI Result Persistence:**
+- **Auto-learn ON**: AI results saved directly to `creditors.yaml`/`debtors.yaml` (with backups)
+- **Auto-learn OFF** (default): AI results saved to staging files (`staging_creditors.yaml`/`staging_debtors.yaml`) for manual review via `StagingStore`
+- Staging is optional and controlled by `staging.enabled` config
 
 ### Data Layer
 

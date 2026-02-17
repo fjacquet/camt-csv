@@ -47,6 +47,9 @@ make build
 
 # Enable AI categorization
 ./camt-csv --ai-enabled --auto-learn camt -i statement.xml -o output.csv
+
+# Check version
+./camt-csv --version
 ```
 
 ## Configuration
@@ -81,6 +84,8 @@ Four-tier strategy pattern for transaction categorization:
 2. **Keyword Matching** - Pattern rules from `categories.yaml`
 3. **Semantic Search** - Vector embedding similarity matching
 4. **AI Fallback** - Gemini API for unknown transactions (optional, requires `--ai-enabled`)
+
+When `--auto-learn` is enabled, AI results are saved directly to the main YAML files. When disabled (the default), AI suggestions are saved to staging files (`database/staging_creditors.yaml`, `database/staging_debtors.yaml`) for manual review.
 
 ## Documentation
 

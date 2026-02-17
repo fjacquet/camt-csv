@@ -1164,11 +1164,25 @@ ai:
   model: "gemini-2.0-flash"
 categorization:
   auto_learn: false   # NEW in v1.2 — controls AI auto-learning
+staging:
+  enabled: true       # NEW — save AI suggestions to staging files when auto-learn is off
+  creditors_file: "staging_creditors.yaml"
+  debtors_file: "staging_debtors.yaml"
 backup:
   enabled: true       # backups before YAML overwrites
 ```
 
 Environment variables still work — config file is optional.
+
+### Version Information
+
+The binary embeds version info via ldflags. Variables defined in `main.go`:
+
+- `main.version` — git tag (e.g., `v2.1.0`)
+- `main.commit` — short commit hash
+- `main.date` — build timestamp
+
+Check with `./camt-csv --version`. GoReleaser injects these automatically during releases.
 
 ### Debtor File Rename
 

@@ -70,7 +70,7 @@
 * **Prompts/Interactivity:**
   * If the CLI requires interactive prompts, use a dedicated library (e.g., `survey` or `go-prompt`) for a consistent user experience.
 * **Versioning:**
-  * Integrate versioning information (e.g., using `ldflags` during build) so `mycli --version` or `mycli version` displays the current version, build date, and commit hash.
+  * Integrate versioning information using `ldflags` during build so `--version` displays version, commit, and build date. Variables: `main.version`, `main.commit`, `main.date`. GoReleaser injects these automatically for releases.
 
 ## 4. Code Organization and Structure
 

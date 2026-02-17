@@ -20,6 +20,10 @@ categorization:
   auto_learn: true
   confidence_threshold: 0.8
   case_sensitive: false
+staging:
+  enabled: true
+  creditors_file: staging_creditors.yaml
+  debtors_file: staging_debtors.yaml
 parsers:
   camt:
     strict_validation: true

@@ -92,6 +92,9 @@ type Categorizer struct {
 
 	// Auto-learning control
 	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
+
+	// Staging store for AI suggestions when auto-learn is disabled (nil = no staging)
+	stagingStore StagingStoreInterface
 }
 
 // Note: log variable removed as part of dependency injection refactoring
@@ -265,6 +268,8 @@ func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer,
 			logging.Field{Key: "action", Value: "skip_auto_learn"},
 			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
 		).Debug("Categorization found but auto-learning disabled")
+		// Save to staging file instead of discarding
+		cat.saveStagingSuggestion(transaction.PartyName, transaction.IsDebtor, category.Name)
 	} else {
 		// Log when categorization is skipped (uncategorized or empty)
 		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
@@ -363,6 +368,8 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 			logging.Field{Key: "action", Value: "skip_auto_learn"},
 			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
 		).Debug("Categorization found but auto-learning disabled")
+		// Save to staging file instead of discarding
+		c.saveStagingSuggestion(partyName, isDebtor, category.Name)
 	} else {
 		// Log when categorization is skipped (uncategorized or empty)
 		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
@@ -492,6 +499,42 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 			break
 		}
 	}
+}
+
+// SetStagingStore configures the staging store for accumulating AI categorization
+// suggestions when auto-learn is disabled. Pass nil to disable staging.
+func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
+	c.stagingStore = staging
+}
+
+// saveStagingSuggestion writes an AI categorization to the staging store if configured.
+// Errors are logged but never propagated — staging must not break categorization.
+func (c *Categorizer) saveStagingSuggestion(partyName string, isDebtor bool, categoryName string) {
+	if c.stagingStore == nil {
+		return
+	}
+
+	var err error
+	if isDebtor {
+		err = c.stagingStore.AppendDebtorSuggestion(partyName, categoryName)
+	} else {
+		err = c.stagingStore.AppendCreditorSuggestion(partyName, categoryName)
+	}
+
+	if err != nil {
+		c.logger.WithFields(
+			logging.Field{Key: "party", Value: partyName},
+			logging.Field{Key: "category", Value: categoryName},
+			logging.Field{Key: "error", Value: err.Error()},
+		).Warn("Failed to save staging suggestion")
+		return
+	}
+
+	c.logger.WithFields(
+		logging.Field{Key: "party", Value: partyName},
+		logging.Field{Key: "category", Value: categoryName},
+		logging.Field{Key: "action", Value: "staging_save"},
+	).Debug("Saved suggestion to staging")
 }
 
 // SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.

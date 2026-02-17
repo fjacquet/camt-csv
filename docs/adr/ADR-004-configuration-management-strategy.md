@@ -45,6 +45,11 @@ ai:
 categorization:
   auto_learn: true        # Save AI results to local mappings
   confidence_threshold: 0.8
+
+staging:
+  enabled: true           # Save AI suggestions to staging files when auto-learn is off
+  creditors_file: "staging_creditors.yaml"
+  debtors_file: "staging_debtors.yaml"
 ```
 
 ## Consequences

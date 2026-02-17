@@ -90,6 +90,13 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// Create categorizer with all dependencies
 	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger, cfg.Categorization.AutoLearn)
 
+	// Wire staging store when AI is enabled but auto-learn is off
+	if cfg.AI.Enabled && !cfg.Categorization.AutoLearn && cfg.Staging.Enabled {
+		stagingStore := store.NewStagingStore(cfg.Staging.CreditorsFile, cfg.Staging.DebtorsFile)
+		cat.SetStagingStore(stagingStore)
+		logger.Info("AI staging enabled: suggestions will be saved to staging files for review")
+	}
+
 	// Create parsers with dependency injection
 	parsers := make(map[ParserType]parser.FullParser)
 

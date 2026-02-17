@@ -19,6 +19,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Build-time variables injected via ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func init() {
 	// 1. Load environment variables silently first (no logging yet)
 	loadEnvSilently()
@@ -31,7 +38,10 @@ func init() {
 	// 4. Now that logging is properly configured, initialize root command
 	root.Init()
 
-	// 5. Add all subcommands
+	// 5. Set version from build-time ldflags
+	root.Cmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
+
+	// 6. Add all subcommands
 	root.Cmd.AddCommand(camt.Cmd)
 	root.Cmd.AddCommand(batch.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)

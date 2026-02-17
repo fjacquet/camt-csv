@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-02-17
+
+### Added
+
+- GoReleaser workflow for automated multi-platform releases on tag push
+- `--version` flag now shows version, commit, and build date injected via ldflags
+- AI categorization staging: when `--auto-learn` is off, AI suggestions are saved to `database/staging_creditors.yaml` and `database/staging_debtors.yaml` for manual review instead of being discarded
+- Staging configuration: `staging.enabled`, `staging.creditors_file`, `staging.debtors_file`
+
+### Changed
+
+- Makefile LDFLAGS aligned with GoReleaser: `main.version`, `main.commit`, `main.date`
+- Dockerfile updated with version ldflags injection and Alpine 3.21
+
+### Removed
+
+- Unused AI tool configs: `.specify/`, `.kiro/`, `.gemini/`, `specs/`
+
 ## [2.0.0] - 2026-02-17
 
 ### Removed

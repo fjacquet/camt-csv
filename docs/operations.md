@@ -26,13 +26,13 @@ go build -o bin/camt-csv cmd/camt-csv/main.go
 # Build with version information
 VERSION=$(git describe --tags --always --dirty)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-COMMIT=$(git rev-parse HEAD)
+COMMIT=$(git rev-parse --short HEAD)
 
 go build -ldflags "\
-  -X main.Version=${VERSION} \
-  -X main.BuildTime=${BUILD_TIME} \
-  -X main.Commit=${COMMIT}" \
-  -o bin/camt-csv cmd/camt-csv/main.go
+  -X main.version=${VERSION} \
+  -X main.commit=${COMMIT} \
+  -X main.date=${BUILD_TIME}" \
+  -o camt-csv .
 ```
 
 ### 2. Cross-Platform Builds
@@ -53,33 +53,33 @@ for platform in $PLATFORMS; do
     fi
     
     GOOS=$GOOS GOARCH=$GOARCH go build \
-        -ldflags "-X main.Version=${VERSION}" \
-        -o $output cmd/camt-csv/main.go
+        -ldflags "-s -w -X main.version=${VERSION}" \
+        -o $output .
 done
 ```
 
 ### 3. Docker Build
 
 ```dockerfile
-# Dockerfile
-FROM golang:1.22-alpine AS builder
-
+# See Dockerfile in project root for the full version
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . .
+ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-w -s" \
-    -o camt-csv cmd/camt-csv/main.go
+    -ldflags="-s -w -X main.version=${VERSION}" \
+    -o camt-csv .
 
-FROM alpine:latest
+FROM alpine:3.21
 RUN apk --no-cache add ca-certificates poppler-utils
-WORKDIR /root/
-
+RUN adduser -D -g '' appuser
+WORKDIR /app
 COPY --from=builder /app/camt-csv .
 COPY --from=builder /app/database ./database
-
+RUN chown -R appuser:appuser /app
+USER appuser
 ENTRYPOINT ["./camt-csv"]
 ```
 
@@ -125,38 +125,30 @@ git push origin main
 git push origin $VERSION
 ```
 
-### 3. Automated Release (GitHub Actions)
+### 3. Automated Release (GoReleaser + GitHub Actions)
 
-```yaml
-# .github/workflows/release.yml
-name: Release
-on:
-  push:
-    tags: ['v*']
+Releases are automated via [GoReleaser](https://goreleaser.com/). When you push a `v*` tag, the workflow at `.github/workflows/goreleaser.yml` runs automatically:
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - uses: actions/setup-go@v3
-      with:
-        go-version: '1.22'
-    
-    - name: Build releases
-      run: |
-        make build-all
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          bin/camt-csv-*
-          checksums.txt
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+1. Builds multi-platform binaries (linux/darwin/windows, amd64/arm64)
+2. Creates a GitHub Release with archives, checksums, and changelog
+3. The SLSA workflow (`.github/workflows/go-ossf-slsa3-publish.yml`) then fires to add provenance and SBOM
+
+Configuration is in `.goreleaser.yaml`. Version info is injected via ldflags (`main.version`, `main.commit`, `main.date`).
+
+To create a release:
+
+```bash
+# 1. Update CHANGELOG.md
+# 2. Commit and tag
+git tag -a v2.1.0 -m "Release v2.1.0"
+git push origin v2.1.0
+# GoReleaser handles the rest
+```
+
+To test locally without publishing:
+
+```bash
+goreleaser build --snapshot --clean
 ```
 
 ## Deployment Strategies

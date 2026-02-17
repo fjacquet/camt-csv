@@ -51,6 +51,12 @@ type Config struct {
 		CaseSensitive       bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
 	} `mapstructure:"categorization" yaml:"categorization"`
 
+	Staging struct {
+		Enabled       bool   `mapstructure:"enabled" yaml:"enabled"`
+		CreditorsFile string `mapstructure:"creditors_file" yaml:"creditors_file"`
+		DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
+	} `mapstructure:"staging" yaml:"staging"`
+
 	Parsers struct {
 		CAMT struct {
 			StrictValidation bool `mapstructure:"strict_validation" yaml:"strict_validation"`
@@ -157,6 +163,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("categorization.auto_learn", false) // Default: OFF per v1.2 D-11
 	v.SetDefault("categorization.confidence_threshold", 0.8)
 	v.SetDefault("categorization.case_sensitive", false)
+
+	// Staging defaults — saves AI suggestions when auto-learn is off
+	v.SetDefault("staging.enabled", true)
+	v.SetDefault("staging.creditors_file", "staging_creditors.yaml")
+	v.SetDefault("staging.debtors_file", "staging_debtors.yaml")
 
 	// Parser defaults
 	v.SetDefault("parsers.camt.strict_validation", true)

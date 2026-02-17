@@ -141,7 +141,8 @@ type CategorizationStrategy interface {
 - **DirectMappingStrategy**: Exact name matches from YAML files (fastest)
 - **KeywordStrategy**: Pattern matching from configuration (local processing)
 - **SemanticStrategy**: Vector-based embedding similarity matching to category concepts (local AI)
-- **AIStrategy**: AI-based categorization with auto-learning (optional, controlled by `autoLearnEnabled`)
+- **AIStrategy**: AI-based categorization (optional, controlled by `autoLearnEnabled`)
+- **StagingStore**: Persists AI suggestions to staging YAML files when auto-learn is off (optional, injected via `SetStagingStore`)
 
 **Orchestration:**
 ```go

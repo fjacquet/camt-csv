@@ -32,7 +32,6 @@ samples
 database/test.yaml
 work
 /camt-csv
-.camt-csv
 temp
 security.sarif
 coverage.txt
@@ -52,3 +51,15 @@ coverage.html
 
 # MkDocs build output
 site/
+
+# Other AI tool configs
+.specify/
+.kiro/
+.gemini/
+specs/
+
+# Staging files (AI suggestions for review)
+database/staging_*.yaml
+
+# Backup files created by auto-learn
+*.backup

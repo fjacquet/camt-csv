@@ -13,11 +13,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o camt-csv .
+# Build the binary with version info
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -o camt-csv .
 
-# Runtime stage
-FROM alpine:3.19
+# Runtime stage — Alpine needed for poppler-utils (PDF support)
+FROM alpine:3.21
 
 WORKDIR /app
 
