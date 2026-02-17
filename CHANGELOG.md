@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-02-17
+
+### Added
+
+- Multi-arch Docker images published to `ghcr.io/fjacquet/camt-csv` on release
+- Homebrew tap: `brew tap fjacquet/homebrew-tap && brew install camt-csv`
+
+### Fixed
+
+- Resolve all open gosec code scanning alerts (G117, G204, G702, G703, G704)
+- Sanitize git ref inputs to prevent command injection (G204)
+
 ## [2.1.0] - 2026-02-17
 
 ### Added
