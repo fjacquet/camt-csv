@@ -31,33 +31,49 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ## Installation
 
-### Prerequisites
+### Homebrew (macOS / Linux) — Recommended
 
-Before installing CAMT-CSV, ensure you have:
+```bash
+brew tap fjacquet/homebrew-tap
+brew install camt-csv
+```
 
+### Docker
+
+Multi-arch images (amd64/arm64) are available on GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/fjacquet/camt-csv:latest
+
+# Run directly
+docker run --rm -v $(pwd):/data ghcr.io/fjacquet/camt-csv:latest camt -i /data/statement.xml -o /data/output.csv
+```
+
+### Binary Download
+
+Download pre-built binaries from [GitHub Releases](https://github.com/fjacquet/camt-csv/releases/latest) for linux/darwin/windows (amd64/arm64).
+
+### Building from Source
+
+Prerequisites:
 - **Go 1.24.2 or higher**: [Download Go](https://golang.org/dl/)
 - **pdftotext CLI tool** (for PDF processing):
   - **macOS**: `brew install poppler`
   - **Ubuntu/Debian**: `apt-get install poppler-utils`
   - **Windows**: [Download Poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
 
-### Building from Source
-
 ```bash
 git clone https://github.com/fjacquet/camt-csv.git
 cd camt-csv
-go build
+make build
 ```
-
-This creates a `camt-csv` executable in your project directory.
 
 ### Verify Installation
 
 ```bash
-./camt-csv --help
+camt-csv --version
+camt-csv --help
 ```
-
-You should see the main help menu with available commands.
 
 ## Configuration
 

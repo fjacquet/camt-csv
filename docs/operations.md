@@ -127,21 +127,30 @@ git push origin $VERSION
 
 ### 3. Automated Release (GoReleaser + GitHub Actions)
 
-Releases are automated via [GoReleaser](https://goreleaser.com/). When you push a `v*` tag, the workflow at `.github/workflows/goreleaser.yml` runs automatically:
+Releases are fully automated via [GoReleaser v2](https://goreleaser.com/). When you push a `v*` tag, the workflow at `.github/workflows/goreleaser.yml` runs and produces:
 
-1. Builds multi-platform binaries (linux/darwin/windows, amd64/arm64)
-2. Creates a GitHub Release with archives, checksums, and changelog
-3. The SLSA workflow (`.github/workflows/go-ossf-slsa3-publish.yml`) then fires to add provenance and SBOM
+1. **Multi-platform binaries** (linux/darwin/windows, amd64/arm64) as tar.gz/zip archives
+2. **Docker images** pushed to `ghcr.io/fjacquet/camt-csv` (multi-arch manifest for amd64+arm64)
+3. **Homebrew formula** pushed to `fjacquet/homebrew-tap` (requires `TAP_GITHUB_TOKEN` secret)
+4. **GitHub Release** with archives, checksums (SHA-256), and auto-generated changelog
+5. **SLSA provenance** — the SLSA workflow (`.github/workflows/go-ossf-slsa3-publish.yml`) triggers on `release: [created]` to add provenance attestation and SBOM
 
 Configuration is in `.goreleaser.yaml`. Version info is injected via ldflags (`main.version`, `main.commit`, `main.date`).
+
+**Required secrets:**
+
+| Secret | Purpose |
+|--------|---------|
+| `GITHUB_TOKEN` | Provided automatically — used for release creation and GHCR push |
+| `TAP_GITHUB_TOKEN` | PAT with Contents:Write on `fjacquet/homebrew-tap` — for Homebrew formula push |
 
 To create a release:
 
 ```bash
 # 1. Update CHANGELOG.md
 # 2. Commit and tag
-git tag -a v2.1.0 -m "Release v2.1.0"
-git push origin v2.1.0
+git tag -a v2.3.0 -m "Release v2.3.0"
+git push origin v2.3.0
 # GoReleaser handles the rest
 ```
 
@@ -153,38 +162,52 @@ goreleaser build --snapshot --clean
 
 ## Deployment Strategies
 
-### 1. Standalone Binary Deployment
-
-**Advantages**: Simple, no dependencies, fast startup
-**Use Cases**: Personal use, CI/CD pipelines, development
+### 1. Homebrew (macOS / Linux)
 
 ```bash
-# Download and install
-curl -L https://github.com/user/camt-csv/releases/latest/download/camt-csv-linux-amd64 \
-  -o /usr/local/bin/camt-csv
-chmod +x /usr/local/bin/camt-csv
+brew tap fjacquet/homebrew-tap
+brew install camt-csv
+
+# Verify
+camt-csv --version
+
+# Upgrade
+brew upgrade camt-csv
+```
+
+### 2. Standalone Binary Deployment
+
+Download pre-built binaries from [GitHub Releases](https://github.com/fjacquet/camt-csv/releases/latest).
+
+```bash
+# Example: Linux amd64
+curl -L https://github.com/fjacquet/camt-csv/releases/latest/download/camt-csv_$(curl -s https://api.github.com/repos/fjacquet/camt-csv/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')_linux_amd64.tar.gz | tar xz
+chmod +x camt-csv
+sudo mv camt-csv /usr/local/bin/
 
 # Verify installation
 camt-csv --version
 ```
 
-### 2. Container Deployment
+### 3. Container Deployment (GHCR)
 
-**Advantages**: Consistent environment, easy scaling, isolation
-**Use Cases**: Cloud environments, microservices, batch processing
+Multi-arch Docker images (amd64/arm64) are published to GitHub Container Registry on every release.
 
 ```bash
+# Pull the latest image
+docker pull ghcr.io/fjacquet/camt-csv:latest
+
 # Run with Docker
 docker run --rm \
   -v $(pwd)/data:/data \
   -e GEMINI_API_KEY=$GEMINI_API_KEY \
-  camt-csv:latest convert --input /data/input.xml --output /data/output.csv
+  ghcr.io/fjacquet/camt-csv:latest camt -i /data/input.xml -o /data/output.csv
 
 # Docker Compose for batch processing
 version: '3.8'
 services:
   camt-csv:
-    image: camt-csv:latest
+    image: ghcr.io/fjacquet/camt-csv:latest
     volumes:
       - ./input:/input
       - ./output:/output
@@ -194,7 +217,7 @@ services:
     command: convert --input /input/statements.xml --output /output/transactions.csv
 ```
 
-### 3. Kubernetes Deployment
+### 4. Kubernetes Deployment
 
 **Use Cases**: Large-scale processing, enterprise environments
 
@@ -216,7 +239,7 @@ spec:
     spec:
       containers:
       - name: camt-csv
-        image: camt-csv:latest
+        image: ghcr.io/fjacquet/camt-csv:latest
         env:
         - name: GEMINI_API_KEY
           valueFrom:
@@ -317,7 +340,7 @@ log.WithFields(logrus.Fields{
 version: '3.8'
 services:
   camt-csv:
-    image: camt-csv:latest
+    image: ghcr.io/fjacquet/camt-csv:latest
     logging:
       driver: "json-file"
       options:

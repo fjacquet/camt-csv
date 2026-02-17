@@ -7,14 +7,23 @@
 
 CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) into standardized CSV files with AI-powered transaction categorization.
 
-## Quick Start
+## Installation
 
 ```bash
-# Clone and build
+# Homebrew (macOS/Linux)
+brew tap fjacquet/homebrew-tap
+brew install camt-csv
+
+# Docker (multi-arch: amd64/arm64)
+docker pull ghcr.io/fjacquet/camt-csv:latest
+
+# Binary — download from GitHub Releases
+# https://github.com/fjacquet/camt-csv/releases/latest
+
+# Build from source
 git clone https://github.com/fjacquet/camt-csv.git
 cd camt-csv
 make build
-
 # For PDF support: brew install poppler (macOS) or apt-get install poppler-utils (Ubuntu)
 ```
 
@@ -22,34 +31,34 @@ make build
 
 ```bash
 # Convert CAMT.053 XML
-./camt-csv camt -i statement.xml -o output.csv
+camt-csv camt -i statement.xml -o output.csv
 
 # Convert Revolut CSV
-./camt-csv revolut -i revolut_export.csv -o output.csv
+camt-csv revolut -i revolut_export.csv -o output.csv
 
 # Convert PDF bank statement
-./camt-csv pdf -i statement.pdf -o output.csv
+camt-csv pdf -i statement.pdf -o output.csv
 
 # Revolut investment transactions
-./camt-csv revolut-investment -i investments.csv -o output.csv
+camt-csv revolut-investment -i investments.csv -o output.csv
 
 # Selma investment CSV
-./camt-csv selma -i selma.csv -o output.csv
+camt-csv selma -i selma.csv -o output.csv
 
 # Generic debit CSV
-./camt-csv debit -i debit.csv -o output.csv
+camt-csv debit -i debit.csv -o output.csv
 
 # Batch process a directory
-./camt-csv batch -i input_dir/ -o output_dir/
+camt-csv batch -i input_dir/ -o output_dir/
 
 # Use iCompta output format (semicolon-delimited, 10 columns)
-./camt-csv revolut -i export.csv -o output.csv --format icompta
+camt-csv revolut -i export.csv -o output.csv --format icompta
 
 # Enable AI categorization
-./camt-csv --ai-enabled --auto-learn camt -i statement.xml -o output.csv
+camt-csv --ai-enabled --auto-learn camt -i statement.xml -o output.csv
 
 # Check version
-./camt-csv --version
+camt-csv --version
 ```
 
 ## Configuration
