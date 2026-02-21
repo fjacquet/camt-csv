@@ -13,7 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// Adapter implements the models.Parser interface for PDF bank statements.
+// Adapter implements the parser.FullParser interface for PDF bank statements.
 type Adapter struct {
 	parser.BaseParser
 	extractor PDFExtractor
@@ -35,7 +35,7 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 	return ParseWithExtractorAndCategorizer(ctx, r, a.extractor, a.GetLogger(), a.GetCategorizer())
 }
 
-// ConvertToCSV implements models.Parser.ConvertToCSV
+// ConvertToCSV implements parser.FullParser.ConvertToCSV
 func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
 	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {

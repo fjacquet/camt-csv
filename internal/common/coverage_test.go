@@ -274,29 +274,29 @@ func TestWriteTransactionsToCSVWithLogger_DebitFlagFromNegativeAmount(t *testing
 }
 
 // ---------------------------------------------------------------------------
-// ExportTransactionsToCSVWithLogger error paths (83.3% -> higher)
+// WriteTransactionsToCSVWithLogger error paths (83.3% -> higher)
 // ---------------------------------------------------------------------------
 
-func TestExportTransactionsToCSVWithLogger_NilTransactions(t *testing.T) {
-	err := ExportTransactionsToCSVWithLogger(nil, "/tmp/test.csv", nil)
+func TestWriteTransactionsToCSVWithLogger_NilTransactions(t *testing.T) {
+	err := WriteTransactionsToCSVWithLogger(nil, "/tmp/test.csv", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot write nil transactions")
 }
 
-func TestExportTransactionsToCSVWithLogger_NilLogger(t *testing.T) {
+func TestWriteTransactionsToCSVWithLogger_NilLogger(t *testing.T) {
 	csvPath := filepath.Join(t.TempDir(), "export_nil.csv")
 	txs := sampleTransactions()
 
-	err := ExportTransactionsToCSVWithLogger(txs, csvPath, nil)
+	err := WriteTransactionsToCSVWithLogger(txs, csvPath, nil)
 	require.NoError(t, err)
 }
 
-func TestExportTransactionsToCSVWithLogger_WithLogger(t *testing.T) {
+func TestWriteTransactionsToCSVWithLogger_WithLogger(t *testing.T) {
 	csvPath := filepath.Join(t.TempDir(), "export_logger.csv")
 	logger := logging.NewLogrusAdapter("info", "text")
 	txs := sampleTransactions()
 
-	err := ExportTransactionsToCSVWithLogger(txs, csvPath, logger)
+	err := WriteTransactionsToCSVWithLogger(txs, csvPath, logger)
 	require.NoError(t, err)
 }
 

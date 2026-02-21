@@ -120,8 +120,8 @@ func BenchmarkStringNormalization_Comparison(b *testing.B) {
 
 	b.Run("Optimized_Helper", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			// Optimized approach: using our helper function
-			_ = normalizeStringToLower(testString)
+			// Now just uses strings.ToLower directly
+			_ = strings.ToLower(testString)
 		}
 	})
 }

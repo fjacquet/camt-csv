@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-// Adapter implements the models.Parser interface for CAMT.053 XML files.
+// Adapter implements the parser.FullParser interface for CAMT.053 XML files.
 type Adapter struct {
 	parser.BaseParser
 }
@@ -483,7 +483,7 @@ func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) err
 
 	}
 
-	if err := common.ExportTransactionsToCSV(transactions, csvFile); err != nil {
+	if err := common.WriteTransactionsToCSV(transactions, csvFile); err != nil {
 
 		return err
 

@@ -172,7 +172,7 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.Error(t, err, "GeneralizedConvertToCSV should return an error when validation fails")
 }
 
-func TestExportTransactionsToCSV(t *testing.T) {
+func TestWriteTransactionsToCSV(t *testing.T) {
 	tempDir := t.TempDir()
 	csvFile := filepath.Join(tempDir, "export.csv")
 
@@ -196,8 +196,8 @@ func TestExportTransactionsToCSV(t *testing.T) {
 		},
 	}
 
-	err := ExportTransactionsToCSV(transactions, csvFile)
-	assert.NoError(t, err, "ExportTransactionsToCSV should not return an error")
+	err := WriteTransactionsToCSV(transactions, csvFile)
+	assert.NoError(t, err, "WriteTransactionsToCSV should not return an error")
 
 	// Read the output file and verify content
 	content, err := os.ReadFile(csvFile)

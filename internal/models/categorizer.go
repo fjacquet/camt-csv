@@ -64,18 +64,3 @@ type PayeesConfig struct {
 	Payees map[string]string `yaml:"payees"`
 }
 
-// TransactionParty represents a party in a financial transaction
-// Can be either a creditor (recipient) or debitor (sender)
-type TransactionParty struct {
-	Name     string
-	IsDebtor bool // true if this party is the debtor (sender of funds)
-}
-
-// CategorizerTransaction represents a financial transaction to be categorized
-// This is separate from the main Transaction struct to avoid circular dependencies
-type CategorizerTransaction struct {
-	Party  TransactionParty
-	Amount string
-	Date   string
-	Info   string
-}

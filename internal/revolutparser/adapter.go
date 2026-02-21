@@ -13,7 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// Adapter implements the models.Parser interface for Revolut CSV files.
+// Adapter implements the parser.FullParser interface for Revolut CSV files.
 type Adapter struct {
 	parser.BaseParser
 }
@@ -30,7 +30,7 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 	return ParseWithCategorizer(r, a.GetLogger(), a.GetCategorizer())
 }
 
-// ConvertToCSV implements models.Parser.ConvertToCSV
+// ConvertToCSV implements parser.FullParser.ConvertToCSV
 func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
 	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {

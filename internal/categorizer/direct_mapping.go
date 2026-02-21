@@ -9,18 +9,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
-// normalizeStringToLower converts a string to lowercase using strings.Builder
-// for optimal performance in hot paths.
-func normalizeStringToLower(input string) string {
-	if input == "" {
-		return ""
-	}
-	builder := strings.Builder{}
-	builder.Grow(len(input))
-	builder.WriteString(strings.ToLower(input))
-	return builder.String()
-}
-
 // DirectMappingStrategy implements categorization using exact name matches
 // from creditor and debtor mapping databases.
 type DirectMappingStrategy struct {
@@ -56,7 +44,7 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	}
 
 	// Performance optimization: Use helper function to minimize allocations during party name normalization
-	partyNameLower := normalizeStringToLower(tx.PartyName)
+	partyNameLower := strings.ToLower(tx.PartyName)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -134,7 +122,7 @@ func (s *DirectMappingStrategy) loadMappings() {
 
 		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range creditorMappings {
-			s.creditorMappings[normalizeStringToLower(key)] = value
+			s.creditorMappings[strings.ToLower(key)] = value
 		}
 		s.mu.Unlock()
 		s.logger.WithField("count", len(creditorMappings)).Debug("Loaded creditor mappings for DirectMappingStrategy")
@@ -157,7 +145,7 @@ func (s *DirectMappingStrategy) loadMappings() {
 
 		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
 		for key, value := range debtorMappings {
-			s.debtorMappings[normalizeStringToLower(key)] = value
+			s.debtorMappings[strings.ToLower(key)] = value
 		}
 		s.mu.Unlock()
 		s.logger.WithField("count", len(debtorMappings)).Debug("Loaded debtor mappings for DirectMappingStrategy")
@@ -182,14 +170,14 @@ func (s *DirectMappingStrategy) ReloadMappings() {
 	newCreditorMappings := make(map[string]string, 100)
 	if creditorErr == nil {
 		for key, value := range creditorMappings {
-			newCreditorMappings[normalizeStringToLower(key)] = value
+			newCreditorMappings[strings.ToLower(key)] = value
 		}
 	}
 
 	newDebtorMappings := make(map[string]string, 100)
 	if debtorErr == nil {
 		for key, value := range debtorMappings {
-			newDebtorMappings[normalizeStringToLower(key)] = value
+			newDebtorMappings[strings.ToLower(key)] = value
 		}
 	}
 
@@ -210,7 +198,7 @@ func (s *DirectMappingStrategy) UpdateCreditorMapping(partyName, categoryName st
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.creditorMappings[normalizeStringToLower(partyName)] = categoryName
+	s.creditorMappings[strings.ToLower(partyName)] = categoryName
 }
 
 // UpdateDebtorMapping adds or updates a debtor mapping.
@@ -218,5 +206,5 @@ func (s *DirectMappingStrategy) UpdateDebtorMapping(partyName, categoryName stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.debtorMappings[normalizeStringToLower(partyName)] = categoryName
+	s.debtorMappings[strings.ToLower(partyName)] = categoryName
 }
