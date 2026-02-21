@@ -88,13 +88,3 @@ func (r *FormatterRegistry) Get(name string) (OutputFormatter, error) {
 func (r *FormatterRegistry) Register(name string, formatter OutputFormatter) {
 	r.formatters[name] = formatter
 }
-
-// ListAvailable returns a slice of all registered formatter names.
-// This is useful for CLI help messages and validation.
-func (r *FormatterRegistry) ListAvailable() []string {
-	names := make([]string, 0, len(r.formatters))
-	for name := range r.formatters {
-		names = append(names, name)
-	}
-	return names
-}

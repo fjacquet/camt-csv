@@ -59,28 +59,6 @@ func (e *ValidationError) Unwrap() error {
 	return e.Err
 }
 
-// CategorizationError represents a failure during transaction categorization.
-// This error occurs when a categorization strategy encounters an unexpected condition
-// that prevents it from completing the categorization process.
-type CategorizationError struct {
-	Transaction string // Identifier or description of the transaction being categorized
-	Strategy    string // Name of the categorization strategy that failed
-	Err         error  // The underlying error that caused the categorization failure
-}
-
-// Error returns a formatted error message indicating which transaction and strategy failed.
-// This implements the error interface.
-func (e *CategorizationError) Error() string {
-	return fmt.Sprintf("categorization failed for %s using %s: %v",
-		e.Transaction, e.Strategy, e.Err)
-}
-
-// Unwrap returns the underlying error, enabling error inspection with errors.Is and errors.As.
-// This follows Go 1.13+ error wrapping conventions.
-func (e *CategorizationError) Unwrap() error {
-	return e.Err
-}
-
 // InvalidFormatError represents an error where the input file does not conform
 // to the expected format for a specific parser. This is more specific than ValidationError
 // and includes details about what format was expected versus what was found.

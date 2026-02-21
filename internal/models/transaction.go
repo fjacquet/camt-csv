@@ -334,9 +334,3 @@ func (t *Transaction) parseDateFromCSV(dateStr string) (time.Time, error) {
 	}
 	return time.Parse(DateFormatCSV, dateStr)
 }
-
-// NewTransactionFromBuilder creates a Transaction using the builder pattern
-// This provides a more readable way to construct transactions
-func NewTransactionFromBuilder() *TransactionBuilder {
-	return NewTransactionBuilder()
-}

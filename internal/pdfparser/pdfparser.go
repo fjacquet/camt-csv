@@ -8,27 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
 )
-
-// Note: Removed global logger in favor of dependency injection
-
-// Parse extracts and parses transaction data from a PDF file provided as an io.Reader.
-// This function uses the default RealPDFExtractor for backward compatibility.
-func Parse(ctx context.Context, r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	return ParseWithExtractor(ctx, r, NewRealPDFExtractor(), logger)
-}
-
-// ParseWithExtractor extracts and parses transaction data from a PDF file using the provided extractor.
-func ParseWithExtractor(ctx context.Context, r io.Reader, extractor PDFExtractor, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithExtractorAndCategorizer(ctx, r, extractor, logger, nil)
-}
 
 // ParseWithExtractorAndCategorizer extracts and parses transaction data from a PDF file using the provided extractor and categorizer.
 func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extractor PDFExtractor, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
@@ -102,86 +85,6 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 	}
 
 	return transactions, nil
-}
-
-// ConvertToCSV converts a PDF bank statement to the standard CSV format.
-// This is a convenience function that combines Parse and WriteToCSV.
-func ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	return ConvertToCSVWithLogger(ctx, inputFile, outputFile, nil)
-}
-
-func ConvertToCSVWithLogger(ctx context.Context, inputFile, outputFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	// Open the input file
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			logger.Warn("Failed to close file",
-				logging.Field{Key: "error", Value: err})
-		}
-	}()
-
-	// Parse the file using the new Parse method
-	transactions, err := Parse(ctx, file, logger)
-	if err != nil {
-		return err
-	}
-
-	// Handle empty transactions list
-	if len(transactions) == 0 {
-		logger.Info("No transactions found, created empty CSV file with headers",
-			logging.Field{Key: "file", Value: outputFile},
-			logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
-
-		emptyTransactions := []models.Transaction{}
-		return common.WriteTransactionsToCSV(emptyTransactions, outputFile)
-	}
-
-	// Write the transactions to the CSV file
-	logger.Info("Writing transactions to CSV file",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: outputFile})
-
-	// Create the directory if it doesn't exist
-	dir := filepath.Dir(outputFile)
-	// SECURITY: Use standard directory permissions constant
-	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := common.ExportTransactionsToCSV(transactions, outputFile); err != nil {
-		return err
-	}
-
-	logger.Info("Successfully wrote transactions to CSV file",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: outputFile})
-
-	return nil
-}
-
-// WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
-// that is specifically used by the PDF parser tests.
-func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return WriteToCSVWithLogger(transactions, csvFile, nil)
-}
-
-func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Writing transactions to CSV file using common implementation",
-		logging.Field{Key: "file", Value: csvFile},
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
-
-	// Use the common implementation to ensure consistent delimiter usage
-	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // validateFormat checks if a file is a valid PDF.

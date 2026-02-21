@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"fjacquet/camt-csv/internal/models"
 )
 
 // AccountIdentifier represents an extracted account identifier with its source
@@ -39,114 +37,6 @@ func ExtractAccountFromCAMTFilename(filename string) AccountIdentifier {
 	baseWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	return AccountIdentifier{
 		ID:     SanitizeAccountID(baseWithoutExt),
-		Source: "default",
-	}
-}
-
-// ExtractAccountFromPDFContent extracts account identifier from PDF transaction data
-// For PDF files, we look for account information in the transaction data
-// If not found, returns a default identifier based on the parser type
-func ExtractAccountFromPDFContent(transactions []models.Transaction) AccountIdentifier {
-	// Look for IBAN in the transactions
-	for _, tx := range transactions {
-		if tx.IBAN != "" {
-			// Extract account number from IBAN if possible
-			// Swiss IBAN format: CH93 0076 2011 6238 5295 7
-			// We'll use the last part as account identifier
-			iban := strings.ReplaceAll(tx.IBAN, " ", "")
-			if len(iban) >= 8 {
-				// Take the last 8 characters as account identifier
-				accountID := iban[len(iban)-8:]
-				return AccountIdentifier{
-					ID:     SanitizeAccountID(accountID),
-					Source: "content",
-				}
-			}
-		}
-
-		// Alternative: look for account servicer information
-		if tx.AccountServicer != "" {
-			return AccountIdentifier{
-				ID:     SanitizeAccountID(tx.AccountServicer),
-				Source: "content",
-			}
-		}
-	}
-
-	// Fallback: use a generic PDF identifier
-	return AccountIdentifier{
-		ID:     "PDF",
-		Source: "default",
-	}
-}
-
-// ExtractAccountFromSelmaContent extracts account identifier from Selma transaction data
-// For Selma investment files, we use a consistent identifier
-func ExtractAccountFromSelmaContent(transactions []models.Transaction) AccountIdentifier {
-	// Look for account information in the transactions
-	for _, tx := range transactions {
-		if tx.IBAN != "" {
-			// Extract account number from IBAN if available
-			iban := strings.ReplaceAll(tx.IBAN, " ", "")
-			if len(iban) >= 8 {
-				accountID := iban[len(iban)-8:]
-				return AccountIdentifier{
-					ID:     SanitizeAccountID(accountID),
-					Source: "content",
-				}
-			}
-		}
-
-		// Look for fund or account servicer information
-		if tx.Fund != "" {
-			return AccountIdentifier{
-				ID:     SanitizeAccountID(tx.Fund),
-				Source: "content",
-			}
-		}
-
-		if tx.AccountServicer != "" {
-			return AccountIdentifier{
-				ID:     SanitizeAccountID(tx.AccountServicer),
-				Source: "content",
-			}
-		}
-	}
-
-	// Fallback: use a consistent Selma identifier
-	return AccountIdentifier{
-		ID:     "SELMA",
-		Source: "default",
-	}
-}
-
-// ExtractAccountFromRevolutContent extracts account identifier from Revolut transaction data
-// This function is provided for completeness and future use
-func ExtractAccountFromRevolutContent(transactions []models.Transaction) AccountIdentifier {
-	// Look for account information in the transactions
-	for _, tx := range transactions {
-		if tx.IBAN != "" {
-			iban := strings.ReplaceAll(tx.IBAN, " ", "")
-			if len(iban) >= 8 {
-				accountID := iban[len(iban)-8:]
-				return AccountIdentifier{
-					ID:     SanitizeAccountID(accountID),
-					Source: "content",
-				}
-			}
-		}
-
-		if tx.AccountServicer != "" {
-			return AccountIdentifier{
-				ID:     SanitizeAccountID(tx.AccountServicer),
-				Source: "content",
-			}
-		}
-	}
-
-	// Fallback: use a consistent Revolut identifier
-	return AccountIdentifier{
-		ID:     "REVOLUT",
 		Source: "default",
 	}
 }

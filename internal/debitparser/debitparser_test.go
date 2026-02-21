@@ -102,61 +102,6 @@ func setupTestCategorizer(t *testing.T) {
 	// Tests that need categorization should create their own categorizer instances
 }
 
-func TestWriteToCSV(t *testing.T) {
-	setupTestCategorizer(t)
-	// Create test transactions
-	transactions := []struct {
-		description string
-		date        string
-		amount      string
-		currency    string
-		creditDebit string
-	}{
-		{"RATP", "15.04.2025", "4.21", "CHF", models.TransactionTypeDebit},
-		{"Parking-Relais Lausa", "02.04.2025", "4.00", "CHF", models.TransactionTypeDebit},
-	}
-
-	// Convert to models.Transaction
-	var modelTransactions []struct {
-		Description string
-		Date        string
-		ValueDate   string
-		Amount      string
-		Currency    string
-		CreditDebit string
-		Payee       string
-	}
-	for _, tx := range transactions {
-		modelTransactions = append(modelTransactions, struct {
-			Description string
-			Date        string
-			ValueDate   string
-			Amount      string
-			Currency    string
-			CreditDebit string
-			Payee       string
-		}{
-			Description: tx.description,
-			Date:        tx.date,
-			ValueDate:   tx.date,
-			Amount:      tx.amount,
-			Currency:    tx.currency,
-			CreditDebit: tx.creditDebit,
-			Payee:       tx.description,
-		})
-	}
-
-	// Create a temporary output file
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Write transactions to CSV
-	err := WriteToCSV(nil, outputFile)
-	if err == nil {
-		t.Errorf("WriteToCSV should have returned an error for nil transactions")
-	}
-}
-
 func TestConvertToCSV(t *testing.T) {
 	setupTestCategorizer(t)
 	// Create a temporary valid debit CSV file
@@ -188,21 +133,6 @@ PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
 	if err == nil {
 		t.Errorf("ConvertToCSV should have returned an error for a nonexistent file")
 	}
-}
-
-func TestParse(t *testing.T) {
-	validContent := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
-PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED
-PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF;12346;REF124;COMPLETED`
-
-	reader := strings.NewReader(validContent)
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	transactions, err := Parse(reader, logger)
-	assert.NoError(t, err)
-	assert.Len(t, transactions, 2)
-	assert.Equal(t, "RATP", transactions[0].Description)
-	assert.Equal(t, "Parking-Relais Lausa", transactions[1].Description)
 }
 
 func TestParseWithCategorizer(t *testing.T) {
@@ -237,29 +167,6 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
-}
-
-func TestParseWithNilLogger(t *testing.T) {
-	validContent := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
-PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
-
-	reader := strings.NewReader(validContent)
-
-	// Should work with nil logger (creates default)
-	transactions, err := Parse(reader, nil)
-	assert.NoError(t, err)
-	assert.Len(t, transactions, 1)
-}
-
-func TestParseWithInvalidCSV(t *testing.T) {
-	invalidContent := `Bénéficiaire;Date;Montant;Monnaie
-PMT CARTE RATP;15.04.2025;"unclosed quote;CHF`
-
-	reader := strings.NewReader(invalidContent)
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	_, err := Parse(reader, logger)
-	assert.Error(t, err)
 }
 
 func TestParseFileWithLogger(t *testing.T) {
@@ -373,21 +280,6 @@ func TestConvertDebitRowToTransaction(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestWriteToCSVEdgeCases(t *testing.T) {
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Test with nil transactions
-	err := WriteToCSV(nil, outputFile)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "transactions is nil")
-
-	// Test with empty transactions
-	err = WriteToCSV([]models.Transaction{}, outputFile)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no transactions to write")
 }
 
 func TestValidateFormatWithLogger(t *testing.T) {

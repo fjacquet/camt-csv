@@ -32,12 +32,6 @@ type DebitCSVRow struct {
 	StatusKontofuhrung string `csv:"Status Kontoführung"`
 }
 
-// Parse parses a Visa Debit CSV file from an io.Reader and returns a slice of Transaction objects.
-// Note: This function does not perform categorization. Use ParseWithCategorizer for full functionality.
-func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithCategorizer(r, logger, nil)
-}
-
 // ParseWithCategorizer parses a Visa Debit CSV file and categorizes transactions using the provided categorizer.
 func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
@@ -252,21 +246,6 @@ func convertDebitRowToTransaction(row DebitCSVRow) (models.Transaction, error) {
 	}
 
 	return transaction, nil
-}
-
-// WriteToCSV writes a slice of Transaction objects to a CSV file.
-// It formats the transactions and applies categorization before writing.
-func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	// Check if transactions is nil or empty
-	if transactions == nil {
-		return fmt.Errorf("transactions is nil")
-	}
-	if len(transactions) == 0 {
-		return fmt.Errorf("no transactions to write")
-	}
-
-	// Use the common CSV writer
-	return common.WriteTransactionsToCSV(transactions, csvFile)
 }
 
 // ValidateFormat checks if the file is a valid Visa Debit CSV file.

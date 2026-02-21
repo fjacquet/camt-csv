@@ -161,45 +161,16 @@ func (c *Container) GetParser(pt ParserType) (parser.FullParser, error) {
 	return p, nil
 }
 
-// GetParsers returns a copy of the parser registry.
-// This prevents external modification of the internal parser map.
-func (c *Container) GetParsers() map[ParserType]parser.FullParser {
-	// Return a copy to maintain immutability
-	result := make(map[ParserType]parser.FullParser, len(c.parsers))
-	for k, v := range c.parsers {
-		result[k] = v
-	}
-	return result
-}
-
 // GetLogger returns the container's logger instance.
 // This is a convenience method for accessing the logger.
 func (c *Container) GetLogger() logging.Logger {
 	return c.logger
 }
 
-// GetConfig returns the container's configuration instance.
-// This is a convenience method for accessing the configuration.
-func (c *Container) GetConfig() *config.Config {
-	return c.config
-}
-
 // GetCategorizer returns the container's categorizer instance.
 // This is a convenience method for accessing the categorizer.
 func (c *Container) GetCategorizer() *categorizer.Categorizer {
 	return c.categorizer
-}
-
-// GetStore returns the container's category store instance.
-// This is a convenience method for accessing the store.
-func (c *Container) GetStore() *store.CategoryStore {
-	return c.store
-}
-
-// GetAIClient returns the container's AI client instance.
-// Returns nil if AI is not enabled.
-func (c *Container) GetAIClient() categorizer.AIClient {
-	return c.aiClient
 }
 
 // GetFormatterRegistry returns the formatter registry for output format selection.
@@ -213,13 +184,4 @@ func (c *Container) GetFormatterRegistry() *formatter.FormatterRegistry {
 		c.formatterRegistry = formatter.NewFormatterRegistry()
 	}
 	return c.formatterRegistry
-}
-
-// Close performs cleanup of container resources.
-// This method should be called when the container is no longer needed.
-func (c *Container) Close() error {
-	// Currently no resources need explicit cleanup
-	// This method is provided for future extensibility
-	c.logger.Info("Container closed")
-	return nil
 }
