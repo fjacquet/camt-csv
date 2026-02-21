@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Dead code cleanup: remove 112+ unreachable functions detected by `deadcode` (golang.org/x/tools)
+- Remove unused utility packages: `currencyutils`, `fileutils`, `validation`, `textutils`, `xmlutils`, `factory`
+- Remove unused model types: `Money`, `Party` (and their tests)
+- Remove `strategy_result.go` from categorizer
+- Remove dead ISO20022 methods (`ParseFile`, `extractTransactions`, `entryToTransaction`, `categorizeTransactions`, `ConvertToCSV`, `CreateEmptyCSVFile`) and `concurrent_processor.go`
+- Remove dead standalone parser wrappers (`Parse`, `WriteToCSV`, `ConvertToCSV`, `BatchConvert` + `*WithLogger` variants) from all parsers
+- Remove dead builder methods (`WithBookkeepingNumber`, `WithAmountFromFloat`, `WithBankTxCode`, `WithFeesFromFloat`, `WithIBAN`, `Reset`, `Clone`)
+- Remove dead container methods (`GetParsers`, `GetConfig`, `GetStore`, `GetAIClient`, `Close`)
+- Remove dead utility functions from `dateutils`, `git`, `common`, `formatter`, `categorizer`, `parsererror`
+
 ## [2.2.0] - 2026-02-17
 
 ### Added
