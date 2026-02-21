@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
@@ -64,53 +63,6 @@ CARD_PAYMENT,Current,2025-01-08 19:39:37,2025-01-09 10:47:04,Obsidian,-9.14,0.00
 	assert.Equal(t, models.TransactionTypeDebit, transactions[1].CreditDebit)
 }
 
-func TestWriteToCSV(t *testing.T) {
-	// Create a temporary directory for output
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
-
-	// Create test transactions
-	transactions := []models.Transaction{
-		{
-			Date:        time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
-			ValueDate:   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description: "To CHF Vacances",
-			Amount:      models.ParseAmount("2.50"),
-			Currency:    "CHF",
-			CreditDebit: models.TransactionTypeDebit,
-			Status:      models.StatusCompleted,
-		},
-		{
-			Date:        time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
-			ValueDate:   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description: "Boreal Coffee Shop",
-			Amount:      models.ParseAmount("57.50"),
-			Currency:    "CHF",
-			CreditDebit: models.TransactionTypeDebit,
-			Status:      models.StatusCompleted,
-		},
-	}
-
-	// Test writing to CSV
-	err := WriteToCSV(transactions, outputFile)
-	assert.NoError(t, err, "Failed to write transactions to CSV")
-
-	// Read the output file and check content
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err)
-
-	csvContent := string(content)
-
-	// Check for the new simplified header format
-	assert.Contains(t, csvContent, "Date,Description,Amount,Currency")
-
-	// Check for transaction data
-	assert.Contains(t, csvContent, "02.01.2025,To CHF Vacances,2.50,CHF")
-	assert.Contains(t, csvContent, "02.01.2025,Boreal Coffee Shop,57.50,CHF")
-}
-
 func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create a temporary test directory
 	tempDir := t.TempDir()
@@ -134,43 +86,6 @@ func TestParseFile_InvalidFormat(t *testing.T) {
 	adapter := NewAdapter(logger)
 	_, err = adapter.Parse(context.Background(), file)
 	assert.Error(t, err, "Expected an error when parsing an invalid file")
-}
-
-func TestConvertToCSV(t *testing.T) {
-	// Create temporary directories
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.csv")
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
-
-	// Create a test CSV file
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-TRANSFER,Current,2025-01-01 08:07:09,2025-01-02 08:07:09,To CHF Vacances,-2.50,0.00,CHF,COMPLETED,111.42
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
-
-	err := os.WriteFile(inputFile, []byte(csvContent), 0600)
-	assert.NoError(t, err, "Failed to create test input file")
-
-	// Test convert to CSV
-	err = ConvertToCSV(inputFile, outputFile)
-	assert.NoError(t, err, "Failed to convert CSV")
-
-	// Verify the output file exists
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err, "Output file should exist")
-
-	// Read and verify content
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err, "Failed to read output file")
-	contentStr := string(content)
-
-	// Check for the new simplified header format
-	assert.Contains(t, contentStr, "Date,Description,Amount,Currency")
-
-	// Check for transaction data
-	assert.Contains(t, contentStr, "02.01.2025,Transfert to CHF Vacances")
-	assert.Contains(t, contentStr, "03.01.2025,Boreal Coffee Shop")
 }
 
 func TestParseWithCategorizer(t *testing.T) {
@@ -281,61 +196,6 @@ Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,C
 	}
 }
 
-func TestBatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	// Create input directory
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid Revolut CSV file
-	validCSV := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
-
-	validFile := filepath.Join(inputDir, "valid.csv")
-	err = os.WriteFile(validFile, []byte(validCSV), 0600)
-	require.NoError(t, err)
-
-	// Create invalid CSV file
-	invalidCSV := `Date,Description,Balance
-2025-01-02,Some description,111.42`
-
-	invalidFile := filepath.Join(inputDir, "invalid.csv")
-	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
-	require.NoError(t, err)
-
-	// Create non-CSV file
-	nonCSVFile := filepath.Join(inputDir, "document.txt")
-	err = os.WriteFile(nonCSVFile, []byte("not a csv"), 0600)
-	require.NoError(t, err)
-
-	// Create subdirectory (should be ignored)
-	subDir := filepath.Join(inputDir, "subdir")
-	err = os.MkdirAll(subDir, 0750)
-	require.NoError(t, err)
-
-	// Test batch convert
-	count, err := BatchConvert(inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count) // Only valid file should be processed
-
-	// Verify output file exists
-	outputFile := filepath.Join(outputDir, "valid-standardized.csv")
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err)
-}
-
-func TestWriteToCSVWithNilTransactions(t *testing.T) {
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	err := WriteToCSV(nil, outputFile)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot write nil transactions")
-}
-
 func TestPostProcessTransactions(t *testing.T) {
 	transactions := []models.Transaction{
 		{
@@ -371,34 +231,6 @@ func TestPostProcessTransactions(t *testing.T) {
 
 	// Third transaction should remain unchanged
 	assert.Equal(t, "Regular payment", processed[2].Description)
-}
-
-func TestParseSkipsIncompleteTransactions(t *testing.T) {
-	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test_revolut.csv")
-
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92
-CARD_PAYMENT,Current,2025-01-02 08:07:09,,Empty completed date,-25.00,0.00,CHF,PENDING,28.92
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,,-10.00,0.00,CHF,COMPLETED,18.92
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Pending transaction,-15.00,0.00,CHF,PENDING,3.92`
-
-	err := os.WriteFile(testFile, []byte(csvContent), 0600)
-	require.NoError(t, err)
-
-	file, err := os.Open(testFile)
-	require.NoError(t, err)
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Logf("Failed to close file: %v", err)
-		}
-	}()
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	transactions, err := Parse(file, logger)
-	assert.NoError(t, err)
-	assert.Len(t, transactions, 1) // Only completed transaction with valid data
-	assert.Equal(t, "Boreal Coffee Shop", transactions[0].Description)
 }
 
 // Mock categorizer for testing
@@ -457,102 +289,6 @@ func TestConvertRevolutRowToTransactionWithInvalidAmount(t *testing.T) {
 	_, err := convertRevolutRowToTransaction(row, logger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error parsing amount to decimal")
-}
-
-func TestBatchConvertWithInvalidDirectory(t *testing.T) {
-	count, err := BatchConvert("/nonexistent/directory", "/tmp/output")
-	assert.Error(t, err)
-	assert.Equal(t, 0, count)
-}
-
-func TestParseWithInvalidCSVData(t *testing.T) {
-	invalidCSV := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,"unclosed quote,-57.50,0.00,CHF,COMPLETED,53.92`
-
-	reader := strings.NewReader(invalidCSV)
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	_, err := Parse(reader, logger)
-	assert.Error(t, err)
-}
-
-func TestParseWithNilLogger(t *testing.T) {
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,-57.50,0.00,CHF,COMPLETED,53.92`
-
-	reader := strings.NewReader(csvContent)
-
-	// Should work with nil logger (creates default)
-	transactions, err := Parse(reader, nil)
-	assert.NoError(t, err)
-	assert.Len(t, transactions, 1)
-}
-
-func TestWriteToCSVWithLogger(t *testing.T) {
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	transactions := []models.Transaction{
-		{
-			Date:        time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description: "Test Transaction",
-			Amount:      models.ParseAmount("10.00"),
-			Currency:    "CHF",
-		},
-	}
-
-	err := WriteToCSVWithLogger(transactions, outputFile, logger)
-	assert.NoError(t, err)
-
-	// Verify file exists and has content
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "Test Transaction")
-}
-
-func TestConvertToCSVWithLogger(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.csv")
-	outputFile := filepath.Join(tempDir, "output.csv")
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Test Payment,-25.00,0.00,CHF,COMPLETED,75.00`
-
-	err := os.WriteFile(inputFile, []byte(csvContent), 0600)
-	require.NoError(t, err)
-
-	err = ConvertToCSVWithLogger(inputFile, outputFile, logger)
-	assert.NoError(t, err)
-
-	// Verify output
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "Test Payment")
-}
-
-func TestBatchConvertWithLogger(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	// Create input directory
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid CSV file
-	validCSV := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Test Payment,-25.00,0.00,CHF,COMPLETED,75.00`
-
-	validFile := filepath.Join(inputDir, "test.csv")
-	err = os.WriteFile(validFile, []byte(validCSV), 0600)
-	require.NoError(t, err)
-
-	count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
 }
 
 func TestAdapter_ConvertToCSV(t *testing.T) {
@@ -710,99 +446,6 @@ func TestConvertRevolutRowToTransaction_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestWriteToCSVWithLogger_EdgeCases(t *testing.T) {
-	tempDir := t.TempDir()
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	t.Run("nil transactions", func(t *testing.T) {
-		outputFile := filepath.Join(tempDir, "nil.csv")
-		err := WriteToCSVWithLogger(nil, outputFile, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot write nil transactions")
-	})
-
-	t.Run("empty transactions", func(t *testing.T) {
-		outputFile := filepath.Join(tempDir, "empty.csv")
-		transactions := []models.Transaction{}
-		err := WriteToCSVWithLogger(transactions, outputFile, logger)
-		assert.NoError(t, err)
-	})
-
-	t.Run("transaction with zero date", func(t *testing.T) {
-		outputFile := filepath.Join(tempDir, "zero_date.csv")
-		transactions := []models.Transaction{
-			{
-				Date:        time.Time{}, // Zero time
-				Description: "Test",
-				Amount:      models.ParseAmount("100.00"),
-				Currency:    "CHF",
-			},
-		}
-		err := WriteToCSVWithLogger(transactions, outputFile, logger)
-		assert.NoError(t, err)
-	})
-}
-
-func TestBatchConvertWithLogger_EdgeCases(t *testing.T) {
-	tempDir := t.TempDir()
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	t.Run("non-existent input directory", func(t *testing.T) {
-		inputDir := filepath.Join(tempDir, "nonexistent")
-		outputDir := filepath.Join(tempDir, "output")
-
-		count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-		assert.Error(t, err)
-		assert.Equal(t, 0, count)
-	})
-
-	t.Run("empty input directory", func(t *testing.T) {
-		inputDir := filepath.Join(tempDir, "empty")
-		outputDir := filepath.Join(tempDir, "output")
-
-		err := os.MkdirAll(inputDir, 0750)
-		require.NoError(t, err)
-
-		count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, count)
-	})
-
-	t.Run("directory with non-csv files", func(t *testing.T) {
-		inputDir := filepath.Join(tempDir, "mixed")
-		outputDir := filepath.Join(tempDir, "output2")
-
-		err := os.MkdirAll(inputDir, 0750)
-		require.NoError(t, err)
-
-		// Create a non-CSV file
-		txtFile := filepath.Join(inputDir, "readme.txt")
-		err = os.WriteFile(txtFile, []byte("Not a CSV"), 0600)
-		require.NoError(t, err)
-
-		count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, count)
-	})
-
-	t.Run("directory with subdirectories", func(t *testing.T) {
-		inputDir := filepath.Join(tempDir, "with_subdirs")
-		outputDir := filepath.Join(tempDir, "output3")
-
-		err := os.MkdirAll(inputDir, 0750)
-		require.NoError(t, err)
-
-		// Create a subdirectory (should be skipped)
-		subDir := filepath.Join(inputDir, "subdir")
-		err = os.MkdirAll(subDir, 0750)
-		require.NoError(t, err)
-
-		count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, count)
-	})
-}
-
 func TestParseWithCategorizer_EmptyRows(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
@@ -859,37 +502,6 @@ func TestPostProcessTransactions_CHFVacances(t *testing.T) {
 	assert.Equal(t, "Transferred To CHF Vacances", processed[1].PartyName)
 
 	assert.Equal(t, "Other Transfer", processed[2].Description) // Unchanged
-}
-
-func TestConvertToCSVWithLogger_FileErrors(t *testing.T) {
-	tempDir := t.TempDir()
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	t.Run("non-existent input file", func(t *testing.T) {
-		inputFile := filepath.Join(tempDir, "nonexistent.csv")
-		outputFile := filepath.Join(tempDir, "output.csv")
-
-		err := ConvertToCSVWithLogger(inputFile, outputFile, logger)
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid output directory", func(t *testing.T) {
-		inputFile := filepath.Join(tempDir, "input.csv")
-		csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00`
-
-		err := os.WriteFile(inputFile, []byte(csvContent), 0600)
-		require.NoError(t, err)
-
-		// Try to write to a file as if it were a directory
-		outputFile := filepath.Join(tempDir, "file.txt", "output.csv")
-		fileAsDir := filepath.Join(tempDir, "file.txt")
-		err = os.WriteFile(fileAsDir, []byte("content"), 0600)
-		require.NoError(t, err)
-
-		err = ConvertToCSVWithLogger(inputFile, outputFile, logger)
-		assert.Error(t, err)
-	})
 }
 
 // TestRevolutParser_ErrorMessagesIncludeFilePath validates error messages include helpful context

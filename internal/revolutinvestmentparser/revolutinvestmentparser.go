@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
@@ -26,14 +25,6 @@ type RevolutInvestmentCSVRow struct {
 	TotalAmount   string `csv:"Total Amount"`
 	Currency      string `csv:"Currency"`
 	FXRate        string `csv:"FX Rate"`
-}
-
-// Note: Removed global logger in favor of dependency injection
-
-// Parse parses a Revolut investment CSV file from an io.Reader and returns a slice of transactions
-// Note: This function does not perform categorization. Use ParseWithCategorizer for full functionality.
-func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithCategorizer(r, logger, nil)
 }
 
 // ParseWithCategorizer parses a Revolut investment CSV file and categorizes transactions using the provided categorizer.
@@ -361,94 +352,3 @@ func formatDate(dateStr string) time.Time {
 	return time.Time{}
 }
 
-// WriteToCSV writes transactions to a CSV file
-func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	return WriteToCSVWithLogger(transactions, csvFile, nil)
-}
-
-func WriteToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Writing transactions to CSV file",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: csvFile})
-
-	file, err := os.Create(csvFile) // #nosec G304 -- CLI tool requires user-provided output paths
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logger.WithError(closeErr).Warn("Failed to close file")
-		}
-	}()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header
-	header := []string{
-		"BookkeepingNumber", "Status", "Date", "ValueDate", "Name", "Description", "RemittanceInfo", "PartyName", "PartyIBAN",
-		"Amount", "CreditDebit", "IsDebit", "Debit", "Credit", "Currency", "AmountExclTax", "AmountTax", "TaxRate",
-		"Recipient", "InvestmentType", "Number", "Category", "Type", "Fund", "NumberOfShares", "Fees", "IBAN",
-		"EntryReference", "Reference", "AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
-	}
-
-	if err := writer.Write(header); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
-	}
-
-	// Write transactions
-	for _, transaction := range transactions {
-		record, err := transaction.MarshalCSV()
-		if err != nil {
-			logger.WithError(err).Warn("Failed to marshal transaction")
-			continue
-		}
-
-		if err := writer.Write(record); err != nil {
-			return fmt.Errorf("failed to write transaction: %w", err)
-		}
-	}
-
-	logger.Info("Successfully wrote transactions to CSV file")
-	return nil
-}
-
-// ConvertToCSV converts a Revolut investment CSV file to the standardized format
-func ConvertToCSV(inputFile, outputFile string) error {
-	return ConvertToCSVWithLogger(inputFile, outputFile, nil)
-}
-
-func ConvertToCSVWithLogger(inputFile, outputFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Converting Revolut investment CSV file",
-		logging.Field{Key: "input", Value: inputFile},
-		logging.Field{Key: "output", Value: outputFile})
-
-	// Open the input file
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("failed to open input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			logger.WithError(err).Warn("Failed to close file")
-		}
-	}()
-
-	transactions, err := Parse(file, logger)
-	if err != nil {
-		return fmt.Errorf("failed to parse input file: %w", err)
-	}
-
-	if err := WriteToCSV(transactions, outputFile); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
-	}
-
-	logger.Info("Successfully converted Revolut investment CSV file")
-	return nil
-}

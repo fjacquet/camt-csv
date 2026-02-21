@@ -117,103 +117,6 @@ func TestParseFile(t *testing.T) {
 	// This test mainly verifies that the dependency injection works
 }
 
-func TestConvertToCSV(t *testing.T) {
-	// Initialize the test environment
-	setupTestCategorizer(t)
-
-	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
-
-	// Create a temporary directory for the test
-	tempDir := t.TempDir()
-
-	// Create transactions to test with
-	transactions := []models.Transaction{
-		{
-			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "Coffee Shop Test",
-			Amount:      models.ParseAmount("15.50"),
-			Currency:    "EUR",
-			CreditDebit: models.TransactionTypeDebit,
-		},
-	}
-
-	// Create the output path
-	outputFile := filepath.Join(tempDir, "test_output.csv")
-
-	// Skip the normal PDF parsing by testing just the WriteToCSV function directly
-	err := WriteToCSV(transactions, outputFile)
-	assert.NoError(t, err)
-
-	// Verify the output file exists and has the right content
-	data, err := os.ReadFile(outputFile)
-	assert.NoError(t, err)
-
-	// Check for expected CSV format - verify header contains key fields (29-column format)
-	csvContent := string(data)
-	assert.Contains(t, csvContent, "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description")
-	assert.Contains(t, csvContent, "Date")
-	assert.Contains(t, csvContent, "Description")
-	assert.Contains(t, csvContent, "Amount")
-	assert.Contains(t, csvContent, "Currency")
-	// Check for transaction data
-	assert.Contains(t, csvContent, "01.01.2023")
-	assert.Contains(t, csvContent, "Coffee Shop Test")
-	assert.Contains(t, csvContent, "15.5") // Amount can be 15.5 or 15.50
-	assert.Contains(t, csvContent, "EUR")
-}
-
-func TestWriteToCSV(t *testing.T) {
-	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
-
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "transactions.csv")
-
-	// Create test transactions
-	transactions := []models.Transaction{
-		{
-			Date:           time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description:    "Coffee Shop Purchase Card Payment REF123456",
-			Amount:         models.ParseAmount("100.00"),
-			Currency:       "EUR",
-			EntryReference: "REF123456",
-			CreditDebit:    models.TransactionTypeDebit,
-		},
-		{
-			Date:           time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description:    "Salary Payment Incoming Transfer SAL987654",
-			Amount:         models.ParseAmount("1000.00"),
-			Currency:       "EUR",
-			EntryReference: "SAL987654",
-			CreditDebit:    models.TransactionTypeCredit,
-		},
-	}
-
-	// Write to CSV
-	err := WriteToCSV(transactions, outputFile)
-	assert.NoError(t, err, "Failed to write to CSV")
-
-	// Read the file content
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err, "Failed to read CSV file")
-
-	// Check that the CSV contains our test data - verify header and content
-	csvContent := string(content)
-	// Check header contains key fields (29-column format)
-	assert.Contains(t, csvContent, "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description")
-	assert.Contains(t, csvContent, "Date")
-	assert.Contains(t, csvContent, "Description")
-	assert.Contains(t, csvContent, "Amount")
-	assert.Contains(t, csvContent, "Currency")
-	// Check transaction data
-	assert.Contains(t, csvContent, "01.01.2023")
-	assert.Contains(t, csvContent, "Coffee Shop Purchase Card Payment REF123456")
-	assert.Contains(t, csvContent, "02.01.2023")
-	assert.Contains(t, csvContent, "Salary Payment Incoming Transfer SAL987654")
-	assert.Contains(t, csvContent, "100")  // Amount can be 100 or 100.00
-	assert.Contains(t, csvContent, "1000") // Amount can be 1000 or 1000.00
-	assert.Contains(t, csvContent, "EUR")
-}
-
 // **Feature: parser-enhancements, Property 6: PDF categorization integration**
 // **Validates: Requirements 2.1, 5.3**
 func TestProperty_PDFCategorizationIntegration(t *testing.T) {
@@ -290,60 +193,6 @@ func TestProperty_PDFCategorizationIntegration(t *testing.T) {
 	}
 }
 
-// **Feature: parser-enhancements, Property 8: Consistent CSV output format**
-// **Validates: Requirements 2.3, 4.1**
-func TestProperty_ConsistentCSVOutputFormat(t *testing.T) {
-	// Property: For any parser type (CAMT, PDF, Selma, Revolut), the CSV output should contain
-	// identical column headers including category and subcategory columns
-
-	// Run property test with multiple iterations
-	for i := 0; i < 100; i++ {
-		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
-			// Generate random transactions
-			transactions := generateRandomTransactions(cryptoRandIntn(10) + 1)
-
-			// Write to CSV using PDF parser
-			tempDir := t.TempDir()
-			outputFile := filepath.Join(tempDir, "test_output.csv")
-
-			err := WriteToCSV(transactions, outputFile)
-			require.NoError(t, err)
-
-			// Read the CSV content
-			content, err := os.ReadFile(outputFile)
-			require.NoError(t, err)
-
-			csvContent := string(content)
-
-			// Verify standard CSV headers are present (29-column format matching StandardFormatter)
-			expectedHeaders := []string{
-				"Status", "Date", "ValueDate", "Name", "PartyName", "PartyIBAN",
-				"Description", "RemittanceInfo", "Amount", "CreditDebit", "Currency",
-				"Product", "AmountExclTax", "TaxRate", "InvestmentType", "Number", "Category",
-				"Type", "Fund", "NumberOfShares", "Fees", "IBAN", "EntryReference", "Reference",
-				"AccountServicer", "BankTxCode", "OriginalCurrency", "OriginalAmount", "ExchangeRate",
-			}
-
-			// Check that all expected headers are present
-			for _, header := range expectedHeaders {
-				assert.Contains(t, csvContent, header, "CSV should contain standard header: %s", header)
-			}
-
-			// Verify category column is included (Category is present in the actual headers)
-			assert.Contains(t, csvContent, "Category", "CSV should contain Category column")
-
-			// Verify the CSV has proper structure (header line + data lines)
-			lines := strings.Split(strings.TrimSpace(csvContent), "\n")
-			assert.GreaterOrEqual(t, len(lines), 1, "CSV should have at least a header line")
-
-			// If we have transactions, verify they appear in the CSV
-			if len(transactions) > 0 {
-				assert.GreaterOrEqual(t, len(lines), len(transactions)+1, "CSV should have header + transaction lines")
-			}
-		})
-	}
-}
-
 // MockCategorizer for testing categorization
 type MockCategorizer struct {
 	categories map[string]string
@@ -387,48 +236,6 @@ func generateRandomDescription(partyName string) string {
 	return fmt.Sprintf("%s %s", prefix, partyName)
 }
 
-func generateRandomTransactions(count int) []models.Transaction {
-	transactions := make([]models.Transaction, count)
-
-	for i := 0; i < count; i++ {
-		transactions[i] = models.Transaction{
-			Date:        time.Date(2023, time.Month(cryptoRandIntn(12)+1), cryptoRandIntn(28)+1, 0, 0, 0, 0, time.UTC),
-			Description: generateRandomDescription(generateRandomPartyName()),
-			Amount:      models.ParseAmount(generateRandomAmount()),
-			Currency:    "CHF",
-			CreditDebit: []string{models.TransactionTypeCredit, models.TransactionTypeDebit}[cryptoRandIntn(2)],
-			Category:    models.CategoryUncategorized,
-		}
-	}
-
-	return transactions
-}
-
-func TestParseWithExtractor(t *testing.T) {
-	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test.pdf")
-	err := os.WriteFile(testFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	file, err := os.Open(testFile)
-	require.NoError(t, err)
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Logf("Failed to close file: %v", err)
-		}
-	}()
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockText := `Date valeur Détails Monnaie Montant
-01.01.25 02.01.25 Test Transaction CHF 100.50`
-	mockExtractor := NewMockPDFExtractor(mockText, nil)
-
-	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
-	assert.NoError(t, err)
-	// Note: Actual parsing depends on the text format recognition
-	assert.NotNil(t, transactions)
-}
-
 func TestParseWithExtractorAndCategorizer(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.pdf")
@@ -458,164 +265,135 @@ func TestParseWithExtractorAndCategorizer(t *testing.T) {
 	assert.NotNil(t, transactions)
 }
 
-func TestParseWithNilLogger(t *testing.T) {
-	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test.pdf")
-	err := os.WriteFile(testFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	file, err := os.Open(testFile)
-	require.NoError(t, err)
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Logf("Failed to close file: %v", err)
-		}
-	}()
-
-	mockText := `Date valeur Détails Monnaie Montant
-01.01.25 02.01.25 Test Transaction CHF 100.50`
-	mockExtractor := NewMockPDFExtractor(mockText, nil)
-
-	// Should work with nil logger (creates default)
-	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, transactions)
-}
-
-func TestParseWithExtractorError(t *testing.T) {
-	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test.pdf")
-	err := os.WriteFile(testFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	file, err := os.Open(testFile)
-	require.NoError(t, err)
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Logf("Failed to close file: %v", err)
-		}
-	}()
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
-
-	_, err = ParseWithExtractor(context.Background(), file, mockExtractor, logger)
-	assert.Error(t, err)
-}
-
-func TestParseFileFunction(t *testing.T) {
-	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test.pdf")
-	err := os.WriteFile(testFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	file, err := os.Open(testFile)
-	require.NoError(t, err)
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Logf("Failed to close file: %v", err)
-		}
-	}()
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockText := `Date valeur Détails Monnaie Montant
-01.01.25 02.01.25 Test Transaction CHF 100.50`
-	mockExtractor := NewMockPDFExtractor(mockText, nil)
-
-	transactions, err := ParseWithExtractor(context.Background(), file, mockExtractor, logger)
-	assert.NoError(t, err)
-	assert.NotNil(t, transactions)
-}
-
-func TestParseFileWithInvalidFile(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("file not found"))
-
-	// Test with a string reader that simulates file not found
-	reader := strings.NewReader("")
-	_, err := ParseWithExtractor(context.Background(), reader, mockExtractor, logger)
-	assert.Error(t, err)
-}
-
-func TestConvertToCSVFunction(t *testing.T) {
+func TestAdapterConvertToCSV(t *testing.T) {
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.pdf")
 	outputFile := filepath.Join(tempDir, "output.csv")
 
+	// Create dummy PDF file
 	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
 	require.NoError(t, err)
 
 	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
+	adapter := NewAdapter(logger, mockExtractor)
 
-	err = ConvertToCSVWithLogger(context.Background(), inputFile, outputFile, logger)
-	// This might fail due to real PDF extraction, but we're testing the function exists
-	// The error is expected since we're using a dummy file
-	assert.Error(t, err) // Expected to fail with dummy content
+	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
+	assert.Error(t, err) // Expected to fail with mock error
 }
 
-func TestConvertToCSVWithInvalidInput(t *testing.T) {
+func TestAdapterValidateFormat(t *testing.T) {
 	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
+	inputFile := filepath.Join(tempDir, "input.pdf")
+
+	// Create dummy PDF file
+	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
+	require.NoError(t, err)
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", nil)
+	adapter := NewAdapter(logger, mockExtractor)
+
+	valid, err := adapter.ValidateFormat(inputFile)
+	assert.NoError(t, err)
+	assert.True(t, valid) // Should pass basic validation
+}
+
+func TestAdapterValidateFormatWithInvalidFile(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
+	adapter := NewAdapter(logger, mockExtractor)
+
+	valid, err := adapter.ValidateFormat("/nonexistent/file.pdf")
+	assert.NoError(t, err) // No error returned, just false validation
+	assert.False(t, valid) // Should fail validation
+}
+
+func TestAdapterBatchConvert(t *testing.T) {
+	tempDir := t.TempDir()
+	inputDir := filepath.Join(tempDir, "input")
+	outputDir := filepath.Join(tempDir, "output")
+
+	err := os.MkdirAll(inputDir, 0750)
+	require.NoError(t, err)
+	err = os.MkdirAll(outputDir, 0750)
+	require.NoError(t, err)
+
+	// Create test PDF files with mock data
+	mockText1 := `Date valeur Détails Monnaie Montant
+01.01.25 02.01.25 Coffee Shop Purchase CHF 15.50`
+
+	testFile1 := filepath.Join(inputDir, "test1.pdf")
+	testFile2 := filepath.Join(inputDir, "test2.pdf")
+	testFile3 := filepath.Join(inputDir, "invalid.pdf")
+
+	err = os.WriteFile(testFile1, []byte("dummy content 1"), 0600)
+	require.NoError(t, err)
+	err = os.WriteFile(testFile2, []byte("dummy content 2"), 0600)
+	require.NoError(t, err)
+	err = os.WriteFile(testFile3, []byte("dummy content 3"), 0600)
+	require.NoError(t, err)
 
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	err := ConvertToCSVWithLogger(context.Background(), "/nonexistent/file.pdf", outputFile, logger)
-	assert.Error(t, err)
-}
+	// Create a mock extractor that returns different results for different files
+	mockExtractor := NewMockPDFExtractor(mockText1, nil)
+	adapter := NewAdapter(logger, mockExtractor)
 
-func TestWriteToCSVWithNilTransactions(t *testing.T) {
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	err := WriteToCSV(nil, outputFile)
-	assert.Error(t, err)
-}
-
-func TestWriteToCSVWithEmptyTransactions(t *testing.T) {
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	err := WriteToCSV([]models.Transaction{}, outputFile)
-	assert.NoError(t, err) // Empty slice should be allowed
-
-	// Verify file exists and has header
-	content, err := os.ReadFile(outputFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "Date") // Should have header
-}
-
-func TestBatchConvert(t *testing.T) {
-	// Note: BatchConvert functionality may not be implemented in pdfparser
-	// This test verifies the WriteToCSV functionality instead
-	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Create test transactions
-	transactions := []models.Transaction{
-		{
-			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "Test Transaction",
-			Amount:      models.ParseAmount("100.50"),
-			Currency:    "CHF",
-			CreditDebit: models.TransactionTypeDebit,
-		},
-	}
-
-	err := WriteToCSV(transactions, outputFile)
+	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
+	// Should not return error - batch processor handles file-level errors
 	assert.NoError(t, err)
 
-	// Verify output file exists
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err)
+	// Verify manifest was created
+	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	_, err = os.Stat(manifestPath)
+	assert.NoError(t, err, "Manifest file should exist")
+
+	// Note: With our simple mock extractor that always returns the same text,
+	// all files should pass validation. Count might vary based on parsing success.
+	assert.GreaterOrEqual(t, count, 0, "Should return non-negative count")
 }
 
-func TestBatchConvertWithInvalidDirectory(t *testing.T) {
-	// Test error handling for invalid paths
+func TestAdapterBatchConvert_EmptyDirectory(t *testing.T) {
 	tempDir := t.TempDir()
-	outputFile := filepath.Join(tempDir, "output.csv")
+	inputDir := filepath.Join(tempDir, "input")
+	outputDir := filepath.Join(tempDir, "output")
 
-	err := WriteToCSV(nil, outputFile)
-	assert.Error(t, err)
+	err := os.MkdirAll(inputDir, 0750)
+	require.NoError(t, err)
+	err = os.MkdirAll(outputDir, 0750)
+	require.NoError(t, err)
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", nil)
+	adapter := NewAdapter(logger, mockExtractor)
+
+	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Empty directory should return 0 count")
+
+	// Verify manifest was created
+	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	_, err = os.Stat(manifestPath)
+	assert.NoError(t, err, "Manifest file should exist even for empty directory")
+}
+
+func TestAdapterBatchConvert_InvalidInputDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	invalidInputDir := filepath.Join(tempDir, "nonexistent")
+	outputDir := filepath.Join(tempDir, "output")
+
+	err := os.MkdirAll(outputDir, 0750)
+	require.NoError(t, err)
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", nil)
+	adapter := NewAdapter(logger, mockExtractor)
+
+	count, err := adapter.BatchConvert(context.Background(), invalidInputDir, outputDir)
+	assert.Error(t, err, "Should return error for non-existent input directory")
+	assert.Equal(t, 0, count)
+	assert.Contains(t, err.Error(), "does not exist")
 }
 
 // Tests for helper functions to improve coverage
@@ -1029,149 +807,6 @@ func TestMinFunction(t *testing.T) {
 	}
 }
 
-func TestAdapterConvertToCSV(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.pdf")
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Create dummy PDF file
-	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
-	adapter := NewAdapter(logger, mockExtractor)
-
-	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-	assert.Error(t, err) // Expected to fail with mock error
-}
-
-func TestAdapterValidateFormat(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.pdf")
-
-	// Create dummy PDF file
-	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", nil)
-	adapter := NewAdapter(logger, mockExtractor)
-
-	valid, err := adapter.ValidateFormat(inputFile)
-	assert.NoError(t, err)
-	assert.True(t, valid) // Should pass basic validation
-}
-
-func TestAdapterValidateFormatWithInvalidFile(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
-	adapter := NewAdapter(logger, mockExtractor)
-
-	valid, err := adapter.ValidateFormat("/nonexistent/file.pdf")
-	assert.NoError(t, err) // No error returned, just false validation
-	assert.False(t, valid) // Should fail validation
-}
-
-func TestAdapterBatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-	err = os.MkdirAll(outputDir, 0750)
-	require.NoError(t, err)
-
-	// Create test PDF files with mock data
-	mockText1 := `Date valeur Détails Monnaie Montant
-01.01.25 02.01.25 Coffee Shop Purchase CHF 15.50`
-
-	testFile1 := filepath.Join(inputDir, "test1.pdf")
-	testFile2 := filepath.Join(inputDir, "test2.pdf")
-	testFile3 := filepath.Join(inputDir, "invalid.pdf")
-
-	err = os.WriteFile(testFile1, []byte("dummy content 1"), 0600)
-	require.NoError(t, err)
-	err = os.WriteFile(testFile2, []byte("dummy content 2"), 0600)
-	require.NoError(t, err)
-	err = os.WriteFile(testFile3, []byte("dummy content 3"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	// Create a mock extractor that returns different results for different files
-	mockExtractor := NewMockPDFExtractor(mockText1, nil)
-	adapter := NewAdapter(logger, mockExtractor)
-
-	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
-	// Should not return error - batch processor handles file-level errors
-	assert.NoError(t, err)
-
-	// Verify manifest was created
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	_, err = os.Stat(manifestPath)
-	assert.NoError(t, err, "Manifest file should exist")
-
-	// Note: With our simple mock extractor that always returns the same text,
-	// all files should pass validation. Count might vary based on parsing success.
-	assert.GreaterOrEqual(t, count, 0, "Should return non-negative count")
-}
-
-func TestAdapterBatchConvert_EmptyDirectory(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-	err = os.MkdirAll(outputDir, 0750)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", nil)
-	adapter := NewAdapter(logger, mockExtractor)
-
-	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Empty directory should return 0 count")
-
-	// Verify manifest was created
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	_, err = os.Stat(manifestPath)
-	assert.NoError(t, err, "Manifest file should exist even for empty directory")
-}
-
-func TestAdapterBatchConvert_InvalidInputDirectory(t *testing.T) {
-	tempDir := t.TempDir()
-	invalidInputDir := filepath.Join(tempDir, "nonexistent")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(outputDir, 0750)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", nil)
-	adapter := NewAdapter(logger, mockExtractor)
-
-	count, err := adapter.BatchConvert(context.Background(), invalidInputDir, outputDir)
-	assert.Error(t, err, "Should return error for non-existent input directory")
-	assert.Equal(t, 0, count)
-	assert.Contains(t, err.Error(), "does not exist")
-}
-
-func TestConvertToCSVFunctionWrapper(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.pdf")
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	err = ConvertToCSV(context.Background(), inputFile, outputFile)
-	assert.Error(t, err) // Expected to fail with real PDF extraction
-}
-
 func TestPreProcessText(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1451,16 +1086,6 @@ Votre paiement - Merci
 // TestPDFParser_ErrorMessagesIncludeContext tests that parsing errors include helpful context
 func TestPDFParser_ErrorMessagesIncludeContext(t *testing.T) {
 	logger := logging.NewLogrusAdapter("debug", "text")
-
-	t.Run("invalid_pdf_path", func(t *testing.T) {
-		invalidPath := "/nonexistent/path/to/file.pdf"
-
-		err := ConvertToCSVWithLogger(context.Background(), invalidPath, "/tmp/output.csv", logger)
-		require.Error(t, err)
-
-		// Error should include the file path that failed
-		assert.Contains(t, err.Error(), invalidPath, "Error message should include the attempted file path")
-	})
 
 	t.Run("extraction_failure", func(t *testing.T) {
 		tempDir := t.TempDir()
