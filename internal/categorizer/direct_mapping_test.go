@@ -163,7 +163,7 @@ func TestDirectMappingStrategy_Categorize(t *testing.T) {
 			mockLogger := &logging.MockLogger{}
 
 			// Create strategy
-			strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+			strategy := NewDirectMappingStrategy(mockStore.CreditorMappings, mockStore.DebtorMappings, mockStore, mockLogger)
 
 			// Execute
 			ctx := context.Background()
@@ -197,7 +197,7 @@ func TestDirectMappingStrategy_UpdateMappings(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create strategy
-	strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+	strategy := NewDirectMappingStrategy(mockStore.CreditorMappings, mockStore.DebtorMappings, mockStore, mockLogger)
 
 	// Test updating creditor mapping
 	strategy.UpdateCreditorMapping("New Store", models.CategoryShopping)
@@ -244,7 +244,7 @@ func TestDirectMappingStrategy_ReloadMappings(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create strategy
-	strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+	strategy := NewDirectMappingStrategy(mockStore.CreditorMappings, mockStore.DebtorMappings, mockStore, mockLogger)
 
 	// Verify initial mapping works
 	ctx := context.Background()
@@ -298,7 +298,7 @@ func TestDirectMappingStrategy_ReloadMappings_RaceCondition(t *testing.T) {
 	}
 
 	mockLogger := &logging.MockLogger{}
-	strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+	strategy := NewDirectMappingStrategy(mockStore.CreditorMappings, mockStore.DebtorMappings, mockStore, mockLogger)
 
 	// Start concurrent operations
 	var wg sync.WaitGroup

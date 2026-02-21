@@ -85,9 +85,8 @@ type Categorizer struct {
 	store            CategoryStoreInterface
 	logger           logging.Logger
 
-	// Lazy initialization for AI client
-	aiClient  AIClient // New field for AIClient interface
-	aiFactory func() AIClient
+	// AI client
+	aiClient AIClient
 
 	// Auto-learning control
 	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
@@ -97,17 +96,6 @@ type Categorizer struct {
 }
 
 // Note: log variable removed as part of dependency injection refactoring
-
-// Configuration interface for dependency injection
-type Config interface {
-	GetAIEnabled() bool
-	GetAIAPIKey() string
-	GetAIModel() string
-	GetAIRequestsPerMinute() int
-	GetAITimeoutSeconds() int
-	GetAIFallbackCategory() string
-	GetCategorizationConfidenceThreshold() float64
-}
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, and auto-learn setting.
 func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool) *Categorizer {
@@ -134,15 +122,6 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		c.logger.WithError(err).Warn("Failed to load categories")
 	} else {
 		c.categories = categories
-	}
-
-	// Initialize strategies in priority order
-	// Note: SemanticStrategy needs loaded categories to build its index
-	c.strategies = []CategorizationStrategy{
-		NewDirectMappingStrategy(store, logger),
-		NewKeywordStrategy(store, logger),
-		NewSemanticStrategy(aiClient, logger, c.categories),
-		NewAIStrategy(aiClient, logger),
 	}
 
 	// Load creditor mappings
@@ -187,13 +166,16 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		}
 	}
 
-	return c
-}
+	// Initialize strategies in priority order
+	// Pass pre-loaded data to strategy constructors (pure, no I/O)
+	c.strategies = []CategorizationStrategy{
+		NewDirectMappingStrategy(c.creditorMappings, c.debitorMappings, store, logger),
+		NewKeywordStrategy(c.categories, store, logger),
+		NewSemanticStrategy(aiClient, logger, c.categories),
+		NewAIStrategy(aiClient, logger),
+	}
 
-// SetAIClientFactory sets a factory function for lazy AI client initialization.
-// This allows expensive AI client creation to be deferred until actually needed.
-func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
-	c.aiFactory = factory
+	return c
 }
 
 // CategorizeTransaction categorizes a transaction using this categorizer instance.

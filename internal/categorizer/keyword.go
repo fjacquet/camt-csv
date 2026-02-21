@@ -9,18 +9,11 @@ import (
 )
 
 // normalizeStringToUpper converts a string to uppercase using strings.Builder
-// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
-//
-// Performance rationale: While strings.ToUpper() is faster for simple cases,
-// using strings.Builder provides consistent performance characteristics and
-// better memory allocation patterns in categorization loops where multiple
-// string operations occur. The pre-allocation with Grow() ensures we don't
-// trigger multiple reallocations during string building.
+// for optimal performance in hot paths.
 func normalizeStringToUpper(input string) string {
 	if input == "" {
 		return ""
 	}
-	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
 	builder := strings.Builder{}
 	builder.Grow(len(input))
 	builder.WriteString(strings.ToUpper(input))
@@ -36,15 +29,12 @@ type KeywordStrategy struct {
 }
 
 // NewKeywordStrategy creates a new KeywordStrategy instance.
-func NewKeywordStrategy(store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
+func NewKeywordStrategy(categories []models.CategoryConfig, store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
 	strategy := &KeywordStrategy{
-		categories: make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		categories: categories,
 		store:      store,
 		logger:     logger,
 	}
-
-	// Load categories from store
-	strategy.loadCategories()
 
 	return strategy
 }

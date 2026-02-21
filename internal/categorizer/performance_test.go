@@ -35,7 +35,7 @@ func BenchmarkKeywordStrategy_StringOperations(b *testing.B) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create strategy
-	strategy := NewKeywordStrategy(mockStore, mockLogger)
+	strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
 
 	// Test transaction with long party name and description to stress string operations
 	transaction := Transaction{
@@ -79,7 +79,7 @@ func BenchmarkDirectMappingStrategy_StringOperations(b *testing.B) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create strategy
-	strategy := NewDirectMappingStrategy(mockStore, mockLogger)
+	strategy := NewDirectMappingStrategy(mockStore.CreditorMappings, mockStore.DebtorMappings, mockStore, mockLogger)
 
 	// Test transaction with long party name to stress string normalization
 	transaction := Transaction{

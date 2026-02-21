@@ -10,17 +10,11 @@ import (
 )
 
 // normalizeStringToLower converts a string to lowercase using strings.Builder
-// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
-//
-// Performance rationale: This approach provides consistent memory allocation
-// patterns and prevents multiple reallocations during string processing.
-// The pre-allocation ensures optimal performance in categorization hot paths
-// where string normalization is performed frequently.
+// for optimal performance in hot paths.
 func normalizeStringToLower(input string) string {
 	if input == "" {
 		return ""
 	}
-	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
 	builder := strings.Builder{}
 	builder.Grow(len(input))
 	builder.WriteString(strings.ToLower(input))
@@ -38,16 +32,13 @@ type DirectMappingStrategy struct {
 }
 
 // NewDirectMappingStrategy creates a new DirectMappingStrategy instance.
-func NewDirectMappingStrategy(store CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
+func NewDirectMappingStrategy(creditorMappings, debtorMappings map[string]string, store CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
 	strategy := &DirectMappingStrategy{
-		creditorMappings: make(map[string]string, 100), // Pre-allocate with size hint
-		debtorMappings:   make(map[string]string, 100), // Pre-allocate with size hint
+		creditorMappings: creditorMappings,
+		debtorMappings:   debtorMappings,
 		store:            store,
 		logger:           logger,
 	}
-
-	// Load mappings from store
-	strategy.loadMappings()
 
 	return strategy
 }
