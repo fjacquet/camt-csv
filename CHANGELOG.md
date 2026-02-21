@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-02-21
+
 ### Changed
 
 - Simplify string normalization: replace hand-rolled ASCII fast-path with `strings.ToLower`/`strings.ToUpper`
@@ -14,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make strategy constructors pure: `NewDirectMappingStrategy` and `NewKeywordStrategy` accept pre-loaded data instead of performing I/O
 - Extract shared `RunConvert` handler and `RegisterFormatFlags` helper for CLI commands (-327 lines)
 - Extract shared `ConvertToCSVDefault` into `BaseParser` for adapter DRY (-40 lines)
-- Fix race condition in `MockLogger` lazy initialization using `sync.Once`
+
+### Fixed
+
+- Race condition in `MockLogger` lazy initialization using `sync.Once`
 
 ### Removed
 
