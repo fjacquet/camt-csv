@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-02-21
+
+### Changed
+
+- Simplify CI: merge duplicate test runs, remove Go 1.23 matrix, use `go-version-file: go.mod`
+- Upgrade `actions/setup-go@v4` to `@v5` across all workflows
+- Remove duplicate SBOM generation from CI (SLSA workflow handles it for releases)
+- Improve test coverage from 64.3% to 70.5%
+
 ### Removed
 
 - Dead code cleanup: remove 112+ unreachable functions detected by `deadcode` (golang.org/x/tools)
