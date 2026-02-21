@@ -23,12 +23,11 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.24.2'
-          check-latest: true
+          go-version-file: go.mod
           cache: true
-      
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
@@ -38,28 +37,21 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.24.2', '1.23']
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-          check-latest: true
+          go-version-file: go.mod
           cache: true
-      
+
       - name: Build
         run: go build -v ./...
-      
-      - name: Test
-        run: go test -v -race ./...
-      
-      - name: Test with Coverage
-        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
-      
+
+      - name: Test with Race Detector and Coverage
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
@@ -73,12 +65,11 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.24.2'
-          check-latest: true
+          go-version-file: go.mod
           cache: true
-      
+
       - name: Install gosec
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       
@@ -96,15 +87,3 @@ jobs:
           sarif_file: security.sarif
           category: gosec
 
-      - name: Install cyclonedx-gomod
-        run: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
-
-      - name: Generate SBOM
-        run: cyclonedx-gomod mod -json -output sbom.json
-
-      - name: Upload SBOM Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-cyclonedx
-          path: sbom.json
-          retention-days: 90
