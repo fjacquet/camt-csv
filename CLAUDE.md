@@ -21,6 +21,11 @@ go test -v -run TestFunctionName ./path/to/package  # Single test
 go test -v -coverprofile=coverage.txt ./...         # Coverage profile
 ```
 
+## Module
+
+- Module: `fjacquet/camt-csv`, Go 1.24+
+- PDF support requires `poppler-utils` (`pdftotext` CLI)
+
 ## Architecture Overview
 
 This is a Go CLI tool that converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) into standardized CSV with AI-powered categorization.
@@ -94,13 +99,25 @@ type FullParser interface {
 
 New parsers are registered in `internal/factory/factory.go`. **Important**: CLI commands should get parsers from the DI Container (`root.GetContainer().GetParser()`), not directly from the factory, to ensure categorizers are properly wired.
 
-**Three-Tier Categorization** (`internal/categorizer/`):
+**Four-Tier Categorization** (`internal/categorizer/`):
 
 1. Direct mapping - exact match from `database/creditors.yaml` / `database/debitors.yaml`
 2. Keyword matching - rules from `database/categories.yaml`
-3. AI fallback - Gemini API via `AIClient` interface (testable abstraction)
+3. Semantic search - vector embedding similarity via Gemini embeddings (`semantic_strategy.go`)
+4. AI fallback - Gemini API via `AIClient` interface (testable abstraction)
 
-AI categorizations are auto-learned and saved back to YAML files.
+When `--auto-learn` is enabled, AI results save directly to YAML files. When disabled (default), suggestions go to staging files (`database/staging_creditors.yaml`, `database/staging_debtors.yaml`) for manual review.
+
+**Output Formatter Registry** (`internal/formatter/formatter.go`):
+- **"standard"** - 29-column, comma-delimited (backward-compatible)
+- **"icompta"** - 10-column, semicolon-delimited, dd.MM.yyyy dates
+
+CLI usage: `--format standard` or `--format icompta`. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
+
+**Command Lifecycle** (Cobra hooks in `cmd/root/root.go`):
+1. `PersistentPreRun` - Loads config, creates DI container
+2. Command `RunE` - Gets parser via `root.GetContainer().GetParser(type)`
+3. `PersistentPostRun` - Saves learned creditor/debtor mappings to YAML
 
 ### Directory Structure
 
