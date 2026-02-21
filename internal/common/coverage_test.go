@@ -273,7 +273,6 @@ func TestWriteTransactionsToCSVWithLogger_DebitFlagFromNegativeAmount(t *testing
 	require.NoError(t, err)
 }
 
-
 // ---------------------------------------------------------------------------
 // GeneralizedConvertToCSVWithLogger error paths (77.8% -> higher)
 // ---------------------------------------------------------------------------

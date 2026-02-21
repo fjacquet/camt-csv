@@ -103,55 +103,6 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	return category, true, nil
 }
 
-// loadMappings loads creditor and debitor mappings from the store.
-func (s *DirectMappingStrategy) loadMappings() {
-	// Load creditor mappings
-	creditorMappings, err := s.store.LoadCreditorMappings()
-	if err != nil {
-		s.logger.WithError(err).Warn("Failed to load creditor mappings for DirectMappingStrategy")
-	} else {
-		s.mu.Lock()
-		// Pre-allocate map if needed and normalize keys to lowercase for case-insensitive lookup
-		if len(creditorMappings) > len(s.creditorMappings) {
-			newMap := make(map[string]string, len(creditorMappings))
-			for k, v := range s.creditorMappings {
-				newMap[k] = v
-			}
-			s.creditorMappings = newMap
-		}
-
-		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
-		for key, value := range creditorMappings {
-			s.creditorMappings[strings.ToLower(key)] = value
-		}
-		s.mu.Unlock()
-		s.logger.WithField("count", len(creditorMappings)).Debug("Loaded creditor mappings for DirectMappingStrategy")
-	}
-
-	// Load debtor mappings
-	debtorMappings, err := s.store.LoadDebtorMappings()
-	if err != nil {
-		s.logger.WithError(err).Warn("Failed to load debtor mappings for DirectMappingStrategy")
-	} else {
-		s.mu.Lock()
-		// Pre-allocate map if needed and normalize keys to lowercase for case-insensitive lookup
-		if len(debtorMappings) > len(s.debtorMappings) {
-			newMap := make(map[string]string, len(debtorMappings))
-			for k, v := range s.debtorMappings {
-				newMap[k] = v
-			}
-			s.debtorMappings = newMap
-		}
-
-		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
-		for key, value := range debtorMappings {
-			s.debtorMappings[strings.ToLower(key)] = value
-		}
-		s.mu.Unlock()
-		s.logger.WithField("count", len(debtorMappings)).Debug("Loaded debtor mappings for DirectMappingStrategy")
-	}
-}
-
 // ReloadMappings reloads the mappings from the store.
 // This can be called when the underlying YAML files have been updated.
 func (s *DirectMappingStrategy) ReloadMappings() {

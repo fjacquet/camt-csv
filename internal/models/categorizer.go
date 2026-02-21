@@ -63,4 +63,3 @@ type DebtorsConfig struct {
 type PayeesConfig struct {
 	Payees map[string]string `yaml:"payees"`
 }
-

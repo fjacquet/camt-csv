@@ -282,7 +282,6 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	return nil
 }
 
-
 // GeneralizedConvertToCSV is a utility function that combines parsing and writing to CSV
 // This is used by parsers implementing the standard interface
 func GeneralizedConvertToCSV(

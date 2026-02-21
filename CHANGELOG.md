@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Simplify string normalization: replace hand-rolled ASCII fast-path with `strings.ToLower`/`strings.ToUpper`
+- Make CSV writers non-mutating: copy transaction slices before modifying derived fields
+- Make strategy constructors pure: `NewDirectMappingStrategy` and `NewKeywordStrategy` accept pre-loaded data instead of performing I/O
+- Extract shared `RunConvert` handler and `RegisterFormatFlags` helper for CLI commands (-327 lines)
+- Extract shared `ConvertToCSVDefault` into `BaseParser` for adapter DRY (-40 lines)
+- Fix race condition in `MockLogger` lazy initialization using `sync.Once`
+
+### Removed
+
+- Delete dead `models.Parser` interface (replaced by `parser.FullParser`)
+- Delete unused `TransactionParty` and `CategorizerTransaction` types from models
+- Delete unused `Config` interface, `aiFactory` field, and `SetAIClientFactory` from categorizer
+- Delete thin wrapper functions `ExportTransactionsToCSV` and `ExportTransactionsToCSVWithLogger`
+- Delete dead `loadMappings` method from `DirectMappingStrategy`
+
 ## [2.2.1] - 2026-02-21
 
 ### Changed
