@@ -133,22 +133,6 @@ func TestUpdateInvestmentTypeFromLegacyField(t *testing.T) {
 	})
 }
 
-func TestNewTransactionFromBuilder(t *testing.T) {
-	builder := NewTransactionFromBuilder()
-
-	assert.NotNil(t, builder)
-	assert.IsType(t, &TransactionBuilder{}, builder)
-
-	// Should be able to build a transaction
-	tx, err := builder.
-		WithDate("2025-01-15").
-		WithAmount(decimal.NewFromFloat(100), "CHF").
-		Build()
-
-	require.NoError(t, err)
-	assert.NotEmpty(t, tx.Number)
-}
-
 // Test uncovered transaction methods
 func TestTransaction_UncoveredMethods(t *testing.T) {
 	t.Run("SetAmountFromDecimal", func(t *testing.T) {

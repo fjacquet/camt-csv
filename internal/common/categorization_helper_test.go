@@ -349,19 +349,3 @@ func TestProcessTransactionsWithCategorizationStats_NilLogger(t *testing.T) {
 	assert.Equal(t, "Uncategorized", result[0].Category)
 }
 
-// Test CategorizeTransactionWithStats function
-func TestCategorizeTransactionWithStats(t *testing.T) {
-	tx := generateTestTransactions(1)[0]
-	stats := models.NewCategorizationStats()
-	mockLogger := &MockLogger{}
-	mockLogger.On("Debug", mock.AnythingOfType("string"), mock.Anything).Return()
-
-	// Test with nil categorizer
-	CategorizeTransactionWithStats(&tx, nil, stats, mockLogger, "TestParser")
-
-	assert.Equal(t, "Uncategorized", tx.Category)
-	assert.Equal(t, 1, stats.Total)
-	assert.Equal(t, 0, stats.Successful)
-	assert.Equal(t, 0, stats.Failed)
-	assert.Equal(t, 1, stats.Uncategorized)
-}

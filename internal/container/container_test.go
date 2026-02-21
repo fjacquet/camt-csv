@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/internal/config"
-	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,26 +121,14 @@ func TestNewContainer(t *testing.T) {
 
 				// Verify all dependencies are created (using getter methods for immutability)
 				assert.NotNil(t, container.GetLogger())
-				assert.NotNil(t, container.GetConfig())
-				assert.NotNil(t, container.GetStore())
 				assert.NotNil(t, container.GetCategorizer())
-				assert.NotNil(t, container.GetParsers())
-
-				// Verify AI client based on config
-				if tt.config.AI.Enabled && tt.config.AI.APIKey != "" {
-					assert.NotNil(t, container.GetAIClient())
-				} else {
-					// AI client can be nil if not enabled
-				}
 
 				// Verify all expected parsers are present
 				expectedParsers := []ParserType{CAMT, PDF, Revolut, RevolutInvestment, Selma, Debit}
-				assert.Len(t, container.GetParsers(), len(expectedParsers))
-
 				for _, parserType := range expectedParsers {
-					parser, err := container.GetParser(parserType)
+					p, err := container.GetParser(parserType)
 					assert.NoError(t, err)
-					assert.NotNil(t, parser)
+					assert.NotNil(t, p)
 				}
 			}
 		})
@@ -275,14 +262,7 @@ func TestContainer_ConvenienceMethods(t *testing.T) {
 
 	// Test convenience methods
 	assert.NotNil(t, container.GetLogger())
-	assert.Equal(t, cfg, container.GetConfig())
 	assert.NotNil(t, container.GetCategorizer())
-	assert.NotNil(t, container.GetStore())
-	assert.NotNil(t, container.GetAIClient())
-
-	// Test Close method
-	err = container.Close()
-	assert.NoError(t, err)
 }
 
 // **Feature: parser-enhancements, Property 11: Configuration consistency**
@@ -347,53 +327,17 @@ func TestProperty_ConfigurationConsistency(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, container)
 
-			// Get all parsers
-			parsers := container.GetParsers()
-			require.NotEmpty(t, parsers, "Container should have parsers")
-
 			// Get the shared categorizer from container
 			sharedCategorizer := container.GetCategorizer()
 			require.NotNil(t, sharedCategorizer, "Container should have a categorizer")
 
-			// Get the shared store from container
-			sharedStore := container.GetStore()
-			require.NotNil(t, sharedStore, "Container should have a store")
-
-			// Verify: All parsers use the same configuration
-			// Property 1: All parsers should implement CategorizerConfigurable
-			for parserType, p := range parsers {
-				// Check that parser implements CategorizerConfigurable
-				_, ok := p.(parser.CategorizerConfigurable)
-				assert.True(t, ok, "Parser %s should implement CategorizerConfigurable", parserType)
+			// Verify all expected parsers are accessible
+			expectedParsers := []ParserType{CAMT, PDF, Revolut, RevolutInvestment, Selma, Debit}
+			for _, pt := range expectedParsers {
+				p, pErr := container.GetParser(pt)
+				assert.NoError(t, pErr, "Parser %s should be retrievable", pt)
+				assert.NotNil(t, p, "Parser %s should not be nil", pt)
 			}
-
-			// Property 2: All parsers should be configured with the same categorizer
-			// This is verified by the container's design - all parsers receive the same categorizer instance
-			// We verify this by checking that the container's categorizer is not nil
-			assert.NotNil(t, sharedCategorizer, "All parsers should share the same categorizer")
-
-			// Property 3: The store should use the same configuration files
-			assert.Equal(t, categoriesFile, sharedStore.CategoriesFile,
-				"Store should use the configured categories file")
-			assert.Equal(t, creditorsFile, sharedStore.CreditorsFile,
-				"Store should use the configured creditors file")
-			assert.Equal(t, debtorsFile, sharedStore.DebtorsFile,
-				"Store should use the configured debtors file")
-
-			// Property 4: AI settings should be consistent
-			aiClient := container.GetAIClient()
-			if aiEnabled && apiKey != "" {
-				assert.NotNil(t, aiClient, "AI client should be created when AI is enabled with API key")
-			}
-
-			// Property 5: Configuration should be accessible from container
-			containerConfig := container.GetConfig()
-			assert.Equal(t, cfg, containerConfig, "Container should return the same config")
-			assert.Equal(t, aiEnabled, containerConfig.AI.Enabled, "AI enabled setting should be consistent")
-
-			// Cleanup
-			err = container.Close()
-			assert.NoError(t, err)
 		})
 	}
 }

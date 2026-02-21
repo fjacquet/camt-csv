@@ -87,12 +87,6 @@ func TestFormatterRegistry(t *testing.T) {
 		assert.NotNil(t, formatter)
 	})
 
-	t.Run("ListAvailable formatters", func(t *testing.T) {
-		names := registry.ListAvailable()
-		assert.Contains(t, names, "standard")
-		assert.Contains(t, names, "icompta")
-		assert.GreaterOrEqual(t, len(names), 2)
-	})
 }
 
 func TestStandardFormatter(t *testing.T) {

@@ -331,40 +331,10 @@ func TestTransactionBuilder_WithOriginalAmount(t *testing.T) {
 	assert.True(t, exchangeRate.Equal(tx.ExchangeRate))
 }
 
-func TestTransactionBuilder_Clone(t *testing.T) {
-	original := NewTransactionBuilder().
-		WithDate("2025-01-15").
-		WithAmount(decimal.NewFromFloat(100), "CHF")
-
-	cloned := original.Clone()
-
-	// Modify the clone
-	cloned.WithDescription("Modified description")
-
-	// Original should be unchanged
-	assert.Equal(t, "", original.tx.Description)
-	assert.Equal(t, "Modified description", cloned.tx.Description)
-}
-
-func TestTransactionBuilder_Reset(t *testing.T) {
-	builder := NewTransactionBuilder().
-		WithDate("2025-01-15").
-		WithAmount(decimal.NewFromFloat(100), "CHF")
-
-	reset := builder.Reset()
-
-	// Should be a new builder with defaults
-	assert.NotEqual(t, builder, reset)
-	assert.True(t, reset.tx.Date.IsZero())
-	assert.True(t, reset.tx.Amount.IsZero())
-	assert.Equal(t, "CHF", reset.tx.Currency) // Default currency
-}
-
 func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	// Test building a complex transaction with all fields
 	tx, err := NewTransactionBuilder().
 		WithID("TXN-001").
-		WithBookkeepingNumber("BK-001").
 		WithStatus(StatusCompleted).
 		WithDate("2025-01-15").
 		WithValueDate("2025-01-16").
@@ -376,14 +346,12 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 		WithReference("REF-001").
 		WithEntryReference("ENTRY-001").
 		WithAccountServicer("BANK-CH").
-		WithBankTxCode(BankCodePOS).
 		WithCategory(CategoryShopping).
 		WithType("Investment").
 		WithFund("Growth Fund").
 		WithInvestment("Buy").
 		WithNumberOfShares(15).
 		WithFees(decimal.NewFromFloat(12.50)).
-		WithIBAN("CH1111222233334444").
 		WithOriginalAmount(decimal.NewFromFloat(1600), "USD").
 		WithExchangeRate(decimal.NewFromFloat(0.94)).
 		WithTax(decimal.NewFromFloat(1400), decimal.NewFromFloat(100.75), decimal.NewFromFloat(7.2)).
@@ -394,7 +362,6 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 
 	// Verify all fields are set correctly
 	assert.Equal(t, "TXN-001", tx.Number)
-	assert.Equal(t, "BK-001", tx.BookkeepingNumber)
 	assert.Equal(t, StatusCompleted, tx.Status)
 
 	expectedDate, _ := time.Parse("2006-01-02", "2025-01-15")
@@ -414,7 +381,6 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	assert.Equal(t, "REF-001", tx.Reference)
 	assert.Equal(t, "ENTRY-001", tx.EntryReference)
 	assert.Equal(t, "BANK-CH", tx.AccountServicer)
-	assert.Equal(t, BankCodePOS, tx.BankTxCode)
 
 	assert.Equal(t, CategoryShopping, tx.Category)
 	assert.Equal(t, "Investment", tx.Type)
@@ -423,7 +389,6 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	assert.Equal(t, 15, tx.NumberOfShares)
 
 	assert.True(t, decimal.NewFromFloat(12.50).Equal(tx.Fees))
-	assert.Equal(t, "CH1111222233334444", tx.IBAN)
 
 	assert.True(t, decimal.NewFromFloat(1600).Equal(tx.OriginalAmount))
 	assert.Equal(t, "USD", tx.OriginalCurrency)
@@ -900,17 +865,6 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 		assert.Equal(t, expectedDate, tx.ValueDate)
 	})
 
-	t.Run("WithAmountFromFloat", func(t *testing.T) {
-		tx, err := NewTransactionBuilder().
-			WithDate("2025-01-15").
-			WithAmountFromFloat(123.45, "CHF").
-			Build()
-
-		require.NoError(t, err)
-		assert.Equal(t, "123.45", tx.Amount.String())
-		assert.Equal(t, "CHF", tx.Currency)
-	})
-
 	t.Run("WithPartyName", func(t *testing.T) {
 		tx, err := NewTransactionBuilder().
 			WithDate("2025-01-15").
@@ -931,17 +885,6 @@ func TestTransactionBuilder_UncoveredMethods(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "CH1234567890123456", tx.PartyIBAN)
-	})
-
-	t.Run("WithFeesFromFloat", func(t *testing.T) {
-		tx, err := NewTransactionBuilder().
-			WithDate("2025-01-15").
-			WithAmount(decimal.NewFromFloat(100), "CHF").
-			WithFeesFromFloat(5.50).
-			Build()
-
-		require.NoError(t, err)
-		assert.Equal(t, "5.5", tx.Fees.String())
 	})
 
 	t.Run("WithTaxInfo", func(t *testing.T) {

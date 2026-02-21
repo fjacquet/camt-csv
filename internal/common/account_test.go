@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/models"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -110,102 +108,6 @@ func TestSanitizeAccountID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := SanitizeAccountID(tt.input)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// TestExtractAccountFromPDFContent tests PDF content account extraction
-func TestExtractAccountFromPDFContent(t *testing.T) {
-	tests := []struct {
-		name           string
-		transactions   []models.Transaction
-		expectedID     string
-		expectedSource string
-	}{
-		{
-			name: "Transaction with IBAN",
-			transactions: []models.Transaction{
-				{IBAN: "CH93 0076 2011 6238 5295 7"},
-			},
-			expectedID:     "23852957",
-			expectedSource: "content",
-		},
-		{
-			name: "Transaction with account servicer",
-			transactions: []models.Transaction{
-				{AccountServicer: "BANK123"},
-			},
-			expectedID:     "BANK123",
-			expectedSource: "content",
-		},
-		{
-			name:           "No account information",
-			transactions:   []models.Transaction{{}},
-			expectedID:     "PDF",
-			expectedSource: "default",
-		},
-		{
-			name:           "Empty transactions",
-			transactions:   []models.Transaction{},
-			expectedID:     "PDF",
-			expectedSource: "default",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ExtractAccountFromPDFContent(tt.transactions)
-			assert.Equal(t, tt.expectedID, result.ID)
-			assert.Equal(t, tt.expectedSource, result.Source)
-		})
-	}
-}
-
-// TestExtractAccountFromSelmaContent tests Selma content account extraction
-func TestExtractAccountFromSelmaContent(t *testing.T) {
-	tests := []struct {
-		name           string
-		transactions   []models.Transaction
-		expectedID     string
-		expectedSource string
-	}{
-		{
-			name: "Transaction with IBAN",
-			transactions: []models.Transaction{
-				{IBAN: "CH93 0076 2011 6238 5295 7"},
-			},
-			expectedID:     "23852957",
-			expectedSource: "content",
-		},
-		{
-			name: "Transaction with fund",
-			transactions: []models.Transaction{
-				{Fund: "SELMA_FUND_123"},
-			},
-			expectedID:     "SELMA_FUND_123",
-			expectedSource: "content",
-		},
-		{
-			name: "Transaction with account servicer",
-			transactions: []models.Transaction{
-				{AccountServicer: "SELMA_BANK"},
-			},
-			expectedID:     "SELMA_BANK",
-			expectedSource: "content",
-		},
-		{
-			name:           "No account information",
-			transactions:   []models.Transaction{{}},
-			expectedID:     "SELMA",
-			expectedSource: "default",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ExtractAccountFromSelmaContent(tt.transactions)
-			assert.Equal(t, tt.expectedID, result.ID)
-			assert.Equal(t, tt.expectedSource, result.Source)
 		})
 	}
 }

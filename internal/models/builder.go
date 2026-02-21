@@ -47,15 +47,6 @@ func (b *TransactionBuilder) WithID(id string) *TransactionBuilder {
 	return b
 }
 
-// WithBookkeepingNumber sets the bookkeeping number
-func (b *TransactionBuilder) WithBookkeepingNumber(number string) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.BookkeepingNumber = number
-	return b
-}
-
 // WithStatus sets the transaction status
 func (b *TransactionBuilder) WithStatus(status string) *TransactionBuilder {
 	if b.err != nil {
@@ -155,16 +146,6 @@ func (b *TransactionBuilder) WithAmount(amount decimal.Decimal, currency string)
 		return b
 	}
 	b.tx.Amount = amount
-	b.tx.Currency = currency
-	return b
-}
-
-// WithAmountFromFloat sets the transaction amount from float64 and currency
-func (b *TransactionBuilder) WithAmountFromFloat(amount float64, currency string) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.Amount = decimal.NewFromFloat(amount)
 	b.tx.Currency = currency
 	return b
 }
@@ -271,15 +252,6 @@ func (b *TransactionBuilder) WithAccountServicer(servicer string) *TransactionBu
 	return b
 }
 
-// WithBankTxCode sets the bank transaction code
-func (b *TransactionBuilder) WithBankTxCode(code string) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.BankTxCode = code
-	return b
-}
-
 // WithCategory sets the transaction category
 func (b *TransactionBuilder) WithCategory(category string) *TransactionBuilder {
 	if b.err != nil {
@@ -340,24 +312,6 @@ func (b *TransactionBuilder) WithFees(fees decimal.Decimal) *TransactionBuilder 
 		return b
 	}
 	b.tx.Fees = fees
-	return b
-}
-
-// WithFeesFromFloat sets the transaction fees from float64
-func (b *TransactionBuilder) WithFeesFromFloat(fees float64) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.Fees = decimal.NewFromFloat(fees)
-	return b
-}
-
-// WithIBAN sets the IBAN
-func (b *TransactionBuilder) WithIBAN(iban string) *TransactionBuilder {
-	if b.err != nil {
-		return b
-	}
-	b.tx.IBAN = iban
 	return b
 }
 
@@ -477,15 +431,3 @@ func (b *TransactionBuilder) populateDerivedFields() {
 	}
 }
 
-// Reset clears the builder state and returns a new builder with defaults
-func (b *TransactionBuilder) Reset() *TransactionBuilder {
-	return NewTransactionBuilder()
-}
-
-// Clone creates a copy of the current builder state
-func (b *TransactionBuilder) Clone() *TransactionBuilder {
-	return &TransactionBuilder{
-		tx:  b.tx,
-		err: b.err,
-	}
-}
