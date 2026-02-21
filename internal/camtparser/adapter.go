@@ -453,20 +453,6 @@ func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) err
 
 	}
 
-	// Handle empty transactions list
-
-	if len(transactions) == 0 {
-
-		a.GetLogger().Info("No transactions found, created empty CSV file with headers",
-			logging.Field{Key: "file", Value: csvFile},
-			logging.Field{Key: "delimiter", Value: string(common.Delimiter)})
-
-		emptyTransactions := []models.Transaction{}
-
-		return common.WriteTransactionsToCSV(emptyTransactions, csvFile)
-
-	}
-
 	// Write the transactions to the CSV file
 
 	a.GetLogger().Info("Writing transactions to CSV file",

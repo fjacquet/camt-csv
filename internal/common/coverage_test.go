@@ -126,7 +126,7 @@ func TestWriteTransactionsToCSVWithFormatter(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:      "empty transactions writes header only",
+			name:      "empty transactions skips output file",
 			txs:       []models.Transaction{},
 			delimiter: ',',
 			formatter: &mockFormatter{
@@ -152,6 +152,12 @@ func TestWriteTransactionsToCSVWithFormatter(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+
+			if len(tt.txs) == 0 {
+				_, statErr := os.Stat(csvPath)
+				assert.True(t, os.IsNotExist(statErr), "output file should not be created for 0 transactions")
+				return
+			}
 
 			content, readErr := os.ReadFile(csvPath)
 			require.NoError(t, readErr)

@@ -181,7 +181,7 @@ func TestBaseParser_WriteToCSV(t *testing.T) {
 		err := baseParser.WriteToCSV(transactions, csvFile)
 
 		require.NoError(t, err)
-		assert.FileExists(t, csvFile)
+		assert.NoFileExists(t, csvFile, "no output file should be created for 0 transactions")
 	})
 }
 

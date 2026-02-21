@@ -98,6 +98,10 @@ func WriteTransactionsToCSVWithFormatter(
 	if transactions == nil {
 		return fmt.Errorf("cannot write nil transactions to CSV")
 	}
+	if len(transactions) == 0 {
+		logger.WithField("file", csvFile).Info("No transactions found, skipping output file")
+		return nil
+	}
 
 	logger.WithFields(
 		logging.Field{Key: "file", Value: csvFile},
@@ -180,6 +184,10 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	}
 	if transactions == nil {
 		return fmt.Errorf("cannot write nil transactions to CSV")
+	}
+	if len(transactions) == 0 {
+		logger.WithField("file", csvFile).Info("No transactions found, skipping output file")
+		return nil
 	}
 
 	logger.WithFields(
