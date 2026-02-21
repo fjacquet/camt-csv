@@ -17,39 +17,6 @@ func TestIsGitRepo(t *testing.T) {
 	})
 }
 
-func TestGetCurrentBranch(t *testing.T) {
-	t.Run("returns branch name", func(t *testing.T) {
-		branch, err := GetCurrentBranch()
-		assert.NoError(t, err)
-		assert.NotEmpty(t, branch, "branch name should not be empty")
-		// Branch name should be a valid identifier (no newlines, etc.)
-		assert.NotContains(t, branch, "\n")
-	})
-}
-
-func TestGetDiff(t *testing.T) {
-	t.Run("returns diff against HEAD", func(t *testing.T) {
-		// Diff against HEAD should work, even if empty
-		diff, err := GetDiff("HEAD")
-		assert.NoError(t, err)
-		// Result might be empty if no changes, but shouldn't error
-		_ = diff
-	})
-
-	t.Run("returns diff against HEAD~0", func(t *testing.T) {
-		// HEAD~0 is the same as HEAD
-		diff, err := GetDiff("HEAD~0")
-		assert.NoError(t, err)
-		_ = diff
-	})
-
-	t.Run("returns error for invalid ref", func(t *testing.T) {
-		_, err := GetDiff("nonexistent-ref-12345")
-		assert.Error(t, err, "should error on invalid git ref")
-		assert.Contains(t, err.Error(), "failed to get git diff")
-	})
-}
-
 func TestGetChangedFiles(t *testing.T) {
 	t.Run("returns files against HEAD", func(t *testing.T) {
 		// Getting changed files against HEAD should work

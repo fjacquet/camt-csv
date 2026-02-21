@@ -6,7 +6,6 @@ package categorizer
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -195,89 +194,6 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 // This allows expensive AI client creation to be deferred until actually needed.
 func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
 	c.aiFactory = factory
-}
-
-// CategorizeTransactionWithCategorizer categorizes a transaction using the provided categorizer instance.
-// This function provides a migration path from the global singleton pattern to dependency injection.
-//
-// Parameters:
-//   - ctx: Context for cancellation and timeout control
-//   - categorizer: The categorizer instance to use
-//   - transaction: The transaction to categorize
-//
-// Returns:
-//   - models.Category: The assigned category
-//   - error: Any error encountered during categorization
-//
-// Example usage:
-//
-//	container, err := container.NewContainer(config)
-//	if err != nil {
-//	    return err
-//	}
-//	category, err := categorizer.CategorizeTransactionWithCategorizer(ctx, container.Categorizer, transaction)
-func CategorizeTransactionWithCategorizer(ctx context.Context, cat *Categorizer, transaction Transaction) (models.Category, error) {
-	if cat == nil {
-		return models.Category{}, fmt.Errorf("categorizer cannot be nil")
-	}
-
-	// Get the actual categorization
-	category, err := cat.CategorizeTransaction(ctx, transaction)
-
-	// If we successfully found a category via AI AND auto-learning is enabled,
-	// let's immediately save it to the database so we don't need to recategorize
-	// similar transactions in the future
-	if err == nil && cat.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		// Auto-learn this categorization by saving it to the appropriate database
-		if transaction.IsDebtor {
-			cat.logger.WithFields(
-				logging.Field{Key: "party", Value: transaction.PartyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning debitor mapping")
-			cat.updateDebitorCategory(transaction.PartyName, category.Name)
-			// Force immediate save to disk
-			if err := cat.SaveDebitorsToYAML(); err != nil {
-				cat.logger.WithError(err).Warn("Failed to save debitor mapping")
-			} else {
-				cat.logger.Debug("Successfully saved new debitor mapping to disk")
-			}
-		} else {
-			cat.logger.WithFields(
-				logging.Field{Key: "party", Value: transaction.PartyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning creditor mapping")
-			cat.updateCreditorCategory(transaction.PartyName, category.Name)
-			// Force immediate save to disk
-			if err := cat.SaveCreditorsToYAML(); err != nil {
-				cat.logger.WithError(err).Warn("Failed to save creditor mapping")
-			} else {
-				cat.logger.Debug("Successfully saved new creditor mapping to disk")
-			}
-		}
-	} else if err == nil && !cat.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		// Log that auto-learning is disabled but categorization succeeded
-		cat.logger.WithFields(
-			logging.Field{Key: "party", Value: transaction.PartyName},
-			logging.Field{Key: "category", Value: category.Name},
-			logging.Field{Key: "action", Value: "skip_auto_learn"},
-			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
-		).Debug("Categorization found but auto-learning disabled")
-		// Save to staging file instead of discarding
-		cat.saveStagingSuggestion(transaction.PartyName, transaction.IsDebtor, category.Name)
-	} else {
-		// Log when categorization is skipped (uncategorized or empty)
-		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
-			cat.logger.WithField("party", transaction.PartyName).Debug("No categorization found, skipping auto-learn")
-		}
-	}
-
-	return category, err
 }
 
 // CategorizeTransaction categorizes a transaction using this categorizer instance.

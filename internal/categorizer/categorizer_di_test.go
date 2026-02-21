@@ -34,69 +34,6 @@ func (m *MockAIClient) GetEmbedding(ctx context.Context, text string) ([]float32
 	return []float32{0.0, 0.0}, nil
 }
 
-func TestCategorizeTransactionWithCategorizer(t *testing.T) {
-	// Create mock store and logger
-	testStore := &store.CategoryStore{
-		CategoriesFile: "testdata/categories.yaml",
-		CreditorsFile:  "testdata/creditors.yaml",
-		DebtorsFile:    "testdata/debtors.yaml",
-	}
-	testLogger := logging.NewLogrusAdapter("debug", "text")
-
-	// Create mock AI client
-	mockAI := &MockAIClient{
-		CategorizeFunc: func(ctx context.Context, transaction models.Transaction) (models.Transaction, error) {
-			transaction.Category = "AI_Category"
-			return transaction, nil
-		},
-	}
-
-	// Create categorizer with dependency injection
-	cat := NewCategorizer(mockAI, testStore, testLogger, true)
-
-	tests := []struct {
-		name        string
-		categorizer *Categorizer
-		transaction Transaction
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:        "nil categorizer",
-			categorizer: nil,
-			transaction: Transaction{PartyName: "Test", IsDebtor: true},
-			expectError: true,
-			errorMsg:    "categorizer cannot be nil",
-		},
-		{
-			name:        "valid categorizer with direct mapping",
-			categorizer: cat,
-			transaction: Transaction{PartyName: "COOP", IsDebtor: true},
-			expectError: false,
-		},
-		{
-			name:        "valid categorizer with AI fallback",
-			categorizer: cat,
-			transaction: Transaction{PartyName: "Unknown Store", IsDebtor: true},
-			expectError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			category, err := CategorizeTransactionWithCategorizer(context.Background(), tt.categorizer, tt.transaction)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				assert.NoError(t, err)
-				assert.NotEmpty(t, category.Name)
-			}
-		})
-	}
-}
-
 func TestCategorizer_UpdateMethods(t *testing.T) {
 	// Create mock store and logger
 	testStore := &store.CategoryStore{

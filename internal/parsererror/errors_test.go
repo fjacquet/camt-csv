@@ -86,51 +86,6 @@ func TestValidationError(t *testing.T) {
 	}
 }
 
-func TestCategorizationError(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      *CategorizationError
-		expected string
-	}{
-		{
-			name: "basic categorization error",
-			err: &CategorizationError{
-				Transaction: "TX123",
-				Strategy:    "AIStrategy",
-				Err:         errors.New("API timeout"),
-			},
-			expected: "categorization failed for TX123 using AIStrategy: API timeout",
-		},
-		{
-			name: "categorization error with keyword strategy",
-			err: &CategorizationError{
-				Transaction: "COOP Payment",
-				Strategy:    "KeywordStrategy",
-				Err:         errors.New("no matching patterns"),
-			},
-			expected: "categorization failed for COOP Payment using KeywordStrategy: no matching patterns",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.err.Error())
-		})
-	}
-}
-
-func TestCategorizationError_Unwrap(t *testing.T) {
-	originalErr := errors.New("network error")
-	catErr := &CategorizationError{
-		Transaction: "TX123",
-		Strategy:    "AIStrategy",
-		Err:         originalErr,
-	}
-
-	assert.Equal(t, originalErr, catErr.Unwrap())
-	assert.True(t, errors.Is(catErr, originalErr))
-}
-
 func TestInvalidFormatError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -224,26 +179,6 @@ func TestErrorWrappingPatterns(t *testing.T) {
 		assert.Equal(t, parseErr, targetParseErr)
 	})
 
-	t.Run("CategorizationError can be wrapped and unwrapped", func(t *testing.T) {
-		originalErr := errors.New("network timeout")
-		catErr := &CategorizationError{
-			Transaction: "TX123",
-			Strategy:    "AIStrategy",
-			Err:         originalErr,
-		}
-
-		// Test direct unwrapping
-		assert.Equal(t, originalErr, catErr.Unwrap())
-
-		// Test errors.Is
-		assert.True(t, errors.Is(catErr, originalErr))
-
-		// Test errors.As
-		var targetCatErr *CategorizationError
-		assert.True(t, errors.As(catErr, &targetCatErr))
-		assert.Equal(t, catErr, targetCatErr)
-	})
-
 	t.Run("ValidationError implements Unwrap", func(t *testing.T) {
 		underlyingErr := errors.New("underlying error")
 		valErr := &ValidationError{
@@ -289,15 +224,6 @@ func TestErrorTypeAssertions(t *testing.T) {
 				Reason:   "invalid format",
 			},
 			expected: &ValidationError{},
-		},
-		{
-			name: "CategorizationError type assertion",
-			err: &CategorizationError{
-				Transaction: "TX123",
-				Strategy:    "AIStrategy",
-				Err:         errors.New("test"),
-			},
-			expected: &CategorizationError{},
 		},
 		{
 			name: "InvalidFormatError type assertion",

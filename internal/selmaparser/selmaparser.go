@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -16,12 +15,6 @@ import (
 
 	"github.com/shopspring/decimal"
 )
-
-// Parse reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects.
-// This is the standardized parser interface for reading Selma CSV files.
-func Parse(r io.Reader, logger logging.Logger) ([]models.Transaction, error) {
-	return ParseWithCategorizer(r, logger, nil)
-}
 
 // ParseWithCategorizer reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects
 // and applies categorization using the provided categorizer.
@@ -207,19 +200,6 @@ func determineCreditDebit(transactionType, amount string) string {
 	return models.TransactionTypeCredit
 }
 
-// ProcessTransactions processes a slice of Transaction objects from Selma CSV data.
-// It applies categorization and associates related transactions like stamp duties.
-//
-// Parameters:
-//   - transactions: A slice of Transaction objects to process
-//   - logger: Logger instance for logging operations
-//
-// Returns:
-//   - []models.Transaction: The processed transactions with additional metadata
-func ProcessTransactions(transactions []models.Transaction, logger logging.Logger) []models.Transaction {
-	return ProcessTransactionsWithCategorizer(transactions, logger, nil)
-}
-
 // ProcessTransactionsWithCategorizer processes a slice of Transaction objects from Selma CSV data.
 // It applies categorization using the provided categorizer and associates related transactions like stamp duties.
 //
@@ -247,54 +227,6 @@ func ProcessTransactionsWithCategorizer(transactions []models.Transaction, logge
 	logger.Info("Successfully processed Selma transactions",
 		logging.Field{Key: "count", Value: len(finalTransactions)})
 	return finalTransactions
-}
-
-// WriteToCSV writes a slice of Transaction objects to a CSV file in a simplified format
-// that is specifically used by the Selma parser tests.
-func WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	// Delegate to standardized CSV writer in common
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-}
-
-// ConvertToCSV converts a Selma CSV file to the standard CSV format.
-// This is a convenience function that combines Parse and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Converting file to CSV",
-		logging.Field{Key: "input", Value: inputFile},
-		logging.Field{Key: "output", Value: outputFile})
-
-	// Open the input file
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			logger.Warn("Failed to close file",
-				logging.Field{Key: "error", Value: err})
-		}
-	}()
-
-	// Parse the file
-	transactions, err := Parse(file, logger)
-	if err != nil {
-		return err
-	}
-
-	// Write to CSV
-	if err := WriteToCSV(transactions, outputFile); err != nil {
-		return err
-	}
-
-	logger.Info("Successfully converted file to CSV",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "input", Value: inputFile},
-		logging.Field{Key: "output", Value: outputFile})
-
-	return nil
 }
 
 // validateFormat checks if a file is in valid Selma CSV format.
