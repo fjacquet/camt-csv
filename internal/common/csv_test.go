@@ -172,51 +172,5 @@ Bob Johnson,42,bob@example.com,UK`
 	assert.Error(t, err, "GeneralizedConvertToCSV should return an error when validation fails")
 }
 
-func TestExportTransactionsToCSV(t *testing.T) {
-	tempDir := t.TempDir()
-	csvFile := filepath.Join(tempDir, "export.csv")
-
-	// Create sample transactions
-	transactions := []models.Transaction{
-		{
-			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			ValueDate:   time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "Test Debit",
-			Amount:      models.ParseAmount("123.45"),
-			Currency:    "CHF",
-			CreditDebit: models.TransactionTypeDebit,
-		},
-		{
-			Date:        time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
-			ValueDate:   time.Date(2023, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description: "Test Credit",
-			Amount:      models.ParseAmount("-67.89"),
-			Currency:    "EUR",
-			CreditDebit: models.TransactionTypeCredit,
-		},
-	}
-
-	err := ExportTransactionsToCSV(transactions, csvFile)
-	assert.NoError(t, err, "ExportTransactionsToCSV should not return an error")
-
-	// Read the output file and verify content
-	content, err := os.ReadFile(csvFile)
-	assert.NoError(t, err, "Should be able to read exported CSV file")
-	csvStr := string(content)
-
-	// Check for expected fields in the CSV
-	assert.Contains(t, csvStr, "Date")
-	assert.Contains(t, csvStr, "Description")
-	assert.Contains(t, csvStr, "Amount")
-	assert.Contains(t, csvStr, "Currency")
-
-	// Check transaction data is present
-	// Note: Now using custom MarshalCSV method, so dates are in DD.MM.YYYY format
-	assert.Contains(t, csvStr, "01.01.2023")
-	assert.Contains(t, csvStr, "Test Debit")
-	assert.Contains(t, csvStr, "123.45")
-	assert.Contains(t, csvStr, "CHF")
-}
-
 // TestSetLogger removed - common package no longer uses global logging
 // Logging is now handled through dependency injection

@@ -76,7 +76,7 @@ func BenchmarkDirectMappingStrategy(b *testing.B) {
 	}
 
 	logger := &MockLogger{}
-	strategy := NewDirectMappingStrategy(store, logger)
+	strategy := NewDirectMappingStrategy(store.creditorMappings, store.debtorMappings, store, logger)
 
 	tx := Transaction{
 		PartyName: "CREDITOR_500",
@@ -109,7 +109,7 @@ func BenchmarkKeywordStrategy(b *testing.B) {
 	}
 
 	logger := &MockLogger{}
-	strategy := NewKeywordStrategy(store, logger)
+	strategy := NewKeywordStrategy(store.categories, store, logger)
 
 	tx := Transaction{
 		PartyName: "COOP SUPERMARKET",

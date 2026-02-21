@@ -13,48 +13,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
-// normalizeStringToLowerCategorizer converts a string to lowercase using strings.Builder
-// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
-//
-// Performance rationale: Centralizes string normalization logic and ensures
-// consistent memory allocation patterns across the categorizer. The helper
-// function approach reduces code duplication and provides a single point
-// for optimization improvements.
-func normalizeStringToLowerCategorizer(input string) string {
-	if input == "" {
-		return ""
-	}
-
-	// Fast path for ASCII-only strings (common case)
-	if isASCII(input) {
-		// Performance optimization: Pre-allocate builder capacity to avoid reallocations
-		builder := strings.Builder{}
-		builder.Grow(len(input))
-		for i := 0; i < len(input); i++ {
-			c := input[i]
-			if c >= 'A' && c <= 'Z' {
-				builder.WriteByte(c + 32) // Convert to lowercase
-			} else {
-				builder.WriteByte(c)
-			}
-		}
-		return builder.String()
-	}
-
-	// Fallback for Unicode strings
-	return strings.ToLower(input)
-}
-
-// isASCII checks if a string contains only ASCII characters
-func isASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] >= 128 {
-			return false
-		}
-	}
-	return true
-}
-
 //------------------------------------------------------------------------------
 // TYPE DEFINITIONS
 //------------------------------------------------------------------------------
@@ -85,9 +43,8 @@ type Categorizer struct {
 	store            CategoryStoreInterface
 	logger           logging.Logger
 
-	// Lazy initialization for AI client
-	aiClient  AIClient // New field for AIClient interface
-	aiFactory func() AIClient
+	// AI client
+	aiClient AIClient
 
 	// Auto-learning control
 	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
@@ -97,17 +54,6 @@ type Categorizer struct {
 }
 
 // Note: log variable removed as part of dependency injection refactoring
-
-// Configuration interface for dependency injection
-type Config interface {
-	GetAIEnabled() bool
-	GetAIAPIKey() string
-	GetAIModel() string
-	GetAIRequestsPerMinute() int
-	GetAITimeoutSeconds() int
-	GetAIFallbackCategory() string
-	GetCategorizationConfidenceThreshold() float64
-}
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, and auto-learn setting.
 func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool) *Categorizer {
@@ -136,15 +82,6 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		c.categories = categories
 	}
 
-	// Initialize strategies in priority order
-	// Note: SemanticStrategy needs loaded categories to build its index
-	c.strategies = []CategorizationStrategy{
-		NewDirectMappingStrategy(store, logger),
-		NewKeywordStrategy(store, logger),
-		NewSemanticStrategy(aiClient, logger, c.categories),
-		NewAIStrategy(aiClient, logger),
-	}
-
 	// Load creditor mappings
 	creditorMappings, err := c.store.LoadCreditorMappings()
 	if err != nil {
@@ -162,7 +99,7 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 
 		// Performance optimization: Use helper function to minimize allocations when loading creditor mappings
 		for key, value := range creditorMappings {
-			c.creditorMappings[normalizeStringToLowerCategorizer(key)] = value
+			c.creditorMappings[strings.ToLower(key)] = value
 		}
 	}
 
@@ -183,17 +120,20 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 
 		// Performance optimization: Use helper function to minimize allocations when loading debtor mappings
 		for key, value := range debitorMappings {
-			c.debitorMappings[normalizeStringToLowerCategorizer(key)] = value
+			c.debitorMappings[strings.ToLower(key)] = value
 		}
 	}
 
-	return c
-}
+	// Initialize strategies in priority order
+	// Pass pre-loaded data to strategy constructors (pure, no I/O)
+	c.strategies = []CategorizationStrategy{
+		NewDirectMappingStrategy(c.creditorMappings, c.debitorMappings, store, logger),
+		NewKeywordStrategy(c.categories, store, logger),
+		NewSemanticStrategy(aiClient, logger, c.categories),
+		NewAIStrategy(aiClient, logger),
+	}
 
-// SetAIClientFactory sets a factory function for lazy AI client initialization.
-// This allows expensive AI client creation to be deferred until actually needed.
-func (c *Categorizer) SetAIClientFactory(factory func() AIClient) {
-	c.aiFactory = factory
+	return c
 }
 
 // CategorizeTransaction categorizes a transaction using this categorizer instance.
@@ -370,7 +310,7 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	c.debitorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
+	c.debitorMappings[strings.ToLower(partyName)] = categoryName
 	c.isDirtyDebitors = true
 
 	// Update the DirectMappingStrategy as well
@@ -405,7 +345,7 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	c.creditorMappings[normalizeStringToLowerCategorizer(partyName)] = categoryName
+	c.creditorMappings[strings.ToLower(partyName)] = categoryName
 	c.isDirtyCreditors = true
 
 	// Update the DirectMappingStrategy as well

@@ -8,25 +8,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
-// normalizeStringToUpper converts a string to uppercase using strings.Builder
-// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
-//
-// Performance rationale: While strings.ToUpper() is faster for simple cases,
-// using strings.Builder provides consistent performance characteristics and
-// better memory allocation patterns in categorization loops where multiple
-// string operations occur. The pre-allocation with Grow() ensures we don't
-// trigger multiple reallocations during string building.
-func normalizeStringToUpper(input string) string {
-	if input == "" {
-		return ""
-	}
-	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
-	builder := strings.Builder{}
-	builder.Grow(len(input))
-	builder.WriteString(strings.ToUpper(input))
-	return builder.String()
-}
-
 // KeywordStrategy implements categorization using keyword pattern matching
 // from category configuration loaded from YAML files.
 type KeywordStrategy struct {
@@ -36,15 +17,12 @@ type KeywordStrategy struct {
 }
 
 // NewKeywordStrategy creates a new KeywordStrategy instance.
-func NewKeywordStrategy(store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
+func NewKeywordStrategy(categories []models.CategoryConfig, store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
 	strategy := &KeywordStrategy{
-		categories: make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		categories: categories,
 		store:      store,
 		logger:     logger,
 	}
-
-	// Load categories from store
-	strategy.loadCategories()
 
 	return strategy
 }
@@ -63,14 +41,14 @@ func (s *KeywordStrategy) Categorize(ctx context.Context, tx Transaction) (model
 
 	// Performance optimization: Use helper function with strings.Builder to minimize allocations
 	// during case conversion in the categorization hot path
-	partyName := normalizeStringToUpper(tx.PartyName)
-	description := normalizeStringToUpper(tx.Info)
+	partyName := strings.ToUpper(tx.PartyName)
+	description := strings.ToUpper(tx.Info)
 
 	// Try to match against category keywords
 	for _, categoryConfig := range s.categories {
 		for _, keyword := range categoryConfig.Keywords {
 			// Performance optimization: Use helper function to minimize allocations in keyword matching loop
-			keywordUpper := normalizeStringToUpper(keyword)
+			keywordUpper := strings.ToUpper(keyword)
 
 			// Check if keyword appears in party name or description
 			if strings.Contains(partyName, keywordUpper) || strings.Contains(description, keywordUpper) {
@@ -106,8 +84,8 @@ func (s *KeywordStrategy) Categorize(ctx context.Context, tx Transaction) (model
 // for backward compatibility. This should eventually be moved to YAML configuration.
 func (s *KeywordStrategy) categorizeWithHardcodedPatterns(tx Transaction) (models.Category, bool) {
 	// Performance optimization: Use helper function to minimize allocations in hardcoded pattern matching
-	partyName := normalizeStringToUpper(tx.PartyName)
-	description := normalizeStringToUpper(tx.Info)
+	partyName := strings.ToUpper(tx.PartyName)
+	description := strings.ToUpper(tx.Info)
 
 	// Maps of keyword patterns to categories
 	// These are ordered from most specific to most general

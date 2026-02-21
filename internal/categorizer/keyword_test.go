@@ -190,7 +190,7 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			mockLogger := &logging.MockLogger{}
 
 			// Create strategy
-			strategy := NewKeywordStrategy(mockStore, mockLogger)
+			strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
 
 			// Execute
 			ctx := context.Background()
@@ -228,7 +228,7 @@ func TestKeywordStrategy_ReloadCategories(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create strategy
-	strategy := NewKeywordStrategy(mockStore, mockLogger)
+	strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
 
 	// Verify initial category works
 	ctx := context.Background()
@@ -323,7 +323,7 @@ func TestKeywordStrategy_HardcodedPatterns(t *testing.T) {
 			mockLogger := &logging.MockLogger{}
 
 			// Create strategy
-			strategy := NewKeywordStrategy(mockStore, mockLogger)
+			strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
 
 			// Execute
 			ctx := context.Background()

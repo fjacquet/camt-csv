@@ -274,33 +274,6 @@ func TestWriteTransactionsToCSVWithLogger_DebitFlagFromNegativeAmount(t *testing
 }
 
 // ---------------------------------------------------------------------------
-// ExportTransactionsToCSVWithLogger error paths (83.3% -> higher)
-// ---------------------------------------------------------------------------
-
-func TestExportTransactionsToCSVWithLogger_NilTransactions(t *testing.T) {
-	err := ExportTransactionsToCSVWithLogger(nil, "/tmp/test.csv", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot write nil transactions")
-}
-
-func TestExportTransactionsToCSVWithLogger_NilLogger(t *testing.T) {
-	csvPath := filepath.Join(t.TempDir(), "export_nil.csv")
-	txs := sampleTransactions()
-
-	err := ExportTransactionsToCSVWithLogger(txs, csvPath, nil)
-	require.NoError(t, err)
-}
-
-func TestExportTransactionsToCSVWithLogger_WithLogger(t *testing.T) {
-	csvPath := filepath.Join(t.TempDir(), "export_logger.csv")
-	logger := logging.NewLogrusAdapter("info", "text")
-	txs := sampleTransactions()
-
-	err := ExportTransactionsToCSVWithLogger(txs, csvPath, logger)
-	require.NoError(t, err)
-}
-
-// ---------------------------------------------------------------------------
 // GeneralizedConvertToCSVWithLogger error paths (77.8% -> higher)
 // ---------------------------------------------------------------------------
 

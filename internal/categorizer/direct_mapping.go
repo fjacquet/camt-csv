@@ -9,24 +9,6 @@ import (
 	"fjacquet/camt-csv/internal/models"
 )
 
-// normalizeStringToLower converts a string to lowercase using strings.Builder
-// for optimal performance in hot paths. Pre-allocates capacity to minimize allocations.
-//
-// Performance rationale: This approach provides consistent memory allocation
-// patterns and prevents multiple reallocations during string processing.
-// The pre-allocation ensures optimal performance in categorization hot paths
-// where string normalization is performed frequently.
-func normalizeStringToLower(input string) string {
-	if input == "" {
-		return ""
-	}
-	// Performance optimization: Pre-allocate builder capacity to avoid reallocations
-	builder := strings.Builder{}
-	builder.Grow(len(input))
-	builder.WriteString(strings.ToLower(input))
-	return builder.String()
-}
-
 // DirectMappingStrategy implements categorization using exact name matches
 // from creditor and debtor mapping databases.
 type DirectMappingStrategy struct {
@@ -38,16 +20,13 @@ type DirectMappingStrategy struct {
 }
 
 // NewDirectMappingStrategy creates a new DirectMappingStrategy instance.
-func NewDirectMappingStrategy(store CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
+func NewDirectMappingStrategy(creditorMappings, debtorMappings map[string]string, store CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
 	strategy := &DirectMappingStrategy{
-		creditorMappings: make(map[string]string, 100), // Pre-allocate with size hint
-		debtorMappings:   make(map[string]string, 100), // Pre-allocate with size hint
+		creditorMappings: creditorMappings,
+		debtorMappings:   debtorMappings,
 		store:            store,
 		logger:           logger,
 	}
-
-	// Load mappings from store
-	strategy.loadMappings()
 
 	return strategy
 }
@@ -65,7 +44,7 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	}
 
 	// Performance optimization: Use helper function to minimize allocations during party name normalization
-	partyNameLower := normalizeStringToLower(tx.PartyName)
+	partyNameLower := strings.ToLower(tx.PartyName)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -124,55 +103,6 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	return category, true, nil
 }
 
-// loadMappings loads creditor and debitor mappings from the store.
-func (s *DirectMappingStrategy) loadMappings() {
-	// Load creditor mappings
-	creditorMappings, err := s.store.LoadCreditorMappings()
-	if err != nil {
-		s.logger.WithError(err).Warn("Failed to load creditor mappings for DirectMappingStrategy")
-	} else {
-		s.mu.Lock()
-		// Pre-allocate map if needed and normalize keys to lowercase for case-insensitive lookup
-		if len(creditorMappings) > len(s.creditorMappings) {
-			newMap := make(map[string]string, len(creditorMappings))
-			for k, v := range s.creditorMappings {
-				newMap[k] = v
-			}
-			s.creditorMappings = newMap
-		}
-
-		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
-		for key, value := range creditorMappings {
-			s.creditorMappings[normalizeStringToLower(key)] = value
-		}
-		s.mu.Unlock()
-		s.logger.WithField("count", len(creditorMappings)).Debug("Loaded creditor mappings for DirectMappingStrategy")
-	}
-
-	// Load debtor mappings
-	debtorMappings, err := s.store.LoadDebtorMappings()
-	if err != nil {
-		s.logger.WithError(err).Warn("Failed to load debtor mappings for DirectMappingStrategy")
-	} else {
-		s.mu.Lock()
-		// Pre-allocate map if needed and normalize keys to lowercase for case-insensitive lookup
-		if len(debtorMappings) > len(s.debtorMappings) {
-			newMap := make(map[string]string, len(debtorMappings))
-			for k, v := range s.debtorMappings {
-				newMap[k] = v
-			}
-			s.debtorMappings = newMap
-		}
-
-		// Performance optimization: Use helper function to minimize allocations when processing mapping keys
-		for key, value := range debtorMappings {
-			s.debtorMappings[normalizeStringToLower(key)] = value
-		}
-		s.mu.Unlock()
-		s.logger.WithField("count", len(debtorMappings)).Debug("Loaded debtor mappings for DirectMappingStrategy")
-	}
-}
-
 // ReloadMappings reloads the mappings from the store.
 // This can be called when the underlying YAML files have been updated.
 func (s *DirectMappingStrategy) ReloadMappings() {
@@ -191,14 +121,14 @@ func (s *DirectMappingStrategy) ReloadMappings() {
 	newCreditorMappings := make(map[string]string, 100)
 	if creditorErr == nil {
 		for key, value := range creditorMappings {
-			newCreditorMappings[normalizeStringToLower(key)] = value
+			newCreditorMappings[strings.ToLower(key)] = value
 		}
 	}
 
 	newDebtorMappings := make(map[string]string, 100)
 	if debtorErr == nil {
 		for key, value := range debtorMappings {
-			newDebtorMappings[normalizeStringToLower(key)] = value
+			newDebtorMappings[strings.ToLower(key)] = value
 		}
 	}
 
@@ -219,7 +149,7 @@ func (s *DirectMappingStrategy) UpdateCreditorMapping(partyName, categoryName st
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.creditorMappings[normalizeStringToLower(partyName)] = categoryName
+	s.creditorMappings[strings.ToLower(partyName)] = categoryName
 }
 
 // UpdateDebtorMapping adds or updates a debtor mapping.
@@ -227,5 +157,5 @@ func (s *DirectMappingStrategy) UpdateDebtorMapping(partyName, categoryName stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.debtorMappings[normalizeStringToLower(partyName)] = categoryName
+	s.debtorMappings[strings.ToLower(partyName)] = categoryName
 }

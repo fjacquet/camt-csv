@@ -2,7 +2,6 @@ package revolutparser
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// Adapter implements the models.Parser interface for Revolut CSV files.
+// Adapter implements the parser.FullParser interface for Revolut CSV files.
 type Adapter struct {
 	parser.BaseParser
 }
@@ -30,25 +29,9 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 	return ParseWithCategorizer(r, a.GetLogger(), a.GetCategorizer())
 }
 
-// ConvertToCSV implements models.Parser.ConvertToCSV
+// ConvertToCSV implements parser.FullParser.ConvertToCSV
 func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			a.GetLogger().WithError(err).Warn("Failed to close input file",
-				logging.Field{Key: "file", Value: inputFile})
-		}
-	}()
-
-	transactions, err := a.Parse(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	return a.WriteToCSV(transactions, outputFile)
+	return a.ConvertToCSVDefault(ctx, inputFile, outputFile, a.Parse)
 }
 
 // ValidateFormat checks if a file is a valid Revolut CSV file.

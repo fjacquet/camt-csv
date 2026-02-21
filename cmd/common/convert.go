@@ -1,0 +1,103 @@
+package common
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"fjacquet/camt-csv/cmd/root"
+	"fjacquet/camt-csv/internal/batch"
+	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/logging"
+
+	"github.com/spf13/cobra"
+)
+
+// RunConvert is the shared handler for all convert commands.
+// It handles: get logger, get container, get parser, stat input, branch to batch or single-file.
+func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType, name string) {
+	ctx := cmd.Context()
+	logger := root.GetLogrusAdapter()
+	root.Log.Info(name + " convert command called")
+
+	inputPath := root.SharedFlags.Input
+	outputPath := root.SharedFlags.Output
+
+	logger.Infof("Input: %s", inputPath)
+	logger.Infof("Output: %s", outputPath)
+
+	format, _ := cmd.Flags().GetString("format")
+	dateFormat, _ := cmd.Flags().GetString("date-format")
+
+	appContainer := root.GetContainer()
+	if appContainer == nil {
+		logger.Fatal("Container not initialized")
+	}
+
+	p, err := appContainer.GetParser(parserType)
+	if err != nil {
+		logger.Fatalf("Error getting %s parser: %v", name, err)
+	}
+
+	fileInfo, err := os.Stat(inputPath)
+	if err != nil {
+		logger.Fatalf("Error accessing input path: %v", err)
+	}
+
+	if fileInfo.IsDir() {
+		BatchConvertLegacy(ctx, p, inputPath, outputPath, logger)
+	} else {
+		ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
+		root.Log.Info(name + " to CSV conversion completed successfully!")
+	}
+}
+
+// BatchConvertLegacy processes all files in a directory using the BatchConvert interface
+// with manifest-based exit codes. Used by CAMT, Selma, Debit, and RevolutInvestment.
+func BatchConvertLegacy(ctx context.Context, p interface{}, inputDir, outputDir string, logger logging.Logger) {
+	batchConverter, ok := p.(interface {
+		BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
+	})
+	if !ok {
+		logger.Fatal("Parser does not support batch conversion")
+	}
+
+	count, err := batchConverter.BatchConvert(ctx, inputDir, outputDir)
+	if err != nil {
+		logger.WithError(err).Error("Batch conversion failed")
+		os.Exit(1)
+	}
+
+	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		logger.WithError(err).Warn("Could not read manifest")
+		if count == 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	var manifest batch.BatchManifest
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		logger.WithError(err).Warn("Could not parse manifest")
+		if count == 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
+		manifest.SuccessCount, manifest.TotalFiles))
+
+	if manifest.FailureCount > 0 {
+		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
+			manifest.FailureCount, manifestPath))
+	}
+
+	if manifest.ExitCode() != 0 {
+		os.Exit(manifest.ExitCode())
+	}
+}

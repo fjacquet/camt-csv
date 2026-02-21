@@ -217,12 +217,11 @@ func TestMockLogger_StructLiteralInit(t *testing.T) {
 }
 
 func TestMockLogger_NilEntries_GetMethods(t *testing.T) {
-	// Test GetEntries/GetEntriesByLevel/HasEntry/VerifyFatalLog with nil entries
+	// Test GetEntries/GetEntriesByLevel/HasEntry/VerifyFatalLog with empty entries
 	logger := &MockLogger{}
-	// Before any log call, entries is nil
-
-	assert.Nil(t, logger.GetEntries())
-	assert.Nil(t, logger.GetEntriesByLevel("INFO"))
+	// Before any log call, entries is empty
+	assert.Empty(t, logger.GetEntries())
+	assert.Empty(t, logger.GetEntriesByLevel("INFO"))
 	assert.False(t, logger.HasEntry("INFO", "x"))
 	assert.False(t, logger.VerifyFatalLog("x"))
 }

@@ -30,6 +30,7 @@ type MockLogger struct {
 	entries       *[]LogEntry // Shared across parent and child loggers
 	pendingError  error
 	pendingFields []Field
+	initOnce      sync.Once // Ensures thread-safe lazy initialization
 }
 
 // LogEntry represents a single log entry captured by MockLogger.
@@ -55,13 +56,18 @@ func (m *MockLogger) Debug(msg string, fields ...Field) {
 	})
 }
 
-// ensureMutexInitialized ensures the mutex pointer is initialized.
-// This handles cases where MockLogger is created via struct literal instead of NewMockLogger.
-// NOT thread-safe itself — callers must handle initialization ordering.
+// ensureMutexInitialized ensures the mutex and entries pointers are initialized.
+// Thread-safe via sync.Once for struct-literal MockLogger instances.
 func (m *MockLogger) ensureMutexInitialized() {
-	if m.mu == nil {
-		m.mu = &sync.RWMutex{}
-	}
+	m.initOnce.Do(func() {
+		if m.mu == nil {
+			m.mu = &sync.RWMutex{}
+		}
+		if m.entries == nil {
+			entries := make([]LogEntry, 0)
+			m.entries = &entries
+		}
+	})
 }
 
 // ensureEntriesInitialized ensures the entries pointer is initialized.

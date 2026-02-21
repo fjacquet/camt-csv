@@ -2,6 +2,11 @@
 package parser
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -101,4 +106,26 @@ func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile strin
 		logging.Field{Key: "count", Value: len(transactions)})
 
 	return common.WriteTransactionsToCSV(transactions, csvFile)
+}
+
+// ConvertToCSVDefault provides the standard ConvertToCSV implementation.
+// Adapters that follow the open->parse->write pattern can delegate to this.
+func (b *BaseParser) ConvertToCSVDefault(ctx context.Context, inputFile, outputFile string, parseFn func(ctx context.Context, r io.Reader) ([]models.Transaction, error)) error {
+	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
+	if err != nil {
+		return fmt.Errorf("error opening input file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			b.GetLogger().WithError(err).Warn("Failed to close input file",
+				logging.Field{Key: "file", Value: inputFile})
+		}
+	}()
+
+	transactions, err := parseFn(ctx, file)
+	if err != nil {
+		return err
+	}
+
+	return b.WriteToCSV(transactions, outputFile)
 }

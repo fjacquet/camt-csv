@@ -26,14 +26,9 @@ var Cmd = &cobra.Command{
 	Run:   revolutFunc,
 }
 
-func init() {
-	Cmd.Flags().StringP("format", "f", "standard",
-		"Output format: standard (35-column CSV) or icompta (iCompta-compatible)")
-	Cmd.Flags().String("date-format", "DD.MM.YYYY",
-		"Date format in output: DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY, etc. (Go layout: 02.01.2006, 2006-01-02, 01/02/2006)")
-}
+func init() { common.RegisterFormatFlags(Cmd) }
 
-func revolutFunc(cmd *cobra.Command, args []string) {
+func revolutFunc(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
 	logger := root.GetLogrusAdapter()
 	root.Log.Info("Revolut convert command called")
@@ -44,33 +39,27 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 	logger.Infof("Input: %s", inputPath)
 	logger.Infof("Output: %s", outputPath)
 
-	// Get format flags
 	format, _ := cmd.Flags().GetString("format")
 	dateFormat, _ := cmd.Flags().GetString("date-format")
 
-	// Get container from root command context
 	appContainer := root.GetContainer()
 	if appContainer == nil {
 		logger.Fatal("Container not initialized")
 	}
 
-	// Get parser from container
 	p, err := appContainer.GetParser(container.Revolut)
 	if err != nil {
 		logger.Fatalf("Error getting Revolut parser: %v", err)
 	}
 
-	// Check if input is directory or file
 	fileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		logger.Fatalf("Error accessing input path: %v", err)
 	}
 
 	if fileInfo.IsDir() {
-		// Directory mode - batch conversion
 		batchConvert(ctx, p, inputPath, outputPath, logger, format, dateFormat)
 	} else {
-		// File mode - single file conversion
 		common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
 		root.Log.Info("Revolut to CSV conversion completed successfully!")
 	}
@@ -78,16 +67,14 @@ func revolutFunc(cmd *cobra.Command, args []string) {
 
 // batchConvert processes all files in a directory using BatchProcessor with formatter
 func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string,
-	logger logging.Logger, format string, dateFormat string) {
+	logger logging.Logger, format string, _ string) {
 
-	// Cast to FullParser interface
 	fullParser, ok := p.(parser.FullParser)
 	if !ok {
 		logger.Error("Parser does not support batch conversion")
 		os.Exit(1)
 	}
 
-	// Resolve formatter from registry
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
 	if err != nil {
@@ -96,23 +83,19 @@ func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string
 		os.Exit(1)
 	}
 
-	// Create BatchProcessor with formatter (CLI layer composition)
 	processor := batch.NewBatchProcessor(fullParser, logger, outFormatter)
 
-	// Process directory
 	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {
 		logger.WithError(err).Error("Batch conversion failed")
 		os.Exit(1)
 	}
 
-	// Write manifest
 	manifestPath := filepath.Join(outputDir, ".manifest.json")
 	if err := manifest.WriteManifest(manifestPath); err != nil {
 		logger.WithError(err).Warn("Failed to write manifest")
 	}
 
-	// Log summary
 	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
 		manifest.SuccessCount, manifest.TotalFiles))
 
@@ -121,7 +104,6 @@ func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string
 			manifest.FailureCount, manifestPath))
 	}
 
-	// Exit with semantic code
 	if manifest.ExitCode() != 0 {
 		os.Exit(manifest.ExitCode())
 	}
