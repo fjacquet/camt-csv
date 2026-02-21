@@ -348,4 +348,3 @@ func TestProcessTransactionsWithCategorizationStats_NilLogger(t *testing.T) {
 	assert.Equal(t, len(transactions), len(result))
 	assert.Equal(t, "Uncategorized", result[0].Category)
 }
-

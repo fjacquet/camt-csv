@@ -351,4 +351,3 @@ func formatDate(dateStr string) time.Time {
 	// If parsing fails, return zero time
 	return time.Time{}
 }
-

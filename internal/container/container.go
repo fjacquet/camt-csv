@@ -185,4 +185,3 @@ func (c *Container) GetFormatterRegistry() *formatter.FormatterRegistry {
 	}
 	return c.formatterRegistry
 }
-

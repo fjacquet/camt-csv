@@ -32,11 +32,6 @@ func cryptoRandIntn(n int) int {
 	return int(result.Int64())
 }
 
-func setupTestCategorizer(t *testing.T) {
-	// The new categorizer system uses dependency injection and doesn't require global setup
-	// Tests that need categorization should create their own categorizer instances
-}
-
 func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "selma-test")

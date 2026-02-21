@@ -296,4 +296,3 @@ func validateFormatWithLogger(r io.Reader, logger logging.Logger) (bool, error) 
 	logger.Info("Reader contains valid Revolut CSV")
 	return true, nil
 }
-

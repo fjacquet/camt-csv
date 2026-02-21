@@ -463,4 +463,3 @@ func TestCleanAmountString(t *testing.T) {
 		assert.Equal(t, test.expected, result, "Input: %s", test.input)
 	}
 }
-

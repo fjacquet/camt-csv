@@ -430,4 +430,3 @@ func (b *TransactionBuilder) populateDerivedFields() {
 		b.tx.PartyName = b.tx.GetPartyName()
 	}
 }
-

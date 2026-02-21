@@ -88,4 +88,3 @@ func (r *FormatterRegistry) Get(name string) (OutputFormatter, error) {
 func (r *FormatterRegistry) Register(name string, formatter OutputFormatter) {
 	r.formatters[name] = formatter
 }
-

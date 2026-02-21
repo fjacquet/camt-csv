@@ -31,25 +31,6 @@ func cryptoRandIntn(n int) int {
 	return int(result.Int64())
 }
 
-func setupTestCategorizer(t *testing.T) {
-	t.Helper()
-	tempDir := t.TempDir()
-	categoriesFile := filepath.Join(tempDir, "categories.yaml")
-	creditorsFile := filepath.Join(tempDir, "creditors.yaml")
-	debitorsFile := filepath.Join(tempDir, "debitors.yaml")
-	if err := os.WriteFile(categoriesFile, []byte("[]"), 0600); err != nil {
-		t.Fatalf("Failed to write categories file: %v", err)
-	}
-	if err := os.WriteFile(creditorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write creditors file: %v", err)
-	}
-	if err := os.WriteFile(debitorsFile, []byte("{}"), 0600); err != nil {
-		t.Fatalf("Failed to write debitors file: %v", err)
-	}
-	// Note: categorizer.SetTestCategoryStore removed - now uses dependency injection
-	// Tests should create their own categorizer instances as needed
-}
-
 func TestParseFile_InvalidFormat(t *testing.T) {
 	// Create temp directories
 	tempDir := filepath.Join(os.TempDir(), "pdf-test")
