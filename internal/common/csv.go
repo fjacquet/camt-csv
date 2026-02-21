@@ -112,15 +112,17 @@ func WriteTransactionsToCSVWithFormatter(
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// Pre-process transactions to ensure derived fields are correctly set
-	for i := range transactions {
-		transactions[i].UpdateNameFromParties()
-		transactions[i].UpdateRecipientFromPayee()
-		transactions[i].UpdateDebitCreditAmounts()
+	// Copy transactions to avoid mutating the caller's slice
+	prepared := make([]models.Transaction, len(transactions))
+	copy(prepared, transactions)
+	for i := range prepared {
+		prepared[i].UpdateNameFromParties()
+		prepared[i].UpdateRecipientFromPayee()
+		prepared[i].UpdateDebitCreditAmounts()
 	}
 
 	// Format transactions using the provided formatter
-	rows, err := formatter.Format(transactions)
+	rows, err := formatter.Format(prepared)
 	if err != nil {
 		logger.WithError(err).Error("Failed to format transactions")
 		return fmt.Errorf("error formatting transactions: %w", err)
@@ -204,33 +206,35 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 		}
 	}()
 
-	// Update date formats and ensure derived fields are correctly set
-	for i := range transactions {
+	// Copy transactions to avoid mutating the caller's slice
+	prepared := make([]models.Transaction, len(transactions))
+	copy(prepared, transactions)
+	for i := range prepared {
 		// Dates are now time.Time and will be formatted automatically during CSV marshaling
 
 		// Update various derived fields
-		transactions[i].UpdateNameFromParties()
-		transactions[i].UpdateRecipientFromPayee()
-		transactions[i].UpdateDebitCreditAmounts()
+		prepared[i].UpdateNameFromParties()
+		prepared[i].UpdateRecipientFromPayee()
+		prepared[i].UpdateDebitCreditAmounts()
 
-		// Set DebitFlag based on transactions[i].CreditDebit or amount sign
-		if transactions[i].CreditDebit == models.TransactionTypeDebit || transactions[i].Amount.IsNegative() {
-			transactions[i].DebitFlag = true
+		// Set DebitFlag based on prepared[i].CreditDebit or amount sign
+		if prepared[i].CreditDebit == models.TransactionTypeDebit || prepared[i].Amount.IsNegative() {
+			prepared[i].DebitFlag = true
 		} else {
-			transactions[i].DebitFlag = false
+			prepared[i].DebitFlag = false
 		}
 
 		// Ensure all decimal values have 2 decimal places
 		// This is needed for proper CSV formatting that passes tests
-		transactions[i].Amount = models.ParseAmount(transactions[i].Amount.StringFixed(2))
-		transactions[i].Debit = models.ParseAmount(transactions[i].Debit.StringFixed(2))
-		transactions[i].Credit = models.ParseAmount(transactions[i].Credit.StringFixed(2))
-		transactions[i].AmountExclTax = models.ParseAmount(transactions[i].AmountExclTax.StringFixed(2))
-		transactions[i].AmountTax = models.ParseAmount(transactions[i].AmountTax.StringFixed(2))
-		transactions[i].TaxRate = models.ParseAmount(transactions[i].TaxRate.StringFixed(2))
-		transactions[i].Fees = models.ParseAmount(transactions[i].Fees.StringFixed(2))
-		transactions[i].OriginalAmount = models.ParseAmount(transactions[i].OriginalAmount.StringFixed(2))
-		transactions[i].ExchangeRate = models.ParseAmount(transactions[i].ExchangeRate.StringFixed(2))
+		prepared[i].Amount = models.ParseAmount(prepared[i].Amount.StringFixed(2))
+		prepared[i].Debit = models.ParseAmount(prepared[i].Debit.StringFixed(2))
+		prepared[i].Credit = models.ParseAmount(prepared[i].Credit.StringFixed(2))
+		prepared[i].AmountExclTax = models.ParseAmount(prepared[i].AmountExclTax.StringFixed(2))
+		prepared[i].AmountTax = models.ParseAmount(prepared[i].AmountTax.StringFixed(2))
+		prepared[i].TaxRate = models.ParseAmount(prepared[i].TaxRate.StringFixed(2))
+		prepared[i].Fees = models.ParseAmount(prepared[i].Fees.StringFixed(2))
+		prepared[i].OriginalAmount = models.ParseAmount(prepared[i].OriginalAmount.StringFixed(2))
+		prepared[i].ExchangeRate = models.ParseAmount(prepared[i].ExchangeRate.StringFixed(2))
 	}
 
 	// Configure CSV writer with custom delimiter
@@ -251,7 +255,7 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	}
 
 	// Write each transaction using custom MarshalCSV method
-	for _, transaction := range transactions {
+	for _, transaction := range prepared {
 		record, err := transaction.MarshalCSV()
 		if err != nil {
 			logger.WithError(err).Error("Failed to marshal transaction to CSV")
@@ -278,29 +282,6 @@ func WriteTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile
 	return nil
 }
 
-// ExportTransactionsToCSV exports a slice of transactions to a CSV file
-func ExportTransactionsToCSV(transactions []models.Transaction, csvFile string) error {
-	return ExportTransactionsToCSVWithLogger(transactions, csvFile, nil)
-}
-
-// ExportTransactionsToCSVWithLogger exports transactions with a logger
-func ExportTransactionsToCSVWithLogger(transactions []models.Transaction, csvFile string, logger logging.Logger) error {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	if transactions == nil {
-		return fmt.Errorf("cannot write nil transactions to CSV")
-	}
-
-	logger.WithFields(
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: csvFile},
-		logging.Field{Key: "delimiter", Value: string(Delimiter)},
-	).Info("Exporting transactions to CSV file using WriteTransactionsToCSV")
-
-	// Use the primary function for writing transactions to ensure consistency
-	return WriteTransactionsToCSVWithLogger(transactions, csvFile, logger)
-}
 
 // GeneralizedConvertToCSV is a utility function that combines parsing and writing to CSV
 // This is used by parsers implementing the standard interface
