@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-02-21
+
+### Fixed
+
+- Skip output file generation when 0 transactions are parsed (all parsers and modes)
+
 ## [2.2.2] - 2026-02-21
 
 ### Changed
