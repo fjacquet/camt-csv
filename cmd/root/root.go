@@ -2,10 +2,6 @@
 package root
 
 import (
-	"fjacquet/camt-csv/cmd/analyze"
-	"fjacquet/camt-csv/cmd/implement"
-	"fjacquet/camt-csv/cmd/review"
-	"fjacquet/camt-csv/cmd/tasks"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/container"
@@ -147,11 +143,6 @@ func Init() {
 	Cmd.PersistentFlags().String("csv-delimiter", "", "CSV delimiter character")
 	Cmd.PersistentFlags().Bool("ai-enabled", false, "Enable AI categorization")
 	Cmd.PersistentFlags().Bool("auto-learn", false, "Enable AI auto-learning of categorizations (default: false)")
-
-	Cmd.AddCommand(review.GetReviewCommand())
-	Cmd.AddCommand(analyze.AnalyzeCmd)
-	Cmd.AddCommand(implement.ImplementCmd)
-	Cmd.AddCommand(tasks.TasksCmd)
 
 	// Bind flags to viper
 	if err := viper.BindPFlag("log.level", Cmd.PersistentFlags().Lookup("log-level")); err != nil {
