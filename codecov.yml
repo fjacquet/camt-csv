@@ -15,14 +15,6 @@ coverage:
         target: 60%
         threshold: 5%
 
-parsers:
-  gcov:
-    branch_detection:
-      conditional: true
-      loop: true
-      macro: false
-      method: false
-
 comment:
   layout: "reach,diff,flags,files"
   behavior: default
