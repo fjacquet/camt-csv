@@ -81,8 +81,10 @@ cff gare geneve, geneve ch: Transports Publics
 cff gare montreux: Transports Publics
 cff gare montreux, montreux ch: Alimentation
 cff genève cornavin: Transports Publics
+cff lausanne wc: Transports Publics
 cff montreux wc: Utilités
 cff vevey wc: Utilités
+cff yverdon-les-bain: Dons
 chalet swiss: Restaurants
 cheverny, chamonix-mont fr: Restaurants
 christ-3875, montreux ch: Shopping
@@ -156,6 +158,7 @@ editions plus s.à r.l.: Abonnements
 elvetino: Restaurants
 elvetino ag: Restaurants
 elvetino ag, zurich ch: Restaurants
+etablissement d'assura: Assurance Maladie
 europa park freizeit, rust de: Loisirs
 europa park gmbh u c: Loisirs
 europa park gmbh u co, rust de: Loisirs
@@ -220,6 +223,8 @@ hardrock hotel davos, davos platz ch: Vacances
 harringtons restaurant strand st dingle co kerry: Restaurants
 hbh frankfurt airport, frankfurt am de: Restaurants
 heberer ffm flgh acm: Restaurants
+hornbach baumarkt (sch: Mobilier
+hornbach baumarkt vi: Mobilier
 hostaria, basel ch: Restaurants
 hostinger.com, larnaka cy: Abonnements
 hotel alpina fiesche: Vacances
@@ -465,7 +470,9 @@ realfly la chute-libre: Loisirs
 rega: Dons
 relay: Divers
 relay genève aig g: Divers
+relay lausanne cff: Transports Publics
 rest walliserkanne, zermatt ch: Restaurants
+rest. de la couronne: Restaurants
 rest. de la couronne, montreux ch: Restaurants
 rest. piazza san mar: Restaurants
 restaurant cécile: Restaurants
@@ -482,11 +489,13 @@ restaurant le milan, lausanne ch: Restaurants
 restaurant les rosal: Restaurants
 restaurant oliobasilico, geneve ch: Restaurants
 restaurant rinderhütte: Restaurants
+restaurant sushi kai: Pension
 restaurant-pizzeria, clarens ch: Restaurants
 restoroute gruyere, avry-devant-p ch: Restaurants
 retail inmotion: Pension
 retrait: Divers
 retrait bcv montreux 1: Divers
+retrait bcv montreux 2: Divers
 retrait bcv montreux forum: Divers
 retrait bm cc-montreux: Divers
 retrait br montreux gare: Divers
@@ -531,6 +540,7 @@ sncf: Transports Publics
 sncf-voyageurs, mitry mory fr: Transports Publics
 sns*paul ullrich ag, bern ch: Shopping
 socar: Voiture
+socar station-servic: Voiture
 socar station-service, montreux ch: Voiture
 souscr.    460782: Abonnements
 sp plaud.ai fr, wan chai hk: Abonnements
