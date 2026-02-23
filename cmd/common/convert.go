@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -118,56 +117,5 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 
 	if manifest.ExitCode() != 0 {
 		osExitFn(manifest.ExitCode())
-	}
-}
-
-// BatchConvertLegacy processes all files in a directory using the BatchConvert interface
-// with manifest-based exit codes. Used by CAMT, Selma, Debit, and RevolutInvestment.
-//
-// Deprecated: Use FolderConvert instead. This function is retained for compatibility
-// and will be removed in Phase 13 with the full batch cleanup.
-func BatchConvertLegacy(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger) {
-	batchConverter, ok := p.(interface {
-		BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
-	})
-	if !ok {
-		logger.Fatal("Parser does not support batch conversion")
-	}
-
-	count, err := batchConverter.BatchConvert(ctx, inputDir, outputDir)
-	if err != nil {
-		logger.WithError(err).Error("Batch conversion failed")
-		os.Exit(1)
-	}
-
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		logger.WithError(err).Warn("Could not read manifest")
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
-	}
-
-	var manifest batch.BatchManifest
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		logger.WithError(err).Warn("Could not parse manifest")
-		if count == 0 {
-			os.Exit(1)
-		}
-		return
-	}
-
-	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
-		manifest.SuccessCount, manifest.TotalFiles))
-
-	if manifest.FailureCount > 0 {
-		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
-			manifest.FailureCount, manifestPath))
-	}
-
-	if manifest.ExitCode() != 0 {
-		os.Exit(manifest.ExitCode())
 	}
 }
