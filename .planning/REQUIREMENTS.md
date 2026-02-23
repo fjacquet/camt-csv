@@ -23,8 +23,8 @@ Requirements for the Simplify milestone. Each maps to roadmap phases.
 
 ### Format Default
 
-- [ ] **FORMAT-01**: Default output format is `icompta` (no `--format` flag required for typical iCompta use)
-- [ ] **FORMAT-02**: `--format` flag remains available to override (e.g., `--format standard` for 29-column CSV)
+- [x] **FORMAT-01**: Default output format is `icompta` (no `--format` flag required for typical iCompta use)
+- [x] **FORMAT-02**: `--format` flag remains available to override (e.g., `--format standard` for 29-column CSV)
 
 ## Future Requirements
 
@@ -57,8 +57,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INPUT-06 | Phase 12 | Complete |
 | BATCH-01 | Phase 13 | Pending |
 | BATCH-02 | Phase 13 | Pending |
-| FORMAT-01 | Phase 13 | Pending |
-| FORMAT-02 | Phase 13 | Pending |
+| FORMAT-01 | Phase 13 | Complete |
+| FORMAT-02 | Phase 13 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 10 total

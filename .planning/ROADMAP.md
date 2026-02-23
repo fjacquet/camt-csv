@@ -58,7 +58,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 ### v1.4 Simplify (Phases 12-13)
 
 - [x] **Phase 12: Input Auto-Detection** — All 6 parser commands detect file vs. folder automatically (completed 2026-02-23)
-- [ ] **Phase 13: Batch Removal and Format Default** — Drop batch command/flag, make icompta the default format
+- [x] **Phase 13: Batch Removal and Format Default** — Drop batch command/flag, make icompta the default format (completed 2026-02-23)
 
 ---
 
@@ -95,7 +95,7 @@ Plans:
   3. Running any parser command with no `--format` flag produces iCompta-compatible semicolon-delimited output
   4. Running `--format standard` still produces the 29-column comma-delimited CSV
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 13-01-PLAN.md — Remove batch subcommand (cmd/batch/ deleted, main.go unwired) and BatchConvertLegacy cleanup
@@ -119,7 +119,7 @@ Plans:
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
 | 12. Input Auto-Detection | 2/2 | Complete | 2026-02-23 |
-| 13. Batch Removal and Format Default | 0/2 | Not started | - |
+| 13. Batch Removal and Format Default | 2/2 | Complete   | 2026-02-23 |
 
 ---
 *Roadmap created: 2026-02-01*
