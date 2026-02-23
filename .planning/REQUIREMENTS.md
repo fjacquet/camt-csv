@@ -18,8 +18,8 @@ Requirements for the Simplify milestone. Each maps to roadmap phases.
 
 ### Batch Removal
 
-- [ ] **BATCH-01**: `batch` subcommand is removed from the CLI entirely
-- [ ] **BATCH-02**: `--batch` flag is removed from all parser commands
+- [x] **BATCH-01**: `batch` subcommand is removed from the CLI entirely
+- [x] **BATCH-02**: `--batch` flag is removed from all parser commands
 
 ### Format Default
 
@@ -55,8 +55,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INPUT-04 | Phase 12 | Complete |
 | INPUT-05 | Phase 12 | Complete |
 | INPUT-06 | Phase 12 | Complete |
-| BATCH-01 | Phase 13 | Pending |
-| BATCH-02 | Phase 13 | Pending |
+| BATCH-01 | Phase 13 | Complete |
+| BATCH-02 | Phase 13 | Complete |
 | FORMAT-01 | Phase 13 | Complete |
 | FORMAT-02 | Phase 13 | Complete |
 
