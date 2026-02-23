@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RunConvert` now logs a fatal error and exits when `--input` is a directory and `--output` is not set
 - `RunConvert` delegates to `FolderConvert` (instead of `BatchConvertLegacy`) when folder input is given with `--output`
 - Add `osExitFn` package variable to `cmd/common` for testable exit-code handling in `FolderConvert`
+- All 6 parser commands (camt, debit, revolut, revolut-investment, selma, pdf) now accept file or folder as input automatically — no separate batch command needed (Input Auto-Detection)
+- Folder input requires `--output` flag; clear error message is shown if omitted
+- PDF folder mode always consolidates all PDFs into a single CSV (removed `--batch` flag)
+- Non-PDF folder mode (camt, debit, revolut, revolut-investment, selma) outputs one CSV per input file using BatchProcessor with formatter support
+
+### Removed
+
+- Remove `--batch` flag from `pdf` command (folder mode now always consolidates)
+- Remove `pdfBatchConvert` function from `cmd/pdf/convert.go` (superseded by consolidation-only folder mode)
 
 ## [2.3.0] - 2026-02-21
 
