@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Change default output format from `standard` to `icompta` — iCompta-compatible semicolon-delimited output requires no `--format` flag
 - `RunConvert` now logs a fatal error and exits when `--input` is a directory and `--output` is not set
 - `RunConvert` delegates to `FolderConvert` (instead of `BatchConvertLegacy`) when folder input is given with `--output`
 - Add `osExitFn` package variable to `cmd/common` for testable exit-code handling in `FolderConvert`
@@ -24,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Remove `batch` subcommand — all parser commands accept folder input directly via auto-detected folder mode
+- Remove deprecated `BatchConvertLegacy` internal function from cmd/common
 - Remove `--batch` flag from `pdf` command (folder mode now always consolidates)
 - Remove `pdfBatchConvert` function from `cmd/pdf/convert.go` (superseded by consolidation-only folder mode)
 
