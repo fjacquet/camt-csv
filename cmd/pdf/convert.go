@@ -11,7 +11,6 @@ import (
 
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/internal/batch"
 	internalcommon "fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/formatter"
@@ -28,24 +27,19 @@ var Cmd = &cobra.Command{
 	Short: "Convert PDF to CSV",
 	Long: `Convert PDF bank statements to CSV format.
 
-Supports three modes:
+Supports two modes:
   1. Single file: Convert one PDF to CSV
-  2. Directory consolidation: Consolidate all PDFs into single CSV (default)
-  3. Directory batch: Convert each PDF to individual CSV (--batch flag)
+  2. Directory consolidation: Consolidate all PDFs into a single CSV
 
 Examples:
   # Single file
   camt-csv pdf -i statement.pdf -o output.csv
 
-  # Directory consolidation (default)
+  # Directory consolidation (requires --output)
   camt-csv pdf -i pdf_dir/ -o consolidated.csv
 
-  # Directory batch (1 PDF → 1 CSV each)
-  camt-csv pdf -i pdf_dir/ -o output_dir/ --batch
-
 Directory consolidation mode parses all PDF files and consolidates their
-transactions into a single CSV file, sorted chronologically by date.
-Batch mode converts each PDF independently with manifest and exit codes.`,
+transactions into a single CSV file, sorted chronologically by date.`,
 	Run: pdfFunc,
 }
 
@@ -54,11 +48,9 @@ func init() {
 		"Output format: standard (35-column CSV) or icompta (iCompta-compatible)")
 	Cmd.Flags().String("date-format", "DD.MM.YYYY",
 		"Date format in output: DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY, etc. (Go layout: 02.01.2006, 2006-01-02, 01/02/2006)")
-	Cmd.Flags().Bool("batch", false,
-		"Batch mode: convert each PDF to individual CSV (instead of consolidating into one)")
 }
 
-func pdfFunc(cmd *cobra.Command, args []string) {
+func pdfFunc(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
 	logger := root.GetLogrusAdapter()
 	root.Log.Info("PDF convert command called")
@@ -89,13 +81,11 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 		logger.Fatalf("Error accessing input path: %v", err)
 	}
 
-	batchMode, _ := cmd.Flags().GetBool("batch")
+	if fileInfo.IsDir() && root.SharedFlags.Output == "" {
+		logger.Fatalf("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
+	}
 
-	if fileInfo.IsDir() && batchMode {
-		// Batch mode - each PDF → individual CSV
-		pdfBatchConvert(ctx, p, inputPath, root.SharedFlags.Output, logger, format, dateFormat)
-	} else if fileInfo.IsDir() {
-		// Consolidation mode - all PDFs → single CSV
+	if fileInfo.IsDir() {
 		count, err := consolidatePDFDirectory(ctx, p, inputPath,
 			root.SharedFlags.Output, root.SharedFlags.Validate, logger,
 			format, dateFormat)
@@ -104,7 +94,6 @@ func pdfFunc(cmd *cobra.Command, args []string) {
 		}
 		logger.Infof("Consolidated %d PDF files successfully!", count)
 	} else {
-		// File mode - existing flow
 		common.ProcessFile(ctx, p, inputPath, root.SharedFlags.Output,
 			root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
 		root.Log.Info("PDF to CSV conversion completed successfully!")
@@ -239,58 +228,6 @@ func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
 
 	return processedCount, nil
 }
-
-// pdfBatchConvert processes all PDF files in a directory using BatchConvert
-func pdfBatchConvert(ctx context.Context, p parser.FullParser, inputDir, outputDir string, logger logging.Logger,
-	format string, dateFormat string) {
-
-	// Resolve formatter
-	formatterReg := formatter.NewFormatterRegistry()
-	outputFormatter, err := formatterReg.Get(format)
-	if err != nil {
-		logger.WithError(err).Error("Invalid format",
-			logging.Field{Key: "format", Value: format})
-		os.Exit(1)
-	}
-
-	// Create batch processor with formatter
-	processor := batch.NewBatchProcessor(p, logger, outputFormatter)
-	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
-	if err != nil {
-		logger.Fatalf("Batch conversion failed: %v", err)
-	}
-
-	// Log results
-	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
-		manifest.SuccessCount, manifest.TotalFiles))
-
-	if manifest.FailureCount > 0 {
-		manifestPath := filepath.Join(outputDir, ".manifest.json")
-		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
-			manifest.FailureCount, manifestPath))
-	}
-
-	// Exit with appropriate code
-	if manifest.ExitCode() != 0 {
-		os.Exit(manifest.ExitCode())
-	}
-}
-
-// Format flag behavior verification:
-//
-// Single-file mode:
-//   camt-csv pdf --format icompta -i file.pdf -o output.csv
-//   → Uses ProcessFile → WriteTransactionsToCSVWithFormatter
-//
-// Batch mode (--batch):
-//   camt-csv pdf --batch --format icompta -i pdfs/ -o output_dir/
-//   → Uses pdfBatchConvert → BatchProcessor(formatter) → WriteTransactionsToCSVWithFormatter
-//
-// Consolidation mode (default for directory):
-//   camt-csv pdf --format icompta -i pdfs/ -o consolidated.csv
-//   → Uses consolidatePDFDirectory → WriteTransactionsToCSVWithFormatter
-//
-// All three modes should produce identical CSV format for same input data.
 
 // sortTransactionsChronologically sorts transactions by date, then value date, then amount
 func sortTransactionsChronologically(transactions []models.Transaction) {
