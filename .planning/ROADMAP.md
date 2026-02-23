@@ -113,7 +113,7 @@ Plans:
 | 9. Batch-Formatter Integration | 3/3 | Done | 2026-02-16 |
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
-| 12. Input Auto-Detection | 2/2 | Complete   | 2026-02-23 |
+| 12. Input Auto-Detection | 2/2 | Complete    | 2026-02-23 |
 | 13. Batch Removal and Format Default | 0/TBD | Not started | - |
 
 ---
