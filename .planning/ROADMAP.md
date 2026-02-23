@@ -119,7 +119,7 @@ Plans:
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
 | 12. Input Auto-Detection | 2/2 | Complete | 2026-02-23 |
-| 13. Batch Removal and Format Default | 2/2 | Complete   | 2026-02-23 |
+| 13. Batch Removal and Format Default | 2/2 | Complete    | 2026-02-23 |
 
 ---
 *Roadmap created: 2026-02-01*
