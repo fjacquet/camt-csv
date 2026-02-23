@@ -9,11 +9,11 @@ Requirements for the Simplify milestone. Each maps to roadmap phases.
 
 ### Input Handling
 
-- [ ] **INPUT-01**: User can pass a file path or a folder path to any parser command (camt, debit, revolut, revolut-investment, selma, pdf)
-- [ ] **INPUT-02**: When input is a file, the command processes that single file (unchanged single-file behavior)
-- [ ] **INPUT-03**: When input is a folder, the command processes all matching files in that folder (non-recursive, file extension filtered per parser)
-- [ ] **INPUT-04**: When input is a folder, `--output` flag is required; command exits with a clear error if omitted
-- [ ] **INPUT-05**: camt, debit, revolut, revolut-investment, selma: folder mode outputs one CSV per input file to the `--output` directory
+- [x] **INPUT-01**: User can pass a file path or a folder path to any parser command (camt, debit, revolut, revolut-investment, selma, pdf)
+- [x] **INPUT-02**: When input is a file, the command processes that single file (unchanged single-file behavior)
+- [x] **INPUT-03**: When input is a folder, the command processes all matching files in that folder (non-recursive, file extension filtered per parser)
+- [x] **INPUT-04**: When input is a folder, `--output` flag is required; command exits with a clear error if omitted
+- [x] **INPUT-05**: camt, debit, revolut, revolut-investment, selma: folder mode outputs one CSV per input file to the `--output` directory
 - [ ] **INPUT-06**: pdf: folder mode consolidates all PDFs in the folder into a single CSV in the `--output` directory
 
 ### Batch Removal
@@ -49,11 +49,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INPUT-01 | Phase 12 | Pending |
-| INPUT-02 | Phase 12 | Pending |
-| INPUT-03 | Phase 12 | Pending |
-| INPUT-04 | Phase 12 | Pending |
-| INPUT-05 | Phase 12 | Pending |
+| INPUT-01 | Phase 12 | Complete |
+| INPUT-02 | Phase 12 | Complete |
+| INPUT-03 | Phase 12 | Complete |
+| INPUT-04 | Phase 12 | Complete |
+| INPUT-05 | Phase 12 | Complete |
 | INPUT-06 | Phase 12 | Pending |
 | BATCH-01 | Phase 13 | Pending |
 | BATCH-02 | Phase 13 | Pending |

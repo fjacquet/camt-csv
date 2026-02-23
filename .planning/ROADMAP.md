@@ -80,7 +80,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 **Plans:** 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Core folder detection: --output guard + FolderConvert in cmd/common (camt, debit, selma, revolut-investment)
+- [x] 12-01-PLAN.md — Core folder detection: --output guard + FolderConvert in cmd/common (camt, debit, selma, revolut-investment)
 - [ ] 12-02-PLAN.md — Apply auto-detection to revolut and pdf commands, update CHANGELOG
 
 ### Phase 13: Batch Removal and Format Default
@@ -113,9 +113,9 @@ Plans:
 | 9. Batch-Formatter Integration | 3/3 | Done | 2026-02-16 |
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
-| 12. Input Auto-Detection | 0/2 | Not started | - |
+| 12. Input Auto-Detection | 1/2 | In progress | - |
 | 13. Batch Removal and Format Default | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-23 — Phase 12 planned (2 plans)*
+*Last updated: 2026-02-23 — Phase 12 Plan 01 complete (1/2)*

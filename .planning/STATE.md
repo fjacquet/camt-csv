@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 ## Current Position
 
 Phase: 12 of 13 in v1.4 (Input Auto-Detection)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-23 — v1.4 roadmap created, phases 12-13 defined
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-23 — Phase 12 Plan 01 completed: FolderConvert + --output guard in RunConvert
 
-Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v1.4)
+Progress: [##░░░░░░░░░░░░░░░░░░] 25% (v1.4)
 
 ## Performance Metrics
 
@@ -44,6 +44,8 @@ Recent v1.4 decisions:
 - Phase 12: PDF folder mode consolidates to one CSV (existing behavior promoted to default)
 - Phase 13: `--format` flag remains available; only default changes to icompta
 - Phase 13: batch subcommand and --batch flag removed entirely (no deprecation period)
+- Phase 12 Plan 01: osExitFn package var used in FolderConvert for testable os.Exit injection
+- Phase 12 Plan 01: EmptyDirectory asserts exit code 2 (consistent with BatchManifest contract)
 
 ### Pending Todos
 
@@ -56,10 +58,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: v1.4 roadmap created — phases 12 and 13 defined and written to ROADMAP.md
+Stopped at: Completed 12-01-PLAN.md — FolderConvert + --output guard + unit tests
 Resume file: None
-Next action: `/gsd:plan-phase 12`
+Next action: Execute 12-02-PLAN.md
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-23 (v1.4 roadmap created)*
+*Last updated: 2026-02-23 (12-01 complete)*
