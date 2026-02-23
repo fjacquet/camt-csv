@@ -54,16 +54,16 @@ security:
 	gosec -exclude=G304 -fmt=sarif -out=security.sarif ./...
 	@echo "Security report: security.sarif"
 
-## sbom: Generate Software Bill of Materials (CycloneDX format)
+## sbom: Generate Software Bill of Materials (CycloneDX format, Go module graph)
 sbom:
-	../../go/bin/cyclonedx-gomod mod -json -output sbom.json
-	@echo "SBOM generated: sbom.json"
+	cyclonedx-gomod app -json -licenses -output sbom.cdx.json
+	@echo "SBOM generated: sbom.cdx.json"
 
 ## clean: Clean build artifacts
 clean:
 	rm -f $(BINARY_NAME)
 	rm -f coverage.txt coverage.html
-	rm -f security.sarif sbom.json
+	rm -f security.sarif sbom.cdx.json
 	rm -f debug_pdf_extract.txt
 
 ## install-tools: Install development tools

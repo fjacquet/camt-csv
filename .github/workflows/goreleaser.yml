@@ -26,6 +26,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install Syft (for SBOM generation)
+        uses: anchore/sbom-action/download-syft@v0.17.9
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

@@ -109,6 +109,20 @@ brews:
     test: |
       system "#{bin}/camt-csv", "--version"
 
+sboms:
+  - id: archive-sbom
+    artifacts: archive
+    cmd: syft
+    args: ["$artifact", "--output", "cyclonedx-json=$document"]
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom.cdx.json"
+  - id: source-sbom
+    artifacts: source
+    cmd: syft
+    args: ["$artifact", "--output", "cyclonedx-json=$document"]
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_source.sbom.cdx.json"
+
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
