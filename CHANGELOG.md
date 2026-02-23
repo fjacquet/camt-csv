@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-02-23
+
 ### Added
 
 - Add `FolderConvert` to `cmd/common/convert.go`: modern batch path using `BatchProcessor` with formatter support for camt, debit, selma, and revolut-investment parsers
 - Add unit tests for folder routing in `cmd/common/convert_test.go` (empty dir, invalid format, non-FullParser guard)
+- Add SBOM generation to GoReleaser release pipeline using syft (CycloneDX JSON format, per-archive and source)
 
 ### Changed
 

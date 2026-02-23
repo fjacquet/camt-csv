@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** v1.4 Simplify — Phase 13: Batch Removal and Format Default
+**Current focus:** v1.4 Simplify — COMPLETE. Ready for v1.5 milestone.
 
 ## Current Position
 
-Phase: 13 of 13 in v1.4 (Batch Removal and Format Default)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-23 — Phase 13 Plan 02 completed: format default changed to icompta
+Phase: —
+Plan: —
+Status: v1.4 archived and tagged
+Last activity: 2026-02-23 — v1.4 milestone complete, archived, tagged v1.4
 
-Progress: [####################] 100% (v1.4)
+Progress: [####################] 100% (v1.4 — SHIPPED)
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [####################] 100% (v1.4)
 | v1.1 Hardening | 1-4 | 11 | Complete | 2026-02-01 |
 | v1.2 Full Polish | 5-9 | 14 | Complete | 2026-02-16 |
 | v1.3 Standard CSV Trim | 10-11 | 3 | Complete | 2026-02-16 |
-| v1.4 Simplify | 12-13 | 4 | Complete | 2026-02-23 |
+| v1.4 Simplify | 12-13 | 4 | Shipped | 2026-02-23 |
 
 ## Accumulated Context
 
@@ -62,9 +62,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 13-02-PLAN.md — format default changed to icompta
+Stopped at: v1.4 milestone archived — ROADMAP collapsed, REQUIREMENTS archived, PROJECT.md updated, git tag v1.4 created
 Resume file: None
-Next action: v1.4 Simplify milestone complete — ready for release or next milestone
+Next action: Run /gsd:new-milestone to define v1.5 goals
 
 ---
 *State initialized: 2026-02-01 (v1.1)*

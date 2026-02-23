@@ -54,24 +54,25 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ Gemini API retry with exponential backoff — v1.2
 - ✓ BatchProcessor universal infrastructure with formatter integration — v1.2
 
-## Current Milestone: v1.4 Simplify
+## Current State: v1.4 Shipped
 
-**Goal:** Eliminate operational complexity by making every parser command smart about its input — file or folder — and removing the separate batch machinery entirely.
+**Shipped:** 2026-02-23
 
-**Target features:**
-- Automatic file-vs-folder detection in all 6 parsers
-- Folder input processes all matching files (non-recursive), requires `--output`
-- PDF folder input consolidates all PDFs to one CSV (existing behavior, now default)
-- Drop `batch` subcommand and `--batch` flag entirely
-- `icompta` becomes the default output format (no flag needed for typical use)
+All 6 parser commands accept file or folder input transparently. `batch` subcommand removed. `icompta` is the default output format.
 
-### Active
+**Next milestone:** TBD — run `/gsd:new-milestone` to define v1.5 goals.
 
-- [ ] All 6 parser commands detect file vs. folder input automatically
-- [ ] Folder mode requires --output flag; errors clearly if omitted
-- [ ] PDF folder mode consolidates into one CSV
-- [ ] batch subcommand and --batch flag removed
-- [ ] icompta is the default --format
+### Shipped (v1.4)
+
+- ✓ All 6 parser commands detect file vs. folder input automatically — v1.4
+- ✓ Folder mode requires --output flag; exits with clear error if omitted — v1.4
+- ✓ PDF folder mode always consolidates all PDFs into one CSV — v1.4
+- ✓ batch subcommand and --batch flag removed entirely — v1.4
+- ✓ icompta is the default --format (no flag needed for typical iCompta use) — v1.4
+- ✓ SBOM generation integrated into GoReleaser release pipeline (CycloneDX via syft) — v1.4
+
+<details>
+<summary>Previously Shipped (v1.1–v1.3)</summary>
 
 ### Shipped (v1.3)
 
@@ -79,6 +80,8 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ Removed BookkeepingNumber, IsDebit, Debit, Credit, Recipient, AmountTax — v1.3
 - ✓ All parser tests and integration tests updated for 29-column format — v1.3
 - ✓ End-to-end tests for both standard and iCompta formats — v1.3
+
+</details>
 
 ### Out of Scope
 
