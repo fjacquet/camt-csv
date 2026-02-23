@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fjacquet/camt-csv/cmd/batch"
 	"fjacquet/camt-csv/cmd/camt"
 	"fjacquet/camt-csv/cmd/categorize"
 	"fjacquet/camt-csv/cmd/debit"
@@ -43,7 +42,6 @@ func init() {
 
 	// 6. Add all subcommands
 	root.Cmd.AddCommand(camt.Cmd)
-	root.Cmd.AddCommand(batch.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)
 	root.Cmd.AddCommand(pdf.Cmd)
 	root.Cmd.AddCommand(selma.Cmd)
