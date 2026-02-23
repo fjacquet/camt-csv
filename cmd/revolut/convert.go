@@ -57,6 +57,10 @@ func revolutFunc(cmd *cobra.Command, _ []string) {
 		logger.Fatalf("Error accessing input path: %v", err)
 	}
 
+	if fileInfo.IsDir() && outputPath == "" {
+		logger.Fatalf("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
+	}
+
 	if fileInfo.IsDir() {
 		batchConvert(ctx, p, inputPath, outputPath, logger, format, dateFormat)
 	} else {
