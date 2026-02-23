@@ -70,7 +70,7 @@ func revolutFunc(cmd *cobra.Command, _ []string) {
 }
 
 // batchConvert processes all files in a directory using BatchProcessor with formatter
-func batchConvert(ctx context.Context, p interface{}, inputDir, outputDir string,
+func batchConvert(ctx context.Context, p any, inputDir, outputDir string,
 	logger logging.Logger, format string, _ string) {
 
 	fullParser, ok := p.(parser.FullParser)

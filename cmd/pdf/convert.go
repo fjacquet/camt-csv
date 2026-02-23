@@ -103,7 +103,7 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 // consolidatePDFDirectory consolidates all PDF files in a directory into a single CSV
 func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
 	inputDir, outputFile string, validate bool, logger logging.Logger,
-	format string, dateFormat string) (int, error) {
+	format string, _ string) (int, error) {
 
 	logger.Info("Consolidating PDF files from directory",
 		logging.Field{Key: "inputDir", Value: inputDir},
