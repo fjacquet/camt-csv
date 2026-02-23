@@ -77,7 +77,7 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 //   - logger: structured logger
 //   - format: output format name ("standard" or "icompta")
 //   - dateFormat: date format string (reserved for future use)
-func FolderConvert(ctx context.Context, p interface{}, inputDir, outputDir string, logger logging.Logger, format string, _ string) {
+func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string, _ string) {
 	// Resolve formatter
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
@@ -126,7 +126,7 @@ func FolderConvert(ctx context.Context, p interface{}, inputDir, outputDir strin
 //
 // Deprecated: Use FolderConvert instead. This function is retained for compatibility
 // and will be removed in Phase 13 with the full batch cleanup.
-func BatchConvertLegacy(ctx context.Context, p interface{}, inputDir, outputDir string, logger logging.Logger) {
+func BatchConvertLegacy(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger) {
 	batchConverter, ok := p.(interface {
 		BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error)
 	})
