@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** No active milestone — v1.3 shipped
+**Current focus:** v1.4 Simplify — auto folder detection, drop batch, icompta default
 
 ## Current Position
 
-Phase: N/A
-Plan: N/A
-Status: v1.3 Standard CSV Trim shipped
-Last activity: 2026-02-16 — v1.3 milestone archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-23 — Milestone v1.4 Simplify started
 
-Progress: [████████████████████] 100% (v1.3 complete)
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

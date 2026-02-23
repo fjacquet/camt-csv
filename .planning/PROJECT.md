@@ -54,9 +54,24 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ Gemini API retry with exponential backoff — v1.2
 - ✓ BatchProcessor universal infrastructure with formatter integration — v1.2
 
+## Current Milestone: v1.4 Simplify
+
+**Goal:** Eliminate operational complexity by making every parser command smart about its input — file or folder — and removing the separate batch machinery entirely.
+
+**Target features:**
+- Automatic file-vs-folder detection in all 6 parsers
+- Folder input processes all matching files (non-recursive), requires `--output`
+- PDF folder input consolidates all PDFs to one CSV (existing behavior, now default)
+- Drop `batch` subcommand and `--batch` flag entirely
+- `icompta` becomes the default output format (no flag needed for typical use)
+
 ### Active
 
-None — ready for next milestone.
+- [ ] All 6 parser commands detect file vs. folder input automatically
+- [ ] Folder mode requires --output flag; errors clearly if omitted
+- [ ] PDF folder mode consolidates into one CSV
+- [ ] batch subcommand and --batch flag removed
+- [ ] icompta is the default --format
 
 ### Shipped (v1.3)
 
@@ -136,4 +151,4 @@ Known technical debt:
 | Confidence scoring per strategy tier | Audit trail for categorization decisions | ✓ Good — 1.0/0.95/0.90/0.8 per tier |
 
 ---
-*Last updated: 2026-02-16 — v1.3 shipped*
+*Last updated: 2026-02-23 — v1.4 milestone started*
