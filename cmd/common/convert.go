@@ -17,6 +17,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// osExitFn is the function used to exit the process. Replaced in tests to avoid os.Exit.
+var osExitFn = os.Exit
+
 // RunConvert is the shared handler for all convert commands.
 // It handles: get logger, get container, get parser, stat input, branch to batch or single-file.
 // When input is a directory:
@@ -114,7 +117,7 @@ func FolderConvert(ctx context.Context, p interface{}, inputDir, outputDir strin
 	}
 
 	if manifest.ExitCode() != 0 {
-		os.Exit(manifest.ExitCode())
+		osExitFn(manifest.ExitCode())
 	}
 }
 

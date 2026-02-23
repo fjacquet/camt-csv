@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `FolderConvert` to `cmd/common/convert.go`: modern batch path using `BatchProcessor` with formatter support for camt, debit, selma, and revolut-investment parsers
+- Add unit tests for folder routing in `cmd/common/convert_test.go` (empty dir, invalid format, non-FullParser guard)
+
+### Changed
+
+- `RunConvert` now logs a fatal error and exits when `--input` is a directory and `--output` is not set
+- `RunConvert` delegates to `FolderConvert` (instead of `BatchConvertLegacy`) when folder input is given with `--output`
+- Add `osExitFn` package variable to `cmd/common` for testable exit-code handling in `FolderConvert`
+
 ## [2.3.0] - 2026-02-21
 
 ### Fixed
