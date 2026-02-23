@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 ## Current Position
 
 Phase: 12 of 13 in v1.4 (Input Auto-Detection)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-23 — Phase 12 Plan 01 completed: FolderConvert + --output guard in RunConvert
+Plan: 2 of 2 in current phase
+Status: Complete
+Last activity: 2026-02-23 — Phase 12 Plan 02 completed: revolut/pdf --output guards + --batch removal
 
-Progress: [##░░░░░░░░░░░░░░░░░░] 25% (v1.4)
+Progress: [####░░░░░░░░░░░░░░░░] 50% (v1.4)
 
 ## Performance Metrics
 
@@ -46,6 +46,8 @@ Recent v1.4 decisions:
 - Phase 13: batch subcommand and --batch flag removed entirely (no deprecation period)
 - Phase 12 Plan 01: osExitFn package var used in FolderConvert for testable os.Exit injection
 - Phase 12 Plan 01: EmptyDirectory asserts exit code 2 (consistent with BatchManifest contract)
+- [Phase 12-input-auto-detection]: PDF folder mode always consolidates to one CSV — removed --batch flag and pdfBatchConvert function entirely
+- [Phase 12-input-auto-detection]: All 6 parser commands implement INPUT-01 through INPUT-06 with consistent --output guard pattern
 
 ### Pending Todos
 
@@ -58,10 +60,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 12-01-PLAN.md — FolderConvert + --output guard + unit tests
+Stopped at: Completed 12-02-PLAN.md — revolut/pdf --output guards + --batch removal
 Resume file: None
-Next action: Execute 12-02-PLAN.md
+Next action: Execute Phase 13 plans
 
 ---
 *State initialized: 2026-02-01 (v1.1)*
-*Last updated: 2026-02-23 (12-01 complete)*
+*Last updated: 2026-02-23 (12-02 complete)*

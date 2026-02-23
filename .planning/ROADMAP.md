@@ -57,7 +57,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 ### v1.4 Simplify (Phases 12-13)
 
-- [ ] **Phase 12: Input Auto-Detection** — All 6 parser commands detect file vs. folder automatically
+- [x] **Phase 12: Input Auto-Detection** — All 6 parser commands detect file vs. folder automatically (completed 2026-02-23)
 - [ ] **Phase 13: Batch Removal and Format Default** — Drop batch command/flag, make icompta the default format
 
 ---
@@ -77,7 +77,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
   4. When a folder is passed without `--output`, the command exits immediately with a clear error message explaining the flag is required
   5. All 6 parsers (camt, debit, revolut, revolut-investment, selma, pdf) accept both file and folder inputs
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 12-01-PLAN.md — Core folder detection: --output guard + FolderConvert in cmd/common (camt, debit, selma, revolut-investment)
@@ -113,7 +113,7 @@ Plans:
 | 9. Batch-Formatter Integration | 3/3 | Done | 2026-02-16 |
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
-| 12. Input Auto-Detection | 1/2 | In progress | - |
+| 12. Input Auto-Detection | 2/2 | Complete   | 2026-02-23 |
 | 13. Batch Removal and Format Default | 0/TBD | Not started | - |
 
 ---
