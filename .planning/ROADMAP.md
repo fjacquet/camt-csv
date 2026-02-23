@@ -65,22 +65,31 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 ## Phase Details
 
 ### Phase 12: Input Auto-Detection
+
 **Goal**: All parser commands accept file or folder input transparently — users never need a separate batch command
 **Depends on**: Phases 1-11 (existing parser infrastructure)
 **Requirements**: INPUT-01, INPUT-02, INPUT-03, INPUT-04, INPUT-05, INPUT-06
 **Success Criteria** (what must be TRUE):
+
   1. User can run `camt-csv camt path/to/file.xml --output out.csv` and it processes the single file
   2. User can run `camt-csv revolut path/to/folder/ --output ./out/` and it processes every matching file in that folder to individual CSVs
   3. User can run `camt-csv pdf path/to/folder/ --output ./out/` and it consolidates all PDFs into one CSV
   4. When a folder is passed without `--output`, the command exits immediately with a clear error message explaining the flag is required
   5. All 6 parsers (camt, debit, revolut, revolut-investment, selma, pdf) accept both file and folder inputs
-**Plans**: TBD
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Core folder detection: --output guard + FolderConvert in cmd/common (camt, debit, selma, revolut-investment)
+- [ ] 12-02-PLAN.md — Apply auto-detection to revolut and pdf commands, update CHANGELOG
 
 ### Phase 13: Batch Removal and Format Default
+
 **Goal**: CLI surface is clean and defaults match real-world use — iCompta output with no flags required, no obsolete batch machinery
 **Depends on**: Phase 12
 **Requirements**: BATCH-01, BATCH-02, FORMAT-01, FORMAT-02
 **Success Criteria** (what must be TRUE):
+
   1. `camt-csv batch` no longer exists — running it prints an unknown command error
   2. No parser command accepts a `--batch` flag — passing it produces an unknown flag error
   3. Running any parser command with no `--format` flag produces iCompta-compatible semicolon-delimited output
@@ -104,9 +113,9 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 | 9. Batch-Formatter Integration | 3/3 | Done | 2026-02-16 |
 | 10. CSV Format Trim | 1/1 | Done | 2026-02-16 |
 | 11. Integration Verification | 2/2 | Done | 2026-02-16 |
-| 12. Input Auto-Detection | 0/TBD | Not started | - |
+| 12. Input Auto-Detection | 0/2 | Not started | - |
 | 13. Batch Removal and Format Default | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-02-23 — v1.4 phases 12-13 added*
+*Last updated: 2026-02-23 — Phase 12 planned (2 plans)*
