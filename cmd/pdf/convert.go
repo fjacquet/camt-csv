@@ -44,10 +44,7 @@ transactions into a single CSV file, sorted chronologically by date.`,
 }
 
 func init() {
-	Cmd.Flags().StringP("format", "f", "standard",
-		"Output format: standard (35-column CSV) or icompta (iCompta-compatible)")
-	Cmd.Flags().String("date-format", "DD.MM.YYYY",
-		"Date format in output: DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY, etc. (Go layout: 02.01.2006, 2006-01-02, 01/02/2006)")
+	common.RegisterFormatFlags(Cmd)
 }
 
 func pdfFunc(cmd *cobra.Command, _ []string) {
