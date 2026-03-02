@@ -43,6 +43,10 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 		logger.Fatal("Container not initialized")
 	}
 
+	if format == "" {
+		format = appContainer.GetConfig().Output.Format
+	}
+
 	p, err := appContainer.GetParser(parserType)
 	if err != nil {
 		logger.Fatalf("Error getting %s parser: %v", name, err)

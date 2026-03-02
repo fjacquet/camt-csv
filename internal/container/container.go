@@ -185,3 +185,8 @@ func (c *Container) GetFormatterRegistry() *formatter.FormatterRegistry {
 	}
 	return c.formatterRegistry
 }
+
+// GetConfig returns the application configuration.
+func (c *Container) GetConfig() *config.Config {
+	return c.config
+}

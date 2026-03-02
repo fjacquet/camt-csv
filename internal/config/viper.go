@@ -78,6 +78,10 @@ type Config struct {
 	Constitution struct {
 		FilePaths []string `mapstructure:"file_paths" yaml:"file_paths"`
 	} `mapstructure:"constitution" yaml:"constitution"`
+
+	Output struct {
+		Format string `mapstructure:"format" yaml:"format"`
+	} `mapstructure:"output" yaml:"output"`
 }
 
 // InitializeConfig initializes Viper configuration with hierarchical loading
@@ -181,6 +185,9 @@ func setDefaults(v *viper.Viper) {
 
 	// Constitution defaults
 	v.SetDefault("constitution.file_paths", []string{})
+
+	// Output defaults
+	v.SetDefault("output.format", "icompta")
 }
 
 // validateConfig validates the configuration values

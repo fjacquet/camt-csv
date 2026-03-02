@@ -66,6 +66,10 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 		logger.Fatal("Container not initialized")
 	}
 
+	if format == "" {
+		format = appContainer.GetConfig().Output.Format
+	}
+
 	// Get parser from container
 	p, err := appContainer.GetParser(container.PDF)
 	if err != nil {
