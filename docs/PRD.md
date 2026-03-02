@@ -17,6 +17,7 @@ Swiss and European bank customers receive financial data in a variety of formats
 ### Solution
 
 A single CLI tool that:
+
 1. Accepts any supported bank export format as input
 2. Parses and normalizes transactions into a unified internal model
 3. Categorizes transactions using a four-tier strategy (exact match → keyword → semantic embedding → AI)
@@ -31,11 +32,13 @@ A single CLI tool that:
 **Personal finance manager (solo user)** — technically comfortable, uses macOS, manages personal and household finances in iCompta. Has bank accounts at Swiss banks (CAMT.053), holds Revolut CHF and EUR accounts, and uses Selma for automated investing.
 
 **Workflow today:**
+
 1. Download statements from each bank/app
 2. Run `camt-csv` to convert each file
 3. Import resulting CSV into iCompta
 
 **Pain points addressed:**
+
 - Multiple bank formats require separate manual handling
 - iCompta cannot import raw CAMT.053 XML
 - Transaction categories must be manually assigned in iCompta for hundreds of transactions
