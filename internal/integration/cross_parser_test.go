@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
@@ -377,6 +378,91 @@ func TestEndToEndConversion_iComptaFormat(t *testing.T) {
 	if len(lines) > 1 && lines[1] != "" {
 		dataFields := strings.Split(lines[1], ";")
 		assert.Equal(t, 10, len(dataFields), "iCompta data rows should have 10 fields")
+	}
+}
+
+// TestEndToEndConversion_JumpsoftFormat verifies Jumpsoft format produces 7-column comma-delimited CSV
+// **Validates: Requirements TEST-02**
+func TestEndToEndConversion_JumpsoftFormat(t *testing.T) {
+	tempDir := t.TempDir()
+	logger := logging.NewMockLogger()
+
+	cfg := &config.Config{}
+	cfg.Log.Level = "error"
+	cfg.Log.Format = "text"
+	cfg.AI.Enabled = false
+	cfg.Categories.File = filepath.Join(tempDir, "categories.yaml")
+	cfg.Categories.CreditorsFile = filepath.Join(tempDir, "creditors.yaml")
+	cfg.Categories.DebtorsFile = filepath.Join(tempDir, "debtors.yaml")
+
+	createMinimalCategoryFiles(t, tempDir)
+
+	cont, err := container.NewContainer(cfg)
+	require.NoError(t, err)
+
+	sampleFile := "../../samples/camt053/camt53-47.xml"
+	if _, err := os.Stat(sampleFile); os.IsNotExist(err) {
+		t.Skipf("Sample file not found: %s", sampleFile)
+		return
+	}
+
+	parser, err := cont.GetParser(container.CAMT)
+	require.NoError(t, err)
+
+	file, err := os.Open(sampleFile)
+	require.NoError(t, err)
+	defer func() { _ = file.Close() }()
+
+	transactions, err := parser.Parse(context.Background(), file)
+	require.NoError(t, err, "Parsing should succeed")
+	require.NotEmpty(t, transactions, "Should have at least one transaction")
+
+	outputFile := filepath.Join(tempDir, "jumpsoft_output.csv")
+
+	jumpsoftFormatter := formatter.NewJumpsoftFormatter()
+	err = common.WriteTransactionsToCSVWithFormatter(
+		transactions, outputFile, logger, jumpsoftFormatter, jumpsoftFormatter.Delimiter())
+	require.NoError(t, err, "Jumpsoft conversion should succeed")
+
+	content, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimRight(string(content), "\n"), "\n")
+	require.GreaterOrEqual(t, len(lines), 2, "CSV should have header + at least one data row")
+
+	// Verify comma-delimited header
+	headers := strings.Split(lines[0], ",")
+	for i, h := range headers {
+		headers[i] = strings.Trim(strings.TrimSpace(h), "\"")
+	}
+	assert.Equal(t, 7, len(headers), "Jumpsoft format should have exactly 7 columns")
+
+	expectedHeaders := formatter.NewJumpsoftFormatter().Header()
+	assert.Equal(t, expectedHeaders, headers, "Jumpsoft format should match expected header order")
+
+	// Verify at least one data row has 7 comma-delimited fields
+	if len(lines) > 1 && lines[1] != "" {
+		dataFields := strings.Split(lines[1], ",")
+		// Account for possible quoted fields with commas by checking count >= 7
+		assert.GreaterOrEqual(t, len(dataFields), 7, "Jumpsoft data rows should have at least 7 fields")
+	}
+
+	// Verify the Date column contains ISO 8601 format (YYYY-MM-DD)
+	if len(lines) > 1 && lines[1] != "" {
+		// Read with encoding/csv to properly handle quoted fields
+		csvReader := csv.NewReader(strings.NewReader(string(content)))
+		// Skip header
+		_, err := csvReader.Read()
+		require.NoError(t, err)
+		// Read first data row
+		record, err := csvReader.Read()
+		require.NoError(t, err)
+		require.Len(t, record, 7, "Data row should have exactly 7 fields")
+		// Date field (index 0) should be non-empty if transactions have dates
+		if record[0] != "" {
+			// Verify it looks like YYYY-MM-DD
+			assert.Regexp(t, `^\d{4}-\d{2}-\d{2}$`, record[0], "Date should be in YYYY-MM-DD format")
+		}
 	}
 }
 
