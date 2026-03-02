@@ -58,7 +58,7 @@ func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inp
 	registry := c.GetFormatterRegistry()
 	formatter, err := registry.Get(format)
 	if err != nil {
-		return fmt.Errorf("invalid format '%s': %w. Valid formats: standard, icompta", format, err)
+		return fmt.Errorf("invalid format '%s': %w. Valid formats: standard, icompta, jumpsoft", format, err)
 	}
 
 	// Get delimiter from formatter

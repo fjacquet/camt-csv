@@ -81,7 +81,7 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
 	if err != nil {
-		logger.Fatalf("Invalid output format '%s': valid formats are standard, icompta", format)
+		logger.Fatalf("Invalid output format '%s': valid formats are standard, icompta, jumpsoft", format)
 		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger
 	}
 

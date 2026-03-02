@@ -55,6 +55,7 @@ func NewFormatterRegistry() *FormatterRegistry {
 	// Register built-in formatters
 	registry.Register("standard", NewStandardFormatter())
 	registry.Register("icompta", NewIComptaFormatter())
+	registry.Register("jumpsoft", NewJumpsoftFormatter())
 
 	return registry
 }
