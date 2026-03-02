@@ -268,6 +268,130 @@ func TestIComptaFormatter(t *testing.T) {
 	})
 }
 
+func TestJumpsoftFormatter(t *testing.T) {
+	formatter := NewJumpsoftFormatter()
+
+	t.Run("Header returns 7 columns", func(t *testing.T) {
+		header := formatter.Header()
+		assert.Len(t, header, 7)
+		assert.Equal(t, "Date", header[0])
+		assert.Equal(t, "Description", header[1])
+		assert.Equal(t, "Amount", header[2])
+		assert.Equal(t, "Currency", header[3])
+		assert.Equal(t, "Category", header[4])
+		assert.Equal(t, "Type", header[5])
+		assert.Equal(t, "Notes", header[6])
+	})
+
+	t.Run("Delimiter is comma", func(t *testing.T) {
+		assert.Equal(t, ',', formatter.Delimiter())
+	})
+
+	t.Run("Format single transaction", func(t *testing.T) {
+		tx := createTestTransaction()
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Len(t, rows, 1)
+		assert.Len(t, rows[0], 7)
+
+		assert.Equal(t, "2026-02-15", rows[0][0])      // Date ISO 8601
+		assert.Equal(t, "Coffee purchase", rows[0][1]) // Description
+		assert.Equal(t, "-15.50", rows[0][2])          // Amount signed (already negative)
+		assert.Equal(t, "CHF", rows[0][3])             // Currency
+		assert.Equal(t, "Food & Dining", rows[0][4])   // Category
+		assert.Equal(t, "Card Payment", rows[0][5])    // Type
+		assert.Equal(t, "Payment ref 123", rows[0][6]) // Notes from RemittanceInfo
+	})
+
+	t.Run("Debit amount is negated when DebitFlag set and amount positive", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Amount = decimal.NewFromFloat(50.00)
+		tx.DebitFlag = true
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "-50.00", rows[0][2])
+	})
+
+	t.Run("Credit amount stays positive", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Amount = decimal.NewFromFloat(100.00)
+		tx.DebitFlag = false
+		tx.CreditDebit = "CRDT"
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "100.00", rows[0][2])
+	})
+
+	t.Run("Already-negative amount is not double-negated", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Amount = decimal.NewFromFloat(-25.00)
+		tx.DebitFlag = true
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "-25.00", rows[0][2])
+	})
+
+	t.Run("Zero date returns empty string", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Date = time.Time{}
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][0])
+	})
+
+	t.Run("Description falls back to Name when empty", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Description = ""
+		tx.Name = "Fallback Name"
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "Fallback Name", rows[0][1])
+	})
+
+	t.Run("Empty category uses Uncategorized", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Category = ""
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "Uncategorized", rows[0][4])
+	})
+
+	t.Run("Notes falls back to Description when RemittanceInfo empty", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.RemittanceInfo = ""
+		tx.Description = "Desc fallback"
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "Desc fallback", rows[0][6])
+	})
+
+	t.Run("Format multiple transactions", func(t *testing.T) {
+		tx1 := createTestTransaction()
+		tx2 := createTestTransaction()
+		tx2.Description = "Second transaction"
+		rows, err := formatter.Format([]models.Transaction{tx1, tx2})
+		require.NoError(t, err)
+		assert.Len(t, rows, 2)
+	})
+
+	t.Run("Format empty transactions", func(t *testing.T) {
+		rows, err := formatter.Format([]models.Transaction{})
+		require.NoError(t, err)
+		assert.Len(t, rows, 0)
+	})
+}
+
+func TestFormatterRegistry_JumpsoftEntry(t *testing.T) {
+	registry := NewFormatterRegistry()
+
+	t.Run("Get jumpsoft formatter from registry", func(t *testing.T) {
+		f, err := registry.Get("jumpsoft")
+		require.NoError(t, err)
+		assert.NotNil(t, f)
+		assert.IsType(t, &JumpsoftFormatter{}, f)
+	})
+}
+
 func TestMapStatusToICompta(t *testing.T) {
 	testCases := []struct {
 		input    string
