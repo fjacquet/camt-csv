@@ -54,13 +54,21 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ Gemini API retry with exponential backoff — v1.2
 - ✓ BatchProcessor universal infrastructure with formatter integration — v1.2
 
+## Current Milestone: v1.5 Jumpsoft Money Export
+
+**Goal:** Add Jumpsoft Money CSV export as a new `--format jumpsoft` output option across all parsers.
+
+**Target features:**
+- JumpsoftFormatter producing clean comma-delimited CSV for Jumpsoft Money import
+- `--format jumpsoft` registered in FormatterRegistry and available on all 6 parsers
+- Full single-file and folder/batch mode support
+- Unit and integration tests
+
 ## Current State: v1.4 Shipped
 
 **Shipped:** 2026-02-23
 
 All 6 parser commands accept file or folder input transparently. `batch` subcommand removed. `icompta` is the default output format.
-
-**Next milestone:** TBD — run `/gsd:new-milestone` to define v1.5 goals.
 
 ### Shipped (v1.4)
 
@@ -154,4 +162,4 @@ Known technical debt:
 | Confidence scoring per strategy tier | Audit trail for categorization decisions | ✓ Good — 1.0/0.95/0.90/0.8 per tier |
 
 ---
-*Last updated: 2026-02-23 — v1.4 milestone started*
+*Last updated: 2026-03-02 — v1.5 milestone started*

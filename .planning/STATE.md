@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** v1.4 Simplify — COMPLETE. Ready for v1.5 milestone.
+**Current focus:** v1.5 Jumpsoft Money Export — defining requirements
 
 ## Current Position
 
-Phase: —
+Phase: Not started (defining requirements)
 Plan: —
-Status: v1.4 archived and tagged
-Last activity: 2026-02-23 — v1.4 milestone complete, archived, tagged v1.4
+Status: Defining requirements
+Last activity: 2026-03-02 — Milestone v1.5 started
 
-Progress: [####################] 100% (v1.4 — SHIPPED)
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (v1.5 — IN PROGRESS)
 
 ## Performance Metrics
 
