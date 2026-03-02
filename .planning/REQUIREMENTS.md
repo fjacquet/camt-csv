@@ -24,8 +24,8 @@ Requirements for Jumpsoft Money CSV export support.
 
 ### Testing
 
-- [ ] **TEST-01**: Unit tests for JumpsoftFormatter field mapping and CSV output structure
-- [ ] **TEST-02**: Integration test verifying end-to-end output with at least one parser
+- [x] **TEST-01**: Unit tests for JumpsoftFormatter field mapping and CSV output structure
+- [x] **TEST-02**: Integration test verifying end-to-end output with at least one parser
 
 ## v2 Requirements
 
@@ -57,8 +57,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-02 | Phase 14 | Complete |
 | INT-03 | Phase 14 | Complete |
 | INT-04 | Phase 14 | Complete |
-| TEST-01 | Phase 15 | Pending |
-| TEST-02 | Phase 15 | Pending |
+| TEST-01 | Phase 15 | Complete |
+| TEST-02 | Phase 15 | Complete |
 
 **Coverage:**
 - v1 requirements: 11 total

@@ -71,7 +71,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 **Milestone Goal:** Add `--format jumpsoft` output option across all parsers, producing clean comma-delimited CSV for Jumpsoft Money import.
 
 - [x] **Phase 14: JumpsoftFormatter** - Build and register the formatter with full CLI integration (completed 2026-03-02)
-- [ ] **Phase 15: Verification** - Unit and integration tests confirming correct output
+- [x] **Phase 15: Verification** - Unit and integration tests confirming correct output (completed 2026-03-02)
 
 ## Phase Details
 
@@ -112,7 +112,7 @@ Plans:
 | 10-11 CSV Trim | v1.3 | 3/3 | Complete | 2026-02-16 |
 | 12-13 Simplify | v1.4 | 4/4 | Complete | 2026-02-23 |
 | 14. JumpsoftFormatter | v1.5 | 1/1 | Complete | 2026-03-02 |
-| 15. Verification | v1.5 | 0/1 | Not started | - |
+| 15. Verification | 1/1 | Complete   | 2026-03-02 | - |
 
 ---
 *Roadmap created: 2026-02-01*
