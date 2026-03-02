@@ -57,14 +57,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-02 | Phase 14 | Pending |
 | INT-03 | Phase 14 | Pending |
 | INT-04 | Phase 14 | Pending |
-| TEST-01 | Phase 14 | Pending |
-| TEST-02 | Phase 14 | Pending |
+| TEST-01 | Phase 15 | Pending |
+| TEST-02 | Phase 15 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total
 - Mapped to phases: 11
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after initial definition*
+*Last updated: 2026-03-02 — traceability finalized after roadmap creation (TEST-01/02 moved to Phase 15)*
