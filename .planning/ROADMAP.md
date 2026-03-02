@@ -112,7 +112,7 @@ Plans:
 | 10-11 CSV Trim | v1.3 | 3/3 | Complete | 2026-02-16 |
 | 12-13 Simplify | v1.4 | 4/4 | Complete | 2026-02-23 |
 | 14. JumpsoftFormatter | v1.5 | 1/1 | Complete | 2026-03-02 |
-| 15. Verification | 1/1 | Complete   | 2026-03-02 | - |
+| 15. Verification | 1/1 | Complete    | 2026-03-02 | - |
 
 ---
 *Roadmap created: 2026-02-01*
