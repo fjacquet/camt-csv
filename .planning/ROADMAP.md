@@ -98,10 +98,10 @@ Plans:
   1. `go test ./internal/formatter/...` passes with tests asserting each Jumpsoft CSV column maps to the correct Transaction field (Date, Description, Amount sign, Currency, Category, Type, Notes)
   2. `go test ./...` passes with at least one integration test that exercises a complete parse-then-format pipeline through one parser and asserts a valid Jumpsoft CSV file is produced
   3. `go test -race ./...` passes with no data races introduced by the new formatter
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 15-01: Write unit tests for JumpsoftFormatter and integration test through one parser
+- [ ] 15-01-PLAN.md — Unit tests for JumpsoftFormatter (12 subtests covering all 7 columns + edge cases) and integration test via CAMT parse→format pipeline
 
 ## Progress
 
@@ -111,9 +111,9 @@ Plans:
 | 5-9 Full Polish | v1.2 | 14/14 | Complete | 2026-02-16 |
 | 10-11 CSV Trim | v1.3 | 3/3 | Complete | 2026-02-16 |
 | 12-13 Simplify | v1.4 | 4/4 | Complete | 2026-02-23 |
-| 14. JumpsoftFormatter | 1/1 | Complete    | 2026-03-02 | - |
-| 15. Verification | v1.5 | 0/TBD | Not started | - |
+| 14. JumpsoftFormatter | v1.5 | 1/1 | Complete | 2026-03-02 |
+| 15. Verification | v1.5 | 0/1 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-01*
-*Last updated: 2026-03-02 — phase 14 planned (1 plan)*
+*Last updated: 2026-03-02 — phase 15 planned (1 plan)*
