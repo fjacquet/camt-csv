@@ -6,14 +6,14 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** v1.5 COMPLETE - JumpsoftFormatter Tests Verified
+**Current focus:** v1.5 ARCHIVED — Ready for next milestone
 
 ## Current Position
 
-Phase: 15 of 15 (JumpsoftFormatterTest)
+Phase: 15 of 15 (COMPLETE)
 Plan: 1 of 1 completed in phase 15
-Status: Phase 15 complete — v1.5 milestone complete
-Last activity: 2026-03-02 — Completed phase 15 plan 01 (JumpsoftFormatter verification tests)
+Status: v1.5 milestone archived — all phases complete
+Last activity: 2026-03-02 — v1.5 milestone archived, git tag v1.5 created
 
 Progress: [########################################] 100% (v1.5 — All phases complete)
 
@@ -50,12 +50,7 @@ Progress: [########################################] 100% (v1.5 — All phases c
 
 Full decision log in PROJECT.md Key Decisions table.
 
-Recent v1.5 decisions:
-- [Roadmap]: All 11 requirements map to 2 phases — formatter build (14) and verification (15)
-- [Roadmap]: Phase 14 covers all FMT-xx and INT-xx requirements (9 total); Phase 15 covers TEST-xx
-- [Roadmap]: JumpsoftFormatter lives in internal/formatter/ alongside StandardFormatter and iComptaFormatter
-- [Phase 14-01]: JumpsoftFormatter uses ISO 8601 dates (YYYY-MM-DD), signed amounts, and registers in FormatterRegistry alongside standard and icompta
-- [Phase 15-verification]: TestJumpsoftFormatter uses same-package access (package formatter) so JumpsoftFormatter struct accessible without prefix
+v1.5 decisions archived to PROJECT.md Key Decisions.
 
 ### Pending Todos
 
@@ -68,9 +63,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 15-verification-15-01-PLAN.md — JumpsoftFormatter verification tests complete, v1.5 milestone finished
+Stopped at: v1.5 milestone archived — ROADMAP.md, PROJECT.md, STATE.md updated; git tag v1.5 created
 Resume file: None
-Next action: v1.5 milestone complete — ready for v1.6 planning
+Next action: `/gsd:new-milestone` to start v1.6
 
 ---
 *State initialized: 2026-02-01 (v1.1)*

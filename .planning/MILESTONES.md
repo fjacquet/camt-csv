@@ -59,3 +59,13 @@
 
 ---
 
+
+## v1.5 Jumpsoft Money Export (Shipped: 2026-03-02)
+
+**Phases completed:** 11 phases, 23 plans, 23 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

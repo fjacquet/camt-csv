@@ -53,22 +53,33 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ Gemini API rate limiting (burst=1) — v1.2
 - ✓ Gemini API retry with exponential backoff — v1.2
 - ✓ BatchProcessor universal infrastructure with formatter integration — v1.2
+- ✓ Standard CSV trimmed from 35 to 29 columns (removed 6 rarely-used fields) — v1.3
+- ✓ All parser tests updated for 29-column format — v1.3
+- ✓ All 6 parser commands auto-detect file vs. folder input — v1.4
+- ✓ batch subcommand and --batch flag removed; icompta is default --format — v1.4
+- ✓ SBOM generation integrated into GoReleaser release pipeline — v1.4
+- ✓ JumpsoftFormatter: 7-column comma-delimited CSV for Jumpsoft Money import — v1.5
+- ✓ `--format jumpsoft` registered in FormatterRegistry, available on all 6 parsers — v1.5
+- ✓ ISO 8601 dates, signed amounts, category fallback, RemittanceInfo notes — v1.5
+- ✓ 12-subtest unit tests + CAMT→Jumpsoft end-to-end integration test — v1.5
 
-## Current Milestone: v1.5 Jumpsoft Money Export
+## Current State: v1.5 Shipped
 
-**Goal:** Add Jumpsoft Money CSV export as a new `--format jumpsoft` output option across all parsers.
+**Shipped:** 2026-03-02
 
-**Target features:**
-- JumpsoftFormatter producing clean comma-delimited CSV for Jumpsoft Money import
-- `--format jumpsoft` registered in FormatterRegistry and available on all 6 parsers
-- Full single-file and folder/batch mode support
-- Unit and integration tests
+JumpsoftFormatter added as a new `--format jumpsoft` output option across all 6 parsers, producing clean 7-column comma-delimited CSV for Jumpsoft Money import.
 
-## Current State: v1.4 Shipped
+### Shipped (v1.5)
 
-**Shipped:** 2026-02-23
+- ✓ JumpsoftFormatter: 7-column comma-delimited CSV (Date, Description, Amount, Currency, Category, Type, Notes) — v1.5
+- ✓ `--format jumpsoft` registered in FormatterRegistry alongside standard and icompta — v1.5
+- ✓ ISO 8601 (YYYY-MM-DD) dates, signed amounts (negative for debits) — v1.5
+- ✓ Category defaults to "Uncategorized"; Notes uses RemittanceInfo with Description fallback — v1.5
+- ✓ Full single-file and folder/batch mode support across all 6 parsers — v1.5
+- ✓ 12-subtest unit tests and CAMT→Jumpsoft end-to-end integration test — v1.5
 
-All 6 parser commands accept file or folder input transparently. `batch` subcommand removed. `icompta` is the default output format.
+<details>
+<summary>Previously Shipped (v1.4)</summary>
 
 ### Shipped (v1.4)
 
@@ -78,6 +89,8 @@ All 6 parser commands accept file or folder input transparently. `batch` subcomm
 - ✓ batch subcommand and --batch flag removed entirely — v1.4
 - ✓ icompta is the default --format (no flag needed for typical iCompta use) — v1.4
 - ✓ SBOM generation integrated into GoReleaser release pipeline (CycloneDX via syft) — v1.4
+
+</details>
 
 <details>
 <summary>Previously Shipped (v1.1–v1.3)</summary>
@@ -102,7 +115,7 @@ All 6 parser commands accept file or folder input transparently. `batch` subcomm
 
 ## Context
 
-Shipped v1.3 Standard CSV Trim (29-column format). Previously shipped v1.2 Full Polish with 43,619 LOC Go across 132 modified files.
+Shipped v1.5 Jumpsoft Money Export. JumpsoftFormatter adds 7-column comma-delimited CSV output. Previously shipped v1.4 Simplify (auto-detection, batch removal), v1.3 Standard CSV Trim (29-column format), and v1.2 Full Polish with 43,619 LOC Go across 132 modified files.
 Tech stack: Go 1.24.2, Cobra 1.10.2, Viper 1.21.0, Logrus 1.9.4.
 External dependency on `pdftotext` (Poppler utils) for PDF parsing.
 Optional dependency on Google Gemini API for AI categorization.
@@ -160,6 +173,10 @@ Known technical debt:
 | BatchProcessor composition pattern | Universal batch for all parsers vs. per-parser batch code | ✓ Good — 1 processor, 6 parsers |
 | Rate limiting with burst=1 | Strict quota protection vs. burst allowance | ✓ Good — prevents API quota exhaustion |
 | Confidence scoring per strategy tier | Audit trail for categorization decisions | ✓ Good — 1.0/0.95/0.90/0.8 per tier |
+| Jumpsoft CSV format: 7 comma-delimited columns | Flexible importer has no fixed format; clean minimal design chosen | ✓ Good — Date, Description, Amount, Currency, Category, Type, Notes — v1.5 |
+| ISO 8601 dates in JumpsoftFormatter | YYYY-MM-DD matches Jumpsoft Money import expectations | ✓ Good — unambiguous international standard — v1.5 |
+| Signed amounts: DebitFlag negates positive amount | Guards against double-negation; credits already positive | ✓ Good — correct sign for all transaction types — v1.5 |
+| Notes column: RemittanceInfo with fallback to Description | Richest available metadata | ✓ Good — maximises information in Notes field — v1.5 |
 
 ---
-*Last updated: 2026-03-02 — v1.5 milestone started*
+*Last updated: 2026-03-02 — v1.5 milestone complete (shipped)*
