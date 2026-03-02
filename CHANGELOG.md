@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `--format jumpsoft` output option to all parser commands (camt, pdf, revolut, selma, debit, revolut-investment), producing 7-column comma-delimited CSV (Date, Description, Amount, Currency, Category, Type, Notes) compatible with Jumpsoft Money import
+
 ## [1.4.0] - 2026-02-23
 
 ### Added
