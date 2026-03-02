@@ -566,7 +566,7 @@ debitors:
 	return container.GetCategorizer()
 }
 
-func setupTestCategorizerWithAutoLearning(t *testing.T, testStore categorizer.CategoryStoreInterface, logger logging.Logger) *categorizer.Categorizer {
+func setupTestCategorizerWithAutoLearning(_ *testing.T, testStore categorizer.CategoryStoreInterface, logger logging.Logger) *categorizer.Categorizer {
 	// For this test, we'll create a simple categorizer directly
 	// since the container doesn't allow injecting custom stores
 	return categorizer.NewCategorizer(nil, testStore, logger, true)
