@@ -44,7 +44,7 @@ func TestSemanticStrategy_Categorize(t *testing.T) {
 	}
 
 	logger := &logging.MockLogger{}
-	strategy := NewSemanticStrategy(mockClient, logger, categories)
+	strategy := NewSemanticStrategy(mockClient, logger, categories, 0.70)
 
 	// Wait for initialization (since it runs in a goroutine)
 	// In a real test we might want to expose a way to wait or check initialized status

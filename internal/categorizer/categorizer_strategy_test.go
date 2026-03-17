@@ -76,7 +76,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			expectedStrategy: "Keyword",
 		},
 		{
-			name: "keyword strategy wins - hardcoded patterns",
+			name: "keyword strategy wins - YAML transport keywords",
 			transaction: Transaction{
 				PartyName: "SBB CFF FFS",
 				IsDebtor:  true,
@@ -86,8 +86,10 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			},
 			creditorMappings: map[string]string{},
 			debtorMappings:   map[string]string{},
-			categories:       []models.CategoryConfig{},
-			expectedCategory: models.CategoryTransport,
+			categories: []models.CategoryConfig{
+				{Name: "Transports Publics", Keywords: []string{"sbb", "cff"}},
+			},
+			expectedCategory: "Transports Publics",
 			expectedStrategy: "Keyword",
 		},
 		{
@@ -162,7 +164,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			mockLogger := &logging.MockLogger{}
 
 			// Create categorizer
-			categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true)
+			categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
 
 			// Execute
 			category, err := categorizer.CategorizeTransaction(context.Background(), tt.transaction)
@@ -233,7 +235,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create categorizer
-	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true)
+	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
 
 	// Execute
 	category, err := categorizer.CategorizeTransaction(context.Background(), transaction)
@@ -288,7 +290,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create categorizer
-	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true)
+	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
 
 	// Test transaction
 	transaction := Transaction{
@@ -385,10 +387,14 @@ func TestCategorizer_BackwardCompatibility(t *testing.T) {
 				Info:      "Train fare",
 			},
 			setupStore: func() *store.MockCategoryStore {
-				return &store.MockCategoryStore{}
+				return &store.MockCategoryStore{
+					Categories: []models.CategoryConfig{
+						{Name: "Transports Publics", Keywords: []string{"sbb", "cff"}},
+					},
+				}
 			},
 			setupAI:  func() AIClient { return nil },
-			expected: models.CategoryTransport,
+			expected: "Transports Publics",
 		},
 	}
 
@@ -398,7 +404,7 @@ func TestCategorizer_BackwardCompatibility(t *testing.T) {
 			mockAI := tc.setupAI()
 			mockLogger := &logging.MockLogger{}
 
-			categorizer := NewCategorizer(mockAI, mockStore, mockLogger, true)
+			categorizer := NewCategorizer(mockAI, mockStore, mockLogger, true, 0.70)
 
 			category, err := categorizer.CategorizeTransaction(context.Background(), tc.transaction)
 

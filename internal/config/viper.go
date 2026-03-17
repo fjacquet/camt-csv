@@ -49,6 +49,7 @@ type Config struct {
 		AutoLearn           bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
 		ConfidenceThreshold float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
 		CaseSensitive       bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
+		SemanticThreshold   float64 `mapstructure:"semantic_threshold" yaml:"semantic_threshold"`
 	} `mapstructure:"categorization" yaml:"categorization"`
 
 	Staging struct {
@@ -167,6 +168,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("categorization.auto_learn", false) // Default: OFF per v1.2 D-11
 	v.SetDefault("categorization.confidence_threshold", 0.8)
 	v.SetDefault("categorization.case_sensitive", false)
+	v.SetDefault("categorization.semantic_threshold", 0.70)
 
 	// Staging defaults — saves AI suggestions when auto-learn is off
 	v.SetDefault("staging.enabled", true)
@@ -225,6 +227,11 @@ func validateConfig(config *Config) error {
 	// Validate confidence threshold
 	if config.Categorization.ConfidenceThreshold < 0.0 || config.Categorization.ConfidenceThreshold > 1.0 {
 		return fmt.Errorf("categorization.confidence_threshold must be between 0.0 and 1.0, got: %f", config.Categorization.ConfidenceThreshold)
+	}
+
+	// Validate semantic threshold
+	if config.Categorization.SemanticThreshold < 0.0 || config.Categorization.SemanticThreshold > 1.0 {
+		return fmt.Errorf("categorization.semantic_threshold must be between 0.0 and 1.0, got: %f", config.Categorization.SemanticThreshold)
 	}
 
 	return nil

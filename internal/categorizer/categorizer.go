@@ -6,6 +6,7 @@ package categorizer
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -51,12 +52,16 @@ type Categorizer struct {
 
 	// Staging store for AI suggestions when auto-learn is disabled (nil = no staging)
 	stagingStore StagingStoreInterface
+
+	// In-batch deduplication cache: avoids re-categorizing the same party name within a single run
+	batchCache   map[string]models.Category
+	batchCacheMu sync.RWMutex
 }
 
 // Note: log variable removed as part of dependency injection refactoring
 
-// NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, and auto-learn setting.
-func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool) *Categorizer {
+// NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, auto-learn setting, and semantic threshold.
+func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool, semanticThreshold float32) *Categorizer {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -72,6 +77,7 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		logger:             logger,
 		aiClient:           aiClient,
 		isAutoLearnEnabled: autoLearnEnabled,
+		batchCache:         make(map[string]models.Category, 256),
 	}
 
 	// Load categories from YAML
@@ -126,10 +132,20 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 
 	// Initialize strategies in priority order
 	// Pass pre-loaded data to strategy constructors (pure, no I/O)
+	if semanticThreshold <= 0 {
+		semanticThreshold = 0.70
+	}
+
+	// Create embedding cache for semantic strategy
+	var embCache *EmbeddingCache
+	if aiClient != nil {
+		embCache = NewEmbeddingCache("", logger)
+	}
+
 	c.strategies = []CategorizationStrategy{
 		NewDirectMappingStrategy(c.creditorMappings, c.debitorMappings, store, logger),
 		NewKeywordStrategy(c.categories, store, logger),
-		NewSemanticStrategy(aiClient, logger, c.categories),
+		NewSemanticStrategyWithCache(aiClient, logger, c.categories, semanticThreshold, embCache),
 		NewAIStrategy(aiClient, logger),
 	}
 
@@ -246,6 +262,19 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		}, nil
 	}
 
+	// Check in-batch deduplication cache
+	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(strings.TrimSpace(transaction.PartyName)), transaction.IsDebtor)
+	c.batchCacheMu.RLock()
+	if cached, ok := c.batchCache[cacheKey]; ok {
+		c.batchCacheMu.RUnlock()
+		c.logger.WithFields(
+			logging.Field{Key: "party", Value: transaction.PartyName},
+			logging.Field{Key: "category", Value: cached.Name},
+		).Debug("Batch cache hit")
+		return cached, nil
+	}
+	c.batchCacheMu.RUnlock()
+
 	// Try each strategy in priority order
 	for _, strategy := range c.strategies {
 		c.logger.WithFields(
@@ -268,6 +297,12 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 				logging.Field{Key: "party", Value: transaction.PartyName},
 				logging.Field{Key: "category", Value: category.Name},
 			).Debug("Transaction categorized successfully")
+			// Store in batch cache for deduplication (skip uncategorized results)
+			if category.Name != "" && category.Name != models.CategoryUncategorized {
+				c.batchCacheMu.Lock()
+				c.batchCache[cacheKey] = category
+				c.batchCacheMu.Unlock()
+			}
 			return category, nil
 		}
 
@@ -320,6 +355,12 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 			break
 		}
 	}
+
+	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
+	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), true)
+	c.batchCacheMu.Lock()
+	delete(c.batchCache, cacheKey)
+	c.batchCacheMu.Unlock()
 }
 
 // SaveDebitorsToYAML saves debitor mappings to YAML file if they have been modified.
@@ -355,6 +396,12 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 			break
 		}
 	}
+
+	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
+	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), false)
+	c.batchCacheMu.Lock()
+	delete(c.batchCache, cacheKey)
+	c.batchCacheMu.Unlock()
 }
 
 // SetStagingStore configures the staging store for accumulating AI categorization

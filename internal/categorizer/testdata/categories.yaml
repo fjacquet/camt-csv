@@ -13,6 +13,15 @@ categories:
       - burger
       - starbucks
 
+  - name: Groceries
+    description: Supermarket purchases
+    keywords:
+      - migros
+      - coop
+      - aldi
+      - lidl
+      - denner
+
   - name: Utilities
     description: Utility bills such as electricity, water, and gas
     keywords:
