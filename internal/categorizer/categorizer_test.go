@@ -65,7 +65,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	// Instantiate the categorizer with the mock AI client and mock store
-	categorizerInstance := categorizer.NewCategorizer(mockAIClient, mockStore, logging.NewLogrusAdapterFromLogger(logger), true)
+	categorizerInstance := categorizer.NewCategorizer(mockAIClient, mockStore, logging.NewLogrusAdapterFromLogger(logger), true, 0.70)
 
 	// Test cases
 	testCases := []struct {
@@ -228,7 +228,7 @@ UBER: "Transport"`
 	logger.SetLevel(logrus.DebugLevel)
 
 	// Create categorizer with all strategies
-	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true)
+	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true, 0.70)
 
 	testCases := []struct {
 		name             string
@@ -355,7 +355,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.DebugLevel)
 
-	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true)
+	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true, 0.70)
 
 	// Transaction that matches both direct mapping and keyword
 	transaction := categorizer.Transaction{
@@ -392,7 +392,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.DebugLevel)
 
-	cat := categorizer.NewCategorizer(failingAIClient, emptyStore, logging.NewLogrusAdapterFromLogger(logger), true)
+	cat := categorizer.NewCategorizer(failingAIClient, emptyStore, logging.NewLogrusAdapterFromLogger(logger), true, 0.70)
 
 	transaction := categorizer.Transaction{
 		PartyName:   "Unknown Merchant",
@@ -447,7 +447,7 @@ func TestCategorizer_ConcurrentCategorization(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.DebugLevel)
 
-	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true)
+	cat := categorizer.NewCategorizer(mockAIClient, categoryStore, logging.NewLogrusAdapterFromLogger(logger), true, 0.70)
 
 	// Run multiple categorizations concurrently
 	const numGoroutines = 10

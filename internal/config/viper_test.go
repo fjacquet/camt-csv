@@ -271,8 +271,10 @@ func TestValidateConfig_InvalidValues(t *testing.T) {
 					AutoLearn           bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
 					ConfidenceThreshold float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
 					CaseSensitive       bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
+					SemanticThreshold   float64 `mapstructure:"semantic_threshold" yaml:"semantic_threshold"`
 				}{
 					ConfidenceThreshold: 0.8,
+					SemanticThreshold:   0.70,
 				},
 			}
 

@@ -44,7 +44,7 @@ func TestCategorizer_UpdateMethods(t *testing.T) {
 	testLogger := logging.NewLogrusAdapter("debug", "text")
 
 	// Create categorizer
-	cat := NewCategorizer(nil, testStore, testLogger, true)
+	cat := NewCategorizer(nil, testStore, testLogger, true, 0.70)
 
 	// Test UpdateDebitorCategory
 	cat.UpdateDebitorCategory("TestDebitor", "TestCategory")
@@ -75,13 +75,13 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 	testLogger := logging.NewLogrusAdapter("debug", "text")
 
 	// Test with nil AI client
-	cat1 := NewCategorizer(nil, testStore, testLogger, true)
+	cat1 := NewCategorizer(nil, testStore, testLogger, true, 0.70)
 	assert.NotNil(t, cat1)
 	assert.Nil(t, cat1.aiClient)
 
 	// Test with mock AI client
 	mockAI := &MockAIClient{}
-	cat2 := NewCategorizer(mockAI, testStore, testLogger, true)
+	cat2 := NewCategorizer(mockAI, testStore, testLogger, true, 0.70)
 	assert.NotNil(t, cat2)
 	assert.NotNil(t, cat2.aiClient)
 

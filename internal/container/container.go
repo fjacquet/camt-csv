@@ -81,14 +81,18 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// Create AI client (if enabled)
 	var aiClient categorizer.AIClient
 	if cfg.AI.Enabled && cfg.AI.APIKey != "" {
-		aiClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute)
+		aiClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, cfg.AI.Model, cfg.AI.TimeoutSeconds)
 		logger.Info("AI categorization enabled")
 	} else {
 		logger.Info("AI categorization disabled")
 	}
 
 	// Create categorizer with all dependencies
-	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger, cfg.Categorization.AutoLearn)
+	semanticThreshold := cfg.Categorization.SemanticThreshold
+	if semanticThreshold <= 0 {
+		semanticThreshold = 0.70
+	}
+	cat := categorizer.NewCategorizer(aiClient, categoryStore, logger, cfg.Categorization.AutoLearn, float32(semanticThreshold))
 
 	// Wire staging store when AI is enabled but auto-learn is off
 	if cfg.AI.Enabled && !cfg.Categorization.AutoLearn && cfg.Staging.Enabled {

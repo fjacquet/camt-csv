@@ -122,6 +122,7 @@ categories:
       - atupri
       - ökk
       - egk
+      - avenir
 
   - name: Assurances
     keywords:
@@ -210,6 +211,8 @@ categories:
       - farmy
       - coop@home
       - migros online
+      - migrolino
+      - kiosk
 
   - name: Divers
     keywords:
@@ -222,6 +225,8 @@ categories:
       - argent de poche
       - porte-monnaie
       - petite monnaie
+      - atm
+      - withdrawal
 
   - name: Divertissement
     keywords:
@@ -374,6 +379,7 @@ categories:
       - cornèrcard
       - viseca (frais)
       - swissbankers
+      - selma_fee
 
   - name: Hypothèques
     keywords:
@@ -434,6 +440,8 @@ categories:
       - conciergerie
       - syndic
       - ppe
+      - publica
+      - asloca
 
   - name: Loisirs
     keywords:
@@ -457,6 +465,7 @@ categories:
       - ticketcorner
       - starticket
       - fnac spectacle
+      - pilatus
 
   - name: Mobilier
     keywords:
@@ -537,6 +546,10 @@ categories:
       - bar
       - pub
       - discothèque
+      - sushi
+      - ramen
+      - kamuy
+      - minestrone
 
   - name: Revenus Financiers
     keywords:
@@ -655,6 +668,12 @@ categories:
       - temu
       - wish
       - shein
+      - mammut
+      - payot
+      - calida
+      - muller
+      - bazar
+      - webshop
 
   - name: Soins Personnels
     keywords:
@@ -696,6 +715,8 @@ categories:
       - cotisation club
       - football
       - matériel sportif
+      - escalade
+      - totem
 
   - name: Taxes
     keywords:
@@ -805,6 +826,9 @@ categories:
       - paymit
       - versement
       - transaction
+      - virt
+      - ordre lsv
+      - bcv-net
 
   - name: Voiture
     keywords:
@@ -835,6 +859,7 @@ categories:
       - paybyphone
       - uber
       - taxi
+      - mobility
 
   - name: Voyages
     keywords:

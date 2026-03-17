@@ -35,11 +35,11 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP", "MIGROS"},
 				},
 			},
-			expectedCategory: models.CategoryGroceries,
+			expectedCategory: "Courses",
 			expectedFound:    true,
 			expectedError:    false,
 		},
@@ -52,11 +52,11 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP", "MIGROS"},
 				},
 			},
-			expectedCategory: models.CategoryGroceries,
+			expectedCategory: "Courses",
 			expectedFound:    true,
 			expectedError:    false,
 		},
@@ -69,11 +69,11 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP", "MIGROS"},
 				},
 			},
-			expectedCategory: models.CategoryGroceries,
+			expectedCategory: "Courses",
 			expectedFound:    true,
 			expectedError:    false,
 		},
@@ -86,15 +86,15 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP"},
 				},
 				{
-					Name:     models.CategoryRestaurants,
+					Name:     "Restaurants",
 					Keywords: []string{"RESTAURANT"},
 				},
 			},
-			expectedCategory: models.CategoryGroceries, // First match wins
+			expectedCategory: "Courses", // First match wins
 			expectedFound:    true,
 			expectedError:    false,
 		},
@@ -107,7 +107,7 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP", "MIGROS"},
 				},
 			},
@@ -123,7 +123,7 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			},
 			categories: []models.CategoryConfig{
 				{
-					Name:     models.CategoryGroceries,
+					Name:     "Courses",
 					Keywords: []string{"COOP"},
 				},
 			},
@@ -131,49 +131,64 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "hardcoded pattern match - supermarket",
+			name: "YAML keyword match - SBB transport",
 			transaction: Transaction{
-				PartyName: "MIGROS Store",
-				IsDebtor:  false,
-				Info:      "Purchase",
-			},
-			categories:       []models.CategoryConfig{}, // No YAML categories
-			expectedCategory: models.CategoryGroceries,
-			expectedFound:    true,
-			expectedError:    false,
-		},
-		{
-			name: "hardcoded pattern match - bank code",
-			transaction: Transaction{
-				PartyName: "Card Payment",
+				PartyName: "SBB CFF FFS",
 				IsDebtor:  true,
-				Info:      "PMT " + models.BankCodePOS + " transaction",
+				Info:      "Train ticket",
 			},
-			categories:       []models.CategoryConfig{}, // No YAML categories
-			expectedCategory: models.CategoryShopping,
+			categories: []models.CategoryConfig{
+				{
+					Name:     "Transports Publics",
+					Keywords: []string{"sbb", "cff"},
+				},
+			},
+			expectedCategory: "Transports Publics",
 			expectedFound:    true,
 			expectedError:    false,
 		},
 		{
-			name: "hardcoded pattern match - unknown payee card payment",
+			name: "YAML keyword match - ATM withdrawal",
 			transaction: Transaction{
-				PartyName: "UNKNOWN PAYEE",
+				PartyName: "ATM Machine",
 				IsDebtor:  true,
-				Info:      "PMT CARTE 12345",
+				Info:      "Cash withdrawal",
 			},
-			categories:       []models.CategoryConfig{}, // No YAML categories
-			expectedCategory: models.CategoryShopping,
+			categories: []models.CategoryConfig{
+				{
+					Name:     "Divers",
+					Keywords: []string{"atm", "retrait", "withdrawal"},
+				},
+			},
+			expectedCategory: "Divers",
 			expectedFound:    true,
 			expectedError:    false,
 		},
 		{
-			name: "no match in hardcoded patterns",
+			name: "YAML keyword match - restaurant",
+			transaction: Transaction{
+				PartyName: "PIZZERIA Mario",
+				IsDebtor:  true,
+				Info:      "Dinner",
+			},
+			categories: []models.CategoryConfig{
+				{
+					Name:     "Restaurants",
+					Keywords: []string{"restaurant", "pizzeria", "café"},
+				},
+			},
+			expectedCategory: "Restaurants",
+			expectedFound:    true,
+			expectedError:    false,
+		},
+		{
+			name: "no match with empty categories",
 			transaction: Transaction{
 				PartyName: "Random Store",
 				IsDebtor:  false,
 				Info:      "Random transaction",
 			},
-			categories:    []models.CategoryConfig{}, // No YAML categories
+			categories:    []models.CategoryConfig{},
 			expectedFound: false,
 			expectedError: false,
 		},
@@ -270,73 +285,4 @@ func TestKeywordStrategy_ReloadCategories(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, "Updated Category", category.Name)
-}
-
-func TestKeywordStrategy_HardcodedPatterns(t *testing.T) {
-	// Test some specific hardcoded patterns to ensure they work
-	tests := []struct {
-		name             string
-		transaction      Transaction
-		expectedCategory string
-		expectedFound    bool
-	}{
-		{
-			name: "SBB transport",
-			transaction: Transaction{
-				PartyName: "SBB CFF FFS",
-				IsDebtor:  true,
-				Info:      "Train ticket",
-			},
-			expectedCategory: models.CategoryTransport,
-			expectedFound:    true,
-		},
-		{
-			name: "ATM withdrawal",
-			transaction: Transaction{
-				PartyName: "ATM Machine",
-				IsDebtor:  true,
-				Info:      "Cash withdrawal",
-			},
-			expectedCategory: models.CategoryWithdrawals,
-			expectedFound:    true,
-		},
-		{
-			name: "Restaurant",
-			transaction: Transaction{
-				PartyName: "PIZZERIA Mario",
-				IsDebtor:  true,
-				Info:      "Dinner",
-			},
-			expectedCategory: models.CategoryRestaurants,
-			expectedFound:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create mock store with no categories (to test hardcoded patterns)
-			mockStore := &store.MockCategoryStore{
-				Categories: []models.CategoryConfig{},
-			}
-
-			// Create mock logger
-			mockLogger := &logging.MockLogger{}
-
-			// Create strategy
-			strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
-
-			// Execute
-			ctx := context.Background()
-			category, found, err := strategy.Categorize(ctx, tt.transaction)
-
-			// Assert
-			require.NoError(t, err)
-			assert.Equal(t, tt.expectedFound, found)
-
-			if tt.expectedFound {
-				assert.Equal(t, tt.expectedCategory, category.Name)
-				assert.NotEmpty(t, category.Description)
-			}
-		})
-	}
 }

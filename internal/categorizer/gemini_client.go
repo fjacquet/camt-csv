@@ -73,7 +73,8 @@ type GeminiEmbeddingValues struct {
 }
 
 // NewGeminiClient creates a new instance of GeminiClient.
-func NewGeminiClient(logger logging.Logger, requestsPerMinute int) *GeminiClient {
+// model and timeoutSeconds are wired from config; empty/zero values use sensible defaults.
+func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string, timeoutSeconds int) *GeminiClient {
 	if logger == nil {
 		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
@@ -83,16 +84,17 @@ func NewGeminiClient(logger logging.Logger, requestsPerMinute int) *GeminiClient
 		logger.Warn("GEMINI_API_KEY not set, AI categorization will fail")
 	}
 
-	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
-		model = "gemini-2.5-flash" // Default fallback
-		logger.WithField("model", model).Debug("GEMINI_MODEL not set, using default")
-	} else {
-		logger.WithField("model", model).Debug("Using GEMINI_MODEL from environment")
+		model = "gemini-2.0-flash" // Match config default in viper.go
 	}
+	logger.WithField("model", model).Debug("Using Gemini model")
 
 	if requestsPerMinute <= 0 {
-		requestsPerMinute = 10 // Default fallback
+		requestsPerMinute = 10
+	}
+
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 30
 	}
 
 	// Create rate limiter: requestsPerMinute / 60 = requests per second
@@ -105,7 +107,7 @@ func NewGeminiClient(logger logging.Logger, requestsPerMinute int) *GeminiClient
 		apiKey: apiKey,
 		model:  model,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},
 		log:            logger,
 		limiter:        limiter,

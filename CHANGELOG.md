@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `categorization.semantic_threshold` config key (default 0.70, env `CAMT_CATEGORIZATION_SEMANTIC_THRESHOLD`) to tune semantic matching sensitivity
+- Add persistent embedding cache (`~/.camt-csv/embedding_cache.json`) — eliminates ~50 Gemini API calls on startup when categories haven't changed
+- Add in-batch deduplication cache — identical party names within a single run are categorized once and reused, reducing redundant API calls by ~90%
+- Add per-transaction embedding cache within SemanticStrategy — avoids duplicate Gemini embedding calls for the same party name
+- Add near-miss logging for semantic scores just below threshold (debug level) to help tune threshold
+
+### Changed
+
+- Merge hardcoded keyword patterns from Go source into `database/categories.yaml` — single source of truth for all keyword rules
+- Remove `categorizeWithHardcodedPatterns` method from KeywordStrategy — all keyword matching now driven by YAML configuration
+
+### Fixed
+
+- Fix `ai.model` config key being ignored — GeminiClient now uses the configured model instead of reading `GEMINI_MODEL` env directly
+- Fix `ai.timeout_seconds` config key being ignored — HTTP client timeout is now configurable instead of hardcoded to 30s
+- Fix non-deterministic keyword matching — hardcoded merchant patterns used Go map iteration (random order), causing less-specific keywords to sometimes win over more-specific ones
+
 ## [1.5.1] - 2026-03-02
 
 ### Added
