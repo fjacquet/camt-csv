@@ -9,17 +9,17 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 
 ### Provider
 
-- [ ] **PROV-01**: User can select AI provider via `ai.provider` config key (gemini/openrouter)
+- [x] **PROV-01**: User can select AI provider via `ai.provider` config key (gemini/openrouter)
 - [x] **PROV-02**: User can use OpenRouter API for chat-based categorization (tier 4 — AI fallback)
-- [ ] **PROV-03**: User can set any OpenAI-compatible base URL via `ai.base_url` config key
+- [x] **PROV-03**: User can set any OpenAI-compatible base URL via `ai.base_url` config key
 - [x] **PROV-04**: OpenRouterClient implements AIClient interface with retry and rate-limiting
 
 ### Configuration
 
-- [ ] **CONF-01**: All AI settings consolidated in config.yaml `ai:` section (provider, model, base_url, api_key)
-- [ ] **CONF-02**: Single env var `CAMT_AI_API_KEY` replaces provider-specific vars (backward-compat: `GEMINI_API_KEY` still works as fallback)
-- [ ] **CONF-03**: Model name in config.yaml accepted as-is for both providers (e.g. `gemini-3.0-flash` or `mistralai/mistral-small-2603`)
-- [ ] **CONF-04**: Validation checks provider-specific requirements (api_key present, model non-empty)
+- [x] **CONF-01**: All AI settings consolidated in config.yaml `ai:` section (provider, model, base_url, api_key)
+- [x] **CONF-02**: Single env var `CAMT_AI_API_KEY` replaces provider-specific vars (backward-compat: `GEMINI_API_KEY` still works as fallback)
+- [x] **CONF-03**: Model name in config.yaml accepted as-is for both providers (e.g. `gemini-3.0-flash` or `mistralai/mistral-small-2603`)
+- [x] **CONF-04**: Validation checks provider-specific requirements (api_key present, model non-empty)
 
 ### Semantic
 
@@ -47,14 +47,14 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROV-01 | Phase 16 | Pending |
+| PROV-01 | Phase 16 | Complete |
 | PROV-02 | Phase 16 | Complete |
-| PROV-03 | Phase 16 | Pending |
+| PROV-03 | Phase 16 | Complete |
 | PROV-04 | Phase 16 | Complete |
-| CONF-01 | Phase 16 | Pending |
-| CONF-02 | Phase 16 | Pending |
-| CONF-03 | Phase 16 | Pending |
-| CONF-04 | Phase 16 | Pending |
+| CONF-01 | Phase 16 | Complete |
+| CONF-02 | Phase 16 | Complete |
+| CONF-03 | Phase 16 | Complete |
+| CONF-04 | Phase 16 | Complete |
 | SEM-01 | Phase 16 | Pending |
 | SEM-02 | Phase 16 | Pending |
 
