@@ -27,6 +27,8 @@ type Config struct {
 
 	AI struct {
 		Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+		Provider          string `mapstructure:"provider" yaml:"provider"`
+		BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 		Model             string `mapstructure:"model" yaml:"model"`
 		RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 		TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
@@ -114,8 +116,15 @@ func InitializeConfig() (*Config, error) {
 	}
 
 	// 5. Handle special case for API key (always from env, not prefixed)
-	if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
-		fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
+	// Bind CAMT_AI_API_KEY first (new unified key)
+	if err := v.BindEnv("ai.api_key", "CAMT_AI_API_KEY"); err != nil {
+		fmt.Printf("Warning: failed to bind CAMT_AI_API_KEY environment variable: %v\n", err)
+	}
+	// Fallback: if CAMT_AI_API_KEY is not set, try GEMINI_API_KEY for backward compatibility
+	if v.GetString("ai.api_key") == "" {
+		if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
+			fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
+		}
 	}
 
 	// Bind constitution file paths from environment variable
@@ -150,6 +159,8 @@ func setDefaults(v *viper.Viper) {
 
 	// AI defaults
 	v.SetDefault("ai.enabled", false)
+	v.SetDefault("ai.provider", "gemini")
+	v.SetDefault("ai.base_url", "")
 	v.SetDefault("ai.model", "gemini-2.0-flash")
 	v.SetDefault("ai.requests_per_minute", 10)
 	v.SetDefault("ai.timeout_seconds", 30)
@@ -211,8 +222,17 @@ func validateConfig(config *Config) error {
 
 	// Validate AI configuration
 	if config.AI.Enabled {
+		validProviders := map[string]bool{"gemini": true, "openrouter": true}
+		if !validProviders[config.AI.Provider] {
+			return fmt.Errorf("ai.provider must be 'gemini' or 'openrouter', got: %s", config.AI.Provider)
+		}
+
+		if config.AI.Model == "" {
+			return fmt.Errorf("ai.model must not be empty when AI is enabled")
+		}
+
 		if config.AI.APIKey == "" {
-			return fmt.Errorf("GEMINI_API_KEY required when AI is enabled")
+			return fmt.Errorf("CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled")
 		}
 
 		if config.AI.RequestsPerMinute < 1 || config.AI.RequestsPerMinute > 1000 {

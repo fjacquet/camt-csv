@@ -208,8 +208,10 @@ func TestValidateConfig_InvalidValues(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.AI.Enabled = true
 				c.AI.APIKey = ""
+				c.AI.Provider = "gemini"
+				c.AI.Model = "gemini-2.0-flash"
 			},
-			expectError: "GEMINI_API_KEY required when AI is enabled",
+			expectError: "CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled",
 		},
 		{
 			name: "invalid requests per minute",
@@ -258,12 +260,16 @@ func TestValidateConfig_InvalidValues(t *testing.T) {
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+					Provider          string `mapstructure:"provider" yaml:"provider"`
+					BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 					Model             string `mapstructure:"model" yaml:"model"`
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
 					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
 					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
 				}{
+					Provider:          "gemini",
+					Model:             "gemini-2.0-flash",
 					RequestsPerMinute: 10,
 					TimeoutSeconds:    30,
 				},
@@ -334,6 +340,140 @@ func TestConfigureLoggingFromConfig(t *testing.T) {
 	}
 }
 
+func TestInitializeConfig_DefaultProvider(t *testing.T) {
+	clearTestEnvVars(t)
+
+	config, err := InitializeConfig()
+	require.NoError(t, err)
+
+	assert.Equal(t, "gemini", config.AI.Provider)
+	assert.Equal(t, "", config.AI.BaseURL)
+}
+
+func TestInitializeConfig_CAMT_AI_API_KEY(t *testing.T) {
+	clearTestEnvVars(t)
+	t.Setenv("CAMT_AI_API_KEY", "camt-unified-key")
+
+	config, err := InitializeConfig()
+	require.NoError(t, err)
+
+	assert.Equal(t, "camt-unified-key", config.AI.APIKey)
+}
+
+func TestInitializeConfig_GEMINI_API_KEY_Fallback(t *testing.T) {
+	clearTestEnvVars(t)
+	t.Setenv("GEMINI_API_KEY", "gemini-legacy-key")
+
+	config, err := InitializeConfig()
+	require.NoError(t, err)
+
+	assert.Equal(t, "gemini-legacy-key", config.AI.APIKey)
+}
+
+func TestValidateConfig_NewProviderAndModelChecks(t *testing.T) {
+	tests := []struct {
+		name         string
+		modifyConfig func(*Config)
+		expectError  string
+	}{
+		{
+			name: "AI enabled without API key uses new error message",
+			modifyConfig: func(c *Config) {
+				c.AI.Enabled = true
+				c.AI.Provider = "gemini"
+				c.AI.Model = "gemini-2.0-flash"
+				c.AI.APIKey = ""
+			},
+			expectError: "CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled",
+		},
+		{
+			name: "AI enabled with empty model",
+			modifyConfig: func(c *Config) {
+				c.AI.Enabled = true
+				c.AI.Provider = "gemini"
+				c.AI.Model = ""
+				c.AI.APIKey = "some-key"
+			},
+			expectError: "ai.model must not be empty when AI is enabled",
+		},
+		{
+			name: "AI enabled with invalid provider",
+			modifyConfig: func(c *Config) {
+				c.AI.Enabled = true
+				c.AI.Provider = "badprovider"
+				c.AI.Model = "some-model"
+				c.AI.APIKey = "some-key"
+			},
+			expectError: "ai.provider must be 'gemini' or 'openrouter', got: badprovider",
+		},
+		{
+			name: "AI enabled with openrouter provider is valid",
+			modifyConfig: func(c *Config) {
+				c.AI.Enabled = true
+				c.AI.Provider = "openrouter"
+				c.AI.Model = "some-model"
+				c.AI.APIKey = "some-key"
+				c.AI.RequestsPerMinute = 10
+				c.AI.TimeoutSeconds = 30
+			},
+			expectError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				Log: struct {
+					Level  string `mapstructure:"level" yaml:"level"`
+					Format string `mapstructure:"format" yaml:"format"`
+				}{
+					Level:  "info",
+					Format: "text",
+				},
+				CSV: struct {
+					Delimiter      string `mapstructure:"delimiter" yaml:"delimiter"`
+					DateFormat     string `mapstructure:"date_format" yaml:"date_format"`
+					IncludeHeaders bool   `mapstructure:"include_headers" yaml:"include_headers"`
+					QuoteAll       bool   `mapstructure:"quote_all" yaml:"quote_all"`
+				}{
+					Delimiter: ",",
+				},
+				AI: struct {
+					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+					Provider          string `mapstructure:"provider" yaml:"provider"`
+					BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
+					Model             string `mapstructure:"model" yaml:"model"`
+					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
+					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
+					FallbackCategory  string `mapstructure:"fallback_category" yaml:"fallback_category"`
+					APIKey            string `mapstructure:"api_key" yaml:"-" json:"-"`
+				}{
+					RequestsPerMinute: 10,
+					TimeoutSeconds:    30,
+				},
+				Categorization: struct {
+					AutoLearn           bool    `mapstructure:"auto_learn" yaml:"auto_learn"`
+					ConfidenceThreshold float64 `mapstructure:"confidence_threshold" yaml:"confidence_threshold"`
+					CaseSensitive       bool    `mapstructure:"case_sensitive" yaml:"case_sensitive"`
+					SemanticThreshold   float64 `mapstructure:"semantic_threshold" yaml:"semantic_threshold"`
+				}{
+					ConfidenceThreshold: 0.8,
+					SemanticThreshold:   0.70,
+				},
+			}
+
+			tt.modifyConfig(config)
+			err := validateConfig(config)
+			if tt.expectError == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectError)
+			}
+		})
+	}
+}
+
 // Helper function to clear test environment variables
 func clearTestEnvVars(t *testing.T) {
 	envVars := []string{
@@ -355,6 +495,7 @@ func clearTestEnvVars(t *testing.T) {
 		"CAMT_PARSERS_PDF_OCR_ENABLED",
 		"CAMT_PARSERS_REVOLUT_DATE_FORMAT_DETECTION",
 		"GEMINI_API_KEY",
+		"CAMT_AI_API_KEY",
 	}
 
 	for _, envVar := range envVars {

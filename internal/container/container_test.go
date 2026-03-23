@@ -61,6 +61,8 @@ func TestNewContainer(t *testing.T) {
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+					Provider          string `mapstructure:"provider" yaml:"provider"`
+					BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 					Model             string `mapstructure:"model" yaml:"model"`
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
@@ -93,6 +95,8 @@ func TestNewContainer(t *testing.T) {
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+					Provider          string `mapstructure:"provider" yaml:"provider"`
+					BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 					Model             string `mapstructure:"model" yaml:"model"`
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
@@ -155,6 +159,8 @@ func TestContainer_GetParser(t *testing.T) {
 		},
 		AI: struct {
 			Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+			Provider          string `mapstructure:"provider" yaml:"provider"`
+			BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 			Model             string `mapstructure:"model" yaml:"model"`
 			RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 			TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
@@ -246,6 +252,8 @@ func TestContainer_ConvenienceMethods(t *testing.T) {
 		},
 		AI: struct {
 			Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+			Provider          string `mapstructure:"provider" yaml:"provider"`
+			BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 			Model             string `mapstructure:"model" yaml:"model"`
 			RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 			TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
@@ -311,6 +319,8 @@ func TestProperty_ConfigurationConsistency(t *testing.T) {
 				},
 				AI: struct {
 					Enabled           bool   `mapstructure:"enabled" yaml:"enabled"`
+					Provider          string `mapstructure:"provider" yaml:"provider"`
+					BaseURL           string `mapstructure:"base_url" yaml:"base_url"`
 					Model             string `mapstructure:"model" yaml:"model"`
 					RequestsPerMinute int    `mapstructure:"requests_per_minute" yaml:"requests_per_minute"`
 					TimeoutSeconds    int    `mapstructure:"timeout_seconds" yaml:"timeout_seconds"`
