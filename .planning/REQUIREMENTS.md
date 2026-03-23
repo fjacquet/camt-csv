@@ -23,8 +23,8 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 
 ### Semantic
 
-- [ ] **SEM-01**: Semantic tier (embeddings) gracefully skips when no embedding-capable provider is available
-- [ ] **SEM-02**: When provider is openrouter but `GEMINI_API_KEY` is also set, semantic tier uses Gemini embeddings
+- [x] **SEM-01**: Semantic tier (embeddings) gracefully skips when no embedding-capable provider is available
+- [x] **SEM-02**: When provider is openrouter but `GEMINI_API_KEY` is also set, semantic tier uses Gemini embeddings
 
 ## Future Requirements
 
@@ -55,8 +55,8 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 | CONF-02 | Phase 16 | Complete |
 | CONF-03 | Phase 16 | Complete |
 | CONF-04 | Phase 16 | Complete |
-| SEM-01 | Phase 16 | Pending |
-| SEM-02 | Phase 16 | Pending |
+| SEM-01 | Phase 16 | Complete |
+| SEM-02 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.6 requirements: 10 total

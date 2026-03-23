@@ -404,6 +404,22 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.batchCacheMu.Unlock()
 }
 
+// SetEmbeddingClient replaces the AIClient used by the SemanticStrategy.
+// Call after NewCategorizer when the embedding provider differs from the chat
+// provider (e.g. OpenRouter for chat, Gemini for embeddings). Pass nil to
+// disable the semantic tier.
+func (c *Categorizer) SetEmbeddingClient(client AIClient) {
+	for _, strategy := range c.strategies {
+		if sem, ok := strategy.(*SemanticStrategy); ok {
+			sem.client = client
+			if client != nil && !sem.initialized {
+				go sem.initializeEmbeddings(context.Background(), c.categories)
+			}
+			return
+		}
+	}
+}
+
 // SetStagingStore configures the staging store for accumulating AI categorization
 // suggestions when auto-learn is disabled. Pass nil to disable staging.
 func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {

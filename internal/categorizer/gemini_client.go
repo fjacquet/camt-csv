@@ -74,14 +74,14 @@ type GeminiEmbeddingValues struct {
 
 // NewGeminiClient creates a new instance of GeminiClient.
 // model and timeoutSeconds are wired from config; empty/zero values use sensible defaults.
-func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string, timeoutSeconds int) *GeminiClient {
+// apiKey is injected directly by the container (no os.Getenv inside this constructor).
+func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string, timeoutSeconds int, apiKey string) *GeminiClient {
 	if logger == nil {
 		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		logger.Warn("GEMINI_API_KEY not set, AI categorization will fail")
+		logger.Warn("API key not set, AI categorization will fail")
 	}
 
 	if model == "" {

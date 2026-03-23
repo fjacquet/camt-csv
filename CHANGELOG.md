@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `ai.base_url` config field (default empty) to override provider endpoint for OpenAI-compatible providers
 - Add `CAMT_AI_API_KEY` as unified API key env var; `GEMINI_API_KEY` retained as backward-compatible fallback
 - Add `OpenRouterClient` implementing `AIClient` interface — enables any OpenRouter-hosted model (e.g., `mistralai/mistral-small-2603`) for transaction categorization via OpenAI-compatible chat/completions API
+- Add split chat/embedding client architecture — OpenRouter handles chat categorization (tier 4), Gemini handles embeddings (tier 3) when `GEMINI_API_KEY` is set alongside OpenRouter
+- Add `Categorizer.SetEmbeddingClient()` method for independent embedding provider wiring
+- Add provider and semantic tier status logging at startup (e.g., "AI provider: openrouter", "Semantic tier: active (Gemini embeddings)")
 - Add `categorization.semantic_threshold` config key (default 0.70, env `CAMT_CATEGORIZATION_SEMANTIC_THRESHOLD`) to tune semantic matching sensitivity
 - Add persistent embedding cache (`~/.camt-csv/embedding_cache.json`) — eliminates ~50 Gemini API calls on startup when categories haven't changed
 - Add in-batch deduplication cache — identical party names within a single run are categorized once and reused, reducing redundant API calls by ~90%
@@ -21,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactor `NewGeminiClient` to accept `apiKey` as constructor parameter instead of reading `GEMINI_API_KEY` from environment — enables multi-provider key management
+- Refactor container AI wiring to use provider-based switch with split chat/embedding clients
 - Merge hardcoded keyword patterns from Go source into `database/categories.yaml` — single source of truth for all keyword rules
 - Remove `categorizeWithHardcodedPatterns` method from KeywordStrategy — all keyword matching now driven by YAML configuration
 
