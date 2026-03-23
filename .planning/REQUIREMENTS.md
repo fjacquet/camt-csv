@@ -47,22 +47,22 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROV-01 | — | Pending |
-| PROV-02 | — | Pending |
-| PROV-03 | — | Pending |
-| PROV-04 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| CONF-03 | — | Pending |
-| CONF-04 | — | Pending |
-| SEM-01 | — | Pending |
-| SEM-02 | — | Pending |
+| PROV-01 | Phase 16 | Pending |
+| PROV-02 | Phase 16 | Pending |
+| PROV-03 | Phase 16 | Pending |
+| PROV-04 | Phase 16 | Pending |
+| CONF-01 | Phase 16 | Pending |
+| CONF-02 | Phase 16 | Pending |
+| CONF-03 | Phase 16 | Pending |
+| CONF-04 | Phase 16 | Pending |
+| SEM-01 | Phase 16 | Pending |
+| SEM-02 | Phase 16 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 — traceability mapped to phase 16*
