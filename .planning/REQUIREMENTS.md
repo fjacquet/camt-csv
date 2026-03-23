@@ -10,9 +10,9 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 ### Provider
 
 - [ ] **PROV-01**: User can select AI provider via `ai.provider` config key (gemini/openrouter)
-- [ ] **PROV-02**: User can use OpenRouter API for chat-based categorization (tier 4 — AI fallback)
+- [x] **PROV-02**: User can use OpenRouter API for chat-based categorization (tier 4 — AI fallback)
 - [ ] **PROV-03**: User can set any OpenAI-compatible base URL via `ai.base_url` config key
-- [ ] **PROV-04**: OpenRouterClient implements AIClient interface with retry and rate-limiting
+- [x] **PROV-04**: OpenRouterClient implements AIClient interface with retry and rate-limiting
 
 ### Configuration
 
@@ -48,9 +48,9 @@ Requirements for multi-LLM provider support. Each maps to roadmap phases.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PROV-01 | Phase 16 | Pending |
-| PROV-02 | Phase 16 | Pending |
+| PROV-02 | Phase 16 | Complete |
 | PROV-03 | Phase 16 | Pending |
-| PROV-04 | Phase 16 | Pending |
+| PROV-04 | Phase 16 | Complete |
 | CONF-01 | Phase 16 | Pending |
 | CONF-02 | Phase 16 | Pending |
 | CONF-03 | Phase 16 | Pending |
