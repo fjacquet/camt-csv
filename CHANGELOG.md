@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `OpenRouterClient` implementing `AIClient` interface — enables any OpenRouter-hosted model (e.g., `mistralai/mistral-small-2603`) for transaction categorization via OpenAI-compatible chat/completions API
 - Add `categorization.semantic_threshold` config key (default 0.70, env `CAMT_CATEGORIZATION_SEMANTIC_THRESHOLD`) to tune semantic matching sensitivity
 - Add persistent embedding cache (`~/.camt-csv/embedding_cache.json`) — eliminates ~50 Gemini API calls on startup when categories haven't changed
 - Add in-batch deduplication cache — identical party names within a single run are categorized once and reused, reducing redundant API calls by ~90%
