@@ -10,6 +10,8 @@ csv:
 ai:
   enabled: true
   model: gemini-3.0-flash
+  provider: gemini
+  base_url: ''
   requests_per_minute: 20
   timeout_seconds: 30
   fallback_category: Uncategorized

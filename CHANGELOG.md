@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `ai.provider` config field (default `gemini`, supports `openrouter`) to select AI backend; validated at startup
+- Add `ai.base_url` config field (default empty) to override provider endpoint for OpenAI-compatible providers
+- Add `CAMT_AI_API_KEY` as unified API key env var; `GEMINI_API_KEY` retained as backward-compatible fallback
 - Add `OpenRouterClient` implementing `AIClient` interface — enables any OpenRouter-hosted model (e.g., `mistralai/mistral-small-2603`) for transaction categorization via OpenAI-compatible chat/completions API
 - Add `categorization.semantic_threshold` config key (default 0.70, env `CAMT_CATEGORIZATION_SEMANTIC_THRESHOLD`) to tune semantic matching sensitivity
 - Add persistent embedding cache (`~/.camt-csv/embedding_cache.json`) — eliminates ~50 Gemini API calls on startup when categories haven't changed
