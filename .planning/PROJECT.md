@@ -62,22 +62,27 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ `--format jumpsoft` registered in FormatterRegistry, available on all 6 parsers — v1.5
 - ✓ ISO 8601 dates, signed amounts, category fallback, RemittanceInfo notes — v1.5
 - ✓ 12-subtest unit tests + CAMT→Jumpsoft end-to-end integration test — v1.5
+- ✓ Multi-LLM provider support: OpenRouterClient for chat, split chat/embedding architecture — v1.6
+- ✓ Provider selection via `ai.provider` config key (gemini/openrouter) — v1.6
+- ✓ Unified `CAMT_AI_API_KEY` env var with `GEMINI_API_KEY` backward-compat fallback — v1.6
+- ✓ Semantic tier graceful degradation when no embedding provider available — v1.6
+- ✓ ADR-018: Multi-LLM Provider Support architecture decision — v1.6
 
-## Current Milestone: v1.6 Multi-LLM Provider
+## Previous State: v1.6 Shipped
 
-**Goal:** Make the AI categorization provider-agnostic — support OpenRouter (Mistral Small, etc.) alongside Gemini, with graceful fallback for embeddings.
+**Shipped:** 2026-03-23
 
-**Target features:**
-- OpenAI-compatible chat completion client for OpenRouter
-- Provider selection via config (`ai.provider`: gemini/openrouter)
-- Graceful semantic tier handling (Gemini embeddings if available, skip if not)
-- Config: `OPENROUTER_API_KEY`, `ai.base_url`, `ai.provider`
+Multi-LLM provider support added. OpenRouterClient enables any OpenAI-compatible model (e.g., Mistral Small) for transaction categorization. Split chat/embedding architecture with graceful semantic tier fallback.
 
-## Previous State: v1.5 Shipped
+<details>
+<summary>Previously Shipped (v1.5)</summary>
 
-**Shipped:** 2026-03-02
+### Shipped (v1.5)
 
-JumpsoftFormatter added as a new `--format jumpspot` output option across all 6 parsers, producing clean 7-column comma-delimited CSV for Jumpsoft Money import.
+- ✓ JumpsoftFormatter: 7-column comma-delimited CSV for Jumpsoft Money import — v1.5
+- ✓ `--format jumpsoft` registered in FormatterRegistry, available on all 6 parsers — v1.5
+
+</details>
 
 <details>
 <summary>Previously Shipped (v1.4)</summary>
@@ -116,7 +121,7 @@ JumpsoftFormatter added as a new `--format jumpspot` output option across all 6 
 
 ## Context
 
-Shipped v1.5 Jumpsoft Money Export. JumpsoftFormatter adds 7-column comma-delimited CSV output. Previously shipped v1.4 Simplify (auto-detection, batch removal), v1.3 Standard CSV Trim (29-column format), and v1.2 Full Polish with 43,619 LOC Go across 132 modified files.
+Shipped v1.6 Multi-LLM Provider. AI categorization is now provider-agnostic — supports OpenRouter alongside Gemini with split chat/embedding architecture. Previously shipped v1.5 Jumpsoft Money Export, v1.4 Simplify, v1.3 Standard CSV Trim, and v1.2 Full Polish. 33,774 LOC Go.
 Tech stack: Go 1.24.2, Cobra 1.10.2, Viper 1.21.0, Logrus 1.9.4.
 External dependency on `pdftotext` (Poppler utils) for PDF parsing.
 Optional dependency on Google Gemini API for AI categorization.
@@ -147,7 +152,7 @@ Known technical debt:
 - **Backwards compatibility**: CLI interface and YAML file formats must remain compatible
 - **External tools**: pdftotext dependency stays (removal is a separate initiative)
 - **Testing**: All changes must maintain or improve test coverage, no regressions
-- **AI API**: Gemini integration stays with rate limiting and retry patterns
+- **AI API**: Gemini and OpenRouter integrations with rate limiting and retry patterns
 
 ## Key Decisions
 
@@ -178,6 +183,11 @@ Known technical debt:
 | ISO 8601 dates in JumpsoftFormatter | YYYY-MM-DD matches Jumpsoft Money import expectations | ✓ Good — unambiguous international standard — v1.5 |
 | Signed amounts: DebitFlag negates positive amount | Guards against double-negation; credits already positive | ✓ Good — correct sign for all transaction types — v1.5 |
 | Notes column: RemittanceInfo with fallback to Description | Richest available metadata | ✓ Good — maximises information in Notes field — v1.5 |
+| Raw HTTP for OpenRouterClient (no SDK) | Matches existing GeminiClient pattern; minimal dependency | ✓ Good — consistent pattern, full control — v1.6 |
+| Split chat/embedding client architecture | OpenRouter has no embedding endpoint; need separate provider for semantic tier | ✓ Good — graceful degradation when embeddings unavailable — v1.6 |
+| CAMT_AI_API_KEY unified env var | Single env var for all providers; GEMINI_API_KEY kept as backward-compat | ✓ Good — zero breaking change for existing users — v1.6 |
+| Constructor-injected apiKey for GeminiClient | Enables multi-provider key management; no os.Getenv in constructors | ✓ Good — testable, explicit dependency — v1.6 |
+| Provider validation at startup (fail fast) | Reject invalid provider/model before any API call | ✓ Good — clear error messages at config load — v1.6 |
 
 ---
-*Last updated: 2026-03-02 — v1.5 milestone complete (shipped)*
+*Last updated: 2026-03-23 — v1.6 milestone complete (shipped)*

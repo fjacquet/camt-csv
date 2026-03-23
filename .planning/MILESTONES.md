@@ -1,5 +1,15 @@
 # Project Milestones: camt-csv
 
+## v1.6 Multi-LLM Provider (Shipped: 2026-03-23)
+
+**Phases completed:** 1 phases, 3 plans, 0 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v1.1 Hardening (Shipped: 2026-02-01)
 
 **Delivered:** Resolved all 18 identified codebase concerns across bugs, security, tech debt, architecture, test coverage, and safety features — establishing a clean, maintainable foundation for future development.
@@ -59,13 +69,12 @@
 
 ---
 
-
 ## v1.5 Jumpsoft Money Export (Shipped: 2026-03-02)
 
 **Phases completed:** 11 phases, 23 plans, 23 tasks
 
 **Key accomplishments:**
+
 - (none recorded)
 
 ---
-
