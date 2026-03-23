@@ -63,20 +63,21 @@ Reliable, maintainable financial data conversion with intelligent categorization
 - ✓ ISO 8601 dates, signed amounts, category fallback, RemittanceInfo notes — v1.5
 - ✓ 12-subtest unit tests + CAMT→Jumpsoft end-to-end integration test — v1.5
 
-## Current State: v1.5 Shipped
+## Current Milestone: v1.6 Multi-LLM Provider
+
+**Goal:** Make the AI categorization provider-agnostic — support OpenRouter (Mistral Small, etc.) alongside Gemini, with graceful fallback for embeddings.
+
+**Target features:**
+- OpenAI-compatible chat completion client for OpenRouter
+- Provider selection via config (`ai.provider`: gemini/openrouter)
+- Graceful semantic tier handling (Gemini embeddings if available, skip if not)
+- Config: `OPENROUTER_API_KEY`, `ai.base_url`, `ai.provider`
+
+## Previous State: v1.5 Shipped
 
 **Shipped:** 2026-03-02
 
-JumpsoftFormatter added as a new `--format jumpsoft` output option across all 6 parsers, producing clean 7-column comma-delimited CSV for Jumpsoft Money import.
-
-### Shipped (v1.5)
-
-- ✓ JumpsoftFormatter: 7-column comma-delimited CSV (Date, Description, Amount, Currency, Category, Type, Notes) — v1.5
-- ✓ `--format jumpsoft` registered in FormatterRegistry alongside standard and icompta — v1.5
-- ✓ ISO 8601 (YYYY-MM-DD) dates, signed amounts (negative for debits) — v1.5
-- ✓ Category defaults to "Uncategorized"; Notes uses RemittanceInfo with Description fallback — v1.5
-- ✓ Full single-file and folder/batch mode support across all 6 parsers — v1.5
-- ✓ 12-subtest unit tests and CAMT→Jumpsoft end-to-end integration test — v1.5
+JumpsoftFormatter added as a new `--format jumpspot` output option across all 6 parsers, producing clean 7-column comma-delimited CSV for Jumpsoft Money import.
 
 <details>
 <summary>Previously Shipped (v1.4)</summary>

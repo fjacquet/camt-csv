@@ -6,16 +6,14 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** Reliable, maintainable financial data conversion with intelligent categorization.
 
-**Current focus:** v1.5 ARCHIVED — Ready for next milestone
+**Current focus:** v1.6 Multi-LLM Provider
 
 ## Current Position
 
-Phase: 15 of 15 (COMPLETE)
-Plan: 1 of 1 completed in phase 15
-Status: v1.5 milestone archived — all phases complete
-Last activity: 2026-03-02 — v1.5 milestone archived, git tag v1.5 created
-
-Progress: [########################################] 100% (v1.5 — All phases complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-23 — Milestone v1.6 started
 
 ## Performance Metrics
 
