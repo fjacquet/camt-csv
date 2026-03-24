@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -232,7 +231,8 @@ func (c *GeminiClient) callGeminiAPIWithRetry(ctx context.Context, prompt string
 
 		// Calculate backoff delay with jitter
 		delayMs := int64(math.Pow(backoffMultiplier, float64(attempt)) * float64(baseDelay.Milliseconds()))
-		jitterMs := int64(float64(delayMs) * jitterFraction * (2*rand.Float64() - 1)) // #nosec G404 -- jitter for retry backoff, not security-sensitive
+		jitterSign := float64((time.Now().UnixNano()%2)*2 - 1) // -1 or +1, not security-sensitive
+		jitterMs := int64(float64(delayMs) * jitterFraction * jitterSign)
 		totalDelay := time.Duration(delayMs+jitterMs) * time.Millisecond
 
 		c.log.WithFields(
@@ -543,6 +543,23 @@ func (c *GeminiClient) callGeminiAPI(ctx context.Context, prompt string) (string
 // cleanCategory cleans and validates the category returned by the API
 
 func (c *GeminiClient) cleanCategory(category string) string {
+
+	category = strings.TrimSpace(category)
+
+	// If multi-line verbose response, extract the last non-empty line
+	if strings.Contains(category, "\n") {
+		lines := strings.Split(category, "\n")
+		for i := len(lines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(lines[i])
+			if line != "" {
+				category = line
+				break
+			}
+		}
+	}
+
+	// Strip markdown bold formatting (**Category**)
+	category = strings.Trim(category, "*")
 
 	// Remove common prefixes/suffixes
 

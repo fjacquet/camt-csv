@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix AI response parsing — `cleanCategory` now handles verbose multi-line responses and markdown bold formatting (`**Category**`) returned by some models (e.g., `mistral-small-2603`); previously the full explanation was stored as the category value
+- Fix `math/rand` usage in `GeminiClient` retry jitter — replaced with time-based jitter (`time.Now().UnixNano()`) to resolve Semgrep CWE-338 warning; retry jitter is not security-sensitive
+- Fix config test expectations for API key error message — updated to match current wording after v1.6 unified key refactor
+
+### Changed
+
+- Lower default `ai.requests_per_minute` from 20 to 5 for cost control on personal finance workloads
+
 ### Added
 
 - Add `ai.provider` config field (default `gemini`, supports `openrouter`) to select AI backend; validated at startup

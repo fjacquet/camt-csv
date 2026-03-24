@@ -3,20 +3,20 @@ log:
   level: debug
   format: json
 csv:
-  delimiter: ','
+  delimiter: ","
   date_format: DD.MM.YYYY
   include_headers: true
   quote_all: false
 ai:
   enabled: true
-  model: gemini-3.0-flash
-  provider: gemini
-  base_url: ''
-  requests_per_minute: 20
+  model: mistralai/mistral-small-2603
+  provider: openrouter
+  base_url: ""
+  requests_per_minute: 5
   timeout_seconds: 30
   fallback_category: Uncategorized
 data:
-  directory: ''
+  directory: ""
   backup_enabled: true
 categorization:
   auto_learn: true

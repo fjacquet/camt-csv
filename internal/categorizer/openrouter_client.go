@@ -479,6 +479,23 @@ Category:`, transaction.PartyName, transaction.Description, transaction.Amount.S
 // cleanCategory cleans and validates the category returned by the API.
 // Mirrors the GeminiClient implementation for consistency.
 func (c *OpenRouterClient) cleanCategory(category string) string {
+	category = strings.TrimSpace(category)
+
+	// If multi-line verbose response, extract the last non-empty line
+	if strings.Contains(category, "\n") {
+		lines := strings.Split(category, "\n")
+		for i := len(lines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(lines[i])
+			if line != "" {
+				category = line
+				break
+			}
+		}
+	}
+
+	// Strip markdown bold formatting (**Category**)
+	category = strings.Trim(category, "*")
+
 	// Remove common prefixes/suffixes
 	category = strings.TrimSpace(category)
 	category = strings.TrimPrefix(category, "Category:")

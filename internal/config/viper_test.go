@@ -211,7 +211,7 @@ func TestValidateConfig_InvalidValues(t *testing.T) {
 				c.AI.Provider = "gemini"
 				c.AI.Model = "gemini-2.0-flash"
 			},
-			expectError: "CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled",
+			expectError: "AI is enabled but no API key found",
 		},
 		{
 			name: "invalid requests per minute",
@@ -384,7 +384,7 @@ func TestValidateConfig_NewProviderAndModelChecks(t *testing.T) {
 				c.AI.Model = "gemini-2.0-flash"
 				c.AI.APIKey = ""
 			},
-			expectError: "CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled",
+			expectError: "AI is enabled but no API key found",
 		},
 		{
 			name: "AI enabled with empty model",
