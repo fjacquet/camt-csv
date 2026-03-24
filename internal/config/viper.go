@@ -7,6 +7,7 @@ import (
 
 	"fjacquet/camt-csv/internal/models"
 
+	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -89,6 +90,10 @@ type Config struct {
 
 // InitializeConfig initializes Viper configuration with hierarchical loading
 func InitializeConfig() (*Config, error) {
+	// 0. Load .env file if it exists (before Viper so env vars are available)
+	// Silently ignore error if .env doesn't exist
+	_ = godotenv.Load()
+
 	v := viper.New()
 
 	// 1. Set defaults
@@ -120,7 +125,13 @@ func InitializeConfig() (*Config, error) {
 	if err := v.BindEnv("ai.api_key", "CAMT_AI_API_KEY"); err != nil {
 		fmt.Printf("Warning: failed to bind CAMT_AI_API_KEY environment variable: %v\n", err)
 	}
-	// Fallback: if CAMT_AI_API_KEY is not set, try GEMINI_API_KEY for backward compatibility
+	// Fallback: if CAMT_AI_API_KEY is not set, try OPENROUTER_API_KEY (for OpenRouter users)
+	if v.GetString("ai.api_key") == "" {
+		if err := v.BindEnv("ai.api_key", "OPENROUTER_API_KEY"); err != nil {
+			fmt.Printf("Warning: failed to bind OPENROUTER_API_KEY environment variable: %v\n", err)
+		}
+	}
+	// Fallback: if still not set, try GEMINI_API_KEY for backward compatibility
 	if v.GetString("ai.api_key") == "" {
 		if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
 			fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
@@ -232,7 +243,7 @@ func validateConfig(config *Config) error {
 		}
 
 		if config.AI.APIKey == "" {
-			return fmt.Errorf("CAMT_AI_API_KEY (or GEMINI_API_KEY) required when AI is enabled")
+			return fmt.Errorf("AI is enabled but no API key found. Set one of: CAMT_AI_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY")
 		}
 
 		if config.AI.RequestsPerMinute < 1 || config.AI.RequestsPerMinute > 1000 {

@@ -45,6 +45,7 @@ go.mod
 # database/creditors.yaml
 # database/debtors.yaml
 sbom.json
+sbom.cdx.json
 coverage.html
 .grepai
 .serena

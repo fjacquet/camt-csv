@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-03-24
+
 ### Fixed
 
 - Fix AI response parsing — `cleanCategory` now handles verbose multi-line responses and markdown bold formatting (`**Category**`) returned by some models (e.g., `mistral-small-2603`); previously the full explanation was stored as the category value
 - Fix `math/rand` usage in `GeminiClient` retry jitter — replaced with time-based jitter (`time.Now().UnixNano()`) to resolve Semgrep CWE-338 warning; retry jitter is not security-sensitive
 - Fix config test expectations for API key error message — updated to match current wording after v1.6 unified key refactor
+- Add `OPENROUTER_API_KEY` env var as dedicated fallback for OpenRouter users (between `CAMT_AI_API_KEY` and `GEMINI_API_KEY`)
 
 ### Changed
 
