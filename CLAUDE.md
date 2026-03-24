@@ -235,3 +235,22 @@ When creating a release:
 2. Add new empty `## [Unreleased]` section above
 3. Update comparison links at bottom of file
 4. Follow semver: breaking=major, features=minor, fixes=patch
+
+## AI Provider Configuration
+
+- OpenRouter model IDs have NO `openrouter/` prefix: use `mistralai/mistral-small-2603` not `openrouter/mistralai/...`
+- Default `ai.requests_per_minute: 5` is correct for personal finance batch workloads (cost control)
+- `cleanCategory` handles verbose AI responses: multi-line (takes last line) and `**bold**` anywhere in string
+
+## Categorization Architecture
+
+- Parser-internal categories (e.g., Selma investment types) are preserved — `categorization_helper` skips external categorizer when `tx.Category` is already set and non-empty
+- Selma `trade` transactions: `PartyName = Fund ISIN`, Description = `Buy/Sell <ISIN>`
+
+## Security / Linting
+
+- Never use `math/rand` — Semgrep blocks it (CWE-338); use `time.Now().UnixNano()` for non-security jitter
+
+## Testing Gotchas
+
+- Config error message strings in tests go stale after refactors — use `assert.Contains` with short substrings
