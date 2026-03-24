@@ -31,8 +31,21 @@ func ProcessTransactionsWithCategorizationStats(
 		if categorizer == nil {
 			logger.Debug("No categorizer provided, skipping categorization",
 				logging.Field{Key: "parser_type", Value: parserType})
-			stats.IncrementUncategorized()
-			processedTransactions[i].Category = "Uncategorized"
+			if tx.Category == "" {
+				processedTransactions[i].Category = models.CategoryUncategorized
+				stats.IncrementUncategorized()
+			} else {
+				stats.IncrementSuccessful()
+			}
+			continue
+		}
+
+		// Skip categorization if category already determined by parser-internal logic
+		if tx.Category != "" && tx.Category != models.CategoryUncategorized {
+			logger.Debug("Category already set, skipping external categorization",
+				logging.Field{Key: "parser_type", Value: parserType},
+				logging.Field{Key: "category", Value: tx.Category})
+			stats.IncrementSuccessful()
 			continue
 		}
 

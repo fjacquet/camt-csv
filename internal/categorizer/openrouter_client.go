@@ -493,8 +493,15 @@ func (c *OpenRouterClient) cleanCategory(category string) string {
 		}
 	}
 
-	// Strip markdown bold formatting (**Category**)
-	category = strings.Trim(category, "*")
+	// Extract **text** from anywhere in the string (single-line verbose responses)
+	if _, after, found := strings.Cut(category, "**"); found {
+		if inner, _, ok := strings.Cut(after, "**"); ok {
+			category = inner
+		}
+	} else {
+		// Strip markdown bold formatting at edges (**Category**)
+		category = strings.Trim(category, "*")
+	}
 
 	// Remove common prefixes/suffixes
 	category = strings.TrimSpace(category)

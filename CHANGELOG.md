@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-03-24
+
+### Fixed
+
+- Fix Selma parser losing `Name` field — Fund ISIN now mapped to `PartyName` for trade, dividend, withholding_tax transactions; `Selma` used for fees and transfers
+- Fix Selma trade descriptions — `trade` replaced with `Buy <ISIN>` or `Sell <ISIN>` based on amount sign
+- Fix Selma withholding_tax category — now correctly set to `Impôts` internally without relying on AI
+- Fix `cleanCategory` to extract `**text**` from anywhere in a single-line verbose AI response (not just at string edges)
+- Fix `categorization_helper` to preserve categories set by parser-internal logic — skips external categorizer when category already determined
+
 ## [2.3.1] - 2026-03-24
 
 ### Fixed

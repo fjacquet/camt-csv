@@ -105,19 +105,26 @@ func setInvestmentType(tx models.Transaction) models.Transaction {
 	switch tx.Description {
 	case "cash_transfer":
 		tx.Investment = "Income"
+		tx.PartyName = "Selma"
 	case "trade":
 		// If amount is negative (starts with -), it's a buy
 		if tx.Amount.IsNegative() {
 			tx.Investment = "Buy"
+			tx.Description = "Buy " + tx.Fund
 		} else {
 			tx.Investment = "Sell"
+			tx.Description = "Sell " + tx.Fund
 		}
+		tx.PartyName = tx.Fund
 	case "selma_fee":
 		tx.Investment = "Expense"
+		tx.PartyName = "Selma"
 	case "dividend":
 		tx.Investment = "Dividend"
+		tx.PartyName = tx.Fund
 	case "withholding_tax":
-		tx.Investment = ""
+		tx.Investment = "Tax"
+		tx.PartyName = tx.Fund
 	}
 
 	// Set appropriate category based on investment type
@@ -139,6 +146,8 @@ func categorizeTransaction(tx models.Transaction) models.Transaction {
 		tx.Category = "Revenus Financiers"
 	case "Expense":
 		tx.Category = "Frais Bancaires"
+	case "Tax":
+		tx.Category = "Impôts"
 	default:
 		// Categorize based on description for other cases
 		switch tx.Description {
