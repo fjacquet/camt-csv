@@ -32,7 +32,7 @@ type GeminiClient struct {
 	httpClient     *http.Client
 	log            logging.Logger
 	limiter        *rate.Limiter
-	requestsPerMin int // Store for reference in error messages
+
 }
 
 // GeminiRequest represents the request structure for Gemini API
@@ -99,7 +99,7 @@ func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string,
 	// Create rate limiter: requestsPerMinute / 60 = requests per second
 	limiter := rate.NewLimiter(
 		rate.Limit(float64(requestsPerMinute)/60.0),
-		1, // Burst size = 1 (strict rate limiting, no bursting)
+		requestsPerMinute, // Allow bursts up to the per-minute limit
 	)
 
 	return &GeminiClient{
@@ -108,9 +108,8 @@ func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string,
 		httpClient: &http.Client{
 			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},
-		log:            logger,
-		limiter:        limiter,
-		requestsPerMin: requestsPerMinute,
+		log:     logger,
+		limiter: limiter,
 	}
 }
 
@@ -132,10 +131,10 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 		logging.Field{Key: "description", Value: transaction.Description},
 	).Debug("Attempting to categorize transaction using Gemini API")
 
-	// Check rate limit before making API call
-	if !c.limiter.Allow() {
-		c.log.Warn("Rate limit exceeded, skipping categorization request")
-		return transaction, fmt.Errorf("rate limit exceeded: %d requests per minute limit reached", c.requestsPerMin)
+	// Wait for rate limiter token (blocks until available, respecting ctx cancellation)
+	if err := c.limiter.Wait(ctx); err != nil {
+		c.log.WithError(err).Warn("Rate limiter wait cancelled")
+		return transaction, fmt.Errorf("rate limiter wait cancelled: %w", err)
 	}
 
 	// Make the API call with retry logic

@@ -12,7 +12,7 @@ ai:
   model: mistralai/mistral-small-2603
   provider: openrouter
   base_url: ""
-  requests_per_minute: 5
+  requests_per_minute: 60
   timeout_seconds: 30
   fallback_category: Uncategorized
 data:
