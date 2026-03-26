@@ -269,6 +269,38 @@ func TestTransactionBuilder_PopulateDerivedFields(t *testing.T) {
 	assert.Equal(t, "Acme Corp", tx.PartyName)
 }
 
+func TestTransactionBuilder_DebitAmountNegation(t *testing.T) {
+	// Debit with positive amount → should be negated
+	tx, err := NewTransactionBuilder().
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(50.00), "CHF").
+		AsDebit().
+		WithPayee("Shop", "").
+		Build()
+
+	require.NoError(t, err)
+	assert.True(t, tx.Amount.IsNegative(), "debit with positive input should become negative")
+	assert.True(t, decimal.NewFromFloat(-50.00).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(50.00).Equal(tx.Debit), "Debit field should store absolute value")
+	assert.True(t, decimal.Zero.Equal(tx.Credit))
+}
+
+func TestTransactionBuilder_CreditWithNegativeAmount(t *testing.T) {
+	// Credit with negative amount → should be corrected to positive
+	tx, err := NewTransactionBuilder().
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(-75.00), "CHF").
+		AsCredit().
+		WithPayer("Employer", "").
+		Build()
+
+	require.NoError(t, err)
+	assert.True(t, tx.Amount.IsPositive(), "credit with negative input should become positive")
+	assert.True(t, decimal.NewFromFloat(75.00).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(75.00).Equal(tx.Credit), "Credit field should store absolute value")
+	assert.True(t, decimal.Zero.Equal(tx.Debit))
+}
+
 func TestTransactionBuilder_ErrorPropagation(t *testing.T) {
 	// Test that errors are propagated through the chain
 	tx, err := NewTransactionBuilder().

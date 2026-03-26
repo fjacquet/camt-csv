@@ -190,6 +190,29 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 	})
 }
 
+func TestTransaction_UpdateDebitCreditAmounts(t *testing.T) {
+	t.Run("debit transaction uses absolute value", func(t *testing.T) {
+		tx := Transaction{
+			Amount:      decimal.NewFromFloat(-100.50),
+			CreditDebit: TransactionTypeDebit,
+			DebitFlag:   true,
+		}
+		tx.UpdateDebitCreditAmounts()
+		assert.True(t, decimal.NewFromFloat(100.50).Equal(tx.Debit))
+		assert.True(t, decimal.Zero.Equal(tx.Credit))
+	})
+
+	t.Run("credit transaction uses absolute value", func(t *testing.T) {
+		tx := Transaction{
+			Amount:      decimal.NewFromFloat(200.75),
+			CreditDebit: TransactionTypeCredit,
+		}
+		tx.UpdateDebitCreditAmounts()
+		assert.True(t, decimal.NewFromFloat(200.75).Equal(tx.Credit))
+		assert.True(t, decimal.Zero.Equal(tx.Debit))
+	})
+}
+
 // Test date formatting functions (these are unexported, so we test them indirectly)
 func TestTransaction_DateFormattingIndirect(t *testing.T) {
 	t.Run("CSV marshaling with dates", func(t *testing.T) {
