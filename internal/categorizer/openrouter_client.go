@@ -26,13 +26,12 @@ import (
 //   - Error messages MUST NOT include URLs or credentials
 //   - Only response bodies (which don't contain credentials) may be logged for debugging
 type OpenRouterClient struct {
-	apiKey         string // SECURITY: Never log this field
-	model          string
-	baseURL        string
-	httpClient     *http.Client
-	log            logging.Logger
-	limiter        *rate.Limiter
-
+	apiKey     string // SECURITY: Never log this field
+	model      string
+	baseURL    string
+	httpClient *http.Client
+	log        logging.Logger
+	limiter    *rate.Limiter
 }
 
 // OpenRouterRequest represents the request structure for OpenRouter (OpenAI-compatible) API

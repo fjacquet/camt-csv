@@ -419,6 +419,13 @@ func (b *TransactionBuilder) populateDerivedFields() {
 	// Update recipient from payee
 	b.tx.UpdateRecipientFromPayee()
 
+	// Ensure debit amounts are negative and credit amounts are positive
+	if b.tx.DebitFlag && b.tx.Amount.IsPositive() {
+		b.tx.Amount = b.tx.Amount.Neg()
+	} else if !b.tx.DebitFlag && b.tx.Amount.IsNegative() {
+		b.tx.Amount = b.tx.Amount.Abs()
+	}
+
 	// Update debit/credit amounts
 	b.tx.UpdateDebitCreditAmounts()
 

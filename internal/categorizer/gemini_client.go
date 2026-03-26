@@ -27,12 +27,11 @@ import (
 //   - Error messages MUST NOT include URLs or credentials
 //   - Only response bodies (which don't contain credentials) may be logged for debugging
 type GeminiClient struct {
-	apiKey         string // SECURITY: Never log this field or URLs containing it
-	model          string
-	httpClient     *http.Client
-	log            logging.Logger
-	limiter        *rate.Limiter
-
+	apiKey     string // SECURITY: Never log this field or URLs containing it
+	model      string
+	httpClient *http.Client
+	log        logging.Logger
+	limiter    *rate.Limiter
 }
 
 // GeminiRequest represents the request structure for Gemini API
