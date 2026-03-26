@@ -314,7 +314,7 @@ func TestConvertRowToTransaction_CustodyFeeType(t *testing.T) {
 
 	assert.Equal(t, "Custody fee for AAPL", txn.Description)
 	assert.Equal(t, models.TransactionTypeDebit, txn.CreditDebit) // Fees are debit (money out)
-	assert.Equal(t, "2.5", txn.Amount.String())
+	assert.Equal(t, "-2.5", txn.Amount.String())
 	assert.Equal(t, "2.5", txn.Fees.String())
 }
 

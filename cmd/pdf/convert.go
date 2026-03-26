@@ -87,8 +87,14 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 	}
 
 	if fileInfo.IsDir() {
+		outputPath := root.SharedFlags.Output
+		// If output is a directory, generate a filename inside it
+		if outInfo, err := os.Stat(outputPath); err == nil && outInfo.IsDir() {
+			outputPath = filepath.Join(outputPath, filepath.Base(inputPath)+".csv")
+			logger.Infof("Output is a directory, writing to: %s", outputPath)
+		}
 		count, err := consolidatePDFDirectory(ctx, p, inputPath,
-			root.SharedFlags.Output, root.SharedFlags.Validate, logger,
+			outputPath, root.SharedFlags.Validate, logger,
 			format, dateFormat)
 		if err != nil {
 			logger.Fatalf("Error consolidating PDFs: %v", err)

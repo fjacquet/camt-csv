@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix all parsers outputting only positive amounts — debit transactions now correctly have negative amounts in CSV output (CAMT, PDF, Revolut, Visa Debit, Selma, Revolut Investment). The sign is applied in `TransactionBuilder.Build()` based on debit/credit direction.
 - Fix AI rate limiter dropping requests instead of throttling — replace non-blocking `Allow()` with blocking `Wait(ctx)` in both OpenRouter and Gemini clients so batch processing naturally paces requests at the configured rate instead of rejecting them
 - Increase rate limiter burst size from 1 to `requestsPerMinute` to allow natural request bursts within the configured limit
+- Fix PDF consolidation failing when `--output` is a directory — auto-generate filename from input directory name (e.g., `-o work/out/viseca` now writes `viseca.csv` inside that directory)
 
 ### Changed
 

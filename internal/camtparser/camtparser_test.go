@@ -183,7 +183,7 @@ func TestConvertToCSV(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Expected CSV content (comma-separated) - updated to 29-column format per Phase 10
-	expectedCSV := "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo,Amount,CreditDebit,Currency,Product,AmountExclTax,TaxRate,InvestmentType,Number,Category,Type,Fund,NumberOfShares,Fees,IBAN,EntryReference,Reference,AccountServicer,BankTxCode,OriginalCurrency,OriginalAmount,ExchangeRate\n,01.01.2023,02.01.2023,Test Payee,Test Payee,,Test Transaction,Test Transaction,100.00,DBIT,EUR,,0.00,0.00,,,Uncategorized,,,0,0.00,,,BK123,,,,0.00,0.00\n"
+	expectedCSV := "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo,Amount,CreditDebit,Currency,Product,AmountExclTax,TaxRate,InvestmentType,Number,Category,Type,Fund,NumberOfShares,Fees,IBAN,EntryReference,Reference,AccountServicer,BankTxCode,OriginalCurrency,OriginalAmount,ExchangeRate\n,01.01.2023,02.01.2023,Test Payee,Test Payee,,Test Transaction,Test Transaction,-100.00,DBIT,EUR,,0.00,0.00,,,Uncategorized,,,0,0.00,,,BK123,,,,0.00,0.00\n"
 
 	assert.Equal(t, expectedCSV, string(csvContent))
 }

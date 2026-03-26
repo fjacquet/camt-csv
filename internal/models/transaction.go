@@ -159,10 +159,10 @@ func (t *Transaction) UpdateInvestmentTypeFromLegacyField() {
 // UpdateDebitCreditAmounts populates the Debit and Credit fields based on the main Amount
 func (t *Transaction) UpdateDebitCreditAmounts() {
 	if t.IsDebit() {
-		t.Debit = t.Amount
+		t.Debit = t.Amount.Abs()
 		t.Credit = decimal.Zero
 	} else if t.IsCredit() {
-		t.Credit = t.Amount
+		t.Credit = t.Amount.Abs()
 		t.Debit = decimal.Zero
 	}
 }

@@ -163,7 +163,7 @@ func TestTransactionBuilder_FluentAPI(t *testing.T) {
 
 	expectedDate, _ := time.Parse("2006-01-02", "2025-01-15")
 	assert.Equal(t, expectedDate, tx.Date)
-	assert.True(t, decimal.NewFromFloat(100.50).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(-100.50).Equal(tx.Amount), "debit amount should be negative")
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "John Doe", tx.Payer)
 	assert.Equal(t, "Acme Corp", tx.Payee)
@@ -255,8 +255,8 @@ func TestTransactionBuilder_PopulateDerivedFields(t *testing.T) {
 	assert.Equal(t, TransactionTypeDebit, tx.CreditDebit)
 	assert.True(t, tx.DebitFlag)
 
-	// Should populate debit/credit amounts
-	assert.True(t, decimal.NewFromFloat(-100.50).Equal(tx.Debit))
+	// Should populate debit/credit amounts (Debit stores absolute value)
+	assert.True(t, decimal.NewFromFloat(100.50).Equal(tx.Debit))
 	assert.True(t, decimal.Zero.Equal(tx.Credit))
 
 	// Should set Name from Payee for debit transaction
@@ -267,6 +267,38 @@ func TestTransactionBuilder_PopulateDerivedFields(t *testing.T) {
 
 	// Should set PartyName
 	assert.Equal(t, "Acme Corp", tx.PartyName)
+}
+
+func TestTransactionBuilder_DebitAmountNegation(t *testing.T) {
+	// Debit with positive amount → should be negated
+	tx, err := NewTransactionBuilder().
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(50.00), "CHF").
+		AsDebit().
+		WithPayee("Shop", "").
+		Build()
+
+	require.NoError(t, err)
+	assert.True(t, tx.Amount.IsNegative(), "debit with positive input should become negative")
+	assert.True(t, decimal.NewFromFloat(-50.00).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(50.00).Equal(tx.Debit), "Debit field should store absolute value")
+	assert.True(t, decimal.Zero.Equal(tx.Credit))
+}
+
+func TestTransactionBuilder_CreditWithNegativeAmount(t *testing.T) {
+	// Credit with negative amount → should be corrected to positive
+	tx, err := NewTransactionBuilder().
+		WithDate("2025-01-15").
+		WithAmount(decimal.NewFromFloat(-75.00), "CHF").
+		AsCredit().
+		WithPayer("Employer", "").
+		Build()
+
+	require.NoError(t, err)
+	assert.True(t, tx.Amount.IsPositive(), "credit with negative input should become positive")
+	assert.True(t, decimal.NewFromFloat(75.00).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(75.00).Equal(tx.Credit), "Credit field should store absolute value")
+	assert.True(t, decimal.Zero.Equal(tx.Debit))
 }
 
 func TestTransactionBuilder_ErrorPropagation(t *testing.T) {
@@ -369,7 +401,7 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	assert.Equal(t, expectedDate, tx.Date)
 	assert.Equal(t, expectedValueDate, tx.ValueDate)
 
-	assert.True(t, decimal.NewFromFloat(1500.75).Equal(tx.Amount))
+	assert.True(t, decimal.NewFromFloat(-1500.75).Equal(tx.Amount), "debit amount should be negative")
 	assert.Equal(t, "CHF", tx.Currency)
 	assert.Equal(t, "Investment purchase", tx.Description)
 	assert.Equal(t, "REF: INV-2025-001", tx.RemittanceInfo)
@@ -617,7 +649,7 @@ func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
 	})
 
 	t.Run("Decimal accessor methods", func(t *testing.T) {
-		assert.True(t, decimal.NewFromFloat(100.50).Equal(debitTx.GetAmountAsDecimal()))
+		assert.True(t, decimal.NewFromFloat(-100.50).Equal(debitTx.GetAmountAsDecimal()), "debit amount should be negative")
 		assert.True(t, decimal.NewFromFloat(200.75).Equal(creditTx.GetAmountAsDecimal()))
 	})
 }

@@ -92,7 +92,7 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	assert.Equal(t, time.April, transactions[0].Date.Month())
 	assert.Equal(t, 15, transactions[0].Date.Day())
 	assert.Equal(t, "RATP", transactions[0].Description)
-	assert.Equal(t, models.ParseAmount("4.21"), transactions[0].Amount)
+	assert.Equal(t, models.ParseAmount("-4.21"), transactions[0].Amount)
 	assert.Equal(t, "CHF", transactions[0].Currency)
 	assert.Equal(t, models.TransactionTypeDebit, transactions[0].CreditDebit)
 }
@@ -210,7 +210,7 @@ func TestConvertDebitRowToTransaction(t *testing.T) {
 			expectError: false,
 			expected: func(t *testing.T, tx models.Transaction) {
 				assert.Equal(t, "RATP", tx.Description)
-				assert.Equal(t, models.ParseAmount("4.21"), tx.Amount)
+				assert.Equal(t, models.ParseAmount("-4.21"), tx.Amount)
 				assert.Equal(t, "CHF", tx.Currency)
 				assert.Equal(t, models.TransactionTypeDebit, tx.CreditDebit)
 			},
