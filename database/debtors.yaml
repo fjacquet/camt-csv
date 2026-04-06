@@ -19,6 +19,7 @@ al cilento: Restaurants
 al volo pizzeria: Restaurants
 aletsch bahnen ag: Loisirs
 alphonse mellot, sancerre fr: Alimentation
+alpine lounge armachris: Restaurants
 amag, noville ch: Restaurants
 amavita montreux 100: Santé
 amavita montreux 10067, montreux ch: Santé
@@ -35,6 +36,7 @@ aquamed montreux sa, montreux ch: Santé
 aquamedmontreux: Santé
 aquatis hotel sa: Loisirs
 asloca montreux: Logement
+ass. paroissiale catho: Dons
 aswisscheese sarl, montreux ch: Alimentation
 au grotto: Restaurants
 autost aosta g.s.b./torin, o nord it: Voiture
@@ -55,9 +57,11 @@ belambra: Vacances
 berger paints: Pension
 berghotel schwarenbach, leukerbad ch: Vacances
 berghotel wildstrubel: Restaurants
+betterman labs: Courses
 bioberguen.ch: Courses
 bistrot saint d 4044671, 75paris 7 fr: Restaurants
 blarney castle & gardens: Transports Publics
+bloc carte/ch jacquet frederic yvan: Family
 boreal coffee shop: Restaurants
 boucherie la vallée: Alimentation
 boucherie-charcuteri: Alimentation
@@ -101,6 +105,7 @@ chalet swiss: Restaurants
 cheverny, chamonix-mont fr: Restaurants
 christ-3875, montreux ch: Shopping
 cidiverte schweiz gmbh, bern ch: Loisirs
+city parking: Voiture
 claude.ai subscription, anthropic.com us: Abonnements
 codeium: Abonnements
 comm.adm.valeurs: Frais Bancaires
@@ -114,12 +119,15 @@ coop: Courses
 coop mineraloel ag: Voiture
 coop pronto: Courses
 coop pronto 3499: Courses
+coop pronto 3521: Courses
 coop pronto 3521 montr: Courses
 coop pronto 3521, montreux ch: Courses
 coop pronto 3658 basel: Courses
 coop pronto 3721: Courses
 coop pronto 4062: Courses
 coop pronto 4062 sembr: Courses
+coop pronto 4107 biel/: Courses
+coop pronto 4238: Courses
 coop pronto 5460: Courses
 coop pronto 5463 sion: Courses
 coop pronto 5601 renen: Courses
@@ -147,6 +155,7 @@ cornavin-wc-publics: Utilités
 couleur et saveur, sancerre fr: Restaurants
 coursera: Éducation
 croix-roug* donation, paris fr: Dons
+croix-rouge vaudoise: Dons
 d e d sas di darensod al, gignod it: Alimentation
 damien bernal fujifilm: Divertissement
 darty mktplace 4899414, 93bondy fr: Shopping
@@ -211,8 +220,9 @@ fnac - montreux: Shopping
 fnac - montreux, montreux ch: Shopping
 fnac - rive: Shopping
 fnac montreux: Shopping
-fond. museo nazionale da, milano it: Pension
+fond. museo nazionale da, milano it: Shopping
 foodvisor, paris fr: Abonnements
+frais periodiques 01.02. -28.02.26: Loisirs
 frederic jacquet: Virements
 fun planet rennaz: Loisirs
 fun planet rennaz, rennaz ch: Loisirs
@@ -260,6 +270,7 @@ harringtons restaurant strand st dingle co kerry: Restaurants
 hbh frankfurt airport, frankfurt am de: Restaurants
 heberer ffm flgh acm: Restaurants
 heineken sports bar: Restaurants
+hfr riaz: Voiture
 hopital fribourgeois, fribourg ch: Santé
 hornbach: Mobilier
 hornbach baumarkt (sch: Mobilier
@@ -280,9 +291,12 @@ hotel weisses kreuz bergu, bergun/bravuo ch: Vacances
 hotel zermama: Vacances
 hotel zermama, zermatt ch: Vacances
 hotel-restaurant st-chris, bex ch: Pension
+hôtel le beausite: Utilités
 ifolor: Shopping
 ifolor gmbh, konstanz de: Shopping
+ikea: Mobilier
 ikea ag: Mobilier
+ikea sa aubonne 078: Mobilier
 ikea schweiz e-com, spreitenbach ch: Mobilier
 il bacio, renens ch: Restaurants
 imholz sport ag, andermatt ch: Sport
@@ -294,6 +308,7 @@ infomaniak network sa: Abonnements
 inglewood: Restaurants
 inglewood montreux: Restaurants
 inglewood montreux, montreux ch: Restaurants
+installations zinal: Équipement Maison
 interdiscount: Shopping
 interdiscount-4549 m: Shopping
 interdiscount-4549 mon: Shopping
@@ -320,6 +335,7 @@ l'osteria: Restaurants
 la bicyclette, bourges fr: Restaurants
 la bonne bouteille sas d: Restaurants
 la boucherie: Alimentation
+la brasserie: Restaurants
 la grange: Restaurants
 la grange bar: Restaurants
 la molisana: Restaurants
@@ -334,6 +350,7 @@ laederach schweiz ag, sion ch: Alimentation
 laiterie centrale d': Alimentation
 laiterie de gruyere, montreux ch: Alimentation
 lausanne sous-voies gare, lausanne ch: Sport
+le basilic: Restaurants
 le basilic, montreux ch: Alimentation
 le cerf rougement sa, rougemont ch: Restaurants
 le kamuy ramen isaka: Restaurants
@@ -477,6 +494,7 @@ nyx*sncfgaresetconnexio, paris fr: Transports Publics
 obsidian: Abonnements
 ochsner sport / 763, villeneuve vd ch: Sport
 ochsner sport 0653: Sport
+oelist: Restaurants
 openai: Abonnements
 openai *chatgpt subscr, dublin ie: Abonnements
 openai *chatgpt subscr, openai.com us: Abonnements
@@ -485,6 +503,7 @@ openrouter, inc, openrouter.ai us: Abonnements
 original levis store veve, vevey ch: Shopping
 osez sarl: Bien-être
 osteria italiana: Restaurants
+osteria papà nicola: Restaurants
 packtpub: Restaurants
 paddle.net* feedly, london gb: Abonnements
 paddle.net* n8n cloud1, lisboa pt: Abonnements
@@ -528,6 +547,8 @@ pms parking: Voiture
 pmt carte: Frais Bancaires
 pmt e-com apple.com/chde: Abonnements
 pmt e-com gamma.app: Abonnements
+pmt e-com le creuset aubonne: Mobilier
+pmt e-com milano centrale: Transports Publics
 pmt e-com publibike.ch: Transports Publics
 pmt e-com vma academy sarl: Formation
 pmt twint: Virements
@@ -545,8 +566,9 @@ radisson blu boulogne fo, boulogne-bill fr: Vacances
 radisson blu hotel basel, basel ch: Vacances
 radisson blu hotel lucern, luzern ch: Vacances
 radisson blu lyon fo, lyon fr .23 1': Vacances
-radisson blu milan fb, milano it: Pension
-radisson blu milan fo, milano it: Pension
+radisson blu milan fb, milano it: Vacances
+radisson blu milan fo, milano it: Vacances
+radisson hotel zuric: Vacances
 radisson hotel zurich air, rumlang ch: Assurances
 rapidapi, nokia.com us: Alimentation
 rapidapi, rapidapi.com us: Abonnements
@@ -572,6 +594,7 @@ restaurant huit: Restaurants
 restaurant huit, montreux ch: Restaurants
 restaurant i'ltoya, chavannes re ch: Restaurants
 restaurant iles: Restaurants
+restaurant la chamade: Restaurants
 restaurant la detente, corminboeuf ch: Restaurants
 restaurant la poste: Restaurants
 restaurant la rouvenaz sa, montreux ch: Restaurants
@@ -580,6 +603,7 @@ restaurant le: Restaurants
 restaurant le milan, lausanne ch: Restaurants
 restaurant les rosal: Restaurants
 restaurant oliobasilico, geneve ch: Restaurants
+restaurant quartier: Restaurants
 restaurant rinderhütte: Restaurants
 restaurant sushi kai: Pension
 restaurant-pizzeria, clarens ch: Restaurants
@@ -587,6 +611,7 @@ restaurantvieuxchampex, champex-lac ch: Restaurants
 restoroute gruyere, avry-devant-p ch: Restaurants
 retail inmotion: Pension
 retrait: Divers
+retrait avenue des alpes: Divers
 retrait bcv montreux 1: Divers
 retrait bcv montreux 2: Divers
 retrait bcv montreux forum: Divers
@@ -600,6 +625,8 @@ retrait ubs basel marktplatz: Divers
 retrait ubs genève cornavin: Divers
 retrait ubs montreux: Divers
 revolut bank uab: Virements
+revolut crypto - btc: Investissements
+revolut investment - ibm: Investissements
 rewe: Courses
 rhb webshop: Transports Publics
 rhb webshop, chur ch: Transports Publics
@@ -614,7 +641,9 @@ rochestown park hotel: Vacances
 romande energie sa: Utilités
 royalty entertainmen: Loisirs
 sarl ruelle, saint-georges fr: Restaurants
+sas hotels: Vacances
 sbb: Transports Publics
+sbb biel wc: Transports Publics
 sbb cff ffs: Transports Publics
 sbb cff ffs mobile ticket, bern ch: Transports Publics
 sbb chur wc: Utilités
@@ -632,6 +661,7 @@ selecta merchant vendi, kirchberg ch: Alimentation
 serafe ag: Taxes
 serper: Non Classé
 shell: Voiture
+sherpa: Restaurants
 signal: Utilités
 slalom sport, zermatt ch: Sport
 smeetz sa: Loisirs
@@ -643,6 +673,7 @@ socar: Voiture
 socar station-servic: Voiture
 socar station-service, montreux ch: Voiture
 souscr.    460782: Abonnements
+sp fightwear: Shopping
 sp plaud.ai fr, wan chai hk: Abonnements
 spar: Bien-être
 spielkiste verkehrshau: Shopping
@@ -650,6 +681,7 @@ sports 2000: Sport
 sports 2000, montreux ch: Sport
 sportxx: Sport
 starbucks: Restaurants
+stow your bags: Restaurants
 suisse rando: Loisirs
 sumup  *fleurs de th: Restaurants
 sumup  *restaurant d: Restaurants
@@ -666,6 +698,7 @@ swiss alps gastro, andermatt ch: Restaurants
 swisscom grossunterneh: Utilités
 taxi franck: Voiture
 tea-room martel: Restaurants
+tefal aubonne: Équipement Maison
 temu: Shopping
 the grill: Restaurants
 the grill, le grand-saco ch: Restaurants
@@ -694,12 +727,15 @@ vaudoise generale: Assurances
 vaudoise vie compagnie: Assurances
 verkehrshaus der schw: Loisirs
 verkehrshaus der schweiz: Loisirs
+vers le compte d'investissement: Investissements
 victorinox https://www: Shopping
 victorinox retail schweiz, ibach ch: Shopping
 vir twint beexfit: Virements
 vir twint david schraner: Virements
 vir twint david staeheli: Virements
+vir twint matteo sorci: Virements
 vir twint medeci chinoise han sa: Virements
+vir twint medecine chinoise 3: Virements
 vir twint medecine han: Virements
 vir twint medecine han 2: Virements
 vir twint patrick marki: Virements
@@ -710,6 +746,7 @@ vivatk156296636267, bologna it: Shopping
 volg laden berguen: Courses
 volken sport gmbh store, fiesch ch: Sport
 vroom, geneve ch: Restaurants
+wal*westhive: Courses
 wc restaurant mgp: Utilités
 wfhland / fabric, fabric.so us: Abonnements
 wikimedia ch: Dons
@@ -731,3 +768,4 @@ zattoo, zurich ch: Abonnements
 zbag restaurant mgp: Restaurants
 zbag schluhmatte billett, zermatt ch: Transports Publics
 zenhäusern frères sa: Restaurants
+zum braunen mutz: Restaurants

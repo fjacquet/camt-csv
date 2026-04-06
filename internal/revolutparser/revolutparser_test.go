@@ -596,3 +596,170 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,INVALID_AMOU
 		}
 	})
 }
+
+// --- normalizeCSVData tests ---
+
+func TestNormalizeCSVData_FrenchHeaders(t *testing.T) {
+	frenchCSV := "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde\n" +
+		"Paiement par carte,Valeur actuelle,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,TERMINÉ,100.00\n"
+
+	result := normalizeCSVData([]byte(frenchCSV))
+	resultStr := string(result)
+
+	assert.Contains(t, resultStr, "Product")
+	assert.Contains(t, resultStr, "Started Date")
+	assert.Contains(t, resultStr, "Completed Date")
+	assert.Contains(t, resultStr, "Amount")
+	assert.Contains(t, resultStr, "Fee")
+	assert.Contains(t, resultStr, "Currency")
+	assert.Contains(t, resultStr, "State")
+	assert.Contains(t, resultStr, "Balance")
+	assert.NotContains(t, resultStr, "Produit")
+	assert.NotContains(t, resultStr, "Montant")
+}
+
+func TestNormalizeCSVData_FrenchValues(t *testing.T) {
+	frenchCSV := "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n" +
+		"Paiement par carte,Valeur actuelle,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,TERMINÉ,100.00\n"
+
+	result := normalizeCSVData([]byte(frenchCSV))
+	resultStr := string(result)
+
+	assert.Contains(t, resultStr, "CARD_PAYMENT")
+	assert.Contains(t, resultStr, "CURRENT")
+	assert.Contains(t, resultStr, "COMPLETED")
+	assert.NotContains(t, resultStr, "Paiement par carte")
+	assert.NotContains(t, resultStr, "TERMINÉ")
+}
+
+func TestNormalizeCSVData_AllFrenchTypes(t *testing.T) {
+	tests := []struct {
+		french  string
+		english string
+	}{
+		{"Paiement par carte", "CARD_PAYMENT"},
+		{"Virement", "TRANSFER"},
+		{"Changes", "EXCHANGE"},
+		{"Ajout de fonds", "TOPUP"},
+		{"Remboursement des frais", "FEE_REFUND"},
+		{"Retrait d'espèces", "ATM"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.french, func(t *testing.T) {
+			csv := "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n" +
+				tt.french + ",Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Test,-10.50,0.00,CHF,COMPLETED,100.00\n"
+			result := string(normalizeCSVData([]byte(csv)))
+			assert.Contains(t, result, tt.english)
+		})
+	}
+}
+
+func TestNormalizeCSVData_AllFrenchStates(t *testing.T) {
+	tests := []struct {
+		french  string
+		english string
+	}{
+		{"TERMINÉ", "COMPLETED"},
+		{"ANNULÉ", "REVERTED"},
+		{"EN ATTENTE", "PENDING"},
+		{"DÉCLINÉ", "DECLINED"},
+		{"RÉVISÉ", "REVERTED"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.french, func(t *testing.T) {
+			csv := "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n" +
+				"CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Test,-10.50,0.00,CHF," + tt.french + ",100.00\n"
+			result := string(normalizeCSVData([]byte(csv)))
+			assert.Contains(t, result, tt.english)
+		})
+	}
+}
+
+func TestNormalizeCSVData_FrenchProducts(t *testing.T) {
+	tests := []struct {
+		french  string
+		english string
+	}{
+		{"Valeur actuelle", "CURRENT"},
+		{"Épargne", "SAVINGS"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.french, func(t *testing.T) {
+			csv := "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n" +
+				"CARD_PAYMENT," + tt.french + ",2025-01-02 08:07:09,2025-01-03 15:38:51,Test,-10.50,0.00,CHF,COMPLETED,100.00\n"
+			result := string(normalizeCSVData([]byte(csv)))
+			assert.Contains(t, result, tt.english)
+		})
+	}
+}
+
+func TestNormalizeCSVData_EnglishPassthrough(t *testing.T) {
+	englishCSV := "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n" +
+		"CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00\n"
+
+	result := normalizeCSVData([]byte(englishCSV))
+	// Description should not be altered
+	assert.Contains(t, string(result), "Coffee")
+	assert.Contains(t, string(result), "CARD_PAYMENT")
+}
+
+func TestNormalizeCSVData_InvalidCSV(t *testing.T) {
+	invalidCSV := []byte("not\"valid,csv\n")
+	result := normalizeCSVData(invalidCSV)
+	// Should return original data on parse error
+	assert.Equal(t, invalidCSV, result)
+}
+
+func TestNormalizeCSVData_EmptyInput(t *testing.T) {
+	result := normalizeCSVData([]byte{})
+	assert.Equal(t, []byte{}, result)
+}
+
+func TestNormalizeCSVData_DescriptionNotAltered(t *testing.T) {
+	// French descriptions should NOT be normalized
+	csv := "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde\n" +
+		"Paiement par carte,Valeur actuelle,2025-01-02,2025-01-03,Épicerie du village,-50.00,0.00,CHF,TERMINÉ,200.00\n"
+	result := string(normalizeCSVData([]byte(csv)))
+	assert.Contains(t, result, "Épicerie du village") // description preserved
+	assert.Contains(t, result, "CARD_PAYMENT")        // type normalized
+}
+
+func TestValidateFormat_FrenchCSV(t *testing.T) {
+	frenchCSV := "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde\n" +
+		"Paiement par carte,Valeur actuelle,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,TERMINÉ,100.00\n"
+
+	valid, err := validateFormat(strings.NewReader(frenchCSV))
+	assert.NoError(t, err)
+	assert.True(t, valid, "French-localized CSV should be accepted after normalization")
+}
+
+func TestParseWithCategorizer_FrenchCSV(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	frenchCSV := "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde\n" +
+		"Paiement par carte,Valeur actuelle,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee Shop,-10.50,0.00,CHF,TERMINÉ,100.00\n"
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "revolut_fr.csv")
+	err := os.WriteFile(tmpFile, []byte(frenchCSV), 0600)
+	require.NoError(t, err)
+
+	file, err := os.Open(tmpFile)
+	require.NoError(t, err)
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Logf("Failed to close file: %v", closeErr)
+		}
+	}()
+
+	data, err := os.ReadFile(tmpFile)
+	require.NoError(t, err)
+	data = normalizeCSVData(data)
+
+	transactions, err := ParseWithCategorizer(strings.NewReader(string(data)), logger, nil)
+	assert.NoError(t, err)
+	assert.Len(t, transactions, 1)
+	assert.Equal(t, "Coffee Shop", transactions[0].Description)
+}

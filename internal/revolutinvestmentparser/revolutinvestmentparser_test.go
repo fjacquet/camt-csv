@@ -456,6 +456,13 @@ func TestCleanAmountString(t *testing.T) {
 		{"1,000", "1000"},
 		{"500", "500"},
 		{"€1,234,567.89", "1234567.89"},
+		{"USD 2.84", "2.84"},
+		{"EUR 454", "454"},
+		{"CHF 1,234.56", "1234.56"},
+		{"  USD 100.00  ", "100.00"},
+		{"AB 100", "AB 100"},     // 2-letter code: not stripped
+		{"ABCD 100", "ABCD 100"}, // 4-letter code: not stripped
+		{"abc 100", "abc 100"},   // lowercase: not stripped
 	}
 
 	for _, test := range tests {

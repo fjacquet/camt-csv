@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-04-06
+
+### Added
+
+- Add `revolut-crypto` command to parse Revolut Crypto account statement CSV exports (French locale numbers and dates, supports `Achat` and `Récompense de staking` transaction types)
+- Add `revolut` parser support for French-localized CSV exports (headers and values normalized to English before parsing)
+
 ### Fixed
+
+- Fix `revolut-investment` parser failing on amounts with ISO 4217 currency prefix (e.g. `USD 2.84`)
+- Fix `revolut` command ignoring `output.format` config when `--format` flag is not passed
 
 - Fix all parsers outputting only positive amounts — debit transactions now correctly have negative amounts in CSV output (CAMT, PDF, Revolut, Visa Debit, Selma, Revolut Investment). The sign is applied in `TransactionBuilder.Build()` based on debit/credit direction.
 - Fix AI rate limiter dropping requests instead of throttling — replace non-blocking `Allow()` with blocking `Wait(ctx)` in both OpenRouter and Gemini clients so batch processing naturally paces requests at the configured rate instead of rejecting them

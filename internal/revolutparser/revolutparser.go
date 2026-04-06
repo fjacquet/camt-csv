@@ -48,6 +48,9 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 		return nil, fmt.Errorf("error reading input: %w", err)
 	}
 
+	// Normalize French-localized CSVs before validation and parsing
+	data = normalizeCSVData(data)
+
 	// Check if the file format is valid
 	valid, err := validateFormat(bytes.NewReader(data))
 	if err != nil {
@@ -238,6 +241,88 @@ func convertRevolutRowToTransaction(row RevolutCSVRow, logger logging.Logger) (m
 	return transaction, nil
 }
 
+// normalizeCSVData converts French-localized Revolut CSV headers and column values to English.
+// Normalization is column-aware: only Type, Product, and State columns are value-normalized,
+// so transaction descriptions are never altered.
+func normalizeCSVData(data []byte) []byte {
+	reader := csv.NewReader(bytes.NewReader(data))
+	records, err := reader.ReadAll()
+	if err != nil || len(records) == 0 {
+		return data
+	}
+
+	headerMap := map[string]string{
+		"Produit":       "Product",
+		"Date de début": "Started Date",
+		"Date de fin":   "Completed Date",
+		"Montant":       "Amount",
+		"Frais":         "Fee",
+		"Devise":        "Currency",
+		"État":          "State",
+		"Solde":         "Balance",
+	}
+	stateMap := map[string]string{
+		"TERMINÉ":    "COMPLETED",
+		"ANNULÉ":     "REVERTED",
+		"EN ATTENTE": "PENDING",
+		"DÉCLINÉ":    "DECLINED",
+		"RÉVISÉ":     "REVERTED",
+	}
+	typeMap := map[string]string{
+		"Paiement par carte":      "CARD_PAYMENT",
+		"Virement":                "TRANSFER",
+		"Changes":                 "EXCHANGE",
+		"Ajout de fonds":          "TOPUP",
+		"Remboursement des frais": "FEE_REFUND",
+		"Valider le paiement":     "CARD_PAYMENT",
+		"Retrait d'espèces":       "ATM",
+	}
+	productMap := map[string]string{
+		"Valeur actuelle": "CURRENT",
+		"Épargne":         "SAVINGS",
+	}
+
+	// Normalize headers and record column indices
+	colIndex := make(map[string]int)
+	for i, h := range records[0] {
+		if en, ok := headerMap[h]; ok {
+			records[0][i] = en
+			colIndex[en] = i
+		} else {
+			colIndex[h] = i
+		}
+	}
+
+	typeIdx, hasType := colIndex["Type"]
+	productIdx, hasProduct := colIndex["Product"]
+	stateIdx, hasState := colIndex["State"]
+
+	for _, row := range records[1:] {
+		if hasType && typeIdx < len(row) {
+			if en, ok := typeMap[row[typeIdx]]; ok {
+				row[typeIdx] = en
+			}
+		}
+		if hasProduct && productIdx < len(row) {
+			if en, ok := productMap[row[productIdx]]; ok {
+				row[productIdx] = en
+			}
+		}
+		if hasState && stateIdx < len(row) {
+			if en, ok := stateMap[row[stateIdx]]; ok {
+				row[stateIdx] = en
+			}
+		}
+	}
+
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	if err := w.WriteAll(records); err != nil {
+		return data
+	}
+	return buf.Bytes()
+}
+
 // validateFormat checks if the file is a valid Revolut CSV file.
 func validateFormat(r io.Reader) (bool, error) {
 	return validateFormatWithLogger(r, nil)
@@ -249,7 +334,17 @@ func validateFormatWithLogger(r io.Reader, logger logging.Logger) (bool, error) 
 	}
 	logger.Info("Validating Revolut CSV format from reader")
 
-	reader := csv.NewReader(r)
+	// Normalize French-localized CSVs before header validation
+	rawData, err := io.ReadAll(r)
+	if err != nil {
+		return false, &parsererror.ValidationError{
+			FilePath: "(from reader)",
+			Reason:   fmt.Sprintf("failed to read CSV data: %v", err),
+		}
+	}
+	normalizedData := normalizeCSVData(rawData)
+
+	reader := csv.NewReader(bytes.NewReader(normalizedData))
 
 	// Read header
 	header, err := reader.Read()
