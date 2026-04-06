@@ -47,6 +47,10 @@ func revolutFunc(cmd *cobra.Command, _ []string) {
 		logger.Fatal("Container not initialized")
 	}
 
+	if format == "" {
+		format = appContainer.GetConfig().Output.Format
+	}
+
 	p, err := appContainer.GetParser(container.Revolut)
 	if err != nil {
 		logger.Fatalf("Error getting Revolut parser: %v", err)

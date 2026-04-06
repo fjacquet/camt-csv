@@ -121,7 +121,7 @@ CLI usage: `--format standard` or `--format icompta`. New formatters: implement 
 
 ### Directory Structure
 
-- `cmd/` - Cobra CLI commands (camt, pdf, batch, categorize, revolut, selma, debit, revolut-investment)
+- `cmd/` - Cobra CLI commands (camt, pdf, batch, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
 - `internal/` - Core application logic:
   - `*parser/` packages - Format-specific parsers with `adapter.go` implementing the interface
   - `categorizer/` - Transaction categorization with AI integration

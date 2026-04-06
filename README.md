@@ -10,7 +10,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/fjacquet/camt-csv)](https://github.com/fjacquet/camt-csv/releases/latest)
 [![Docker Pulls](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/fjacquet/camt-csv/pkgs/container/camt-csv)
 
-CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV) into standardized CSV files with AI-powered transaction categorization.
+CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Revolut Crypto CSV, Selma CSV) into standardized CSV files with AI-powered transaction categorization.
 
 ## Installation
 
@@ -46,6 +46,9 @@ camt-csv pdf -i statement.pdf -o output.csv
 
 # Revolut investment transactions
 camt-csv revolut-investment -i investments.csv -o output.csv
+
+# Revolut Crypto transactions
+camt-csv revolut-crypto -i crypto.csv -o output.csv
 
 # Selma investment CSV
 camt-csv selma -i selma.csv -o output.csv

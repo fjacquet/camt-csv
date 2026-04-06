@@ -1,7 +1,7 @@
 # Product Requirements Document: camt-csv
 
-**Version:** 1.4 (current)
-**Last updated:** 2026-02-23
+**Version:** 2.4 (current)
+**Last updated:** 2026-04-06
 **Status:** Active development
 
 ---
@@ -60,8 +60,11 @@ Go developers and financial data engineers who need a reference implementation o
 | Output iCompta-compatible CSV | ✅ Shipped (v1.2) |
 | Four-tier AI categorization with safety controls | ✅ Shipped (v1.2) |
 | Standard CSV trimmed to useful 29 columns | ✅ Shipped (v1.3) |
-| Eliminate batch/single-file split (folder detection) | 🔵 v1.4 in progress |
-| iCompta format as default (no flag needed) | 🔵 v1.4 in progress |
+| Eliminate batch/single-file split (folder detection) | ✅ Shipped (v1.4) |
+| iCompta format as default (no flag needed) | ✅ Shipped (v1.4) |
+| Multi-LLM provider support (OpenRouter + Gemini) | ✅ Shipped (v2.3.1) |
+| Revolut Crypto CSV parser | ✅ Shipped (v2.4.0) |
+| French-localized Revolut CSV support | ✅ Shipped (v2.4.0) |
 
 ### Non-Goals
 
@@ -82,6 +85,7 @@ Go developers and financial data engineers who need a reference implementation o
 | `revolut` | Revolut CSV export | Revolut CHF / EUR current and savings accounts |
 | `revolut-investment` | Revolut Investment CSV | Revolut Stocks/ETF portfolio |
 | `selma` | Selma CSV export | Selma automated investment accounts |
+| `revolut-crypto` | Revolut Crypto CSV | Revolut Crypto account (buy/staking, French locale) |
 | `debit` | Generic debit CSV | Generic debit card transaction exports |
 
 ### CAMT.053 Specifics
@@ -233,6 +237,9 @@ Automatically processes all matching files in the folder (non-recursive). `--out
 | ADR-015 | AI safety: rate limit, backoff, auto-learn OFF default, confidence scores |
 | ADR-016 | Standard CSV trimmed to 29 columns (removed 6 unused columns) |
 | ADR-017 | Input auto-detection: file → single, folder → multi (v1.4) |
+| ADR-018 | Multi-LLM provider support (OpenRouter + Gemini) |
+| ADR-019 | AI response parsing robustness |
+| ADR-020 | Preserve parser-internal categories |
 
 Full ADR files: `docs/adr/`
 

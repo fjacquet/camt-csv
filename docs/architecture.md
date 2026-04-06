@@ -181,7 +181,8 @@ internal/
 │   └── constitution.go   # Constitution loading
 ├── camtparser/           # CAMT.053 XML parser
 ├── pdfparser/           # PDF statement parser
-├── revolutparser/       # Revolut CSV parser
+├── revolutparser/       # Revolut CSV parser (English + French locales)
+├── revolutcryptoparser/ # Revolut Crypto account parser (French locale)
 ├── revolutinvestmentparser/ # Revolut investment parser
 ├── selmaparser/         # Selma investment parser
 └── debitparser/         # Generic debit CSV parser

@@ -18,8 +18,8 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ### Key Features
 
-- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
-- **Smart Categorization**: Three-tier strategy pattern using direct mapping, keyword matching, and AI fallback with auto-learning
+- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV (English and French locales), Revolut Crypto CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
+- **Smart Categorization**: Four-tier strategy pattern using direct mapping, keyword matching, semantic search, and AI fallback with auto-learning
 - **Dependency Injection Architecture**: Clean architecture with explicit dependencies, eliminating global state
 - **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
 - **Batch Processing**: Process multiple files at once with automatic format detection
@@ -174,7 +174,7 @@ All commands support these global flags and configuration options:
 
 ### Command-Specific Flags
 
-#### Parser Commands (camt, pdf, revolut, revolut-investment, selma, debit)
+#### Parser Commands (camt, pdf, revolut, revolut-crypto, revolut-investment, selma, debit)
 
 | CLI Flag | Default | Description |
 |----------|---------|-------------|
@@ -277,6 +277,7 @@ All CAMT-CSV commands follow this pattern:
 | `camt` | Convert CAMT.053 XML files | XML bank statements |
 | `pdf` | Convert PDF bank statements | PDF files |
 | `revolut` | Process Revolut CSV exports | Revolut CSV format |
+| `revolut-crypto` | Process Revolut Crypto account CSV exports | Revolut Crypto CSV (French locale) |
 | `revolut-investment` | Process Revolut investment transactions | Revolut investment CSV format |
 | `selma` | Process Selma investment files | Selma CSV format |
 | `debit` | Process generic debit CSV files | Generic CSV format |
@@ -303,7 +304,13 @@ All CAMT-CSV commands follow this pattern:
    ./camt-csv revolut -i revolut_export.csv -o processed.csv
    ```
 
-4. **Process Revolut investment transactions:**
+4. **Process Revolut Crypto transactions:**
+
+   ```bash
+   ./camt-csv revolut-crypto -i crypto_export.csv -o processed.csv
+   ```
+
+5. **Process Revolut investment transactions:**
 
    ```bash
    ./camt-csv revolut-investment -i investment_export.csv -o processed.csv

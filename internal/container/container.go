@@ -15,6 +15,7 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/pdfparser"
+	"fjacquet/camt-csv/internal/revolutcryptoparser"
 	"fjacquet/camt-csv/internal/revolutinvestmentparser"
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
@@ -29,6 +30,7 @@ const (
 	PDF               ParserType = "pdf"
 	Revolut           ParserType = "revolut"
 	RevolutInvestment ParserType = "revolut-investment"
+	RevolutCrypto     ParserType = "revolut-crypto"
 	Selma             ParserType = "selma"
 	Debit             ParserType = "debit"
 )
@@ -162,6 +164,11 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	revolutInvestmentParser := revolutinvestmentparser.NewAdapter(logger)
 	revolutInvestmentParser.SetCategorizer(cat)
 	parsers[RevolutInvestment] = revolutInvestmentParser
+
+	// Revolut Crypto parser
+	revolutCryptoParser := revolutcryptoparser.NewAdapter(logger)
+	revolutCryptoParser.SetCategorizer(cat)
+	parsers[RevolutCrypto] = revolutCryptoParser
 
 	// Selma parser
 	selmaParser := selmaparser.NewAdapter(logger)

@@ -332,13 +332,29 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 	return transaction, nil
 }
 
-// cleanAmountString removes currency symbols and formatting from amount strings
+// cleanAmountString removes currency symbols and codes from amount strings.
+// Handles both symbol prefixes (€, $, £) and ISO 4217 code prefixes (e.g. "USD 2.84").
 func cleanAmountString(amountStr string) string {
-	cleaned := strings.TrimPrefix(amountStr, "€")
-	cleaned = strings.TrimPrefix(cleaned, "$")
-	cleaned = strings.TrimPrefix(cleaned, "£")
-	cleaned = strings.ReplaceAll(cleaned, ",", "")
-	return cleaned
+	s := strings.TrimSpace(amountStr)
+	// Strip leading 3-letter currency code (e.g. "USD ", "EUR ", "CHF ")
+	if len(s) > 4 && s[3] == ' ' {
+		allAlpha := true
+		for _, c := range s[:3] {
+			if c < 'A' || c > 'Z' {
+				allAlpha = false
+				break
+			}
+		}
+		if allAlpha {
+			s = strings.TrimSpace(s[4:])
+		}
+	}
+	// Strip symbol prefixes
+	s = strings.TrimPrefix(s, "€")
+	s = strings.TrimPrefix(s, "$")
+	s = strings.TrimPrefix(s, "£")
+	s = strings.ReplaceAll(s, ",", "")
+	return strings.TrimSpace(s)
 }
 
 // formatDate parses the date string and returns time.Time

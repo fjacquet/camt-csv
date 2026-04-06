@@ -11,6 +11,7 @@ import (
 	"fjacquet/camt-csv/cmd/debit"
 	"fjacquet/camt-csv/cmd/pdf"
 	"fjacquet/camt-csv/cmd/revolut"
+	revolutcrypto "fjacquet/camt-csv/cmd/revolut-crypto"
 	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
@@ -46,6 +47,7 @@ func init() {
 	root.Cmd.AddCommand(pdf.Cmd)
 	root.Cmd.AddCommand(selma.Cmd)
 	root.Cmd.AddCommand(revolut.Cmd)
+	root.Cmd.AddCommand(revolutcrypto.Cmd)
 	root.Cmd.AddCommand(debit.Cmd)
 	root.Cmd.AddCommand(revolutinvestment.Cmd)
 }
