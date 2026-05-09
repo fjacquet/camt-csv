@@ -26,6 +26,7 @@ amavita montreux 10067, montreux ch: Santé
 amazon: Shopping
 amazon web services: Services
 amazon web services, aws.amazon.co us: Abonnements
+amci: Services
 ameron hotel flora, luzern ch: Vacances
 amzn mktp fr*mm0jo6fe4, amazon.fr lu: Shopping
 angel s bar: Restaurants
@@ -58,6 +59,7 @@ berger paints: Pension
 berghotel schwarenbach, leukerbad ch: Vacances
 berghotel wildstrubel: Restaurants
 betterman labs: Courses
+big ben bar     2961: Restaurants
 bioberguen.ch: Courses
 bistrot saint d 4044671, 75paris 7 fr: Restaurants
 blarney castle & gardens: Transports Publics
@@ -97,14 +99,16 @@ cff gare geneve, geneve ch: Transports Publics
 cff gare montreux: Transports Publics
 cff gare montreux, montreux ch: Alimentation
 cff genève cornavin: Transports Publics
-cff lausanne wc: Transports Publics
+cff lausanne wc: Utilités
 cff montreux wc: Utilités
+cff sion wc: Utilités
 cff vevey wc: Utilités
-cff yverdon-les-bain: Dons
+cff yverdon-les-bain: Utilités
 chalet swiss: Restaurants
 cheverny, chamonix-mont fr: Restaurants
 christ-3875, montreux ch: Shopping
 cidiverte schweiz gmbh, bern ch: Loisirs
+cinemas hollywood 1-: Divertissement
 city parking: Voiture
 claude.ai subscription, anthropic.com us: Abonnements
 codeium: Abonnements
@@ -239,6 +243,7 @@ generali personenversicherungen ag: Assurances
 gg helvetia 4270025, 75paris 12 fr: Assurances
 glaibasler charivari (: Pension
 gofundme: Dons
+gold phone montreux: Services
 gold phone montreux, lausanne ch: Services
 goldenindia montreux: Restaurants
 google *google one, g.co/helppay# us: Abonnements
@@ -315,6 +320,7 @@ interdiscount-4549 mon: Shopping
 interdiscount-4549 montre, montreux ch: Shopping
 interdiscount-6253 c: Shopping
 interdiscount-6253 cornav, geneve ch: Shopping
+interdiscount.ch: Shopping
 intersport, st doulchard fr: Sport
 istanbul kebab: Restaurants
 ivs france: Alimentation
@@ -325,6 +331,7 @@ ji xiang, fribourg ch: Santé
 jschalp gastro ag, davos platz ch: Restaurants
 julen sport ag, zermatt ch: Sport
 jumbo-6049 vevey, corsier-sur-v ch: Équipement Maison
+jumbo-6071 bussigny: Équipement Maison
 k-kiosk: Courses
 kiddy dome swiss ag, rohrbach ch: Loisirs
 king apartments srl, la spezia it: Vacances
@@ -336,6 +343,8 @@ la bicyclette, bourges fr: Restaurants
 la bonne bouteille sas d: Restaurants
 la boucherie: Alimentation
 la brasserie: Restaurants
+la canette: Restaurants
+la fontaine: Pension
 la grange: Restaurants
 la grange bar: Restaurants
 la molisana: Restaurants
@@ -360,6 +369,7 @@ le palais saint jean: Pension
 le piaf - deli cafébar luzern: Restaurants
 le ptit bar: Restaurants
 le royal opera, paris fr: Restaurants
+le shop levi s: Shopping
 le snack: Restaurants
 le snack-bar aux bonnes choses aéroport: Restaurants
 le temps: Abonnements
@@ -372,6 +382,7 @@ les cornettes, la chapelle d fr: Vacances
 les gentianettes, la chapelle d fr: Vacances
 les relais d'alsace-taverne karlsbrau: Pension
 levis online shop, diegem be: Shopping
+lhc gourmet sa: Restaurants
 lhc gourmet sa, prilly ch: Restaurants
 ligue vaudoise contre: Dons
 livique-5110 villene: Mobilier
@@ -420,6 +431,7 @@ mediamarkt ref, fribourg ch: Shopping
 mediserv sa: Santé
 medium: Abonnements
 merz back.-conf. verkaufs, chur ch: Restaurants
+meyer's sporthaus ag: Sport
 micromania: Divertissement
 microsoft#g071184374, msbill.info ch: Abonnements
 microsoft#g075196914, msbill.info ch: Abonnements
@@ -495,6 +507,7 @@ obsidian: Abonnements
 ochsner sport / 763, villeneuve vd ch: Sport
 ochsner sport 0653: Sport
 oelist: Restaurants
+oh martine: Restaurants
 openai: Abonnements
 openai *chatgpt subscr, dublin ie: Abonnements
 openai *chatgpt subscr, openai.com us: Abonnements
@@ -549,6 +562,7 @@ pmt e-com apple.com/chde: Abonnements
 pmt e-com gamma.app: Abonnements
 pmt e-com le creuset aubonne: Mobilier
 pmt e-com milano centrale: Transports Publics
+pmt e-com myiq.com/us: Abonnements
 pmt e-com publibike.ch: Transports Publics
 pmt e-com vma academy sarl: Formation
 pmt twint: Virements
@@ -670,6 +684,7 @@ sncf: Transports Publics
 sncf-voyageurs, mitry mory fr: Transports Publics
 sns*paul ullrich ag, bern ch: Shopping
 socar: Voiture
+socar station servic: Voiture
 socar station-servic: Voiture
 socar station-service, montreux ch: Voiture
 souscr.    460782: Abonnements
@@ -711,6 +726,7 @@ to pocket chf vacances from chf: Virements
 toilette gare lyon: Divers
 toilettes payantes cff: Utilités
 tom's saloon, leukerbad ch: Restaurants
+total           4375: Voiture
 totem escalade sa: Sport
 tour maine montparnasse: Pension
 transfer to jean didier stefaniak: Virements
@@ -729,6 +745,7 @@ verkehrshaus der schw: Loisirs
 verkehrshaus der schweiz: Loisirs
 vers le compte d'investissement: Investissements
 victorinox https://www: Shopping
+victorinox retail sc: Shopping
 victorinox retail schweiz, ibach ch: Shopping
 vir twint beexfit: Virements
 vir twint david schraner: Virements
