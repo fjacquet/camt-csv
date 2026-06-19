@@ -4,7 +4,7 @@ DIST  ?= dist
 COVER ?= coverage.out
 GOLANGCI_VERSION ?= v2.8.0
 GORELEASER_VERSION ?= v2.7.0
-GOVULNCHECK_VERSION ?= v1.1.4
+GOVULNCHECK_VERSION ?= v1.4.0
 CYCLONEDX_GOMOD_VERSION ?= v1.9.0
 
 # Build variables
@@ -32,7 +32,7 @@ install:
 ## tools: Install development tools (including goreleaser)
 tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
-	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	GOTOOLCHAIN=auto go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
 ## lint: Run golangci-lint
@@ -53,7 +53,7 @@ build:
 
 ## vuln: Run govulncheck
 vuln:
-	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+	GOTOOLCHAIN=auto go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 ## sbom: Generate Software Bill of Materials (CycloneDX)
 sbom:
