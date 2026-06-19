@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := all
 DIST  ?= dist
 COVER ?= coverage.out
-GOLANGCI_VERSION ?= v2.12.2
+GOLANGCI_VERSION ?= v2.8.0
 GORELEASER_VERSION ?= v2.16.0
 
 # Build variables
