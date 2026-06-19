@@ -5,6 +5,7 @@ COVER ?= coverage.out
 GOLANGCI_VERSION ?= v2.8.0
 GORELEASER_VERSION ?= v2.7.0
 GOVULNCHECK_VERSION ?= v1.1.4
+CYCLONEDX_GOMOD_VERSION ?= v1.9.0
 
 # Build variables
 BINARY_NAME=camt-csv
@@ -57,7 +58,7 @@ vuln:
 ## sbom: Generate Software Bill of Materials (CycloneDX)
 sbom:
 	mkdir -p $(DIST)
-	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest mod -json -output $(DIST)/sbom.cdx.json
+	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_GOMOD_VERSION) mod -json -output $(DIST)/sbom.cdx.json
 
 ## security: Run Semgrep SAST (canonical Go security scanner)
 security:
