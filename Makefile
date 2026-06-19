@@ -1,4 +1,11 @@
-.PHONY: build test lint security clean coverage help install-tools sbom
+# Canonical Go Makefile — fjacquet/ci standard interface (do not rename targets)
+.DEFAULT_GOAL := all
+DIST  ?= dist
+COVER ?= coverage.out
+GOLANGCI_VERSION ?= v2.8.0
+GORELEASER_VERSION ?= v2.7.0
+GOVULNCHECK_VERSION ?= v1.4.0
+CYCLONEDX_GOMOD_VERSION ?= v1.9.0
 
 # Build variables
 BINARY_NAME=camt-csv
@@ -7,72 +14,94 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(BUILD_TIME)"
 
-# Go variables
-GOTEST=go test
-GOCOVER=-coverprofile=coverage.txt -covermode=atomic
-GORACE=-race
+.PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
+        build-prod test-race coverage coverage-summary mod-tidy mod-update run help
 
-## help: Show this help message
-help:
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Targets:"
-	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+## all: Run lint, test, and build
+all: clean lint test build
 
-## build: Build the application
-build:
-	go build $(LDFLAGS) -o $(BINARY_NAME) .
+## clean: Clean build artifacts
+clean:
+	rm -rf $(DIST) site $(COVER) *.sarif
+	rm -f $(BINARY_NAME) coverage.txt coverage.html debug_pdf_extract.txt sbom.cdx.json
 
-## build-prod: Build optimized production binary
-build-prod:
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BINARY_NAME) .
+## install: Download Go modules
+install:
+	go mod download
 
-## test: Run all tests
-test:
-	$(GOTEST) -v ./...
-
-## test-race: Run tests with race detector
-test-race:
-	$(GOTEST) -v $(GORACE) ./...
-
-## coverage: Run tests with coverage report
-coverage:
-	$(GOTEST) -v $(GOCOVER) ./...
-	go tool cover -html=coverage.txt -o coverage.html
-	@echo "Coverage report: coverage.html"
-
-## coverage-summary: Show coverage summary per package
-coverage-summary:
-	$(GOTEST) -cover ./... | grep -v "no test files"
+## tools: Install development tools (including goreleaser)
+tools:
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
+	GOTOOLCHAIN=auto go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
 ## lint: Run golangci-lint
 lint:
 	golangci-lint run --timeout=5m
 
-## security: Run security scan with gosec
-security:
-	gosec -exclude=G304 -fmt=sarif -out=security.sarif ./...
-	@echo "Security report: security.sarif"
+## format: Run golangci-lint formatter
+format:
+	golangci-lint fmt
 
-## sbom: Generate Software Bill of Materials (CycloneDX format, Go module graph)
+## test: Run tests with race detector and coverage
+test:
+	go test -race -coverprofile=$(COVER) -covermode=atomic ./...
+
+## build: Build the application
+build:
+	go build $(LDFLAGS) -v -o $(BINARY_NAME) .
+
+## vuln: Run govulncheck
+vuln:
+	GOTOOLCHAIN=auto go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+## sbom: Generate Software Bill of Materials (CycloneDX)
 sbom:
-	cyclonedx-gomod app -json -licenses -output sbom.cdx.json
-	@echo "SBOM generated: sbom.cdx.json"
+	mkdir -p $(DIST)
+	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_GOMOD_VERSION) mod -json -output $(DIST)/sbom.cdx.json
 
-## clean: Clean build artifacts
-clean:
-	rm -f $(BINARY_NAME)
-	rm -f coverage.txt coverage.html
-	rm -f security.sarif sbom.cdx.json
-	rm -f debug_pdf_extract.txt
+## security: Run Semgrep SAST (canonical Go security scanner)
+security:
+	uvx semgrep scan --config auto --error --skip-unknown-extensions
 
-## install-tools: Install development tools
-install-tools:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+## docs: Build MkDocs documentation
+docs:
+	uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict --site-dir site
 
-## mod-tidy: Tidy go modules
+## coverage-upload: Upload coverage to Codecov
+coverage-upload:
+	uvx --from codecov-cli codecov upload-process --file $(COVER) || true
+
+## release: Cut a release with goreleaser
+release:
+	goreleaser release --clean
+
+## ci: Lint, test, build, and vuln check (matches reusable workflow)
+ci: lint test build vuln
+
+# ---------------------------------------------------------------------------
+# Convenience targets (preserved from original Makefile)
+# ---------------------------------------------------------------------------
+
+## build-prod: Build optimised production binary (CGO disabled)
+build-prod:
+	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BINARY_NAME) .
+
+## test-race: Run tests with race detector (verbose)
+test-race:
+	go test -v -race ./...
+
+## coverage: Run tests and generate HTML coverage report
+coverage:
+	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+	go tool cover -html=coverage.txt -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+## coverage-summary: Show coverage summary per package
+coverage-summary:
+	go test -cover ./... | grep -v "no test files"
+
+## mod-tidy: Tidy Go modules
 mod-tidy:
 	go mod tidy
 	go mod verify
@@ -86,5 +115,9 @@ mod-update:
 run: build
 	./$(BINARY_NAME)
 
-## all: Run lint, test, and build
-all: clean coverage lint test build sbom
+## help: Show this help message
+help:
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'

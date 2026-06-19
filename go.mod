@@ -1,6 +1,6 @@
 module fjacquet/camt-csv
 
-go 1.24.2
+go 1.24.13
 
 require (
 	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
