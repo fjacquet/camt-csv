@@ -70,3 +70,6 @@ nav:
       - ADR-007 Logging Abstraction: adr/ADR-007-logging-abstraction-layer.md
       - ADR-008 Logging Implementation: adr/ADR-008-logging-abstraction-implementation.md
       - ADR-009 Semantic Routing: adr/ADR-009-semantic-routing.md
+
+extra:
+  version: v2.3.3
