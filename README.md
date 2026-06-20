@@ -1,5 +1,7 @@
 # CAMT-CSV
 
+[![License](https://img.shields.io/github/license/fjacquet/camt-csv)](https://github.com/fjacquet/camt-csv/blob/HEAD/LICENSE)
+
 > Convert financial statements to CSV with intelligent transaction categorization
 
 [![Go CI](https://github.com/fjacquet/camt-csv/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/camt-csv/actions/workflows/ci.yml)
