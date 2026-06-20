@@ -2,7 +2,7 @@
 
 > Convert financial statements to CSV with intelligent transaction categorization
 
-[![Go CI](https://github.com/fjacquet/camt-csv/actions/workflows/go.yml/badge.svg)](https://github.com/fjacquet/camt-csv/actions/workflows/go.yml)
+[![Go CI](https://github.com/fjacquet/camt-csv/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/camt-csv/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/fjacquet/camt-csv/graph/badge.svg?token=ST9KKUV81N)](https://codecov.io/gh/fjacquet/camt-csv)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fjacquet/camt-csv)](https://goreportcard.com/report/github.com/fjacquet/camt-csv)
 [![Go Reference](https://pkg.go.dev/badge/github.com/fjacquet/camt-csv.svg)](https://pkg.go.dev/github.com/fjacquet/camt-csv)
