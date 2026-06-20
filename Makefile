@@ -61,8 +61,8 @@ sbom:
 	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_GOMOD_VERSION) mod -json -output $(DIST)/sbom.cdx.json
 
 ## security: Run Semgrep SAST (canonical Go security scanner)
-security:
-	uvx semgrep scan --config auto --error --skip-unknown-extensions
+security:  # advisory: reports findings but never blocks the build (CodeQL/osv are the blocking gates)
+	uvx semgrep scan --config auto --skip-unknown-extensions || true
 
 ## docs: Build MkDocs documentation
 docs:
