@@ -23,7 +23,6 @@ import (
 type mockFullParser struct {
 	validateFunc func(filePath string) (bool, error)
 	parseFunc    func(ctx context.Context, r io.Reader) ([]models.Transaction, error)
-	batchFunc    func(ctx context.Context, inputDir, outputDir string) (int, error)
 	logger       logging.Logger
 	categorizer  models.TransactionCategorizer
 	shouldFailOn map[string]string // filename -> error message
@@ -63,13 +62,6 @@ func (m *mockFullParser) SetLogger(logger logging.Logger) {
 
 func (m *mockFullParser) SetCategorizer(categorizer models.TransactionCategorizer) {
 	m.categorizer = categorizer
-}
-
-func (m *mockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	if m.batchFunc != nil {
-		return m.batchFunc(ctx, inputDir, outputDir)
-	}
-	return 0, errors.New("not implemented in mock")
 }
 
 // Helper to create test transactions

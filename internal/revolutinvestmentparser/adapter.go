@@ -3,11 +3,8 @@ package revolutinvestmentparser
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -53,68 +50,4 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	// A more robust implementation would check for specific headers
 	_, err = csv.NewReader(f).Read()
 	return err == nil, nil
-}
-
-// BatchConvert converts all Revolut investment CSV files in inputDir to standard CSV format in outputDir.
-// Returns the count of successfully converted files.
-func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	logger := a.GetLogger()
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-
-	logger.Info("Starting batch conversion",
-		logging.Field{Key: "inputDir", Value: inputDir},
-		logging.Field{Key: "outputDir", Value: outputDir})
-
-	// Ensure output directory exists
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		return 0, fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	// Read input directory
-	files, err := os.ReadDir(inputDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read input directory: %w", err)
-	}
-
-	count := 0
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		// Only process CSV files
-		if !strings.HasSuffix(strings.ToLower(file.Name()), ".csv") {
-			logger.Debug("Skipping non-CSV file", logging.Field{Key: "file", Value: file.Name()})
-			continue
-		}
-
-		inputPath := filepath.Join(inputDir, file.Name())
-		outputPath := filepath.Join(outputDir, file.Name())
-
-		logger.Info("Converting file",
-			logging.Field{Key: "input", Value: inputPath},
-			logging.Field{Key: "output", Value: outputPath})
-
-		// Validate format before conversion
-		valid, err := a.ValidateFormat(inputPath)
-		if err != nil || !valid {
-			logger.WithError(err).Warn("Skipping invalid file", logging.Field{Key: "file", Value: file.Name()})
-			continue
-		}
-
-		// Convert file
-		if err := a.ConvertToCSV(ctx, inputPath, outputPath); err != nil {
-			logger.WithError(err).Warn("Failed to convert file", logging.Field{Key: "file", Value: file.Name()})
-			continue
-		}
-
-		count++
-	}
-
-	logger.Info("Batch conversion complete",
-		logging.Field{Key: "filesConverted", Value: count})
-
-	return count, nil
 }

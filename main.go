@@ -15,6 +15,7 @@ import (
 	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
+
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )

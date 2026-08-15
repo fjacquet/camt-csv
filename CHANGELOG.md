@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove `BatchConverter` from the `parser.FullParser` interface and drop all seven adapter `BatchConvert` implementations. The method had no callers: directory processing has gone through `batch.BatchProcessor` since it was introduced, and the seven implementations had silently diverged (Selma returned `not implemented`, Visa Debit delegated to a legacy helper, the rest hand-rolled incompatible loops). Parsers now parse; `batch.BatchProcessor` handles directories.
+- Remove the legacy package-level `debitparser.BatchConvert` and `debitparser.BatchConvertWithLogger` helpers, whose only caller was the deleted adapter method.
+
+### Changed
+
+- Replace the copy-pasted `cmd/revolut` convert handler with `common.RunConvert`, the shared path already used by camt, selma, debit, revolut-crypto, and revolut-investment. Behaviour is unchanged; the command drops from 118 to 21 lines.
+- Deprecate the `--date-format` flag. It was registered and threaded through five functions but never read by any writer — output dates have always been `DD.MM.YYYY`. The flag is still accepted so existing invocations keep working, and now reports that it has no effect.
+
+### Fixed
+
+- Stop writing `.manifest.json` twice per batch run — `BatchProcessor.ProcessDirectory` already writes it, and `FolderConvert` was immediately rewriting the same file.
+- Add missing `#nosec G304` justifications in `batch/processor.go` and `pdfparser.go`, matching the convention used at every other file-open site; `gosec` now reports zero issues.
+
 ## [2.4.0] - 2026-04-06
 
 ### Added

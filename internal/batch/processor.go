@@ -186,7 +186,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir s
 	}
 
 	// Step 2: Open and parse file
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		result.Error = fmt.Sprintf("open_error: %v", err)
 		bp.logger.WithError(err).Warn("Failed to open file",

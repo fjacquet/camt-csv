@@ -36,7 +36,6 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 	logger.Infof("Output: %s", outputPath)
 
 	format, _ := cmd.Flags().GetString("format")
-	dateFormat, _ := cmd.Flags().GetString("date-format")
 
 	appContainer := root.GetContainer()
 	if appContainer == nil {
@@ -61,16 +60,15 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 		if outputPath == "" {
 			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
 		}
-		FolderConvert(ctx, p, inputPath, outputPath, logger, format, dateFormat)
+		FolderConvert(ctx, p, inputPath, outputPath, logger, format)
 	} else {
-		ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
+		ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format)
 		root.Log.Info(name + " to CSV conversion completed successfully!")
 	}
 }
 
-// FolderConvert processes all files in a directory using the modern BatchProcessor with formatter support.
-// It replaces the legacy BatchConvertLegacy path for CAMT, debit, selma, and revolut-investment parsers
-// when called from RunConvert.
+// FolderConvert processes all files in a directory using BatchProcessor with formatter support.
+// This is the single directory-processing path for every parser.
 //
 // Parameters:
 //   - ctx: context for cancellation
@@ -78,9 +76,8 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 //   - inputDir: path to directory containing input files
 //   - outputDir: path to output directory (will be created if absent)
 //   - logger: structured logger
-//   - format: output format name ("standard" or "icompta")
-//   - dateFormat: date format string (reserved for future use)
-func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string, _ string) {
+//   - format: output format name ("standard", "icompta" or "jumpsoft")
+func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string) {
 	// Resolve formatter
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
@@ -105,11 +102,9 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 		return
 	}
 
-	// Write manifest (processor already writes it, but we refresh for the log message)
+	// ProcessDirectory already wrote the manifest; we only need its path to
+	// point the user at it.
 	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	if err := manifest.WriteManifest(manifestPath); err != nil {
-		logger.WithError(err).Warn("Failed to write manifest")
-	}
 
 	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
 		manifest.SuccessCount, manifest.TotalFiles))

@@ -43,14 +43,14 @@ func ProcessFileWithError(ctx context.Context, p parser.FullParser, inputFile, o
 
 // ProcessFile processes a single file using the given parser with formatter support.
 // Calls ProcessFileWithErrorFormatted and calls log.Fatalf on error.
-func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string, dateFormat string) {
-	if err := ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile, validate, log, c, format, dateFormat); err != nil {
+func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) {
+	if err := ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile, validate, log, c, format); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
 // ProcessFileWithErrorFormatted processes a single file using the given parser with formatter support and returns an error on failure.
-func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string, dateFormat string) error {
+func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) error {
 	// Set the logger on the parser using the new interface
 	p.SetLogger(log)
 

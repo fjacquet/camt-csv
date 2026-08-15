@@ -349,35 +349,6 @@ data,here`
 	})
 }
 
-func TestAdapter_BatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid Revolut CSV file
-	validFile := filepath.Join(inputDir, "revolut1.csv")
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00`
-
-	err = os.WriteFile(validFile, []byte(csvContent), 0600)
-	require.NoError(t, err)
-
-	// Create invalid file (should be skipped)
-	invalidFile := filepath.Join(inputDir, "other.csv")
-	err = os.WriteFile(invalidFile, []byte("Wrong,Format\ndata,here"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count) // Only 1 valid file should be processed
-}
-
 func TestConvertRevolutRowToTransaction_EdgeCases(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 

@@ -1,7 +1,6 @@
 package camtparser
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,49 +95,6 @@ func TestISO20022Parser_ValidateFormat(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestAdapter_BatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid CAMT XML file
-	validXML := `<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
-	<BkToCstmrStmt>
-		<Stmt>
-			<Ntry>
-				<Amt Ccy="CHF">100.00</Amt>
-				<CdtDbtInd>CRDT</CdtDbtInd>
-				<Sts>BOOK</Sts>
-				<BookgDt><Dt>2023-05-15</Dt></BookgDt>
-				<ValDt><Dt>2023-05-15</Dt></ValDt>
-				<AcctSvcrRef>REF123</AcctSvcrRef>
-				<NtryDtls><TxDtls><Refs><EndToEndId>E2E123</EndToEndId></Refs></TxDtls></NtryDtls>
-			</Ntry>
-		</Stmt>
-	</BkToCstmrStmt>
-</Document>`
-
-	validFile := filepath.Join(inputDir, "statement.xml")
-	err = os.WriteFile(validFile, []byte(validXML), 0600)
-	require.NoError(t, err)
-
-	// Create invalid file (should be skipped)
-	invalidFile := filepath.Join(inputDir, "invalid.xml")
-	err = os.WriteFile(invalidFile, []byte("not xml"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	count, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
 }
 
 func TestIsIBANFormat(t *testing.T) {

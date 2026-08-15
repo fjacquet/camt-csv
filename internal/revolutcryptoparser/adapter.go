@@ -3,10 +3,8 @@ package revolutcryptoparser
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -66,46 +64,4 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-// BatchConvert converts all Revolut Crypto CSV files in inputDir to outputDir.
-func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	logger := a.GetLogger()
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		return 0, fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	files, err := os.ReadDir(inputDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read input directory: %w", err)
-	}
-
-	count := 0
-	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".csv") {
-			continue
-		}
-
-		inputPath := filepath.Join(inputDir, file.Name())
-		outputPath := filepath.Join(outputDir, file.Name())
-
-		valid, err := a.ValidateFormat(inputPath)
-		if err != nil || !valid {
-			logger.WithError(err).Warn("Skipping invalid file", logging.Field{Key: "file", Value: file.Name()})
-			continue
-		}
-
-		if err := a.ConvertToCSV(ctx, inputPath, outputPath); err != nil {
-			logger.WithError(err).Warn("Failed to convert file", logging.Field{Key: "file", Value: file.Name()})
-			continue
-		}
-		count++
-	}
-
-	logger.Info("Batch conversion complete", logging.Field{Key: "filesConverted", Value: count})
-	return count, nil
 }

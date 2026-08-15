@@ -54,16 +54,6 @@ func TestAdapter_ValidateFormat(t *testing.T) {
 	})
 }
 
-func TestAdapter_BatchConvert(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	n, err := adapter.BatchConvert(context.Background(), "/tmp", "/tmp")
-	assert.Error(t, err)
-	assert.Equal(t, 0, n)
-	assert.Contains(t, err.Error(), "not implemented")
-}
-
 func TestAdapter_ConvertToCSV(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)

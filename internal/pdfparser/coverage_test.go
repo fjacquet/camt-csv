@@ -3,8 +3,6 @@ package pdfparser
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -57,32 +55,4 @@ func TestAdapter_ConvertToCSV_NonexistentFile(t *testing.T) {
 	err := adapter.ConvertToCSV(context.Background(), "/nonexistent/file.pdf", "/tmp/out.csv")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error opening input file")
-}
-
-func TestAdapter_BatchConvert_NonexistentDir(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	extractor := NewMockPDFExtractor("", nil)
-	adapter := NewAdapter(logger, extractor)
-
-	n, err := adapter.BatchConvert(context.Background(), "/nonexistent/dir", "/tmp/out")
-	assert.Error(t, err)
-	assert.Equal(t, 0, n)
-}
-
-func TestAdapter_BatchConvert_EmptyDir(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	extractor := NewMockPDFExtractor("some text", nil)
-	adapter := NewAdapter(logger, extractor)
-
-	inputDir := t.TempDir()
-	outputDir := t.TempDir()
-
-	n, err := adapter.BatchConvert(context.Background(), inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, n)
-
-	// Check manifest was written
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	_, statErr := os.Stat(manifestPath)
-	assert.NoError(t, statErr)
 }

@@ -35,8 +35,3 @@ func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	return ValidateFormat(file)
 }
-
-// BatchConvert converts all CSV files in a directory to the standard CSV format.
-func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	return BatchConvert(inputDir, outputDir)
-}

@@ -42,10 +42,6 @@ func (m *mockFullParser) SetLogger(logger logging.Logger) {}
 
 func (m *mockFullParser) SetCategorizer(categorizer models.TransactionCategorizer) {}
 
-func (m *mockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	return 0, nil
-}
-
 var _ parser.FullParser = (*mockFullParser)(nil)
 
 func TestPDFConvert_InvalidFormat(t *testing.T) {

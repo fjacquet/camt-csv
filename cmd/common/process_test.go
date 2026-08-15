@@ -50,11 +50,6 @@ func (m *MockFullParser) ValidateFormat(file string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	args := m.Called(ctx, inputDir, outputDir)
-	return args.Int(0), args.Error(1)
-}
-
 // Test ProcessFileWithError function
 func TestProcessFileWithError_Success(t *testing.T) {
 	mockParser := &MockFullParser{}
