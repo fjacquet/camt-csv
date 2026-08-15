@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Split `camtparser/adapter.go` (648 lines, with a single 380-line `Parse`) into three files: `camt053_schema.go` for the CAMT.053 XML types, which were declared inline inside `Parse`; `entry_mapping.go` for the entry-to-`Transaction` mapping and its helpers; and a 156-line `adapter.go` that now only drives the decode-map-categorize loop. Output is byte-identical, verified against nine real CAMT.053 files. Package coverage rises from 85.5% to 87.0%.
 - Unify `GeminiClient` and `OpenRouterClient` onto a shared `baseAIClient`. The two were near-forks: an identical 165-line categorization prompt, an identical 70-entry synonym table, and an identical `cleanCategory` were maintained twice, so a fix to one silently left the other behind. Prompt construction, response cleaning, rate limiting, retry/backoff and credential gating now have a single implementation; each provider supplies only its own HTTP call. The prompt text, synonym table and cleaning behaviour are unchanged.
 
 ### Fixed
