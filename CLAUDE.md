@@ -92,6 +92,8 @@ type FullParser interface {
 }
 ```
 
+The CAMT.053 XML shape is described in two places on purpose: `internal/models/iso20022.go` models only what format *validation* needs (root element, statement count), while `internal/camtparser/camt053_schema.go` models what *extraction* needs. Keep them separate — merging them would let a validation tweak change parsing output.
+
 Directory processing is **not** a parser concern: `batch.BatchProcessor` (`internal/batch/processor.go`) composes a `FullParser` with an `OutputFormatter` and writes a `.manifest.json` run report. `cmd/common.FolderConvert` is the single CLI entry point to it.
 
 New parsers are registered in `internal/container/container.go` (`newParsers`). CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.

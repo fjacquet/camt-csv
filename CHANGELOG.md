@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Reduce `models/iso20022.go` from 427 lines to 32, and its tests from 824 lines to 108. Despite describing most of CAMT.053, the file had a single production use: `ISO20022Parser.ValidateFormat` unmarshalled a candidate file into `ISO20022Document` and checked that at least one statement came back. All ten helper methods on `models.Entry` (`GetPayer`, `GetPayee`, `GetIBAN`, `BuildDescription` and the rest) had no caller outside their own tests. This was not duplication of `camtparser/camt053_schema.go` in the DRY sense — the two answer different questions — but dead weight around a yes/no check. Validation verdicts are unchanged across 23 files, and CAMT conversion output is byte-identical.
+
 - Remove `BatchConverter` from the `parser.FullParser` interface and drop all seven adapter `BatchConvert` implementations. The method had no callers: directory processing has gone through `batch.BatchProcessor` since it was introduced, and the seven implementations had silently diverged (Selma returned `not implemented`, Visa Debit delegated to a legacy helper, the rest hand-rolled incompatible loops). Parsers now parse; `batch.BatchProcessor` handles directories.
 - Remove the legacy package-level `debitparser.BatchConvert` and `debitparser.BatchConvertWithLogger` helpers, whose only caller was the deleted adapter method.
 
