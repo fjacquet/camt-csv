@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-15
+
 ### Added
 
 - Add a `convert` command that detects the input format instead of requiring you to name it. Each parser is asked in turn whether it recognizes the file and the first one that does performs the conversion, covering CAMT.053 XML, PDF, and the Revolut, Revolut Crypto, Revolut Investment, Selma and Visa Debit CSV exports. Pointed at a directory it detects each file independently, so a folder holding a mix of formats converts in one pass; unrecognized files are skipped with a warning rather than guessed at.
