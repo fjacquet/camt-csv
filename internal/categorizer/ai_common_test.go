@@ -103,7 +103,7 @@ func TestBuildCategorizationPrompt_IncludesTransaction(t *testing.T) {
 func TestBuildCategorizationPrompt_SharedByBothProviders(t *testing.T) {
 	tx := models.Transaction{PartyName: "IKEA AG", Amount: decimal.NewFromInt(150)}
 
-	gemini := NewGeminiClient(testLogger(), 60, "gemini-2.0-flash", 30, "k")
+	gemini := NewGeminiClient(testLogger(), 60, "gemini-2.0-flash", 30, "k", "")
 	openrouter := NewOpenRouterClient(testLogger(), 60, "some/model", 30, "k", "")
 
 	assert.NotNil(t, gemini)

@@ -25,6 +25,7 @@ import (
 type GeminiClient struct {
 	baseAIClient
 	model      string
+	baseURL    string
 	httpClient *http.Client
 }
 
@@ -64,18 +65,20 @@ type GeminiEmbeddingValues struct {
 	Values []float32 `json:"values"`
 }
 
-// geminiAPIBaseURL is the Gemini generative-language endpoint root. It is a
-// variable rather than a constant so tests can point the client at a stub server.
-var geminiAPIBaseURL = "https://generativelanguage.googleapis.com/v1beta/models"
+// defaultGeminiAPIBaseURL is the Gemini generative-language endpoint root.
+// Callers may override it through NewGeminiClient, which is how tests point the
+// client at a stub server without any shared mutable state.
+const defaultGeminiAPIBaseURL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // geminiEmbeddingModel is the embedding model used by GetEmbedding.
 // text-embedding-004 was deprecated in November 2025.
 const geminiEmbeddingModel = "gemini-embedding-001"
 
 // NewGeminiClient creates a new instance of GeminiClient.
-// model and timeoutSeconds are wired from config; empty/zero values use sensible defaults.
-// apiKey is injected directly by the container (no os.Getenv inside this constructor).
-func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string, timeoutSeconds int, apiKey string) *GeminiClient {
+// model, timeoutSeconds and baseURL are wired from config; empty/zero values use
+// sensible defaults. apiKey is injected directly by the container (no os.Getenv
+// inside this constructor).
+func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string, timeoutSeconds int, apiKey string, baseURL string) *GeminiClient {
 	if logger == nil {
 		logger = logging.NewLogrusAdapterFromLogger(logrus.New())
 	}
@@ -93,9 +96,14 @@ func NewGeminiClient(logger logging.Logger, requestsPerMinute int, model string,
 		timeoutSeconds = 30
 	}
 
+	if baseURL == "" {
+		baseURL = defaultGeminiAPIBaseURL
+	}
+
 	return &GeminiClient{
 		baseAIClient: newBaseAIClient("gemini", logger, apiKey, requestsPerMinute),
 		model:        model,
+		baseURL:      baseURL,
 		httpClient: &http.Client{
 			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},
@@ -112,7 +120,7 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 // the model's raw reply.
 func (c *GeminiClient) complete(ctx context.Context, prompt string) (string, error) {
 	// SECURITY: this URL contains the API key as a query parameter — never log it.
-	url := fmt.Sprintf("%s/%s:generateContent?key=%s", geminiAPIBaseURL, c.model, c.apiKey)
+	url := fmt.Sprintf("%s/%s:generateContent?key=%s", c.baseURL, c.model, c.apiKey)
 
 	request := GeminiRequest{
 		Contents: []GeminiContent{
@@ -144,7 +152,7 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 	}
 
 	// SECURITY: this URL contains the API key as a query parameter — never log it.
-	url := fmt.Sprintf("%s/%s:embedContent?key=%s", geminiAPIBaseURL, geminiEmbeddingModel, c.apiKey)
+	url := fmt.Sprintf("%s/%s:embedContent?key=%s", c.baseURL, geminiEmbeddingModel, c.apiKey)
 
 	request := GeminiEmbeddingRequest{
 		Content: GeminiContent{Parts: []GeminiPart{{Text: text}}},

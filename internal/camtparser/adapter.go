@@ -58,8 +58,15 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 				return nil, err
 			}
 
-			transaction := a.entryToTransaction(entry)
-			transactions = append(transactions, a.categorizeTransaction(ctx, transaction))
+			transaction := a.categorizeTransaction(ctx, a.entryToTransaction(entry))
+
+			// categorizeTransaction swallows categorizer errors by design, so a
+			// cancellation surfaces here rather than as a failed transaction.
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+
+			transactions = append(transactions, transaction)
 		}
 	}
 

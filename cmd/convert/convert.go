@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"fjacquet/camt-csv/cmd/common"
@@ -53,6 +54,7 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	if format == "" {
 		format = appContainer.GetConfig().Output.Format
 	}
+	recursive, _ := cmd.Flags().GetBool("recursive")
 
 	fileInfo, err := os.Stat(inputPath)
 	if err != nil {
@@ -63,7 +65,7 @@ func runConvert(cmd *cobra.Command, _ []string) {
 		if outputPath == "" {
 			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
 		}
-		convertDirectory(ctx, appContainer, inputPath, outputPath, logger, format)
+		convertDirectory(ctx, appContainer, inputPath, outputPath, logger, format, recursive)
 		return
 	}
 
@@ -82,11 +84,14 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	root.Log.Info("Conversion completed successfully!")
 }
 
-// convertDirectory detects and converts each file in inputDir independently, so
-// a directory containing several different statement formats converts in one
+// convertDirectory detects and converts each file under inputDir independently,
+// so a directory containing several different statement formats converts in one
 // pass. Unrecognized files are skipped with a warning rather than aborting.
+//
+// Output mirrors the input tree, which is what keeps two statements sharing a
+// basename in different folders from overwriting each other.
 func convertDirectory(ctx context.Context, appContainer *container.Container,
-	inputDir, outputDir string, logger logging.Logger, format string) {
+	inputDir, outputDir string, logger logging.Logger, format string, recursive bool) {
 
 	// Outputs are named after their inputs, so writing into the input directory
 	// would overwrite the statements being read.
@@ -94,7 +99,7 @@ func convertDirectory(ctx context.Context, appContainer *container.Container,
 		logger.Fatal("--output must differ from --input: converted files are named after their sources and would overwrite them")
 	}
 
-	entries, err := os.ReadDir(inputDir)
+	files, err := discoverInputs(inputDir, recursive)
 	if err != nil {
 		logger.Fatalf("Error reading input directory: %v", err)
 	}
@@ -104,47 +109,112 @@ func convertDirectory(ctx context.Context, appContainer *container.Container,
 	}
 
 	var converted, skipped, failed int
+	claimed := make(map[string]bool, len(files))
 
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-
+	for _, inputFile := range files {
 		if err := ctx.Err(); err != nil {
 			logger.Warn("Conversion cancelled",
 				logging.Field{Key: "converted", Value: converted})
 			return
 		}
 
-		inputFile := filepath.Join(inputDir, entry.Name())
-
 		p, parserType, err := appContainer.DetectParser(inputFile)
 		if err != nil {
 			logger.Warn("Skipping file of unrecognized format",
-				logging.Field{Key: "file", Value: entry.Name()})
+				logging.Field{Key: "file", Value: inputFile})
 			skipped++
 			continue
 		}
 
-		base := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
-		outputFile := filepath.Join(outputDir, base+".csv")
+		outputFile := outputPathFor(inputDir, inputFile, outputDir, claimed, logger)
+		if err := os.MkdirAll(filepath.Dir(outputFile), 0750); err != nil {
+			logger.WithError(err).Warn("Failed to create output directory",
+				logging.Field{Key: "file", Value: inputFile})
+			failed++
+			continue
+		}
 
 		if err := common.ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile,
 			root.SharedFlags.Validate, logger, appContainer, format); err != nil {
 			logger.WithError(err).Warn("Failed to convert file",
-				logging.Field{Key: "file", Value: entry.Name()})
+				logging.Field{Key: "file", Value: inputFile})
 			failed++
 			continue
 		}
 
 		logger.Info("Converted file",
-			logging.Field{Key: "file", Value: entry.Name()},
+			logging.Field{Key: "file", Value: inputFile},
 			logging.Field{Key: "format", Value: string(parserType)})
 		converted++
 	}
 
 	logger.Info(fmt.Sprintf("Convert complete: %d converted, %d skipped, %d failed",
 		converted, skipped, failed))
+}
+
+// discoverInputs lists the files to convert under dir, descending into
+// subdirectories only when recursive is set. Hidden entries are skipped at
+// every level, so .git and a previous run's output never become inputs.
+//
+// A directory that cannot be read is an error rather than an empty result: a
+// short list would otherwise be reported as a complete, successful run.
+func discoverInputs(dir string, recursive bool) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		path := filepath.Join(dir, entry.Name())
+
+		if entry.IsDir() {
+			if !recursive {
+				continue
+			}
+			nested, err := discoverInputs(path, recursive)
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, nested...)
+			continue
+		}
+
+		files = append(files, path)
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
+// outputPathFor mirrors the input tree under outputDir, replacing the extension
+// with .csv. Inputs in one directory differing only by extension — statement.pdf
+// and statement.csv — would still land on the same name, so claimed tracks the
+// paths already handed out and folds the source extension into the later one
+// rather than letting it replace the earlier result.
+func outputPathFor(inputDir, filePath, outputDir string, claimed map[string]bool, logger logging.Logger) string {
+	relPath, err := filepath.Rel(inputDir, filePath)
+	if err != nil {
+		relPath = filepath.Base(filePath)
+	}
+
+	ext := filepath.Ext(relPath)
+	candidate := filepath.Join(outputDir, strings.TrimSuffix(relPath, ext)+".csv")
+
+	if claimed[candidate] {
+		candidate = filepath.Join(outputDir,
+			strings.TrimSuffix(relPath, ext)+"-"+strings.TrimPrefix(ext, ".")+".csv")
+		logger.Info("Output name already taken, disambiguating with the source extension",
+			logging.Field{Key: "file", Value: filePath},
+			logging.Field{Key: "output", Value: candidate})
+	}
+
+	claimed[candidate] = true
+	return candidate
 }
 
 // sameDirectory reports whether two paths refer to the same directory,

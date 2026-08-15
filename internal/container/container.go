@@ -104,14 +104,14 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 			// Embedding client: use Gemini if GEMINI_API_KEY is available
 			geminiKey := os.Getenv("GEMINI_API_KEY")
 			if geminiKey != "" {
-				embeddingClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, "gemini-embedding-001", cfg.AI.TimeoutSeconds, geminiKey)
+				embeddingClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, "gemini-embedding-001", cfg.AI.TimeoutSeconds, geminiKey, "")
 				logger.Info("Semantic tier: active (Gemini embeddings)")
 			} else {
 				logger.Info("Semantic tier: skipped (no embedding provider available)")
 			}
 
 		default: // "gemini" or unrecognized falls back to Gemini
-			chatClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, cfg.AI.Model, cfg.AI.TimeoutSeconds, cfg.AI.APIKey)
+			chatClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, cfg.AI.Model, cfg.AI.TimeoutSeconds, cfg.AI.APIKey, cfg.AI.BaseURL)
 			embeddingClient = chatClient
 			logger.WithFields(
 				logging.Field{Key: "provider", Value: "gemini"},

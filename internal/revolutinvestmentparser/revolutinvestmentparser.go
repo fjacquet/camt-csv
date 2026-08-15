@@ -89,15 +89,15 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 			FXRate:        record[7],
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		transaction, err := convertRowToTransaction(row, logger)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "row", Value: i + 2})
 			continue
-		}
-
-		if err := ctx.Err(); err != nil {
-			return nil, err
 		}
 
 		// Categorize the transaction using the injected categorizer
@@ -111,6 +111,13 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 
 			category, catErr := categorizer.Categorize(ctx, transaction.PartyName, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// The categorizer failed because the run was cancelled, not because
+					// this transaction could not be classified. Surface the cancellation
+					// instead of quietly filing the rest as Uncategorized.
+					return nil, ctxErr
+				}
+
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: transaction.PartyName},
 				).Warn("Failed to categorize transaction")

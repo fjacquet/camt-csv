@@ -96,8 +96,7 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 	}
 
 	// Create and run the batch processor
-	processor := batch.NewBatchProcessor(fullParser, logger, outFormatter)
-	processor.SetRecursive(recursive)
+	processor := batch.NewBatchProcessor(fullParser, logger, outFormatter, recursive)
 
 	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {

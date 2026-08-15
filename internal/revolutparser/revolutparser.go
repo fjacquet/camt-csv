@@ -107,16 +107,16 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 			// Add other transfer type handling here if needed
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Convert Revolut row to Transaction
 		tx, err := convertRevolutRowToTransaction(*revolutRows[i], logger)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "row", Value: revolutRows[i]})
 			continue
-		}
-
-		if err := ctx.Err(); err != nil {
-			return nil, err
 		}
 
 		// Categorize the transaction using the injected categorizer
@@ -131,6 +131,13 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 
 			category, catErr := categorizer.Categorize(ctx, tx.Description, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// The categorizer failed because the run was cancelled, not because
+					// this transaction could not be classified. Surface the cancellation
+					// instead of quietly filing the rest as Uncategorized.
+					return nil, ctxErr
+				}
+
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: tx.Description},
 				).Warn("Failed to categorize transaction")

@@ -185,7 +185,7 @@ func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories 
 
 	for _, cat := range categories {
 		// Stop promptly on shutdown rather than working through every remaining
-		// category; each one is a rate-limited network round trip.
+		// category; each one is a network round trip to the embedding provider.
 		if ctx.Err() != nil {
 			s.log.Debug("Embedding warm-up cancelled")
 			return

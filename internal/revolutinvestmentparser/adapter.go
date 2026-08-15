@@ -34,10 +34,13 @@ func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string
 	return a.ConvertToCSVDefault(ctx, inputFile, outputFile, a.Parse)
 }
 
-// expectedHeaders are the columns a Revolut Investment CSV export starts with,
-// in order. They are what distinguishes this format from every other CSV the
-// tool accepts.
-var expectedHeaders = []string{"Date", "Ticker", "Type", "Quantity", "Price per share", "Total Amount", "Currency", "FX Rate"}
+// expectedHeaders returns the columns a Revolut Investment CSV export starts
+// with, in order. They are what distinguishes this format from every other CSV
+// the tool accepts. A fresh slice is returned each call so no caller can alter
+// the schema for the next one.
+func expectedHeaders() []string {
+	return []string{"Date", "Ticker", "Type", "Quantity", "Price per share", "Total Amount", "Currency", "FX Rate"}
+}
 
 // ValidateFormat checks if a file is a valid Revolut Investment CSV file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
@@ -57,10 +60,11 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 		return false, nil
 	}
 
-	if len(header) < len(expectedHeaders) {
+	expected := expectedHeaders()
+	if len(header) < len(expected) {
 		return false, nil
 	}
-	for i, expected := range expectedHeaders {
+	for i, expected := range expected {
 		if strings.TrimSpace(header[i]) != expected {
 			return false, nil
 		}

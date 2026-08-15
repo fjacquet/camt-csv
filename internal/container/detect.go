@@ -13,14 +13,16 @@ import (
 //
 // The order matters only as a tie-break; every validator in the list is
 // specific enough that at most one should accept a given file.
-var detectionOrder = []ParserType{
-	CAMT,
-	PDF,
-	Revolut,
-	RevolutCrypto,
-	RevolutInvestment,
-	Selma,
-	Debit,
+func detectionOrder() []ParserType {
+	return []ParserType{
+		CAMT,
+		PDF,
+		Revolut,
+		RevolutCrypto,
+		RevolutInvestment,
+		Selma,
+		Debit,
+	}
 }
 
 // ErrFormatNotRecognized is returned when no registered parser accepts a file.
@@ -33,7 +35,7 @@ var ErrFormatNotRecognized = fmt.Errorf("no parser recognizes this file format")
 // refusing to open a file it does not understand must not stop the others from
 // trying. If nothing accepts the file, ErrFormatNotRecognized is returned.
 func (c *Container) DetectParser(filePath string) (parser.FullParser, ParserType, error) {
-	for _, parserType := range detectionOrder {
+	for _, parserType := range detectionOrder() {
 		p, err := c.GetParser(parserType)
 		if err != nil {
 			continue
@@ -52,7 +54,5 @@ func (c *Container) DetectParser(filePath string) (parser.FullParser, ParserType
 
 // DetectionOrder returns the parser types tried during detection, in order.
 func DetectionOrder() []ParserType {
-	order := make([]ParserType, len(detectionOrder))
-	copy(order, detectionOrder)
-	return order
+	return detectionOrder()
 }

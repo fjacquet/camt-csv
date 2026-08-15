@@ -17,24 +17,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// withGeminiServer points the Gemini client at a stub server for the duration
-// of a test and restores the real endpoint afterwards.
-func withGeminiServer(t *testing.T, handler http.HandlerFunc) {
+// withGeminiServer starts a stub Gemini endpoint and returns its URL, to be
+// passed to NewGeminiClient. Nothing global is touched, so these tests stay
+// independent of each other.
+func withGeminiServer(t *testing.T, handler http.HandlerFunc) string {
 	t.Helper()
 	server := httptest.NewServer(handler)
-	original := geminiAPIBaseURL
-	geminiAPIBaseURL = server.URL
-	t.Cleanup(func() {
-		geminiAPIBaseURL = original
-		server.Close()
-	})
+	t.Cleanup(server.Close)
+	return server.URL
 }
 
 func TestGeminiClient_Defaults(t *testing.T) {
-	client := NewGeminiClient(testLogger(), 0, "", 0, "test-key")
+	client := NewGeminiClient(testLogger(), 0, "", 0, "test-key", "")
 
 	assert.Equal(t, "gemini-2.0-flash", client.model)
 	assert.Equal(t, "gemini", client.provider)
+	assert.Equal(t, defaultGeminiAPIBaseURL, client.baseURL, "an empty baseURL must fall back to the real endpoint")
 	assert.NotNil(t, client.limiter)
 	assert.NotNil(t, client.httpClient)
 }
@@ -42,7 +40,7 @@ func TestGeminiClient_Defaults(t *testing.T) {
 func TestGeminiClient_CategorizeWithMockServer(t *testing.T) {
 	var gotPrompt string
 
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "test-api-key", r.URL.Query().Get("key"))
 		assert.Contains(t, r.URL.Path, ":generateContent")
 
@@ -60,7 +58,7 @@ func TestGeminiClient_CategorizeWithMockServer(t *testing.T) {
 		}))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "test-api-key")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "test-api-key", baseURL)
 
 	tx, err := client.Categorize(context.Background(), models.Transaction{
 		PartyName:   "Coop Pronto",
@@ -76,9 +74,9 @@ func TestGeminiClient_CategorizeWithMockServer(t *testing.T) {
 // An empty key must short-circuit before any HTTP call is attempted.
 func TestGeminiClient_CategorizeWithEmptyAPIKey(t *testing.T) {
 	called := false
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) { called = true })
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) { called = true })
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "", baseURL)
 
 	tx, err := client.Categorize(context.Background(), models.Transaction{PartyName: "Coop"})
 
@@ -90,12 +88,12 @@ func TestGeminiClient_CategorizeWithEmptyAPIKey(t *testing.T) {
 // A permanent API error must surface, leave the transaction uncategorized, and
 // never leak the URL — which carries the API key as a query parameter.
 func TestGeminiClient_APIErrorIsReportedWithoutLeakingKey(t *testing.T) {
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"bad request"}`))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "super-secret-key")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "super-secret-key", baseURL)
 
 	tx, err := client.Categorize(context.Background(), models.Transaction{PartyName: "Coop"})
 
@@ -106,11 +104,11 @@ func TestGeminiClient_APIErrorIsReportedWithoutLeakingKey(t *testing.T) {
 }
 
 func TestGeminiClient_EmptyCandidatesIsAnError(t *testing.T) {
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, json.NewEncoder(w).Encode(GeminiResponse{}))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k", baseURL)
 
 	_, err := client.Categorize(context.Background(), models.Transaction{PartyName: "Coop"})
 
@@ -119,7 +117,7 @@ func TestGeminiClient_EmptyCandidatesIsAnError(t *testing.T) {
 }
 
 func TestGeminiClient_GetEmbedding(t *testing.T) {
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.Path, "gemini-embedding-001:embedContent")
 
 		var req GeminiEmbeddingRequest
@@ -131,7 +129,7 @@ func TestGeminiClient_GetEmbedding(t *testing.T) {
 		}))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k", baseURL)
 
 	vec, err := client.GetEmbedding(context.Background(), "Coop Pronto")
 
@@ -140,7 +138,7 @@ func TestGeminiClient_GetEmbedding(t *testing.T) {
 }
 
 func TestGeminiClient_GetEmbeddingWithoutAPIKey(t *testing.T) {
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "", "")
 
 	_, err := client.GetEmbedding(context.Background(), "Coop")
 
@@ -149,11 +147,11 @@ func TestGeminiClient_GetEmbeddingWithoutAPIKey(t *testing.T) {
 }
 
 func TestGeminiClient_EmptyEmbeddingIsAnError(t *testing.T) {
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, json.NewEncoder(w).Encode(GeminiEmbeddingResponse{}))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k", baseURL)
 
 	_, err := client.GetEmbedding(context.Background(), "Coop")
 
@@ -164,7 +162,7 @@ func TestGeminiClient_EmptyEmbeddingIsAnError(t *testing.T) {
 // A 503 must be retried; the stub fails twice then succeeds.
 func TestGeminiClient_RetriesServerErrors(t *testing.T) {
 	calls := 0
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if calls < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -177,7 +175,7 @@ func TestGeminiClient_RetriesServerErrors(t *testing.T) {
 		}))
 	})
 
-	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k")
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "k", baseURL)
 
 	tx, err := client.Categorize(context.Background(), models.Transaction{PartyName: "McDonalds"})
 
@@ -188,13 +186,13 @@ func TestGeminiClient_RetriesServerErrors(t *testing.T) {
 
 // The security contract: neither the key nor the URL may appear in any log line.
 func TestGeminiClient_NeverLogsCredentials(t *testing.T) {
-	withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"nope"}`))
 	})
 
 	logger := logging.NewMockLogger()
-	client := NewGeminiClient(logger, 600, "gemini-2.0-flash", 30, "super-secret-key")
+	client := NewGeminiClient(logger, 600, "gemini-2.0-flash", 30, "super-secret-key", baseURL)
 
 	_, _ = client.Categorize(context.Background(), models.Transaction{PartyName: "Coop"})
 

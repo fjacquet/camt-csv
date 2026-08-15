@@ -95,6 +95,12 @@ func ProcessTransactionsWithCategorizationStats(
 		)
 
 		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				// Cancelled mid-run, not a per-transaction classification
+				// failure: report it rather than filing the rest as Uncategorized.
+				return nil, ctxErr
+			}
+
 			logger.WithError(err).Warn("Categorization failed",
 				logging.Field{Key: "parser_type", Value: parserType},
 				logging.Field{Key: "party_name", Value: partyName},
