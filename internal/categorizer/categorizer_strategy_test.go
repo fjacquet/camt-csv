@@ -164,7 +164,7 @@ func TestCategorizer_StrategyOrchestration(t *testing.T) {
 			mockLogger := &logging.MockLogger{}
 
 			// Create categorizer
-			categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
+			categorizer := NewCategorizer(mockAIClient, mockAIClient, mockStore, mockLogger, true, 0.70)
 
 			// Execute
 			category, err := categorizer.CategorizeTransaction(context.Background(), tt.transaction)
@@ -235,7 +235,7 @@ func TestCategorizer_StrategyPriority(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create categorizer
-	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
+	categorizer := NewCategorizer(mockAIClient, mockAIClient, mockStore, mockLogger, true, 0.70)
 
 	// Execute
 	category, err := categorizer.CategorizeTransaction(context.Background(), transaction)
@@ -290,7 +290,7 @@ func TestCategorizer_StrategyErrorHandling(t *testing.T) {
 	mockLogger := &logging.MockLogger{}
 
 	// Create categorizer
-	categorizer := NewCategorizer(mockAIClient, mockStore, mockLogger, true, 0.70)
+	categorizer := NewCategorizer(mockAIClient, mockAIClient, mockStore, mockLogger, true, 0.70)
 
 	// Test transaction
 	transaction := Transaction{
@@ -404,7 +404,7 @@ func TestCategorizer_BackwardCompatibility(t *testing.T) {
 			mockAI := tc.setupAI()
 			mockLogger := &logging.MockLogger{}
 
-			categorizer := NewCategorizer(mockAI, mockStore, mockLogger, true, 0.70)
+			categorizer := NewCategorizer(mockAI, mockAI, mockStore, mockLogger, true, 0.70)
 
 			category, err := categorizer.CategorizeTransaction(context.Background(), tc.transaction)
 

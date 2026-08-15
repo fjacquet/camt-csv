@@ -61,7 +61,15 @@ type Categorizer struct {
 // Note: log variable removed as part of dependency injection refactoring
 
 // NewCategorizer creates a new instance of Categorizer with the given AIClient, CategoryStore, logger, auto-learn setting, and semantic threshold.
-func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool, semanticThreshold float32) *Categorizer {
+// NewCategorizer builds the four-tier categorizer.
+//
+// chatClient answers the AI tier; embeddingClient powers the semantic tier.
+// They are separate parameters because they are not always the same service:
+// OpenRouter serves chat but cannot produce embeddings, so a deployment may
+// pair it with Gemini for the semantic tier. Pass nil for embeddingClient to
+// disable that tier — passing a client that cannot embed leaves the tier
+// initialized but empty, which fails silently.
+func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInterface, logger logging.Logger, autoLearnEnabled bool, semanticThreshold float32) *Categorizer {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -75,7 +83,7 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 		isDirtyDebitors:    false,
 		store:              store,
 		logger:             logger,
-		aiClient:           aiClient,
+		aiClient:           chatClient,
 		isAutoLearnEnabled: autoLearnEnabled,
 		batchCache:         make(map[string]models.Category, 256),
 	}
@@ -138,18 +146,28 @@ func NewCategorizer(aiClient AIClient, store CategoryStoreInterface, logger logg
 
 	// Create embedding cache for semantic strategy
 	var embCache *EmbeddingCache
-	if aiClient != nil {
+	if embeddingClient != nil {
 		embCache = NewEmbeddingCache("", logger)
 	}
 
 	c.strategies = []CategorizationStrategy{
 		NewDirectMappingStrategy(c.creditorMappings, c.debitorMappings, store, logger),
 		NewKeywordStrategy(c.categories, store, logger),
-		NewSemanticStrategyWithCache(aiClient, logger, c.categories, semanticThreshold, embCache),
-		NewAIStrategy(aiClient, logger),
+		NewSemanticStrategyWithCache(embeddingClient, logger, c.categories, semanticThreshold, embCache),
+		NewAIStrategy(chatClient, logger),
 	}
 
 	return c
+}
+
+// Shutdown releases background work started by the categorizer's strategies.
+// Call it once a run is finished; it is safe to call more than once.
+func (c *Categorizer) Shutdown() {
+	for _, strategy := range c.strategies {
+		if sem, ok := strategy.(*SemanticStrategy); ok {
+			sem.Shutdown()
+		}
+	}
 }
 
 // CategorizeTransaction categorizes a transaction using this categorizer instance.
@@ -402,22 +420,6 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.batchCacheMu.Lock()
 	delete(c.batchCache, cacheKey)
 	c.batchCacheMu.Unlock()
-}
-
-// SetEmbeddingClient replaces the AIClient used by the SemanticStrategy.
-// Call after NewCategorizer when the embedding provider differs from the chat
-// provider (e.g. OpenRouter for chat, Gemini for embeddings). Pass nil to
-// disable the semantic tier.
-func (c *Categorizer) SetEmbeddingClient(client AIClient) {
-	for _, strategy := range c.strategies {
-		if sem, ok := strategy.(*SemanticStrategy); ok {
-			sem.client = client
-			if client != nil && !sem.initialized {
-				go sem.initializeEmbeddings(context.Background(), c.categories)
-			}
-			return
-		}
-	}
 }
 
 // SetStagingStore configures the staging store for accumulating AI categorization

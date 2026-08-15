@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add a `convert` command that detects the input format instead of requiring you to name it. Each parser is asked in turn whether it recognizes the file and the first one that does performs the conversion, covering CAMT.053 XML, PDF, and the Revolut, Revolut Crypto, Revolut Investment, Selma and Visa Debit CSV exports. Pointed at a directory it detects each file independently, so a folder holding a mix of formats converts in one pass; unrecognized files are skipped with a warning rather than guessed at.
+- Add `Categorizer.Shutdown` and `Container.Close`, called from the command post-run hook, so an in-flight embedding warm-up is cancelled at shutdown instead of continuing to issue rate-limited API calls. The warm-up now checks for cancellation between categories.
 - Add a `--recursive` flag to the directory-processing commands, so a tree of statements can be converted in one run. Hidden files and directories are skipped at every level.
 
 ### Changed
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix the semantic categorization tier being silently disabled, and a data race, when `ai.provider` is `openrouter`. The container built the categorizer with the chat client and then swapped in the embedding client via `SetEmbeddingClient`, while a warm-up goroutine started by the constructor was already reading that field — an unsynchronized write confirmed by `go test -race`. Worse, that warm-up ran against `OpenRouterClient`, whose `GetEmbedding` always errors: it logged a warning per category and then marked the tier initialized with an empty embedding map, so tier 3 returned nothing while the startup log reported `Semantic tier: active`. `NewCategorizer` now takes the chat and embedding clients as separate parameters and wires both before any goroutine starts; `SetEmbeddingClient` is removed.
 - Fix `revolutinvestmentparser.ValidateFormat` accepting any readable CSV. It only checked that a header row could be parsed, so it claimed Revolut, Selma and Visa Debit exports as its own, and `--validate` on those files passed against the wrong parser. It now verifies the eight expected column names, matching the check the parser itself already performed.
 - Fix `OpenRouterClient` not retrying request timeouts. Its `isRetryableError` was missing the `os.IsTimeout` check that `GeminiClient` had, so a timed-out OpenRouter request failed outright instead of being retried. Both providers now share one retry policy.
 - Stop writing `.manifest.json` twice per batch run — `BatchProcessor.ProcessDirectory` already writes it, and `FolderConvert` was immediately rewriting the same file.

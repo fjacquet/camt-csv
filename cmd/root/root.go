@@ -73,6 +73,10 @@ It also provides transaction categorization based on the party's name.`,
 			if err != nil {
 				Log.WithError(err).Warn("Failed to save debitor mappings")
 			}
+
+			// Stop any embedding warm-up still running so it does not keep
+			// issuing API calls while the command is shutting down.
+			AppContainer.Close()
 		},
 	}
 
