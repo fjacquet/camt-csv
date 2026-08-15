@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Unify `GeminiClient` and `OpenRouterClient` onto a shared `baseAIClient`. The two were near-forks: an identical 165-line categorization prompt, an identical 70-entry synonym table, and an identical `cleanCategory` were maintained twice, so a fix to one silently left the other behind. Prompt construction, response cleaning, rate limiting, retry/backoff and credential gating now have a single implementation; each provider supplies only its own HTTP call. The prompt text, synonym table and cleaning behaviour are unchanged.
+
 ### Fixed
 
+- Fix `OpenRouterClient` not retrying request timeouts. Its `isRetryableError` was missing the `os.IsTimeout` check that `GeminiClient` had, so a timed-out OpenRouter request failed outright instead of being retried. Both providers now share one retry policy.
 - Propagate `context.Context` through categorization. `common.ProcessTransactionsWithCategorizationStats` hardcoded `context.Background()`, and six of the seven parsers accepted a `ctx` on `Parse` and discarded it, so cancelling a run (Ctrl-C, a deadline, a cancelled batch) had no effect once categorization started — a several-thousand-transaction AI run could not be interrupted. Every parser now threads its `ctx` to `Categorize`, and the categorization loops check for cancellation between transactions and return `ctx.Err()` instead of a partially categorized slice.
 
 ### Removed
