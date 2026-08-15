@@ -20,12 +20,16 @@ type BatchProcessor struct {
 	parser    parser.FullParser
 	logger    logging.Logger
 	formatter formatter.OutputFormatter
+	recursive bool
 }
 
 // NewBatchProcessor creates a new BatchProcessor instance that wraps the provided parser.
 // The processor will use the parser for validation, parsing, and CSV writing operations.
 // If fmt is nil, a StandardFormatter will be used by default for backward compatibility.
-func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter.OutputFormatter) *BatchProcessor {
+//
+// recursive is fixed here rather than settable afterwards: ProcessDirectory
+// reads it, so a later change could alter a run already under way.
+func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter.OutputFormatter, recursive bool) *BatchProcessor {
 	// Default to StandardFormatter if formatter is nil (backward compatibility)
 	if fmt == nil {
 		fmt = formatter.NewStandardFormatter()
@@ -35,6 +39,7 @@ func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter
 		parser:    p,
 		logger:    logger,
 		formatter: fmt,
+		recursive: recursive,
 	}
 }
 
@@ -56,7 +61,14 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	}
 
 	// Discover files to process
-	files := bp.discoverFiles(inputDir)
+	files, err := bp.discoverFiles(inputDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Output names are handed out as files are processed so that collisions can
+	// be detected; see outputPathFor.
+	claimed := make(map[string]bool, len(files))
 
 	bp.logger.Info("Starting batch processing",
 		logging.Field{Key: "input_dir", Value: inputDir},
@@ -85,7 +97,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		default:
 		}
 
-		result := bp.processFile(ctx, filePath, outputDir)
+		result := bp.processFile(ctx, filePath, bp.outputPathFor(inputDir, filePath, outputDir, claimed))
 		manifest.Results = append(manifest.Results, result)
 
 		if result.Success {
@@ -118,44 +130,88 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 }
 
 // discoverFiles returns a sorted list of processable files in the given directory.
-// Only returns files in the top-level directory (not recursive).
-// Skips hidden files (starting with '.') and directories.
-func (bp *BatchProcessor) discoverFiles(inputDir string) []string {
+// Hidden files and directories (names starting with '.') are always skipped.
+// Subdirectories are descended into only when the processor is recursive.
+//
+// A directory that cannot be read is an error rather than an empty result: a
+// truncated work list would otherwise produce a manifest reporting success for
+// every file it happened to find, with no sign that others were missed.
+func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 	var files []string
 
 	entries, err := os.ReadDir(inputDir)
 	if err != nil {
-		bp.logger.WithError(err).Error("Failed to read input directory",
-			logging.Field{Key: "dir", Value: inputDir})
-		return files
+		return nil, fmt.Errorf("failed to read directory %s: %w", inputDir, err)
 	}
 
 	for _, entry := range entries {
-		// Skip directories
-		if entry.IsDir() {
-			continue
-		}
-
-		// Skip hidden files
+		// Hidden entries are skipped whether they are files or directories:
+		// .git and .manifest.json are never inputs.
 		if strings.HasPrefix(entry.Name(), ".") {
-			bp.logger.Debug("Skipping hidden file",
-				logging.Field{Key: "file", Value: entry.Name()})
+			bp.logger.Debug("Skipping hidden entry",
+				logging.Field{Key: "name", Value: entry.Name()})
 			continue
 		}
 
-		filePath := filepath.Join(inputDir, entry.Name())
-		files = append(files, filePath)
+		entryPath := filepath.Join(inputDir, entry.Name())
+
+		if entry.IsDir() {
+			if bp.recursive {
+				nested, err := bp.discoverFiles(entryPath)
+				if err != nil {
+					return nil, err
+				}
+				files = append(files, nested...)
+			}
+			continue
+		}
+
+		files = append(files, entryPath)
 	}
 
-	// Sort files alphabetically for consistent ordering
+	// Sort for consistent, reproducible ordering across runs.
 	sort.Strings(files)
 
-	return files
+	return files, nil
 }
 
-// processFile processes a single file and returns a BatchResult.
+// outputPathFor maps an input file to its output path, mirroring the input
+// tree under outputDir and replacing the extension with .csv.
+//
+// Mirroring matters: a flat output directory would send inputDir/jan/statement.xml
+// and inputDir/feb/statement.xml to the same file, and the second conversion
+// would overwrite the first while the manifest reported both as successful.
+//
+// Two inputs in the same directory differing only by extension — statement.pdf
+// and statement.csv — still collide. claimed tracks the paths already handed
+// out so those get the source extension folded into the name instead of
+// silently replacing one another.
+func (bp *BatchProcessor) outputPathFor(inputDir, filePath, outputDir string, claimed map[string]bool) string {
+	relPath, err := filepath.Rel(inputDir, filePath)
+	if err != nil {
+		// Fall back to the bare name; Rel only fails on inputs we did not walk.
+		relPath = filepath.Base(filePath)
+	}
+
+	ext := filepath.Ext(relPath)
+	candidate := filepath.Join(outputDir, strings.TrimSuffix(relPath, ext)+".csv")
+
+	if claimed[candidate] {
+		disambiguated := filepath.Join(outputDir,
+			strings.TrimSuffix(relPath, ext)+"-"+strings.TrimPrefix(ext, ".")+".csv")
+		bp.logger.Info("Output name already taken, disambiguating with the source extension",
+			logging.Field{Key: "file", Value: filePath},
+			logging.Field{Key: "output", Value: disambiguated})
+		candidate = disambiguated
+	}
+
+	claimed[candidate] = true
+	return candidate
+}
+
+// processFile converts filePath and writes the result to outputPath.
 // This method never panics and captures all errors in the returned result.
-func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir string) BatchResult {
+func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath string) BatchResult {
 	fileName := filepath.Base(filePath)
 
 	bp.logger.Info("Processing file",
@@ -186,7 +242,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir s
 	}
 
 	// Step 2: Open and parse file
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
 		result.Error = fmt.Sprintf("open_error: %v", err)
 		bp.logger.WithError(err).Warn("Failed to open file",
@@ -208,19 +264,22 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir s
 		return result
 	}
 
-	// Step 3: Generate output filename (preserve basename, change extension to .csv)
-	baseName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	outputFileName := baseName + ".csv"
-	outputPath := filepath.Join(outputDir, outputFileName)
+	// Step 3: Write CSV using formatter. Mirroring the input tree can introduce
+	// subdirectories that do not exist under the output root yet.
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil {
+		result.Error = fmt.Sprintf("output_dir_error: %v", err)
+		bp.logger.WithError(err).Warn("Failed to create output directory",
+			logging.Field{Key: "file", Value: fileName})
+		return result
+	}
 
-	// Step 4: Write CSV using formatter
 	delimiter := bp.formatter.Delimiter()
 	if err := common.WriteTransactionsToCSVWithFormatter(
 		transactions, outputPath, bp.logger, bp.formatter, delimiter); err != nil {
 		result.Error = fmt.Sprintf("write_error: %v", err)
 		bp.logger.WithError(err).Warn("Failed to write CSV",
 			logging.Field{Key: "file", Value: fileName},
-			logging.Field{Key: "output", Value: outputFileName})
+			logging.Field{Key: "output", Value: outputPath})
 		return result
 	}
 
@@ -231,7 +290,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputDir s
 	bp.logger.Info("Successfully processed file",
 		logging.Field{Key: "file", Value: fileName},
 		logging.Field{Key: "records", Value: result.RecordCount},
-		logging.Field{Key: "output", Value: outputFileName})
+		logging.Field{Key: "output", Value: outputPath})
 
 	return result
 }

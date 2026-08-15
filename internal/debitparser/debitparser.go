@@ -33,7 +33,7 @@ type DebitCSVRow struct {
 }
 
 // ParseWithCategorizer parses a Visa Debit CSV file and categorizes transactions using the provided categorizer.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -68,6 +68,10 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			continue
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Convert Debit row to Transaction
 		tx, err := convertDebitRowToTransaction(*row)
 		if err != nil {
@@ -84,8 +88,15 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = tx.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(context.Background(), tx.Description, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(ctx, tx.Description, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// The categorizer failed because the run was cancelled, not because
+					// this transaction could not be classified. Surface the cancellation
+					// instead of quietly filing the rest as Uncategorized.
+					return nil, ctxErr
+				}
+
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: tx.Description},
 				).Warn("Failed to categorize transaction")
@@ -316,85 +327,4 @@ func ValidateFormatWithLogger(filePath string, logger logging.Logger) (bool, err
 // This is a convenience function that combines ParseFile and WriteToCSV.
 func ConvertToCSV(inputFile, outputFile string) error {
 	return common.GeneralizedConvertToCSV(inputFile, outputFile, ParseFile, ValidateFormat)
-}
-
-// BatchConvert converts all CSV files in a directory to the standard CSV format.
-// It processes all files with a .csv extension in the specified directory.
-func BatchConvert(inputDir, outputDir string) (int, error) {
-	return BatchConvertWithLogger(inputDir, outputDir, nil)
-}
-
-// BatchConvertWithLogger converts all CSV files in a directory with logger.
-func BatchConvertWithLogger(inputDir, outputDir string, logger logging.Logger) (int, error) {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.Info("Starting batch conversion of Visa Debit CSV files",
-		logging.Field{Key: "inputDir", Value: inputDir},
-		logging.Field{Key: "outputDir", Value: outputDir})
-
-	// Check if input directory exists
-	inputInfo, err := os.Stat(inputDir)
-	if err != nil {
-		logger.WithError(err).Error("Failed to access input directory")
-		return 0, fmt.Errorf("error accessing input directory: %w", err)
-	}
-	if !inputInfo.IsDir() {
-		return 0, fmt.Errorf("input path is not a directory: %s", inputDir)
-	}
-
-	// Create output directory if it doesn't exist
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(outputDir, 0750); err != nil {
-			logger.WithError(err).Error("Failed to create output directory")
-			return 0, fmt.Errorf("error creating output directory: %w", err)
-		}
-	}
-
-	// Read input directory
-	entries, err := os.ReadDir(inputDir)
-	if err != nil {
-		logger.WithError(err).Error("Failed to read input directory")
-		return 0, fmt.Errorf("error reading input directory: %w", err)
-	}
-
-	count := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".csv") {
-			continue
-		}
-
-		inputFile := fmt.Sprintf("%s/%s", inputDir, entry.Name())
-
-		// Validate if file is in Visa Debit CSV format
-		valid, err := ValidateFormatWithLogger(inputFile, logger)
-		if err != nil {
-			logger.WithError(err).Warn("Error validating file format, skipping",
-				logging.Field{Key: "file", Value: inputFile})
-			continue
-		}
-		if !valid {
-			logger.Info("File is not a valid Visa Debit CSV, skipping",
-				logging.Field{Key: "file", Value: inputFile})
-			continue
-		}
-
-		// Define output file name (replace extension with _processed.csv)
-		baseName := strings.TrimSuffix(entry.Name(), ".csv")
-		outputFile := fmt.Sprintf("%s/%s_processed.csv", outputDir, baseName)
-
-		// Convert the file
-		err = ConvertToCSV(inputFile, outputFile)
-		if err != nil {
-			logger.WithError(err).Warn("Error converting file, skipping",
-				logging.Field{Key: "file", Value: inputFile})
-			continue
-		}
-
-		count++
-	}
-
-	logger.Info("Batch conversion completed",
-		logging.Field{Key: "count", Value: count})
-	return count, nil
 }

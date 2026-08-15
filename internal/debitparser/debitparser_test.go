@@ -147,7 +147,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 		category: models.Category{Name: "Transport"},
 	}
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Transport", transactions[0].Category)
@@ -163,7 +163,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 	// Mock categorizer that returns error
 	mockCategorizer := &mockCategorizerError{}
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
@@ -312,95 +312,6 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF`
 	valid, err = ValidateFormatWithLogger(emptyFile, logger)
 	assert.NoError(t, err)
 	assert.True(t, valid) // Empty file but valid format
-}
-
-func TestBatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	// Create input directory
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid debit CSV file
-	validCSV := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
-PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
-
-	validFile := filepath.Join(inputDir, "valid.csv")
-	err = os.WriteFile(validFile, []byte(validCSV), 0600)
-	require.NoError(t, err)
-
-	// Create invalid CSV file
-	invalidCSV := `SomeHeader1;SomeHeader2
-Value1;Value2`
-
-	invalidFile := filepath.Join(inputDir, "invalid.csv")
-	err = os.WriteFile(invalidFile, []byte(invalidCSV), 0600)
-	require.NoError(t, err)
-
-	// Create non-CSV file
-	nonCSVFile := filepath.Join(inputDir, "document.txt")
-	err = os.WriteFile(nonCSVFile, []byte("not a csv"), 0600)
-	require.NoError(t, err)
-
-	// Create subdirectory (should be ignored)
-	subDir := filepath.Join(inputDir, "subdir")
-	err = os.MkdirAll(subDir, 0750)
-	require.NoError(t, err)
-
-	// Test batch convert
-	count, err := BatchConvert(inputDir, outputDir)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count) // Only valid file should be processed
-
-	// Verify output file exists
-	outputFile := filepath.Join(outputDir, "valid_processed.csv")
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err)
-}
-
-func TestBatchConvertWithLogger(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	// Create input directory
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-
-	// Create valid CSV file
-	validCSV := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
-PMT CARTE Test;15.04.2025;-25,00;CHF;12345;REF123;COMPLETED`
-
-	validFile := filepath.Join(inputDir, "test.csv")
-	err = os.WriteFile(validFile, []byte(validCSV), 0600)
-	require.NoError(t, err)
-
-	count, err := BatchConvertWithLogger(inputDir, outputDir, logger)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
-}
-
-func TestBatchConvertErrors(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-
-	// Test with nonexistent input directory
-	count, err := BatchConvertWithLogger("/nonexistent/dir", "/tmp/output", logger)
-	assert.Error(t, err)
-	assert.Equal(t, 0, count)
-
-	// Test with file instead of directory
-	tempDir := t.TempDir()
-	notADir := filepath.Join(tempDir, "notadir.txt")
-	err = os.WriteFile(notADir, []byte("content"), 0600)
-	require.NoError(t, err)
-
-	count, err = BatchConvertWithLogger(notADir, "/tmp/output", logger)
-	assert.Error(t, err)
-	assert.Equal(t, 0, count)
-	assert.Contains(t, err.Error(), "input path is not a directory")
 }
 
 // TestDebitParser_ErrorMessagesIncludeFilePath validates error messages include helpful context

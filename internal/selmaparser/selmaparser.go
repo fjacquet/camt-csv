@@ -2,6 +2,7 @@
 package selmaparser
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ import (
 
 // ParseWithCategorizer reads and parses a Selma CSV file from an io.Reader into a slice of Transaction objects
 // and applies categorization using the provided categorizer.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -115,7 +116,7 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 	}
 
 	// Process the transactions (categorize, associate related transactions)
-	return ProcessTransactionsWithCategorizer(transactions, logger, categorizer), nil
+	return ProcessTransactionsWithCategorizer(ctx, transactions, logger, categorizer)
 }
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
@@ -210,7 +211,7 @@ func determineCreditDebit(transactionType, amount string) string {
 //
 // Returns:
 //   - []models.Transaction: The processed transactions with additional metadata
-func ProcessTransactionsWithCategorizer(transactions []models.Transaction, logger logging.Logger, categorizer models.TransactionCategorizer) []models.Transaction {
+func ProcessTransactionsWithCategorizer(ctx context.Context, transactions []models.Transaction, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -221,12 +222,15 @@ func ProcessTransactionsWithCategorizer(transactions []models.Transaction, logge
 	processedTransactions := processTransactionsInternalWithCategorizer(transactions, nil, logger)
 
 	// Then apply categorization with statistics tracking
-	finalTransactions := common.ProcessTransactionsWithCategorizationStats(
-		processedTransactions, logger, categorizer, "Selma")
+	finalTransactions, err := common.ProcessTransactionsWithCategorizationStats(
+		ctx, processedTransactions, logger, categorizer, "Selma")
+	if err != nil {
+		return nil, err
+	}
 
 	logger.Info("Successfully processed Selma transactions",
 		logging.Field{Key: "count", Value: len(finalTransactions)})
-	return finalTransactions
+	return finalTransactions, nil
 }
 
 // validateFormat checks if a file is in valid Selma CSV format.

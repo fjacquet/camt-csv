@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-15
+
+### Added
+
+- Add a `convert` command that detects the input format instead of requiring you to name it. Each parser is asked in turn whether it recognizes the file and the first one that does performs the conversion, covering CAMT.053 XML, PDF, and the Revolut, Revolut Crypto, Revolut Investment, Selma and Visa Debit CSV exports. Pointed at a directory it detects each file independently, so a folder holding a mix of formats converts in one pass; unrecognized files are skipped with a warning rather than guessed at.
+- Add `Categorizer.Shutdown` and `Container.Close`, called from the command post-run hook, so an in-flight embedding warm-up is cancelled at shutdown instead of continuing to issue rate-limited API calls. The warm-up now checks for cancellation between categories.
+- Add a `--recursive` flag to the directory-processing commands, so a tree of statements can be converted in one run. Hidden files and directories are skipped at every level.
+
+### Changed
+
+- Fix `BatchProcessor` recursion being settable after construction: `SetRecursive` is replaced by a constructor parameter, since `ProcessDirectory` reads it and a late change could alter a run already under way.
+- Replace the package-level `geminiAPIBaseURL`, which existed only so tests could redirect the client, with a `baseURL` constructor parameter matching `OpenRouterClient`. The detection order and the Revolut Investment header list become functions returning fresh slices, so no caller can alter them for the next one.
+- Split `camtparser/adapter.go` (648 lines, with a single 380-line `Parse`) into three files: `camt053_schema.go` for the CAMT.053 XML types, which were declared inline inside `Parse`; `entry_mapping.go` for the entry-to-`Transaction` mapping and its helpers; and a 156-line `adapter.go` that now only drives the decode-map-categorize loop. Output is byte-identical, verified against nine real CAMT.053 files. Package coverage rises from 85.5% to 87.0%.
+- Replace the copy-pasted `cmd/revolut` convert handler with `common.RunConvert`, the shared path already used by camt, selma, debit, revolut-crypto, and revolut-investment. Behaviour is unchanged; the command drops from 118 to 21 lines.
+- Deprecate the `--date-format` flag. It was registered and threaded through five functions but never read by any writer — output dates have always been `DD.MM.YYYY`. The flag is still accepted so existing invocations keep working, and now reports that it has no effect.
+- Unify `GeminiClient` and `OpenRouterClient` onto a shared `baseAIClient`. The two were near-forks: an identical 165-line categorization prompt, an identical 70-entry synonym table, and an identical `cleanCategory` were maintained twice, so a fix to one silently left the other behind. Prompt construction, response cleaning, rate limiting, retry/backoff and credential gating now have a single implementation; each provider supplies only its own HTTP call. The prompt text, synonym table and cleaning behaviour are unchanged.
+
+### Fixed
+
+- Fix `--recursive` destroying converted output. Output files were named from the input basename alone, so a recursive run over `jan/statement.xml` and `feb/statement.xml` wrote both to one `statement.csv` — the second silently replacing the first while the manifest reported both as successful. Output now mirrors the input tree. Inputs in one directory differing only by extension take the source extension into their name rather than colliding.
+- Fix `convert` accepting `--recursive` without acting on it; nested files were never converted.
+- Fix a directory that cannot be read being treated as empty. `discoverFiles` logged the failure and returned a short list, so the manifest reported success for whatever it happened to find. It is now an error.
+- Fix cancellation being missed on rows that fail to convert, and a cancelled `Categorize` being recorded as an ordinary categorization failure. Every parser now checks for cancellation at the top of its row loop and returns `ctx.Err()` instead of filing the remaining transactions as Uncategorized.
+- Fix the semantic categorization tier being silently disabled, and a data race, when `ai.provider` is `openrouter`. The container built the categorizer with the chat client and then swapped in the embedding client via `SetEmbeddingClient`, while a warm-up goroutine started by the constructor was already reading that field — an unsynchronized write confirmed by `go test -race`. Worse, that warm-up ran against `OpenRouterClient`, whose `GetEmbedding` always errors: it logged a warning per category and then marked the tier initialized with an empty embedding map, so tier 3 returned nothing while the startup log reported `Semantic tier: active`. `NewCategorizer` now takes the chat and embedding clients as separate parameters and wires both before any goroutine starts; `SetEmbeddingClient` is removed.
+- Fix `revolutinvestmentparser.ValidateFormat` accepting any readable CSV. It only checked that a header row could be parsed, so it claimed Revolut, Selma and Visa Debit exports as its own, and `--validate` on those files passed against the wrong parser. It now verifies the eight expected column names, matching the check the parser itself already performed.
+- Fix `OpenRouterClient` not retrying request timeouts. Its `isRetryableError` was missing the `os.IsTimeout` check that `GeminiClient` had, so a timed-out OpenRouter request failed outright instead of being retried. Both providers now share one retry policy.
+- Stop writing `.manifest.json` twice per batch run — `BatchProcessor.ProcessDirectory` already writes it, and `FolderConvert` was immediately rewriting the same file.
+- Add missing `#nosec G304` justifications in `batch/processor.go` and `pdfparser.go`, matching the convention used at every other file-open site; `gosec` now reports zero issues.
+- Propagate `context.Context` through categorization. `common.ProcessTransactionsWithCategorizationStats` hardcoded `context.Background()`, and six of the seven parsers accepted a `ctx` on `Parse` and discarded it, so cancelling a run (Ctrl-C, a deadline, a cancelled batch) had no effect once categorization started — a several-thousand-transaction AI run could not be interrupted. Every parser now threads its `ctx` to `Categorize`, and the categorization loops check for cancellation between transactions and return `ctx.Err()` instead of a partially categorized slice.
+
+### Removed
+
+- Reduce `models/iso20022.go` from 427 lines to 32, and its tests from 824 lines to 108. Despite describing most of CAMT.053, the file had a single production use: `ISO20022Parser.ValidateFormat` unmarshalled a candidate file into `ISO20022Document` and checked that at least one statement came back. All ten helper methods on `models.Entry` (`GetPayer`, `GetPayee`, `GetIBAN`, `BuildDescription` and the rest) had no caller outside their own tests. This was not duplication of `camtparser/camt053_schema.go` in the DRY sense — the two answer different questions — but dead weight around a yes/no check. Validation verdicts are unchanged across 23 files, and CAMT conversion output is byte-identical.
+
+- Remove `BatchConverter` from the `parser.FullParser` interface and drop all seven adapter `BatchConvert` implementations. The method had no callers: directory processing has gone through `batch.BatchProcessor` since it was introduced, and the seven implementations had silently diverged (Selma returned `not implemented`, Visa Debit delegated to a legacy helper, the rest hand-rolled incompatible loops). Parsers now parse; `batch.BatchProcessor` handles directories.
+- Remove the legacy package-level `debitparser.BatchConvert` and `debitparser.BatchConvertWithLogger` helpers, whose only caller was the deleted adapter method.
+
+
 ## [2.4.0] - 2026-04-06
 
 ### Added

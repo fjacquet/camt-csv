@@ -188,56 +188,6 @@ func TestConvertToCSV(t *testing.T) {
 	assert.Equal(t, expectedCSV, string(csvContent))
 }
 
-/*
-func TestBatchConvert(t *testing.T) {
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	err := os.MkdirAll(inputDir, 0750)
-	if err != nil {
-		t.Fatalf("Failed to create input directory: %v", err)
-	}
-	err = os.MkdirAll(outputDir, 0750)
-	if err != nil {
-		t.Fatalf("Failed to create output directory: %v", err)
-	}
-
-	t.Run("batch convert", func(t *testing.T) {
-		setupTestCategorizer(t)
-		// Write a canonical minimal valid CAMT.053 XML file
-		validXML := `<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
-  <BkToCstmrStmt>
-    <Stmt>
-      <Id>STMT-001</Id>
-      <Ntry>
-        <Amt Ccy="EUR">100.00</Amt>
-        <CdtDbtInd>DBIT</CdtDbtInd>
-        <BookgDt><Dt>2023-01-01</Dt></BookgDt>
-        <NtryDtls>
-          <TxDtls>
-            <Refs><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
-            <RmtInf><Ustrd>Batch Transaction</Ustrd></RmtInf>
-          </TxDtls>
-        </NtryDtls>
-      </Ntry>
-    </Stmt>
-  </BkToCstmrStmt>
-</Document>`
-		inputFile := filepath.Join(inputDir, "test1.xml")
-		err := os.WriteFile(inputFile, []byte(validXML), 0600)
-		assert.NoError(t, err)
-		files, err := filepath.Glob(filepath.Join(inputDir, "*.xml"))
-		assert.NoError(t, err)
-		for _, file := range files {
-			csvFile := filepath.Join(outputDir, filepath.Base(file)+".csv")
-			err := ConvertToCSV(file, csvFile)
-			assert.NoError(t, err)
-		}
-	})
-}
-*/
-
 // Test error scenarios in CAMT parser
 func TestCAMTParser_ErrorScenarios(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")

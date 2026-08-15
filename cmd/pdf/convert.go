@@ -58,7 +58,6 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 
 	// Get format flags
 	format, _ := cmd.Flags().GetString("format")
-	dateFormat, _ := cmd.Flags().GetString("date-format")
 
 	// Get container from root command context
 	appContainer := root.GetContainer()
@@ -94,15 +93,14 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 			logger.Infof("Output is a directory, writing to: %s", outputPath)
 		}
 		count, err := consolidatePDFDirectory(ctx, p, inputPath,
-			outputPath, root.SharedFlags.Validate, logger,
-			format, dateFormat)
+			outputPath, root.SharedFlags.Validate, logger, format)
 		if err != nil {
 			logger.Fatalf("Error consolidating PDFs: %v", err)
 		}
 		logger.Infof("Consolidated %d PDF files successfully!", count)
 	} else {
 		common.ProcessFile(ctx, p, inputPath, root.SharedFlags.Output,
-			root.SharedFlags.Validate, root.Log, appContainer, format, dateFormat)
+			root.SharedFlags.Validate, root.Log, appContainer, format)
 		root.Log.Info("PDF to CSV conversion completed successfully!")
 	}
 }
@@ -110,7 +108,7 @@ func pdfFunc(cmd *cobra.Command, _ []string) {
 // consolidatePDFDirectory consolidates all PDF files in a directory into a single CSV
 func consolidatePDFDirectory(ctx context.Context, p parser.FullParser,
 	inputDir, outputFile string, validate bool, logger logging.Logger,
-	format string, _ string) (int, error) {
+	format string) (int, error) {
 
 	logger.Info("Consolidating PDF files from directory",
 		logging.Field{Key: "inputDir", Value: inputDir},

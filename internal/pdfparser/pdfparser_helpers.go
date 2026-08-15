@@ -2,6 +2,7 @@
 package pdfparser
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -120,7 +121,7 @@ func extractTextFromPDFImpl(pdfFile string) (string, error) {
 }
 
 // parseTransactionsWithCategorizer parses transaction data from PDF text content and applies categorization
-func parseTransactionsWithCategorizer(lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func parseTransactionsWithCategorizer(ctx context.Context, lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
 	transactions := make([]models.Transaction, 0, 50)
 	var currentTx models.Transaction
@@ -165,7 +166,7 @@ func parseTransactionsWithCategorizer(lines []string, logger logging.Logger, cat
 
 	// For Viseca format, use a specialized transaction extraction approach
 	if isVisecaFormat {
-		return parseVisecaTransactionsWithCategorizer(lines, logger, categorizer)
+		return parseVisecaTransactionsWithCategorizer(ctx, lines, logger, categorizer)
 	}
 
 	// Standard PDF format parsing continues below
@@ -257,8 +258,11 @@ func parseTransactionsWithCategorizer(lines []string, logger logging.Logger, cat
 	transactions = deduplicateTransactions(transactions)
 
 	// Process transactions with categorization statistics
-	processedTransactions := common.ProcessTransactionsWithCategorizationStats(
-		transactions, logger, categorizer, "PDF")
+	processedTransactions, err := common.ProcessTransactionsWithCategorizationStats(
+		ctx, transactions, logger, categorizer, "PDF")
+	if err != nil {
+		return nil, err
+	}
 
 	logger.Info("Extracted transactions from PDF",
 		logging.Field{Key: "count", Value: len(processedTransactions)})
@@ -266,7 +270,7 @@ func parseTransactionsWithCategorizer(lines []string, logger logging.Logger, cat
 }
 
 // parseVisecaTransactionsWithCategorizer is a specialized parser for Viseca credit card statements with categorization
-func parseVisecaTransactionsWithCategorizer(lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	logger.Debug("Processing Viseca PDF with specialized parser",
 		logging.Field{Key: "lineCount", Value: len(lines)})
 
@@ -464,8 +468,11 @@ func parseVisecaTransactionsWithCategorizer(lines []string, logger logging.Logge
 
 	// Log the number of transactions found
 	// Process transactions with categorization statistics
-	processedTransactions := common.ProcessTransactionsWithCategorizationStats(
-		transactions, logger, categorizer, "PDF-Viseca")
+	processedTransactions, err := common.ProcessTransactionsWithCategorizationStats(
+		ctx, transactions, logger, categorizer, "PDF-Viseca")
+	if err != nil {
+		return nil, err
+	}
 
 	logger.Info("Extracted transactions from Viseca PDF",
 		logging.Field{Key: "count", Value: len(processedTransactions)})

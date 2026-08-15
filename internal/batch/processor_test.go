@@ -23,7 +23,6 @@ import (
 type mockFullParser struct {
 	validateFunc func(filePath string) (bool, error)
 	parseFunc    func(ctx context.Context, r io.Reader) ([]models.Transaction, error)
-	batchFunc    func(ctx context.Context, inputDir, outputDir string) (int, error)
 	logger       logging.Logger
 	categorizer  models.TransactionCategorizer
 	shouldFailOn map[string]string // filename -> error message
@@ -65,13 +64,6 @@ func (m *mockFullParser) SetCategorizer(categorizer models.TransactionCategorize
 	m.categorizer = categorizer
 }
 
-func (m *mockFullParser) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	if m.batchFunc != nil {
-		return m.batchFunc(ctx, inputDir, outputDir)
-	}
-	return 0, errors.New("not implemented in mock")
-}
-
 // Helper to create test transactions
 func createTestTransactions(count int) []models.Transaction {
 	transactions := make([]models.Transaction, count)
@@ -109,7 +101,7 @@ func TestProcessDirectory_AllSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -165,7 +157,7 @@ func TestProcessDirectory_PartialSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -207,7 +199,7 @@ func TestProcessDirectory_AllFailed(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -240,7 +232,7 @@ func TestProcessDirectory_EmptyDirectory(t *testing.T) {
 
 	mockParser := newMockParser()
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -276,7 +268,7 @@ func TestProcessDirectory_WritesManifest(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -325,7 +317,7 @@ func TestProcessDirectory_ContinuesOnError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -361,7 +353,7 @@ func TestProcessFile_ValidationFailure(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -392,7 +384,7 @@ func TestProcessFile_ParseError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -424,7 +416,7 @@ func TestProcessFile_WriteError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil)
+	processor := NewBatchProcessor(mockParser, logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -465,7 +457,7 @@ func TestBatchProcessorWithFormatter(t *testing.T) {
 
 	// Test with IComptaFormatter
 	icomptaFormatter := &testIComptaFormatter{}
-	processor := NewBatchProcessor(mockParser, logger, icomptaFormatter)
+	processor := NewBatchProcessor(mockParser, logger, icomptaFormatter, false)
 
 	// Execute
 	ctx := context.Background()
@@ -544,4 +536,147 @@ func (f *testIComptaFormatter) Format(transactions []models.Transaction) ([][]st
 
 func (f *testIComptaFormatter) Delimiter() rune {
 	return ';'
+}
+
+// By default only the top level of the input directory is processed.
+func TestDiscoverFiles_NonRecursiveByDefault(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "top.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, false)
+
+	files, err := bp.discoverFiles(dir)
+	require.NoError(t, err)
+
+	require.Len(t, files, 1)
+	assert.Equal(t, filepath.Join(dir, "top.csv"), files[0])
+}
+
+// With recursion enabled, nested files are found at any depth.
+func TestDiscoverFiles_Recursive(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "top.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub", "deeper"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "deeper", "deep.csv"), []byte("x"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+
+	files, err := bp.discoverFiles(dir)
+	require.NoError(t, err)
+
+	require.Len(t, files, 3)
+	assert.Contains(t, files, filepath.Join(dir, "top.csv"))
+	assert.Contains(t, files, filepath.Join(dir, "sub", "nested.csv"))
+	assert.Contains(t, files, filepath.Join(dir, "sub", "deeper", "deep.csv"))
+}
+
+// Hidden directories must be skipped even when recursing: .git and a previous
+// run's output are never inputs.
+func TestDiscoverFiles_RecursiveSkipsHiddenDirectories(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "visible.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "secret.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".manifest.json"), []byte("{}"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+
+	files, err := bp.discoverFiles(dir)
+	require.NoError(t, err)
+
+	require.Len(t, files, 1)
+	assert.Equal(t, filepath.Join(dir, "visible.csv"), files[0])
+}
+
+// Two statements with the same basename in different subdirectories must not
+// overwrite each other. Before the output path mirrored the input tree, the
+// second conversion silently replaced the first while the manifest reported
+// both as successful.
+func TestProcessDirectory_RecursiveDoesNotOverwriteSameBasename(t *testing.T) {
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(inputDir, "jan"), 0750))
+	require.NoError(t, os.MkdirAll(filepath.Join(inputDir, "feb"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "jan", "statement.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "feb", "statement.csv"), []byte("x"), 0600))
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
+		return createTestTransactions(3), nil
+	}
+
+	processor := NewBatchProcessor(mockParser, logging.NewLogrusAdapter("error", "text"), nil, true)
+
+	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, manifest.SuccessCount)
+	assert.FileExists(t, filepath.Join(outputDir, "jan", "statement.csv"))
+	assert.FileExists(t, filepath.Join(outputDir, "feb", "statement.csv"))
+}
+
+// Inputs in one directory that differ only by extension would map to the same
+// output name. The source extension is folded in rather than one result
+// replacing the other.
+func TestProcessDirectory_DisambiguatesSameStemDifferentExtension(t *testing.T) {
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement.xml"), []byte("x"), 0600))
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
+		return createTestTransactions(3), nil
+	}
+
+	processor := NewBatchProcessor(mockParser, logging.NewLogrusAdapter("error", "text"), nil, false)
+
+	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, manifest.SuccessCount)
+
+	entries, err := os.ReadDir(outputDir)
+	require.NoError(t, err)
+
+	var produced []string
+	for _, e := range entries {
+		if e.Name() != ".manifest.json" {
+			produced = append(produced, e.Name())
+		}
+	}
+	assert.Len(t, produced, 2, "each input must produce its own output: %v", produced)
+}
+
+// A directory that cannot be read must fail the run rather than yield a short
+// work list, which would produce a manifest reporting success for everything it
+// happened to find.
+func TestProcessDirectory_UnreadableSubdirectoryIsAnError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory permissions")
+	}
+
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "top.csv"), []byte("x"), 0600))
+
+	locked := filepath.Join(inputDir, "locked")
+	require.NoError(t, os.MkdirAll(locked, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(locked, "hidden.csv"), []byte("x"), 0600))
+	require.NoError(t, os.Chmod(locked, 0000))
+	// Restore permissions so t.TempDir cleanup can remove the tree.
+	t.Cleanup(func() { _ = os.Chmod(locked, 0700) }) // #nosec G302 -- test fixture directory, restored so cleanup can run
+
+	processor := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+
+	_, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
+
+	require.Error(t, err, "an unreadable subdirectory must not be silently skipped")
+	assert.Contains(t, err.Error(), "failed to read directory")
 }

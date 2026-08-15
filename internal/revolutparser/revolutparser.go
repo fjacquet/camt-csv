@@ -35,7 +35,7 @@ type RevolutCSVRow struct {
 
 // ParseWithCategorizer parses a Revolut CSV file and categorizes transactions using the provided categorizer.
 // This is the preferred entry point when categorization is needed.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -107,6 +107,10 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			// Add other transfer type handling here if needed
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Convert Revolut row to Transaction
 		tx, err := convertRevolutRowToTransaction(*revolutRows[i], logger)
 		if err != nil {
@@ -125,8 +129,15 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = tx.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(context.Background(), tx.Description, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(ctx, tx.Description, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// The categorizer failed because the run was cancelled, not because
+					// this transaction could not be classified. Surface the cancellation
+					// instead of quietly filing the rest as Uncategorized.
+					return nil, ctxErr
+				}
+
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: tx.Description},
 				).Warn("Failed to categorize transaction")

@@ -14,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockCategorizer is a mock implementation of TransactionCategorizer for testing
@@ -92,7 +93,8 @@ func TestProperty9_CategorizationFallbackBehavior(t *testing.T) {
 			mockLogger.On("Warn", mock.AnythingOfType("string"), mock.Anything).Return()
 
 			// Test case 1: No categorizer provided
-			result1 := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, nil, "TestParser")
+			result1, err := ProcessTransactionsWithCategorizationStats(context.Background(), transactions, mockLogger, nil, "TestParser")
+			require.NoError(t, err)
 
 			// All transactions should be uncategorized
 			for _, tx := range result1 {
@@ -104,7 +106,8 @@ func TestProperty9_CategorizationFallbackBehavior(t *testing.T) {
 			mockCategorizer.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{}, errors.New("categorization failed"))
 
-			result2 := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, mockCategorizer, "TestParser")
+			result2, err := ProcessTransactionsWithCategorizationStats(context.Background(), transactions, mockLogger, mockCategorizer, "TestParser")
+			require.NoError(t, err)
 
 			// All transactions should be uncategorized due to errors
 			for _, tx := range result2 {
@@ -116,7 +119,8 @@ func TestProperty9_CategorizationFallbackBehavior(t *testing.T) {
 			mockCategorizer2.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(models.Category{Name: ""}, nil)
 
-			result3 := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, mockCategorizer2, "TestParser")
+			result3, err := ProcessTransactionsWithCategorizationStats(context.Background(), transactions, mockLogger, mockCategorizer2, "TestParser")
+			require.NoError(t, err)
 
 			// All transactions should be uncategorized due to empty category
 			for _, tx := range result3 {
@@ -197,7 +201,8 @@ func TestProperty10_CategorizationStatisticsLogging(t *testing.T) {
 			}
 
 			// Process transactions
-			result := ProcessTransactionsWithCategorizationStats(transactions, mockLogger, mockCategorizer, "TestParser")
+			result, err := ProcessTransactionsWithCategorizationStats(context.Background(), transactions, mockLogger, mockCategorizer, "TestParser")
+			require.NoError(t, err)
 
 			// Verify that all transactions were processed
 			assert.Equal(t, len(transactions), len(result), "All transactions should be processed")
@@ -343,8 +348,78 @@ func TestProcessTransactionsWithCategorizationStats_NilLogger(t *testing.T) {
 	transactions := generateTestTransactions(1)
 
 	// Should not panic with nil logger
-	result := ProcessTransactionsWithCategorizationStats(transactions, nil, nil, "TestParser")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), transactions, nil, nil, "TestParser")
+	require.NoError(t, err)
 
 	assert.Equal(t, len(transactions), len(result))
 	assert.Equal(t, "Uncategorized", result[0].Category)
+}
+
+// countingCategorizer records how many times Categorize was invoked and can
+// cancel a context part-way through a run.
+type countingCategorizer struct {
+	calls      int
+	cancelAt   int
+	cancelFunc context.CancelFunc
+}
+
+func (c *countingCategorizer) Categorize(ctx context.Context, partyName string, isDebtor bool, amount, date, info string) (models.Category, error) {
+	c.calls++
+	if c.cancelFunc != nil && c.calls == c.cancelAt {
+		c.cancelFunc()
+	}
+	return models.Category{Name: "Groceries"}, nil
+}
+
+// A context that is already cancelled must stop the run before the first
+// categorization, not return a partially categorized slice.
+func TestProcessTransactionsWithCategorizationStats_AlreadyCancelled(t *testing.T) {
+	transactions := generateTestTransactions(5)
+	cat := &countingCategorizer{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result, err := ProcessTransactionsWithCategorizationStats(ctx, transactions, nil, cat, "TestParser")
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, result, "no partial result may be returned on cancellation")
+	assert.Zero(t, cat.calls, "categorizer must not be called once ctx is cancelled")
+}
+
+// Cancelling mid-run must stop the loop rather than grinding through every
+// remaining transaction.
+func TestProcessTransactionsWithCategorizationStats_CancelledMidRun(t *testing.T) {
+	transactions := generateTestTransactions(50)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cat := &countingCategorizer{cancelAt: 3, cancelFunc: cancel}
+
+	result, err := ProcessTransactionsWithCategorizationStats(ctx, transactions, nil, cat, "TestParser")
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, result)
+	assert.Equal(t, 3, cat.calls, "loop must stop at the first cancelled iteration")
+}
+
+// The context handed to the helper must be the one the categorizer receives,
+// so per-run deadlines actually reach the AI client.
+func TestProcessTransactionsWithCategorizationStats_PropagatesContext(t *testing.T) {
+	transactions := generateTestTransactions(1)
+
+	type ctxKey string
+	const key ctxKey = "trace"
+	ctx := context.WithValue(context.Background(), key, "abc123")
+
+	mockCat := new(MockCategorizer)
+	mockCat.On("Categorize", mock.MatchedBy(func(got context.Context) bool {
+		return got.Value(key) == "abc123"
+	}), mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(models.Category{Name: "Groceries"}, nil)
+
+	result, err := ProcessTransactionsWithCategorizationStats(ctx, transactions, nil, mockCat, "TestParser")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Groceries", result[0].Category)
+	mockCat.AssertExpectations(t)
 }

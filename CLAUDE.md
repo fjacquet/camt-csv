@@ -59,11 +59,11 @@ graph TD
 
 ### Key Design Patterns
 
-**Parser Factory Pattern**: Parsers implement segregated interfaces in `internal/parser/parser.go`:
+**Segregated Parser Interfaces** (`internal/parser/parser.go`):
 
 ```go
 type Parser interface {
-    Parse(r io.Reader) ([]Transaction, error)
+    Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error)
 }
 
 type Validator interface {
@@ -71,7 +71,7 @@ type Validator interface {
 }
 
 type CSVConverter interface {
-    ConvertToCSV(inputFile, outputFile string) error
+    ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
 }
 
 type LoggerConfigurable interface {
@@ -82,10 +82,6 @@ type CategorizerConfigurable interface {
     SetCategorizer(categorizer models.TransactionCategorizer)
 }
 
-type BatchConverter interface {
-    BatchConvert(inputDir, outputDir string) (int, error)
-}
-
 // FullParser combines all capabilities
 type FullParser interface {
     Parser
@@ -93,11 +89,16 @@ type FullParser interface {
     CSVConverter
     LoggerConfigurable
     CategorizerConfigurable
-    BatchConverter
 }
 ```
 
-New parsers are registered in `internal/factory/factory.go`. **Important**: CLI commands should get parsers from the DI Container (`root.GetContainer().GetParser()`), not directly from the factory, to ensure categorizers are properly wired.
+The CAMT.053 XML shape is described in two places on purpose: `internal/models/iso20022.go` models only what format *validation* needs (root element, statement count), while `internal/camtparser/camt053_schema.go` models what *extraction* needs. Keep them separate — merging them would let a validation tweak change parsing output.
+
+Directory processing is **not** a parser concern: `batch.BatchProcessor` (`internal/batch/processor.go`) composes a `FullParser` with an `OutputFormatter` and writes a `.manifest.json` run report. `cmd/common.FolderConvert` is the single CLI entry point to it.
+
+New parsers are registered in `internal/container/container.go` (`newParsers`). CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.
+
+**Format Detection** (`internal/container/detect.go`): `Container.DetectParser(path)` asks each parser's `ValidateFormat` in turn and returns the first that accepts the file; it backs the `convert` command. Adding a parser means adding it to `detectionOrder` — and its `ValidateFormat` must be specific enough to reject other formats, or detection breaks for everyone. `TestDetectParser_ValidatorsDoNotOverlap` enforces this by running every sample past every validator.
 
 **Four-Tier Categorization** (`internal/categorizer/`):
 
@@ -111,8 +112,9 @@ When `--auto-learn` is enabled, AI results save directly to YAML files. When dis
 **Output Formatter Registry** (`internal/formatter/formatter.go`):
 - **"standard"** - 29-column, comma-delimited (backward-compatible)
 - **"icompta"** - 10-column, semicolon-delimited, dd.MM.yyyy dates
+- **"jumpsoft"** - 7-column Jumpsoft Money CSV
 
-CLI usage: `--format standard` or `--format icompta`. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
+CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). Directory input takes `--recursive` to descend into subdirectories. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
 
 **Command Lifecycle** (Cobra hooks in `cmd/root/root.go`):
 1. `PersistentPreRun` - Loads config, creates DI container
@@ -121,7 +123,7 @@ CLI usage: `--format standard` or `--format icompta`. New formatters: implement 
 
 ### Directory Structure
 
-- `cmd/` - Cobra CLI commands (camt, pdf, batch, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
+- `cmd/` - Cobra CLI commands (convert, camt, pdf, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
 - `internal/` - Core application logic:
   - `*parser/` packages - Format-specific parsers with `adapter.go` implementing the interface
   - `categorizer/` - Transaction categorization with AI integration
@@ -168,9 +170,10 @@ Note: The `.env` file is auto-loaded from the current directory.
 1. Create package in `internal/{name}parser/`
 2. Implement core parsing in `{name}parser.go`
 3. Create adapter implementing `parser.FullParser` in `adapter.go`
-4. Register in `internal/factory/factory.go`
-5. Add CLI command in `cmd/{name}/convert.go`
+4. Register in `internal/container/container.go`
+5. Add CLI command in `cmd/{name}/convert.go` — delegate to `common.RunConvert`, do not hand-roll the handler
 6. Wire command in `main.go`
+7. Add the parser type to `detectionOrder` in `internal/container/detect.go`
 
 ## Coding Principles
 

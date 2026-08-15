@@ -8,8 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/dateutils"
@@ -32,447 +30,124 @@ func NewAdapter(logger logging.Logger) *Adapter {
 	}
 }
 
-// Parse reads data from the provided io.Reader and returns a slice of Transaction models.
-
-// It is responsible for understanding the specific input format (e.g., CAMT XML)
-
-// and transforming it into the standardized Transaction structure.
-
+// Parse decodes a CAMT.053 XML document and returns its entries as Transactions,
+// categorizing each one along the way.
+//
+// The document shape lives in camt053_schema.go and the per-entry mapping in
+// entry_mapping.go; this method only drives the decode-map-categorize loop.
 func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-
-	// Read the XML content
-
 	xmlData, err := io.ReadAll(r)
-
 	if err != nil {
-
 		return nil, fmt.Errorf("error reading from reader: %w", err)
-
 	}
-
-	// Create decoder with proper namespace handling
 
 	decoder := xml.NewDecoder(bytes.NewReader(xmlData))
-
+	// Swiss banks emit CAMT files in several encodings; resolve whatever the
+	// XML declaration asks for.
 	decoder.CharsetReader = charset.NewReaderLabel
 
-	// Define the Document structure for CAMT.053
-
-	type Amount struct {
-		Value string `xml:",chardata"`
-
-		Currency string `xml:"Ccy,attr"`
-	}
-
-	type Date struct {
-		Date string `xml:"Dt"`
-	}
-
-	type AdditionalInfo struct {
-		Info string `xml:",chardata"`
-	}
-
-	type CreditDebitIndicator struct {
-		Indicator string `xml:",chardata"`
-	}
-
-	type Status struct {
-		Status string `xml:",chardata"`
-	}
-
-	type AccountServicerRef struct {
-		Ref string `xml:",chardata"`
-	}
-
-	type Reference struct {
-		MsgId string `xml:"MsgId,omitempty"`
-
-		AcctSvcrRef string `xml:"AcctSvcrRef,omitempty"`
-
-		InstrId string `xml:"InstrId,omitempty"`
-
-		EndToEndId string `xml:"EndToEndId,omitempty"`
-
-		TxId string `xml:"TxId,omitempty"`
-	}
-
-	type RemittanceInfo struct {
-		Ustrd string `xml:"Ustrd"`
-	}
-
-	type Account struct {
-		IBAN string `xml:"Id>IBAN,omitempty"`
-
-		ID string `xml:"Id>Othr>Id,omitempty"`
-	}
-
-	type RelatedParties struct {
-		Debtor struct {
-			Name string `xml:"Nm"`
-
-			Account Account `xml:"Acct,omitempty"`
-		} `xml:"Dbtr"`
-
-		Creditor struct {
-			Name string `xml:"Nm"`
-
-			Account Account `xml:"Acct,omitempty"`
-		} `xml:"Cdtr"`
-
-		DebtorAccount Account `xml:"DbtrAcct,omitempty"`
-
-		CreditorAccount Account `xml:"CdtrAcct,omitempty"`
-	}
-
-	type RelatedAccounts struct {
-		DebtorAccount Account `xml:"DbtrAcct,omitempty"`
-
-		CreditorAccount Account `xml:"CdtrAcct,omitempty"`
-	}
-
-	type TransactionDetails struct {
-		References Reference `xml:"Refs"`
-
-		Amount Amount `xml:"Amt"`
-
-		CreditDebit CreditDebitIndicator `xml:"CdtDbtInd"`
-
-		RemittanceInfo RemittanceInfo `xml:"RmtInf"`
-
-		RelatedParties RelatedParties `xml:"RltdPties"`
-
-		RelatedAccounts RelatedAccounts `xml:"RltdAccts,omitempty"`
-	}
-
-	type EntryDetails struct {
-		TransactionDetails TransactionDetails `xml:"TxDtls"`
-	}
-
-	type Entry struct {
-		Amount Amount `xml:"Amt"`
-
-		CreditDebit CreditDebitIndicator `xml:"CdtDbtInd"`
-
-		Status Status `xml:"Sts"`
-
-		BookingDate Date `xml:"BookgDt"`
-
-		ValueDate Date `xml:"ValDt"`
-
-		AccountServicer AccountServicerRef `xml:"AcctSvcrRef"`
-
-		EntryDetails EntryDetails `xml:"NtryDtls"`
-
-		AdditionalInfo AdditionalInfo `xml:"AddtlNtryInf"`
-	}
-
-	type Statement struct {
-		Entries []Entry `xml:"Ntry"`
-	}
-
-	type Document struct {
-		XMLName xml.Name `xml:"Document"`
-
-		BkToCstmrStmt struct {
-			Stmt []Statement `xml:"Stmt"`
-		} `xml:"BkToCstmrStmt"`
-	}
-
-	// Unmarshal the XML
-
-	var doc Document
-
-	err = decoder.Decode(&doc)
-
-	if err != nil {
-
+	var doc camtDocument
+	if err := decoder.Decode(&doc); err != nil {
 		return nil, fmt.Errorf("error decoding XML: %w", err)
-
 	}
 
 	var transactions []models.Transaction
-
-	// Process all statements and entries
-
 	for _, stmt := range doc.BkToCstmrStmt.Stmt {
-
 		for _, entry := range stmt.Entries {
-
-			// Convert dates to standard format
-
-			bookingDate := entry.BookingDate.Date
-
-			valueDate := entry.ValueDate.Date
-
-			// Format the dates as DD.MM.YYYY
-
-			var parsedBookingDate, parsedValueDate time.Time
-
-			if bookingDateParsed, err := time.Parse(dateutils.DateLayoutISO, bookingDate); err == nil {
-				parsedBookingDate = bookingDateParsed
+			if err := ctx.Err(); err != nil {
+				return nil, err
 			}
 
-			if valueDateParsed, err := time.Parse(dateutils.DateLayoutISO, valueDate); err == nil {
-				parsedValueDate = valueDateParsed
-			}
+			transaction := a.categorizeTransaction(ctx, a.entryToTransaction(entry))
 
-			// Create transaction using TransactionBuilder
-			builder := models.NewTransactionBuilder().
-				WithID(""). // Don't generate UUID, keep empty like original
-				WithDatetime(parsedBookingDate).
-				WithValueDatetime(parsedValueDate).
-				WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
-				WithAccountServicer(entry.AccountServicer.Ref).
-				WithStatus(entry.Status.Status)
-
-			// Set transaction direction
-			if entry.CreditDebit.Indicator == models.TransactionTypeDebit {
-				builder = builder.AsDebit()
-			} else {
-				builder = builder.AsCredit()
-			}
-
-			// Add details from transaction details if available
-			txDetails := entry.EntryDetails.TransactionDetails
-
-			// Set description from AddtlNtryInf or RemittanceInfo
-			description := ""
-
-			if entry.AdditionalInfo.Info != "" {
-				description = entry.AdditionalInfo.Info
-			} else if txDetails.RemittanceInfo.Ustrd != "" {
-				// Use RemittanceInfo as Description if there's no AddtlNtryInf
-				description = txDetails.RemittanceInfo.Ustrd
-			}
-
-			if description != "" {
-				builder = builder.WithDescription(description)
-			}
-
-			// Always set RemittanceInfo from the XML field if present
-			if txDetails.RemittanceInfo.Ustrd != "" {
-				builder = builder.WithRemittanceInfo(txDetails.RemittanceInfo.Ustrd)
-			}
-
-			// Handle party name extraction and special cases
-			var partyName string
-			var transactionType string
-
-			// Handle special case for ORDRE LSV + transactions
-			if strings.Contains(description, "ORDRE LSV +") {
-				// For LSV+ transactions, get the creditor name from related parties if available
-				if len(txDetails.RelatedParties.Creditor.Name) > 0 {
-					partyName = txDetails.RelatedParties.Creditor.Name
-					transactionType = "Virement"
-				}
-			} else {
-				// Extract PartyName from Description if it starts with specific prefixes
-				if description != "" {
-					extractedName := extractPartyNameFromDescription(description)
-					if extractedName != "" {
-						partyName = extractedName
-					}
-				}
-
-				// If PartyName is still empty, try to get debtor name from related parties if available
-				if partyName == "" && len(txDetails.RelatedParties.Debtor.Name) > 0 {
-					partyName = txDetails.RelatedParties.Debtor.Name
-				}
-			}
-
-			if partyName != "" {
-				builder = builder.WithPartyName(partyName)
-			}
-
-			if transactionType != "" {
-				builder = builder.WithType(transactionType)
-			}
-
-			// Check for IBAN in related parties and accounts
-			// Try multiple possible paths for finding the IBAN
-			var partyIBAN string
-			if txDetails.RelatedParties.Debtor.Account.IBAN != "" {
-				partyIBAN = txDetails.RelatedParties.Debtor.Account.IBAN
-			} else if txDetails.RelatedParties.Creditor.Account.IBAN != "" {
-				partyIBAN = txDetails.RelatedParties.Creditor.Account.IBAN
-			} else if txDetails.RelatedParties.DebtorAccount.IBAN != "" {
-				partyIBAN = txDetails.RelatedParties.DebtorAccount.IBAN
-			} else if txDetails.RelatedParties.CreditorAccount.IBAN != "" {
-				partyIBAN = txDetails.RelatedParties.CreditorAccount.IBAN
-			} else if txDetails.RelatedAccounts.DebtorAccount.IBAN != "" {
-				partyIBAN = txDetails.RelatedAccounts.DebtorAccount.IBAN
-			} else if txDetails.RelatedAccounts.CreditorAccount.IBAN != "" {
-				partyIBAN = txDetails.RelatedAccounts.CreditorAccount.IBAN
-			} else if txDetails.RelatedParties.Debtor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Debtor.Account.ID) {
-				// Some CAMT files store IBAN in the ID field
-				partyIBAN = txDetails.RelatedParties.Debtor.Account.ID
-			} else if txDetails.RelatedParties.Creditor.Account.ID != "" && isIBANFormat(txDetails.RelatedParties.Creditor.Account.ID) {
-				partyIBAN = txDetails.RelatedParties.Creditor.Account.ID
-			}
-
-			if partyIBAN != "" {
-				builder = builder.WithPartyIBAN(partyIBAN)
-			}
-
-			// Set transaction Type based on description prefix if not already set
-			if transactionType == "" {
-				transactionType = setTransactionTypeFromDescription(description)
-				if transactionType != "" {
-					builder = builder.WithType(transactionType)
-				}
-			}
-
-			// Get reference information
-			var reference string
-			if txDetails.References.MsgId != "" {
-				reference = txDetails.References.MsgId
-			} else if txDetails.References.EndToEndId != "" {
-				reference = txDetails.References.EndToEndId
-			} else if txDetails.References.TxId != "" {
-				reference = txDetails.References.TxId
-			} else if txDetails.References.AcctSvcrRef != "" {
-				reference = txDetails.References.AcctSvcrRef
-			}
-
-			if reference != "" {
-				builder = builder.WithReference(reference)
-			}
-
-			// Build the transaction
-			transaction, err := builder.Build()
-			if err != nil {
-				// Log error and create a minimal fallback transaction
-				a.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
-					logging.Field{Key: "entry_reference", Value: reference})
-
-				fallback, _ := models.NewTransactionBuilder().
-					WithDatetime(parsedBookingDate).
-					WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
-					WithDescription("Failed to parse transaction").
-					Build()
-				transaction = fallback
-			}
-
-			// Set Name from PartyName and also update Payee/Payer fields to ensure
-			// that UpdateNameFromParties won't override our Name during export
-			if transaction.Name == "" {
-				transaction.Name = transaction.PartyName
-			}
-
-			if transaction.IsDebit() {
-				transaction.Payee = transaction.PartyName
-			} else {
-				transaction.Payer = transaction.PartyName
-			}
-
-			// Update derived fields
-			transaction.UpdateDebitCreditAmounts()
-
-			// Prepare categorization parameters
-			catPartyName := transaction.PartyName
-			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
-			catAmount := transaction.Amount.String()
-			catDate := transaction.Date.Format(dateutils.DateLayoutEuropean)
-			catInfo := transaction.RemittanceInfo
-
-			// If PartyName is empty, use Description or RemittanceInfo to help with categorization
-			if catPartyName == "" {
-				// Try to use Description as PartyName if available
-				if transaction.Description != "" {
-					catPartyName = transaction.Description
-				} else if transaction.RemittanceInfo != "" {
-					// Otherwise use RemittanceInfo
-					catPartyName = transaction.RemittanceInfo
-				}
-			}
-
-			// Clean PartyName by removing payment method prefixes before categorization
-			catPartyName = cleanPaymentMethodPrefixes(catPartyName)
-
-			// Categorize the transaction using the injected categorizer (includes auto-learning)
-			if cat := a.GetCategorizer(); cat != nil {
-				category, err := cat.Categorize(context.Background(), catPartyName, isDebtor, catAmount, catDate, catInfo)
-				if err != nil {
-					a.GetLogger().WithError(err).WithFields(
-						logging.Field{Key: "party", Value: catPartyName},
-					).Warn("Failed to categorize transaction")
-					transaction.Category = models.CategoryUncategorized
-				} else {
-					transaction.Category = category.Name
-					a.GetLogger().WithFields(
-						logging.Field{Key: "party", Value: catPartyName},
-						logging.Field{Key: "category", Value: category.Name},
-					).Debug("Transaction categorized successfully")
-				}
-			} else {
-				transaction.Category = models.CategoryUncategorized
+			// categorizeTransaction swallows categorizer errors by design, so a
+			// cancellation surfaces here rather than as a failed transaction.
+			if err := ctx.Err(); err != nil {
+				return nil, err
 			}
 
 			transactions = append(transactions, transaction)
-
 		}
-
 	}
 
 	return transactions, nil
-
 }
 
-// ConvertToCSV converts an XML file to a CSV file based on the chosen parser type
-
-func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) error {
-
-	// Open the XML file
-
-	file, err := os.Open(xmlFile) // #nosec G304 -- CLI tool requires user-provided file paths
-
-	if err != nil {
-
-		return fmt.Errorf("error opening XML file: %w", err)
-
+// categorizeTransaction assigns a category to a transaction using the injected
+// categorizer, falling back to Uncategorized when none is configured or the
+// lookup fails. Categorization failure is never fatal to a run.
+func (a *Adapter) categorizeTransaction(ctx context.Context, transaction models.Transaction) models.Transaction {
+	cat := a.GetCategorizer()
+	if cat == nil {
+		transaction.Category = models.CategoryUncategorized
+		return transaction
 	}
 
+	// Fall back through the fields most likely to name the counterparty.
+	partyName := transaction.PartyName
+	if partyName == "" {
+		if transaction.Description != "" {
+			partyName = transaction.Description
+		} else {
+			partyName = transaction.RemittanceInfo
+		}
+	}
+	// Strip the payment channel so the categorizer sees the merchant.
+	partyName = cleanPaymentMethodPrefixes(partyName)
+
+	category, err := cat.Categorize(
+		ctx,
+		partyName,
+		transaction.CreditDebit == models.TransactionTypeDebit,
+		transaction.Amount.String(),
+		transaction.Date.Format(dateutils.DateLayoutEuropean),
+		transaction.RemittanceInfo,
+	)
+	if err != nil {
+		a.GetLogger().WithError(err).WithFields(
+			logging.Field{Key: "party", Value: partyName},
+		).Warn("Failed to categorize transaction")
+		transaction.Category = models.CategoryUncategorized
+		return transaction
+	}
+
+	transaction.Category = category.Name
+	a.GetLogger().WithFields(
+		logging.Field{Key: "party", Value: partyName},
+		logging.Field{Key: "category", Value: category.Name},
+	).Debug("Transaction categorized successfully")
+
+	return transaction
+}
+
+// ConvertToCSV converts a CAMT.053 XML file to a CSV file.
+func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) error {
+	file, err := os.Open(xmlFile) // #nosec G304 -- CLI tool requires user-provided file paths
+	if err != nil {
+		return fmt.Errorf("error opening XML file: %w", err)
+	}
 	defer func() {
-
 		if err := file.Close(); err != nil {
-
 			a.GetLogger().Warn("Failed to close file",
 				logging.Field{Key: "error", Value: err})
-
 		}
-
 	}()
 
-	// Parse the XML file using the new Parse method
-
 	transactions, err := a.Parse(ctx, file)
-
 	if err != nil {
-
 		return err
-
 	}
-
-	// Write the transactions to the CSV file
 
 	a.GetLogger().Info("Writing transactions to CSV file",
 		logging.Field{Key: "count", Value: len(transactions)},
 		logging.Field{Key: "file", Value: csvFile})
 
-	// Create the directory if it doesn't exist
-
-	dir := filepath.Dir(csvFile)
-
-	if err := os.MkdirAll(dir, 0750); err != nil {
-
+	if err := os.MkdirAll(filepath.Dir(csvFile), 0750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
-
 	}
 
 	if err := common.WriteTransactionsToCSV(transactions, csvFile); err != nil {
-
 		return err
-
 	}
 
 	a.GetLogger().Info("Successfully wrote transactions to CSV file",
@@ -480,260 +155,9 @@ func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) err
 		logging.Field{Key: "file", Value: csvFile})
 
 	return nil
-
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.
-
 func (a *Adapter) ValidateFormat(xmlFile string) (bool, error) {
-	// Create a parser instance and use its ValidateFormat method
-	parser := NewISO20022Parser(a.GetLogger())
-	return parser.ValidateFormat(xmlFile)
-}
-
-// BatchConvert converts all XML files in a directory to CSV files.
-
-func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-
-	a.GetLogger().Info("Batch converting CAMT.053 XML files",
-		logging.Field{Key: "inputDir", Value: inputDir},
-		logging.Field{Key: "outputDir", Value: outputDir})
-
-	// Ensure output directory exists
-
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-
-		return 0, fmt.Errorf("failed to create output directory: %w", err)
-
-	}
-
-	// Read input directory
-
-	files, err := os.ReadDir(inputDir)
-
-	if err != nil {
-
-		return 0, fmt.Errorf("failed to read input directory: %w", err)
-
-	}
-
-	// Process each XML file
-
-	count := 0
-
-	for _, file := range files {
-		// Check for cancellation
-		select {
-		case <-ctx.Done():
-			a.GetLogger().Warn("Batch processing cancelled",
-				logging.Field{Key: "processed", Value: count},
-				logging.Field{Key: "total", Value: len(files)})
-			return count, ctx.Err()
-		default:
-		}
-
-		if file.IsDir() || !strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
-
-			continue
-
-		}
-
-		inputFile := filepath.Join(inputDir, file.Name())
-
-		outputFile := filepath.Join(outputDir, strings.TrimSuffix(file.Name(), ".xml")+".csv")
-
-		// Validate that it's a CAMT.053 file
-
-		isValid, err := a.ValidateFormat(inputFile)
-
-		if err != nil {
-
-			a.GetLogger().WithError(err).Error("Error validating file format",
-				logging.Field{Key: "file", Value: inputFile})
-
-			continue
-
-		}
-
-		if !isValid {
-
-			a.GetLogger().Debug("Skipping non-CAMT.053 file",
-				logging.Field{Key: "file", Value: inputFile})
-
-			continue
-
-		}
-
-		// Convert the file
-
-		if err := a.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
-
-			a.GetLogger().WithError(err).Error("Failed to convert file",
-				logging.Field{Key: "file", Value: inputFile})
-
-			continue
-
-		}
-
-		count++
-
-	}
-
-	a.GetLogger().Info("Batch conversion completed",
-		logging.Field{Key: "count", Value: count})
-
-	return count, nil
-
-}
-
-// isIBANFormat checks if a string appears to be in IBAN format
-
-func isIBANFormat(s string) bool {
-
-	// Basic check: IBANs typically start with a country code (2 letters) followed by
-
-	// checksum digits and the account number
-
-	if len(s) < 15 || len(s) > 34 {
-
-		return false
-
-	}
-
-	// Check if the first two characters are letters (country code)
-
-	if len(s) >= 2 && !('A' <= s[0] && s[0] <= 'Z') && !('a' <= s[0] && s[0] <= 'z') {
-
-		return false
-
-	}
-
-	if len(s) >= 2 && !('A' <= s[1] && s[1] <= 'Z') && !('a' <= s[1] && s[1] <= 'z') {
-
-		return false
-
-	}
-
-	// Check if the rest is alphanumeric
-
-	for i := 2; i < len(s); i++ {
-
-		c := s[i]
-
-		if !('0' <= c && c <= '9') && !('A' <= c && c <= 'Z') && !('a' <= c && c <= 'z') {
-
-			return false
-
-		}
-
-	}
-
-	return true
-
-}
-
-// Helper function to clean payment method prefixes from party names
-
-func cleanPaymentMethodPrefixes(partyName string) string {
-
-	// If the party name consists only of one of these terms, leave it as is
-
-	// This ensures "PMT CARTE", "PMT TWINT", and "BCV-NET" are still categorized correctly
-
-	if partyName == "PMT CARTE" || partyName == "PMT TWINT" || partyName == "BCV-NET" || partyName == "VIRT BANC" {
-
-		return partyName
-
-	}
-
-	// Remove these prefixes if they're part of a longer string
-
-	prefixes := []string{"PMT CARTE", "PMT TWINT", "BCV-NET", "VIRT BANC"}
-
-	cleanedName := partyName
-
-	for _, prefix := range prefixes {
-
-		// Check if the party name starts with the prefix
-
-		if strings.HasPrefix(cleanedName, prefix) {
-
-			// Extract the remaining part after the prefix and trim spaces
-
-			cleanedName = strings.TrimSpace(cleanedName[len(prefix):])
-
-			break // Only need to remove one prefix
-
-		}
-
-	}
-
-	// If we removed everything, return the original name
-
-	if cleanedName == "" {
-
-		return partyName
-
-	}
-
-	return cleanedName
-
-}
-
-// extractPartyNameFromDescription extracts party name from description based on prefixes
-
-func extractPartyNameFromDescription(description string) string {
-
-	prefixes := []string{"PMT TWINT", "PMT CARTE", "VIRT BANC", "BCV-NET"}
-
-	for _, prefix := range prefixes {
-
-		if strings.HasPrefix(description, prefix) {
-
-			// Extract the remaining part after the prefix and trim spaces
-
-			remaining := strings.TrimSpace(description[len(prefix):])
-
-			if remaining != "" {
-
-				return remaining
-
-			}
-
-		}
-
-	}
-
-	return ""
-
-}
-
-// setTransactionTypeFromDescription sets the transaction type based on description prefix
-
-func setTransactionTypeFromDescription(description string) string {
-
-	if strings.HasPrefix(description, "PMT TWINT") {
-
-		return "TWINT"
-
-	} else if strings.HasPrefix(description, "PMT CARTE") {
-
-		return "CB"
-
-	} else if strings.HasPrefix(description, "VIRT BANC") {
-
-		return "Virement"
-
-	} else if strings.HasPrefix(description, "BCV-NET") {
-
-		return "Virement"
-
-	} else if description == "ORDRE LSV +" {
-
-		return "Virement"
-
-	}
-
-	return ""
-
+	return NewISO20022Parser(a.GetLogger()).ValidateFormat(xmlFile)
 }

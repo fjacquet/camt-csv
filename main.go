@@ -8,6 +8,7 @@ import (
 
 	"fjacquet/camt-csv/cmd/camt"
 	"fjacquet/camt-csv/cmd/categorize"
+	"fjacquet/camt-csv/cmd/convert"
 	"fjacquet/camt-csv/cmd/debit"
 	"fjacquet/camt-csv/cmd/pdf"
 	"fjacquet/camt-csv/cmd/revolut"
@@ -15,6 +16,7 @@ import (
 	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
+
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +44,7 @@ func init() {
 	root.Cmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
 
 	// 6. Add all subcommands
+	root.Cmd.AddCommand(convert.Cmd)
 	root.Cmd.AddCommand(camt.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)
 	root.Cmd.AddCommand(pdf.Cmd)

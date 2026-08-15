@@ -33,7 +33,7 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 
 	// Create PDF file within temp directory
 	pdfPath := filepath.Join(tempDir, "input.pdf")
-	pdfFile, err := os.OpenFile(pdfPath, os.O_CREATE|os.O_WRONLY, 0600)
+	pdfFile, err := os.OpenFile(pdfPath, os.O_CREATE|os.O_WRONLY, 0600) // #nosec G304 -- path is built from an os.MkdirTemp dir we own
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary PDF file: %w", err)
 	}
@@ -74,7 +74,7 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 	lines := strings.Split(processedText, "\n")
 
 	// Parse the lines to extract transactions
-	transactions, err := parseTransactionsWithCategorizer(lines, logger, categorizer)
+	transactions, err := parseTransactionsWithCategorizer(ctx, lines, logger, categorizer)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",

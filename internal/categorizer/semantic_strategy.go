@@ -15,6 +15,9 @@ import (
 // It matches transactions to categories by comparing the semantic similarity
 // of the transaction description with the category's keywords.
 type SemanticStrategy struct {
+	// client is set once at construction and never reassigned. Warm-up runs in
+	// a background goroutine that reads it concurrently with Categorize, so a
+	// later swap would be a data race; wire the right client up front instead.
 	client             AIClient
 	log                logging.Logger
 	categoryEmbeddings map[string][]float32
@@ -28,6 +31,11 @@ type SemanticStrategy struct {
 
 	// Per-transaction embedding cache (in-memory, per-run)
 	txEmbCache sync.Map // key: string → value: []float32
+
+	// Warm-up lifecycle. cancelWarmup stops the background embedding warm-up;
+	// warmupDone closes once it has returned. Both are nil when no warm-up ran.
+	cancelWarmup context.CancelFunc
+	warmupDone   chan struct{}
 }
 
 // NewSemanticStrategy creates a new SemanticStrategy instance.
@@ -49,12 +57,33 @@ func NewSemanticStrategyWithCache(client AIClient, logger logging.Logger, catego
 		categories:         categories,
 	}
 
-	// Initialize embeddings in background to not block startup
+	// Warm the category embeddings in the background so startup is not blocked.
+	// The context is owned by this strategy rather than being Background(), so
+	// Shutdown can stop an in-flight warm-up instead of leaving it hammering
+	// the embedding API while the process is trying to exit.
 	if client != nil {
-		go s.initializeEmbeddings(context.Background(), categories)
+		ctx, cancel := context.WithCancel(context.Background())
+		s.cancelWarmup = cancel
+		s.warmupDone = make(chan struct{})
+
+		go func() {
+			defer close(s.warmupDone)
+			s.initializeEmbeddings(ctx, categories)
+		}()
 	}
 
 	return s
+}
+
+// Shutdown cancels any in-flight embedding warm-up and waits for it to stop.
+// It is safe to call on a strategy that never started one, and safe to call
+// more than once.
+func (s *SemanticStrategy) Shutdown() {
+	if s.cancelWarmup == nil {
+		return
+	}
+	s.cancelWarmup()
+	<-s.warmupDone
 }
 
 // Name returns the name of the strategy.
@@ -155,6 +184,13 @@ func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories 
 	tempEmbeddings := make(map[string][]float32)
 
 	for _, cat := range categories {
+		// Stop promptly on shutdown rather than working through every remaining
+		// category; each one is a network round trip to the embedding provider.
+		if ctx.Err() != nil {
+			s.log.Debug("Embedding warm-up cancelled")
+			return
+		}
+
 		// Construct representative text: "Name: keyword1, keyword2, ..."
 		keywords := strings.Join(cat.Keywords, ", ")
 		text := fmt.Sprintf("%s: %s", cat.Name, keywords)

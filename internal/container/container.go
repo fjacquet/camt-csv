@@ -104,14 +104,14 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 			// Embedding client: use Gemini if GEMINI_API_KEY is available
 			geminiKey := os.Getenv("GEMINI_API_KEY")
 			if geminiKey != "" {
-				embeddingClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, "gemini-embedding-001", cfg.AI.TimeoutSeconds, geminiKey)
+				embeddingClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, "gemini-embedding-001", cfg.AI.TimeoutSeconds, geminiKey, "")
 				logger.Info("Semantic tier: active (Gemini embeddings)")
 			} else {
 				logger.Info("Semantic tier: skipped (no embedding provider available)")
 			}
 
 		default: // "gemini" or unrecognized falls back to Gemini
-			chatClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, cfg.AI.Model, cfg.AI.TimeoutSeconds, cfg.AI.APIKey)
+			chatClient = categorizer.NewGeminiClient(logger, cfg.AI.RequestsPerMinute, cfg.AI.Model, cfg.AI.TimeoutSeconds, cfg.AI.APIKey, cfg.AI.BaseURL)
 			embeddingClient = chatClient
 			logger.WithFields(
 				logging.Field{Key: "provider", Value: "gemini"},
@@ -128,12 +128,10 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	if semanticThreshold <= 0 {
 		semanticThreshold = 0.70
 	}
-	cat := categorizer.NewCategorizer(chatClient, categoryStore, logger, cfg.Categorization.AutoLearn, float32(semanticThreshold))
-
-	// When provider is openrouter, rewire semantic tier to the dedicated embedding client
-	if cfg.AI.Provider == "openrouter" {
-		cat.SetEmbeddingClient(embeddingClient)
-	}
+	// chatClient and embeddingClient are passed separately: with the openrouter
+	// provider they are different services, and giving the semantic tier a
+	// client that cannot embed leaves it silently empty.
+	cat := categorizer.NewCategorizer(chatClient, embeddingClient, categoryStore, logger, cfg.Categorization.AutoLearn, float32(semanticThreshold))
 
 	// Wire staging store when AI is enabled but auto-learn is off
 	if cfg.AI.Enabled && !cfg.Categorization.AutoLearn && cfg.Staging.Enabled {
@@ -237,6 +235,15 @@ func (c *Container) GetFormatterRegistry() *formatter.FormatterRegistry {
 }
 
 // GetConfig returns the application configuration.
+// Close releases background work held by the container. Call it when a command
+// has finished; it is safe to call more than once.
+func (c *Container) Close() {
+	if c.categorizer != nil {
+		c.categorizer.Shutdown()
+	}
+}
+
+// GetConfig returns the configuration.
 func (c *Container) GetConfig() *config.Config {
 	return c.config
 }

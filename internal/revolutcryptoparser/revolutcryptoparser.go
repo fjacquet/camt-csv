@@ -106,7 +106,7 @@ func parseFrenchAmount(s string) (decimal.Decimal, string) {
 }
 
 // ParseWithCategorizer parses a Revolut Crypto CSV reader and returns transactions.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -164,6 +164,10 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			Date:     strings.TrimSpace(record[6]),
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		tx, err := convertRowToTransaction(row)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
@@ -177,8 +181,15 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			if !tx.Date.IsZero() {
 				catDate = tx.Date.Format("02.01.2006")
 			}
-			category, catErr := categorizer.Categorize(context.Background(), tx.PartyName, isDebtor, tx.Amount.String(), catDate, "")
+			category, catErr := categorizer.Categorize(ctx, tx.PartyName, isDebtor, tx.Amount.String(), catDate, "")
 			if catErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// The categorizer failed because the run was cancelled, not because
+					// this transaction could not be classified. Surface the cancellation
+					// instead of quietly filing the rest as Uncategorized.
+					return nil, ctxErr
+				}
+
 				logger.WithError(catErr).Warn("Failed to categorize transaction",
 					logging.Field{Key: "party", Value: tx.PartyName})
 				tx.Category = models.CategoryUncategorized

@@ -2,7 +2,6 @@ package selmaparser
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 
@@ -25,7 +24,7 @@ func NewAdapter(logger logging.Logger) *Adapter {
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-	return ParseWithCategorizer(r, a.GetLogger(), a.GetCategorizer())
+	return ParseWithCategorizer(ctx, r, a.GetLogger(), a.GetCategorizer())
 }
 
 // ConvertToCSV implements parser.FullParser.ConvertToCSV
@@ -47,9 +46,4 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	}()
 
 	return validateFormat(f, a.GetLogger())
-}
-
-// BatchConvert is not implemented for this parser.
-func (a *Adapter) BatchConvert(ctx context.Context, inputDir, outputDir string) (int, error) {
-	return 0, fmt.Errorf("not implemented")
 }

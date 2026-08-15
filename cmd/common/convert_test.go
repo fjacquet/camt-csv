@@ -37,10 +37,6 @@ func (m *convertMockParser) SetLogger(_ logging.Logger) {}
 
 func (m *convertMockParser) SetCategorizer(_ models.TransactionCategorizer) {}
 
-func (m *convertMockParser) BatchConvert(_ context.Context, _, _ string) (int, error) {
-	return 0, nil
-}
-
 var _ parser.FullParser = (*convertMockParser)(nil)
 
 // TestRunConvert_FolderWithoutOutput verifies that the --output guard in RunConvert
@@ -62,7 +58,7 @@ func TestRunConvert_FolderWithoutOutput(t *testing.T) {
 	// Passing a non-FullParser (plain struct) triggers the guard in FolderConvert
 	// ("Parser does not support batch conversion")
 	type notAParser struct{}
-	common.FolderConvert(context.Background(), notAParser{}, inputDir, outputDir, mockLogger, "standard", "")
+	common.FolderConvert(context.Background(), notAParser{}, inputDir, outputDir, mockLogger, "standard", false)
 
 	fatalEntries := mockLogger.GetEntriesByLevel("FATAL")
 	require.NotEmpty(t, fatalEntries, "expected at least one FATAL log entry")
@@ -94,7 +90,7 @@ func TestFolderConvert_EmptyDirectory(t *testing.T) {
 	restore := common.SetOsExitFn(func(code int) { capturedExitCode = code })
 	defer restore()
 
-	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "standard", "")
+	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "standard", false)
 
 	// No FATAL entries — the exit is via osExitFn, not logger.Fatal
 	fatalEntries := mockLogger.GetEntriesByLevel("FATAL")
@@ -121,7 +117,7 @@ func TestFolderConvert_InvalidFormat(t *testing.T) {
 	restore := common.SetOsExitFn(func(_ int) {})
 	defer restore()
 
-	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "invalid", "")
+	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "invalid", false)
 
 	fatalEntries := mockLogger.GetEntriesByLevel("FATAL")
 	require.NotEmpty(t, fatalEntries, "expected a FATAL log entry for invalid format")
