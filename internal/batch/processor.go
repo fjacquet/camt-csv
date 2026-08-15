@@ -20,6 +20,7 @@ type BatchProcessor struct {
 	parser    parser.FullParser
 	logger    logging.Logger
 	formatter formatter.OutputFormatter
+	recursive bool
 }
 
 // NewBatchProcessor creates a new BatchProcessor instance that wraps the provided parser.
@@ -36,6 +37,14 @@ func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter
 		logger:    logger,
 		formatter: fmt,
 	}
+}
+
+// SetRecursive controls whether ProcessDirectory descends into subdirectories.
+// Output files are written flat into the output directory regardless, so a
+// recursive run over a tree containing same-named files in different folders
+// will have them overwrite each other.
+func (bp *BatchProcessor) SetRecursive(recursive bool) {
+	bp.recursive = recursive
 }
 
 // ProcessDirectory processes all files in inputDir and writes converted files to outputDir.
@@ -118,8 +127,8 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 }
 
 // discoverFiles returns a sorted list of processable files in the given directory.
-// Only returns files in the top-level directory (not recursive).
-// Skips hidden files (starting with '.') and directories.
+// Hidden files and directories (names starting with '.') are always skipped.
+// Subdirectories are descended into only when the processor is set to recursive.
 func (bp *BatchProcessor) discoverFiles(inputDir string) []string {
 	var files []string
 
@@ -131,23 +140,27 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) []string {
 	}
 
 	for _, entry := range entries {
-		// Skip directories
-		if entry.IsDir() {
-			continue
-		}
-
-		// Skip hidden files
+		// Hidden entries are skipped whether they are files or directories:
+		// .git and .manifest.json are never inputs.
 		if strings.HasPrefix(entry.Name(), ".") {
-			bp.logger.Debug("Skipping hidden file",
-				logging.Field{Key: "file", Value: entry.Name()})
+			bp.logger.Debug("Skipping hidden entry",
+				logging.Field{Key: "name", Value: entry.Name()})
 			continue
 		}
 
-		filePath := filepath.Join(inputDir, entry.Name())
-		files = append(files, filePath)
+		entryPath := filepath.Join(inputDir, entry.Name())
+
+		if entry.IsDir() {
+			if bp.recursive {
+				files = append(files, bp.discoverFiles(entryPath)...)
+			}
+			continue
+		}
+
+		files = append(files, entryPath)
 	}
 
-	// Sort files alphabetically for consistent ordering
+	// Sort for consistent, reproducible ordering across runs.
 	sort.Strings(files)
 
 	return files

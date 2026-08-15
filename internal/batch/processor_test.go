@@ -537,3 +537,55 @@ func (f *testIComptaFormatter) Format(transactions []models.Transaction) ([][]st
 func (f *testIComptaFormatter) Delimiter() rune {
 	return ';'
 }
+
+// By default only the top level of the input directory is processed.
+func TestDiscoverFiles_NonRecursiveByDefault(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "top.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil)
+
+	files := bp.discoverFiles(dir)
+
+	require.Len(t, files, 1)
+	assert.Equal(t, filepath.Join(dir, "top.csv"), files[0])
+}
+
+// With recursion enabled, nested files are found at any depth.
+func TestDiscoverFiles_Recursive(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "top.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub", "deeper"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "deeper", "deep.csv"), []byte("x"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil)
+	bp.SetRecursive(true)
+
+	files := bp.discoverFiles(dir)
+
+	require.Len(t, files, 3)
+	assert.Contains(t, files, filepath.Join(dir, "top.csv"))
+	assert.Contains(t, files, filepath.Join(dir, "sub", "nested.csv"))
+	assert.Contains(t, files, filepath.Join(dir, "sub", "deeper", "deep.csv"))
+}
+
+// Hidden directories must be skipped even when recursing: .git and a previous
+// run's output are never inputs.
+func TestDiscoverFiles_RecursiveSkipsHiddenDirectories(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "visible.csv"), []byte("x"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "secret.csv"), []byte("x"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".manifest.json"), []byte("{}"), 0600))
+
+	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil)
+	bp.SetRecursive(true)
+
+	files := bp.discoverFiles(dir)
+
+	require.Len(t, files, 1)
+	assert.Equal(t, filepath.Join(dir, "visible.csv"), files[0])
+}

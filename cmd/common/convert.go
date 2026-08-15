@@ -36,6 +36,7 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 	logger.Infof("Output: %s", outputPath)
 
 	format, _ := cmd.Flags().GetString("format")
+	recursive, _ := cmd.Flags().GetBool("recursive")
 
 	appContainer := root.GetContainer()
 	if appContainer == nil {
@@ -60,7 +61,7 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 		if outputPath == "" {
 			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
 		}
-		FolderConvert(ctx, p, inputPath, outputPath, logger, format)
+		FolderConvert(ctx, p, inputPath, outputPath, logger, format, recursive)
 	} else {
 		ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format)
 		root.Log.Info(name + " to CSV conversion completed successfully!")
@@ -77,7 +78,8 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 //   - outputDir: path to output directory (will be created if absent)
 //   - logger: structured logger
 //   - format: output format name ("standard", "icompta" or "jumpsoft")
-func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string) {
+//   - recursive: also process files in subdirectories of inputDir
+func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string, recursive bool) {
 	// Resolve formatter
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
@@ -95,6 +97,7 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 
 	// Create and run the batch processor
 	processor := batch.NewBatchProcessor(fullParser, logger, outFormatter)
+	processor.SetRecursive(recursive)
 
 	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
 	if err != nil {

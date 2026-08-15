@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a `convert` command that detects the input format instead of requiring you to name it. Each parser is asked in turn whether it recognizes the file and the first one that does performs the conversion, covering CAMT.053 XML, PDF, and the Revolut, Revolut Crypto, Revolut Investment, Selma and Visa Debit CSV exports. Pointed at a directory it detects each file independently, so a folder holding a mix of formats converts in one pass; unrecognized files are skipped with a warning rather than guessed at.
+- Add a `--recursive` flag to the directory-processing commands, so a tree of statements can be converted in one run. Hidden files and directories are skipped at every level.
+
 ### Changed
 
 - Split `camtparser/adapter.go` (648 lines, with a single 380-line `Parse`) into three files: `camt053_schema.go` for the CAMT.053 XML types, which were declared inline inside `Parse`; `entry_mapping.go` for the entry-to-`Transaction` mapping and its helpers; and a 156-line `adapter.go` that now only drives the decode-map-categorize loop. Output is byte-identical, verified against nine real CAMT.053 files. Package coverage rises from 85.5% to 87.0%.
@@ -14,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix `revolutinvestmentparser.ValidateFormat` accepting any readable CSV. It only checked that a header row could be parsed, so it claimed Revolut, Selma and Visa Debit exports as its own, and `--validate` on those files passed against the wrong parser. It now verifies the eight expected column names, matching the check the parser itself already performed.
 - Fix `OpenRouterClient` not retrying request timeouts. Its `isRetryableError` was missing the `os.IsTimeout` check that `GeminiClient` had, so a timed-out OpenRouter request failed outright instead of being retried. Both providers now share one retry policy.
 - Propagate `context.Context` through categorization. `common.ProcessTransactionsWithCategorizationStats` hardcoded `context.Background()`, and six of the seven parsers accepted a `ctx` on `Parse` and discarded it, so cancelling a run (Ctrl-C, a deadline, a cancelled batch) had no effect once categorization started — a several-thousand-transaction AI run could not be interrupted. Every parser now threads its `ctx` to `Categorize`, and the categorization loops check for cancellation between transactions and return `ctx.Err()` instead of a partially categorized slice.
 
