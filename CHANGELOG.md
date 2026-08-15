@@ -15,12 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Split `camtparser/adapter.go` (648 lines, with a single 380-line `Parse`) into three files: `camt053_schema.go` for the CAMT.053 XML types, which were declared inline inside `Parse`; `entry_mapping.go` for the entry-to-`Transaction` mapping and its helpers; and a 156-line `adapter.go` that now only drives the decode-map-categorize loop. Output is byte-identical, verified against nine real CAMT.053 files. Package coverage rises from 85.5% to 87.0%.
+- Replace the copy-pasted `cmd/revolut` convert handler with `common.RunConvert`, the shared path already used by camt, selma, debit, revolut-crypto, and revolut-investment. Behaviour is unchanged; the command drops from 118 to 21 lines.
+- Deprecate the `--date-format` flag. It was registered and threaded through five functions but never read by any writer — output dates have always been `DD.MM.YYYY`. The flag is still accepted so existing invocations keep working, and now reports that it has no effect.
 - Unify `GeminiClient` and `OpenRouterClient` onto a shared `baseAIClient`. The two were near-forks: an identical 165-line categorization prompt, an identical 70-entry synonym table, and an identical `cleanCategory` were maintained twice, so a fix to one silently left the other behind. Prompt construction, response cleaning, rate limiting, retry/backoff and credential gating now have a single implementation; each provider supplies only its own HTTP call. The prompt text, synonym table and cleaning behaviour are unchanged.
 
 ### Fixed
 
 - Fix `revolutinvestmentparser.ValidateFormat` accepting any readable CSV. It only checked that a header row could be parsed, so it claimed Revolut, Selma and Visa Debit exports as its own, and `--validate` on those files passed against the wrong parser. It now verifies the eight expected column names, matching the check the parser itself already performed.
 - Fix `OpenRouterClient` not retrying request timeouts. Its `isRetryableError` was missing the `os.IsTimeout` check that `GeminiClient` had, so a timed-out OpenRouter request failed outright instead of being retried. Both providers now share one retry policy.
+- Stop writing `.manifest.json` twice per batch run — `BatchProcessor.ProcessDirectory` already writes it, and `FolderConvert` was immediately rewriting the same file.
+- Add missing `#nosec G304` justifications in `batch/processor.go` and `pdfparser.go`, matching the convention used at every other file-open site; `gosec` now reports zero issues.
 - Propagate `context.Context` through categorization. `common.ProcessTransactionsWithCategorizationStats` hardcoded `context.Background()`, and six of the seven parsers accepted a `ctx` on `Parse` and discarded it, so cancelling a run (Ctrl-C, a deadline, a cancelled batch) had no effect once categorization started — a several-thousand-transaction AI run could not be interrupted. Every parser now threads its `ctx` to `Categorize`, and the categorization loops check for cancellation between transactions and return `ctx.Err()` instead of a partially categorized slice.
 
 ### Removed
@@ -28,15 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove `BatchConverter` from the `parser.FullParser` interface and drop all seven adapter `BatchConvert` implementations. The method had no callers: directory processing has gone through `batch.BatchProcessor` since it was introduced, and the seven implementations had silently diverged (Selma returned `not implemented`, Visa Debit delegated to a legacy helper, the rest hand-rolled incompatible loops). Parsers now parse; `batch.BatchProcessor` handles directories.
 - Remove the legacy package-level `debitparser.BatchConvert` and `debitparser.BatchConvertWithLogger` helpers, whose only caller was the deleted adapter method.
 
-### Changed
-
-- Replace the copy-pasted `cmd/revolut` convert handler with `common.RunConvert`, the shared path already used by camt, selma, debit, revolut-crypto, and revolut-investment. Behaviour is unchanged; the command drops from 118 to 21 lines.
-- Deprecate the `--date-format` flag. It was registered and threaded through five functions but never read by any writer — output dates have always been `DD.MM.YYYY`. The flag is still accepted so existing invocations keep working, and now reports that it has no effect.
-
-### Fixed
-
-- Stop writing `.manifest.json` twice per batch run — `BatchProcessor.ProcessDirectory` already writes it, and `FolderConvert` was immediately rewriting the same file.
-- Add missing `#nosec G304` justifications in `batch/processor.go` and `pdfparser.go`, matching the convention used at every other file-open site; `gosec` now reports zero issues.
 
 ## [2.4.0] - 2026-04-06
 

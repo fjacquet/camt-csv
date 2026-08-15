@@ -96,6 +96,8 @@ Directory processing is **not** a parser concern: `batch.BatchProcessor` (`inter
 
 New parsers are registered in `internal/container/container.go` (`newParsers`). CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.
 
+**Format Detection** (`internal/container/detect.go`): `Container.DetectParser(path)` asks each parser's `ValidateFormat` in turn and returns the first that accepts the file; it backs the `convert` command. Adding a parser means adding it to `detectionOrder` — and its `ValidateFormat` must be specific enough to reject other formats, or detection breaks for everyone. `TestDetectParser_ValidatorsDoNotOverlap` enforces this by running every sample past every validator.
+
 **Four-Tier Categorization** (`internal/categorizer/`):
 
 1. Direct mapping - exact match from `database/creditors.yaml` / `database/debitors.yaml`
@@ -110,7 +112,7 @@ When `--auto-learn` is enabled, AI results save directly to YAML files. When dis
 - **"icompta"** - 10-column, semicolon-delimited, dd.MM.yyyy dates
 - **"jumpsoft"** - 7-column Jumpsoft Money CSV
 
-CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
+CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). Directory input takes `--recursive` to descend into subdirectories. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
 
 **Command Lifecycle** (Cobra hooks in `cmd/root/root.go`):
 1. `PersistentPreRun` - Loads config, creates DI container
@@ -119,7 +121,7 @@ CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is dep
 
 ### Directory Structure
 
-- `cmd/` - Cobra CLI commands (camt, pdf, batch, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
+- `cmd/` - Cobra CLI commands (convert, camt, pdf, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
 - `internal/` - Core application logic:
   - `*parser/` packages - Format-specific parsers with `adapter.go` implementing the interface
   - `categorizer/` - Transaction categorization with AI integration
@@ -167,8 +169,9 @@ Note: The `.env` file is auto-loaded from the current directory.
 2. Implement core parsing in `{name}parser.go`
 3. Create adapter implementing `parser.FullParser` in `adapter.go`
 4. Register in `internal/container/container.go`
-5. Add CLI command in `cmd/{name}/convert.go`
+5. Add CLI command in `cmd/{name}/convert.go` — delegate to `common.RunConvert`, do not hand-roll the handler
 6. Wire command in `main.go`
+7. Add the parser type to `detectionOrder` in `internal/container/detect.go`
 
 ## Coding Principles
 
