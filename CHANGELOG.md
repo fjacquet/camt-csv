@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Propagate `context.Context` through categorization. `common.ProcessTransactionsWithCategorizationStats` hardcoded `context.Background()`, and six of the seven parsers accepted a `ctx` on `Parse` and discarded it, so cancelling a run (Ctrl-C, a deadline, a cancelled batch) had no effect once categorization started — a several-thousand-transaction AI run could not be interrupted. Every parser now threads its `ctx` to `Categorize`, and the categorization loops check for cancellation between transactions and return `ctx.Err()` instead of a partially categorized slice.
+
 ### Removed
 
 - Remove `BatchConverter` from the `parser.FullParser` interface and drop all seven adapter `BatchConvert` implementations. The method had no callers: directory processing has gone through `batch.BatchProcessor` since it was introduced, and the seven implementations had silently diverged (Selma returned `not implemented`, Visa Debit delegated to a legacy helper, the rest hand-rolled incompatible loops). Parsers now parse; `batch.BatchProcessor` handles directories.

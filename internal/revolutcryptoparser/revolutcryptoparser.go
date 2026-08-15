@@ -106,7 +106,7 @@ func parseFrenchAmount(s string) (decimal.Decimal, string) {
 }
 
 // ParseWithCategorizer parses a Revolut Crypto CSV reader and returns transactions.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -171,13 +171,17 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			continue
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		if categorizer != nil {
 			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
 			catDate := ""
 			if !tx.Date.IsZero() {
 				catDate = tx.Date.Format("02.01.2006")
 			}
-			category, catErr := categorizer.Categorize(context.Background(), tx.PartyName, isDebtor, tx.Amount.String(), catDate, "")
+			category, catErr := categorizer.Categorize(ctx, tx.PartyName, isDebtor, tx.Amount.String(), catDate, "")
 			if catErr != nil {
 				logger.WithError(catErr).Warn("Failed to categorize transaction",
 					logging.Field{Key: "party", Value: tx.PartyName})

@@ -147,7 +147,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 		category: models.Category{Name: "Transport"},
 	}
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Transport", transactions[0].Category)
@@ -163,7 +163,7 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 	// Mock categorizer that returns error
 	mockCategorizer := &mockCategorizerError{}
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)

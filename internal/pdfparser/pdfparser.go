@@ -74,7 +74,7 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 	lines := strings.Split(processedText, "\n")
 
 	// Parse the lines to extract transactions
-	transactions, err := parseTransactionsWithCategorizer(lines, logger, categorizer)
+	transactions, err := parseTransactionsWithCategorizer(ctx, lines, logger, categorizer)
 	if err != nil {
 		return nil, &parsererror.ParseError{
 			Parser: "PDF",

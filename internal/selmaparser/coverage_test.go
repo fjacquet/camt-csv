@@ -117,6 +117,7 @@ func TestProcessTransactionsWithCategorizer_NilLogger(t *testing.T) {
 		{Description: "test", Amount: decimal.NewFromInt(100)},
 	}
 
-	result := ProcessTransactionsWithCategorizer(transactions, nil, nil)
+	result, err := ProcessTransactionsWithCategorizer(context.Background(), transactions, nil, nil)
+	require.NoError(t, err)
 	assert.Len(t, result, 1)
 }

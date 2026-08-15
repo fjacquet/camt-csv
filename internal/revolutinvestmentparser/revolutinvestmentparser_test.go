@@ -157,7 +157,7 @@ func TestParseWithCategorizer_Success(t *testing.T) {
 	mockCategorizer := &MockCategorizer{}
 	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{Name: "Investment"}, nil)
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Investment", transactions[0].Category)
@@ -175,7 +175,7 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 	mockCategorizer := &MockCategorizer{}
 	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "30.05.2025", "").Return(models.Category{}, assert.AnError)
 
-	transactions, err := ParseWithCategorizer(reader, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
@@ -189,7 +189,7 @@ func TestParseWithCategorizer_EmptyFile(t *testing.T) {
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	_, err := ParseWithCategorizer(reader, logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), reader, logger, nil)
 	require.Error(t, err)
 
 	var invalidFormatErr *parsererror.InvalidFormatError
@@ -204,7 +204,7 @@ func TestParseWithCategorizer_InsufficientColumns(t *testing.T) {
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	_, err := ParseWithCategorizer(reader, logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), reader, logger, nil)
 	require.Error(t, err)
 
 	var invalidFormatErr *parsererror.InvalidFormatError
@@ -219,7 +219,7 @@ func TestParseWithCategorizer_WrongHeaders(t *testing.T) {
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	_, err := ParseWithCategorizer(reader, logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), reader, logger, nil)
 	require.Error(t, err)
 
 	var invalidFormatErr *parsererror.InvalidFormatError
@@ -235,7 +235,7 @@ func TestParseWithCategorizer_SkipInsufficientRowColumns(t *testing.T) {
 	reader := strings.NewReader(content)
 	logger := logging.NewLogrusAdapter("info", "text")
 
-	transactions, err := ParseWithCategorizer(reader, logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, nil)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2) // Should process both valid rows
 }

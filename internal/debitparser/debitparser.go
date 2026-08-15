@@ -33,7 +33,7 @@ type DebitCSVRow struct {
 }
 
 // ParseWithCategorizer parses a Visa Debit CSV file and categorizes transactions using the provided categorizer.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -75,6 +75,10 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			continue
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Categorize the transaction using the injected categorizer
 		if categorizer != nil {
 			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
@@ -84,7 +88,7 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = tx.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(context.Background(), tx.Description, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(ctx, tx.Description, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: tx.Description},

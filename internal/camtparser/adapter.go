@@ -368,6 +368,10 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 			// Update derived fields
 			transaction.UpdateDebitCreditAmounts()
 
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+
 			// Prepare categorization parameters
 			catPartyName := transaction.PartyName
 			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
@@ -391,7 +395,7 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 
 			// Categorize the transaction using the injected categorizer (includes auto-learning)
 			if cat := a.GetCategorizer(); cat != nil {
-				category, err := cat.Categorize(context.Background(), catPartyName, isDebtor, catAmount, catDate, catInfo)
+				category, err := cat.Categorize(ctx, catPartyName, isDebtor, catAmount, catDate, catInfo)
 				if err != nil {
 					a.GetLogger().WithError(err).WithFields(
 						logging.Field{Key: "party", Value: catPartyName},

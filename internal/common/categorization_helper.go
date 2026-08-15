@@ -9,13 +9,19 @@ import (
 )
 
 // ProcessTransactionsWithCategorizationStats processes transactions with categorization
-// and tracks statistics, providing fallback behavior for failed categorization
+// and tracks statistics, providing fallback behavior for failed categorization.
+//
+// Categorization can reach a remote AI provider, so ctx governs the whole run:
+// it is passed to every Categorize call and checked between transactions. If ctx
+// is cancelled the function stops and returns ctx.Err() rather than silently
+// returning a partially categorized slice.
 func ProcessTransactionsWithCategorizationStats(
+	ctx context.Context,
 	transactions []models.Transaction,
 	logger logging.Logger,
 	categorizer models.TransactionCategorizer,
 	parserType string,
-) []models.Transaction {
+) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -24,6 +30,14 @@ func ProcessTransactionsWithCategorizationStats(
 	processedTransactions := make([]models.Transaction, len(transactions))
 
 	for i, tx := range transactions {
+		if err := ctx.Err(); err != nil {
+			logger.Warn("Categorization cancelled",
+				logging.Field{Key: "parser_type", Value: parserType},
+				logging.Field{Key: "processed", Value: i},
+				logging.Field{Key: "total", Value: len(transactions)})
+			return nil, err
+		}
+
 		stats.IncrementTotal()
 		processedTransactions[i] = tx
 
@@ -72,7 +86,7 @@ func ProcessTransactionsWithCategorizationStats(
 		}
 
 		category, err := categorizer.Categorize(
-			context.Background(),
+			ctx,
 			partyName,
 			tx.IsDebit(),
 			tx.Amount.String(),
@@ -106,5 +120,5 @@ func ProcessTransactionsWithCategorizationStats(
 	// Log summary statistics
 	stats.LogSummary(logger, parserType)
 
-	return processedTransactions
+	return processedTransactions, nil
 }

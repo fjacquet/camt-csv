@@ -429,7 +429,8 @@ func TestProcessTransactionsWithCategorizationStats_EmptyPartyName(t *testing.T)
 	}
 
 	// Use nil categorizer — empty party name should result in Uncategorized
-	result := ProcessTransactionsWithCategorizationStats(txs, nil, nil, "test")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, nil, "test")
+	require.NoError(t, err)
 	assert.Equal(t, "Uncategorized", result[0].Category)
 }
 
@@ -446,7 +447,8 @@ func TestProcessTransactionsWithCategorizationStats_FallbackToName(t *testing.T)
 	}
 
 	mockCat := &simpleCategorizer{category: "TestCat"}
-	result := ProcessTransactionsWithCategorizationStats(txs, nil, mockCat, "test")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, mockCat, "test")
+	require.NoError(t, err)
 	assert.Equal(t, "TestCat", result[0].Category)
 }
 
@@ -463,7 +465,8 @@ func TestProcessTransactionsWithCategorizationStats_FallbackToRecipient(t *testi
 	}
 
 	mockCat := &simpleCategorizer{category: "RecipientCat"}
-	result := ProcessTransactionsWithCategorizationStats(txs, nil, mockCat, "test")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, mockCat, "test")
+	require.NoError(t, err)
 	assert.Equal(t, "RecipientCat", result[0].Category)
 }
 
@@ -480,7 +483,8 @@ func TestProcessTransactionsWithCategorizationStats_FallbackToPartyNameField(t *
 	}
 
 	mockCat := &simpleCategorizer{category: "PartyCat"}
-	result := ProcessTransactionsWithCategorizationStats(txs, nil, mockCat, "test")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, mockCat, "test")
+	require.NoError(t, err)
 	assert.Equal(t, "PartyCat", result[0].Category)
 }
 
@@ -512,7 +516,8 @@ func TestProcessTransactionsWithCategorizationStats_EmptyPartyNameWithCategorize
 	}
 
 	mockCat := &simpleCategorizer{category: "ShouldNotReach"}
-	result := ProcessTransactionsWithCategorizationStats(txs, nil, mockCat, "test")
+	result, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, mockCat, "test")
+	require.NoError(t, err)
 	assert.Equal(t, "Uncategorized", result[0].Category)
 }
 

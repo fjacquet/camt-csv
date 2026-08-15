@@ -24,7 +24,7 @@ func NewAdapter(logger logging.Logger) *Adapter {
 
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-	return ParseWithCategorizer(r, a.GetLogger(), a.GetCategorizer())
+	return ParseWithCategorizer(ctx, r, a.GetLogger(), a.GetCategorizer())
 }
 
 // ConvertToCSV implements parser.FullParser.ConvertToCSV

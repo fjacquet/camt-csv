@@ -112,7 +112,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 	}
 
 	logger := logging.NewLogrusAdapter("info", "text")
-	transactions, err := ParseWithCategorizer(file, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), file, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Food & Dining", transactions[0].Category)
@@ -140,7 +140,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Boreal Coffee Shop,
 	mockCategorizer := &mockCategorizerError{}
 
 	logger := logging.NewLogrusAdapter("info", "text")
-	transactions, err := ParseWithCategorizer(file, logger, mockCategorizer)
+	transactions, err := ParseWithCategorizer(context.Background(), file, logger, mockCategorizer)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
@@ -426,7 +426,7 @@ CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,
 CARD_PAYMENT,Current,2025-01-03 08:07:09,2025-01-04 15:38:51,,-20.00,0.00,CHF,COMPLETED,80.00
 CARD_PAYMENT,Current,2025-01-04 08:07:09,2025-01-05 15:38:51,Lunch,-30.00,0.00,CHF,COMPLETED,50.00`
 
-	transactions, err := ParseWithCategorizer(strings.NewReader(csvContent), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(csvContent), logger, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(transactions)) // Row with empty description should be skipped
 }
@@ -438,7 +438,7 @@ func TestParseWithCategorizer_PendingTransactions(t *testing.T) {
 CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee,-10.50,0.00,CHF,COMPLETED,100.00
 CARD_PAYMENT,Current,2025-01-03 08:07:09,,Pending Payment,-20.00,0.00,CHF,PENDING,80.00`
 
-	transactions, err := ParseWithCategorizer(strings.NewReader(csvContent), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(csvContent), logger, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(transactions)) // Pending transaction should be skipped
 }
@@ -729,7 +729,7 @@ func TestParseWithCategorizer_FrenchCSV(t *testing.T) {
 	require.NoError(t, err)
 	data = normalizeCSVData(data)
 
-	transactions, err := ParseWithCategorizer(strings.NewReader(string(data)), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(string(data)), logger, nil)
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Coffee Shop", transactions[0].Description)

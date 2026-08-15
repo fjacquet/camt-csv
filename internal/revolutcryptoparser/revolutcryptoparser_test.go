@@ -108,7 +108,7 @@ func TestParseWithCategorizer_ValidCSV(t *testing.T) {
 	cat.On("Categorize", mock.Anything, "Revolut Crypto - DOT", false, mock.Anything, mock.Anything, mock.Anything).
 		Return(models.Category{Name: "Staking"}, nil)
 
-	transactions, err := ParseWithCategorizer(strings.NewReader(validCryptoCSV()), logger, cat)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(validCryptoCSV()), logger, cat)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 
@@ -124,7 +124,7 @@ func TestParseWithCategorizer_ValidCSV(t *testing.T) {
 
 func TestParseWithCategorizer_NilCategorizer(t *testing.T) {
 	logger := newTestLogger()
-	transactions, err := ParseWithCategorizer(strings.NewReader(validCryptoCSV()), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(validCryptoCSV()), logger, nil)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
@@ -137,21 +137,21 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 	cat.On("Categorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(models.Category{}, fmt.Errorf("API error"))
 
-	transactions, err := ParseWithCategorizer(strings.NewReader(validCryptoCSV()), logger, cat)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(validCryptoCSV()), logger, cat)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
 }
 
 func TestParseWithCategorizer_NilLogger(t *testing.T) {
-	transactions, err := ParseWithCategorizer(strings.NewReader(validCryptoCSV()), nil, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(validCryptoCSV()), nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 }
 
 func TestParseWithCategorizer_EmptyCSV(t *testing.T) {
 	logger := newTestLogger()
-	_, err := ParseWithCategorizer(strings.NewReader("Symbol,Type,Quantity,Price,Value,Fees,Date\n"), logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), strings.NewReader("Symbol,Type,Quantity,Price,Value,Fees,Date\n"), logger, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
 }
@@ -159,7 +159,7 @@ func TestParseWithCategorizer_EmptyCSV(t *testing.T) {
 func TestParseWithCategorizer_InvalidHeaders(t *testing.T) {
 	logger := newTestLogger()
 	csv := "A,B,C,D,E,F,G\n1,2,3,4,5,6,7\n"
-	_, err := ParseWithCategorizer(strings.NewReader(csv), logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), strings.NewReader(csv), logger, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected header")
 }
@@ -167,7 +167,7 @@ func TestParseWithCategorizer_InvalidHeaders(t *testing.T) {
 func TestParseWithCategorizer_InsufficientColumns(t *testing.T) {
 	logger := newTestLogger()
 	csv := "A,B\n1,2\n"
-	_, err := ParseWithCategorizer(strings.NewReader(csv), logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), strings.NewReader(csv), logger, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "insufficient columns")
 }
@@ -176,7 +176,7 @@ func TestParseWithCategorizer_ShortRowsCauseCSVError(t *testing.T) {
 	logger := newTestLogger()
 	// csv.ReadAll rejects rows with mismatched field counts
 	csv := "Symbol,Type,Quantity,Price,Value,Fees,Date\nBTC,Achat,0.1\n"
-	_, err := ParseWithCategorizer(strings.NewReader(csv), logger, nil)
+	_, err := ParseWithCategorizer(context.Background(), strings.NewReader(csv), logger, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read CSV")
 }
@@ -186,7 +186,7 @@ func TestParseWithCategorizer_UnknownType(t *testing.T) {
 	csv := `Symbol,Type,Quantity,Price,Value,Fees,Date
 ETH,Vente,"1,0","3 000,00 CHF","3 000,00 CHF","0,50 CHF","10 févr. 2026, 14:00:00"
 `
-	transactions, err := ParseWithCategorizer(strings.NewReader(csv), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(csv), logger, nil)
 	require.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Contains(t, transactions[0].Description, "Vente ETH")

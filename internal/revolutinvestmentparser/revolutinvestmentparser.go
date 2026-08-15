@@ -28,7 +28,7 @@ type RevolutInvestmentCSVRow struct {
 }
 
 // ParseWithCategorizer parses a Revolut investment CSV file and categorizes transactions using the provided categorizer.
-func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
+func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
@@ -96,6 +96,10 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 			continue
 		}
 
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Categorize the transaction using the injected categorizer
 		if categorizer != nil {
 			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
@@ -105,7 +109,7 @@ func ParseWithCategorizer(r io.Reader, logger logging.Logger, categorizer models
 				catDate = transaction.Date.Format("02.01.2006")
 			}
 
-			category, catErr := categorizer.Categorize(context.Background(), transaction.PartyName, isDebtor, catAmount, catDate, "")
+			category, catErr := categorizer.Categorize(ctx, transaction.PartyName, isDebtor, catAmount, catDate, "")
 			if catErr != nil {
 				logger.WithError(catErr).WithFields(
 					logging.Field{Key: "party", Value: transaction.PartyName},
