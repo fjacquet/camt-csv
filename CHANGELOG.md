@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop commands that end early losing learned category mappings. Anything that terminated a run before it unwound to the root `PersistentPostRun` hook — `FolderConvert` calling `os.Exit` on a non-zero run manifest (any failed file, an all-failed run, or an empty input directory), and the fifteen-odd `Fatal`/`Fatalf` call sites across `cmd/` — skipped the save of `creditors.yaml`/`debtors.yaml` and left the embedding warm-up issuing API calls. The save now also runs as a logrus exit handler, which covers every fatal path, and the batch exit code is recorded and applied by `main` after `Execute` returns.
+- Apply the `backup.*` configuration. `CategoryStore.SetBackupConfig` had no production caller, so `backup.enabled`, `backup.directory` and `backup.timestamp_format` were silently ignored and the store always used its built-in defaults. The container now wires them from the loaded config. An empty `timestamp_format` keeps the default rather than collapsing every backup onto one filename.
+
+### Added
+
+- Add backup retention. Every mapping save wrote a timestamped `.backup` file and nothing ever removed them, so `database/` accumulated hundreds of copies. The newest `backup.retention` backups per file are kept (default 10); set it to `0` to keep all of them.
+
 ## [2.6.0] - 2026-08-18
 
 ### Fixed

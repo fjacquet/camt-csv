@@ -82,6 +82,14 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		cfg.Categories.CreditorsFile,
 		cfg.Categories.DebtorsFile,
 	)
+	// Apply the backup settings: without this the store silently ignores the
+	// backup.* configuration and always uses its built-in defaults.
+	categoryStore.SetBackupConfig(
+		cfg.Backup.Enabled,
+		cfg.Backup.Directory,
+		cfg.Backup.TimestampFormat,
+		cfg.Backup.Retention,
+	)
 
 	// Create AI clients based on provider selection
 	var chatClient categorizer.AIClient

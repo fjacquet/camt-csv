@@ -16,8 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// osExitFn is the function used to exit the process. Replaced in tests to avoid os.Exit.
-var osExitFn = os.Exit
+// exitFn records the process exit code requested by a batch run. It defers the
+// actual os.Exit to main so that the root PersistentPostRun hook still runs and
+// saves the creditor/debitor mappings. Replaced in tests.
+var exitFn = root.SetExitCode
 
 // RunConvert is the shared handler for all convert commands.
 // It handles: get logger, get container, get parser, stat input, branch to batch or single-file.
@@ -117,6 +119,6 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 	}
 
 	if manifest.ExitCode() != 0 {
-		osExitFn(manifest.ExitCode())
+		exitFn(manifest.ExitCode())
 	}
 }

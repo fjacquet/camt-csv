@@ -101,4 +101,9 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	// Execute has returned, so PersistentPostRun has already saved the party
+	// mappings; only now is it safe to honour a batch run's failure exit code.
+	if code := root.ExitCode(); code != 0 {
+		os.Exit(code)
+	}
 }

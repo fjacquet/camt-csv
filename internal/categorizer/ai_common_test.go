@@ -45,6 +45,9 @@ func TestCleanCategory(t *testing.T) {
 		{"other maps to uncategorized", "other", models.CategoryUncategorized},
 		{"unrecognised value passes through", "Quelque Chose", "Quelque Chose"},
 		{"empty stays empty", "   ", ""},
+		{"prompt hint echoed back", "Alimentation (boucherie, boulangerie, traiteur - NOT supermarkets)", "Alimentation"},
+		{"prompt hint echoed back, another category", "Logement (rent, charges)", "Logement"},
+		{"PII redaction placeholder maps to uncategorized", "[ADDRESS]", models.CategoryUncategorized},
 	}
 
 	for _, tt := range tests {

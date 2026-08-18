@@ -7,6 +7,7 @@ import (
 	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
 	"log"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -29,6 +30,10 @@ var (
 
 	// Global container instance for dependency injection
 	AppContainer *container.Container
+
+	// registerFinalizeOnce guards the logrus exit-handler registration, which
+	// must happen exactly once even if a test initializes the container twice.
+	registerFinalizeOnce sync.Once
 
 	// Cmd is the root command
 	Cmd = &cobra.Command{
@@ -57,26 +62,7 @@ It also provides transaction categorization based on the party's name.`,
 		},
 		// Add a PersistentPostRun hook to save party mappings when ANY command finishes
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			// Save the creditor and debitor mappings back to disk after any command runs
-			if AppContainer == nil {
-				Log.Warn("Container not initialized, skipping category mapping save")
-				return
-			}
-
-			categorizerInstance := AppContainer.GetCategorizer()
-			err := categorizerInstance.SaveCreditorsToYAML()
-			if err != nil {
-				Log.WithError(err).Warn("Failed to save creditor mappings")
-			}
-
-			err = categorizerInstance.SaveDebitorsToYAML()
-			if err != nil {
-				Log.WithError(err).Warn("Failed to save debitor mappings")
-			}
-
-			// Stop any embedding warm-up still running so it does not keep
-			// issuing API calls while the command is shutting down.
-			AppContainer.Close()
+			finalize()
 		},
 	}
 
@@ -118,6 +104,37 @@ func initializeContainer() {
 
 	// Update the global logger to use the container's logger
 	Log = AppContainer.GetLogger()
+
+	// Commands end early by logging at fatal level, which exits the process
+	// without unwinding to PersistentPostRun. logrus runs its exit handlers
+	// before that exit, so registering finalize here is what makes the
+	// mapping save survive every Fatal/Fatalf call site under cmd/.
+	registerFinalizeOnce.Do(func() { logrus.RegisterExitHandler(finalize) })
+}
+
+// finalize saves the learned party mappings and releases background work.
+// It runs after a command completes normally (PersistentPostRun) and before a
+// fatal-level log exits the process. Both paths may fire in the same run, so
+// it is safe to call more than once: the save is a no-op unless the mappings
+// are dirty, and Shutdown tolerates repeat calls.
+func finalize() {
+	if AppContainer == nil {
+		Log.Warn("Container not initialized, skipping category mapping save")
+		return
+	}
+
+	categorizerInstance := AppContainer.GetCategorizer()
+	if err := categorizerInstance.SaveCreditorsToYAML(); err != nil {
+		Log.WithError(err).Warn("Failed to save creditor mappings")
+	}
+
+	if err := categorizerInstance.SaveDebitorsToYAML(); err != nil {
+		Log.WithError(err).Warn("Failed to save debitor mappings")
+	}
+
+	// Stop any embedding warm-up still running so it does not keep
+	// issuing API calls while the command is shutting down.
+	AppContainer.Close()
 }
 
 // GetLogrusAdapter returns the logger as a LogrusAdapter for backward compatibility

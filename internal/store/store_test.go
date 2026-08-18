@@ -548,7 +548,7 @@ func TestCategoryStore_BackupUsesConfiguredLocation(t *testing.T) {
 
 	// Configure store with custom backup directory
 	store := NewCategoryStore("", creditorsFile, "")
-	store.SetBackupConfig(true, backupDir, "20060102_150405")
+	store.SetBackupConfig(true, backupDir, "20060102_150405", DefaultBackupRetention)
 
 	// Save mappings
 	newMappings := map[string]string{"Test": "Category", "New": "Item"}
@@ -584,7 +584,7 @@ func TestCategoryStore_BackupFailurePreventsSave(t *testing.T) {
 
 	// Configure store with read-only backup directory
 	store := NewCategoryStore("", creditorsFile, "")
-	store.SetBackupConfig(true, readOnlyBackupDir, "20060102_150405")
+	store.SetBackupConfig(true, readOnlyBackupDir, "20060102_150405", DefaultBackupRetention)
 
 	// Attempt to save mappings - should fail due to backup failure
 	newMappings := map[string]string{"Test": "Category", "New": "Item"}
@@ -614,7 +614,7 @@ func TestCategoryStore_BackupDisabledSkipsBackup(t *testing.T) {
 
 	// Configure store with backup disabled
 	store := NewCategoryStore("", creditorsFile, "")
-	store.SetBackupConfig(false, "", "20060102_150405")
+	store.SetBackupConfig(false, "", "20060102_150405", DefaultBackupRetention)
 
 	// Save mappings
 	newMappings := map[string]string{"Test": "Category", "New": "Item"}

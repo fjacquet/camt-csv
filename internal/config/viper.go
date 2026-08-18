@@ -46,6 +46,8 @@ type Config struct {
 		Enabled         bool   `mapstructure:"enabled" yaml:"enabled"`
 		Directory       string `mapstructure:"directory" yaml:"directory"`
 		TimestampFormat string `mapstructure:"timestamp_format" yaml:"timestamp_format"`
+		// Retention caps how many backups are kept per file; <= 0 keeps all.
+		Retention int `mapstructure:"retention" yaml:"retention"`
 	} `mapstructure:"backup" yaml:"backup"`
 
 	Categorization struct {
@@ -185,6 +187,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("backup.enabled", true)
 	v.SetDefault("backup.directory", "") // Empty means same directory as original file
 	v.SetDefault("backup.timestamp_format", "20060102_150405")
+	v.SetDefault("backup.retention", 10) // keep 10 newest backups per file
 
 	// Categorization defaults
 	v.SetDefault("categorization.auto_learn", false) // Default: OFF per v1.2 D-11
