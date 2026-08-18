@@ -16,6 +16,7 @@ import (
 	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/cmd/selma"
+	"fjacquet/camt-csv/cmd/viseca"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -49,6 +50,7 @@ func init() {
 	root.Cmd.AddCommand(categorize.Cmd)
 	root.Cmd.AddCommand(pdf.Cmd)
 	root.Cmd.AddCommand(selma.Cmd)
+	root.Cmd.AddCommand(viseca.Cmd)
 	root.Cmd.AddCommand(revolut.Cmd)
 	root.Cmd.AddCommand(revolutcrypto.Cmd)
 	root.Cmd.AddCommand(debit.Cmd)

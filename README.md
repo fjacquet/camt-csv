@@ -55,6 +55,9 @@ camt-csv revolut-crypto -i crypto.csv -o output.csv
 # Selma investment CSV
 camt-csv selma -i selma.csv -o output.csv
 
+# Viseca card CSV export (preferred over the PDF statements)
+camt-csv viseca -i transactions.csv -o output.csv
+
 # Generic debit CSV
 camt-csv debit -i debit.csv -o output.csv
 

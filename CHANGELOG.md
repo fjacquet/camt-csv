@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop truncating fractional share counts. `Transaction.NumberOfShares` was an `int`, so the Selma parser's `int(sharesFloat)` and the Revolut Investment parser's `int(quantity.IntPart())` silently discarded any fraction — a holding of `0.4523` units was recorded as `0`, and a Revolut buy of `39.81059277` shares as `39`. Shares are now `decimal.Decimal`, matching every other numeric field on `Transaction`.
 - Populate `BookkeepingNumber`, which no parser set despite being read back in the Selma stamp-duty pass. The CAMT parser now sources it from the account servicer reference and the Selma parser from the `Bookkeeping No.` column, giving iCompta a stable `externalID` to deduplicate re-imported statements. Revolut and the Viseca PDF statements have no identifier in their source data and are left empty.
 
+- Stop an unreadable Selma share count discarding the whole trade. The share count is cosmetic next to the money movement, so the row is now kept with zero shares and a warning naming the offending value.
+
 ### Added
 
-- Stop an unreadable Selma share count discarding the whole trade. The share count is cosmetic next to the money movement, so the row is now kept with zero shares and a warning naming the offending value.
+- Add a `viseca` command and parser for the CSV transaction export from the Viseca One portal. It reads structured fields instead of recovering them from laid-out PDF text, so it carries the merchant name, the foreign-currency original and exchange rate, and `TransactionId` — a stable per-transaction identifier the PDF statements never had, which becomes the `BookkeepingNumber` iCompta uses to deduplicate re-imported statements. The `pdf` command and parser are unchanged and remain the route for historical statements.
 - Add `TestIComptaHeaderCoversPluginMappings` and `TestIComptaPluginsUseFormatterDelimiter`, which assert that every column and separator the iCompta import plugins reference is actually produced by the formatter. iCompta resolves columns by name and silently drops a mapping that finds no matching column, so this class of loss was previously invisible.
 - Add `docs/icompta-plugin-setup.md` covering plugin configuration, safe editing of the iCompta document, and per-parser `externalID` coverage.
 - Add `TransactionBuilder.WithBookkeepingNumber`.
