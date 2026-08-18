@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-08-18
+
 ### Fixed
 
 - Stop `InvestmentType` being emitted on transactions that are not investments. `Transaction.Investment` is back-filled from `Type` for every parser, so an ordinary Revolut card payment carries `Investment="CARD_PAYMENT"`; the three `CSV-Revolut*` plugins map `investmentTransactionInfo.type` to that column, so all 221 rows of a Revolut export would have imported into iCompta as investment transactions. The column is now emitted only for rows that name a security.
