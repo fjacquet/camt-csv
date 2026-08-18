@@ -218,6 +218,39 @@ func TestIComptaFormatter(t *testing.T) {
 		assert.Equal(t, "0.4523", rows[0][15])
 	})
 
+	t.Run("InvestmentType is suppressed on non-investment rows", func(t *testing.T) {
+		// Transaction.Investment is back-filled from Type for every parser, so an
+		// ordinary card payment carries Investment="CARD_PAYMENT". Emitting it
+		// would import that payment into iCompta as an investment transaction.
+		tx := createTestTransaction()
+		tx.Investment = "CARD_PAYMENT"
+		tx.Fund = ""
+		tx.NumberOfShares = decimal.Zero
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][13])
+	})
+
+	t.Run("InvestmentType survives when a security is named", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Investment = "Buy"
+		tx.Fund = "CH0368190739"
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "Buy", rows[0][13])
+	})
+
+	t.Run("Unset TaxRate is blank not zero", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.TaxRate = decimal.Zero
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][19])
+	})
+
 	t.Run("Unset investment columns are blank not zero", func(t *testing.T) {
 		// iCompta creates phantom zero-share securities when it reads a literal
 		// "0" for shares, so non-investment rows must leave these empty.
