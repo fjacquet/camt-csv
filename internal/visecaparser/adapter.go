@@ -13,6 +13,9 @@ import (
 // Adapter implements the parser.FullParser interface for Viseca CSV exports.
 type Adapter struct {
 	parser.BaseParser
+
+	// keepPayments retains the monthly card settlement rows; see Options.
+	keepPayments bool
 }
 
 // NewAdapter creates a new adapter for the visecaparser.
@@ -22,9 +25,15 @@ func NewAdapter(logger logging.Logger) *Adapter {
 	}
 }
 
+// SetKeepPayments controls whether the monthly card settlement rows are
+// imported. They are dropped by default because the bank statement already
+// carries the same payments.
+func (a *Adapter) SetKeepPayments(keep bool) { a.keepPayments = keep }
+
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-	return ParseWithCategorizer(ctx, r, a.GetLogger(), a.GetCategorizer())
+	return ParseWithOptions(ctx, r, a.GetLogger(), a.GetCategorizer(),
+		Options{KeepPayments: a.keepPayments})
 }
 
 // ConvertToCSV implements parser.FullParser.ConvertToCSV

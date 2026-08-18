@@ -10,6 +10,7 @@ package visecaparser
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -60,6 +61,51 @@ type visecaCSVRow struct {
 	ExchangeRate     string
 }
 
+// errSkipRow marks a row that parsed cleanly but is deliberately not imported.
+var errSkipRow = errors.New("row skipped")
+
+// Options tunes what ParseWithOptions keeps. The zero value is the default the
+// CLI uses.
+type Options struct {
+	// KeepPayments retains the monthly card settlement rows. They are dropped by
+	// default: the same money movement already imports from the bank statement as
+	// a debit, and an accounting tool that books that debit as a transfer to the
+	// card account credits the card itself. Importing Viseca's side as well
+	// credits it twice, so the card balance drifts up by the full payment total.
+	KeepPayments bool
+}
+
+// paymentDescriptors are the settlement descriptors Viseca writes in Details,
+// one per portal language. Matching is on lowercase substrings because the
+// descriptor carries a trailing thank-you whose wording differs per language.
+var paymentDescriptors = []string{
+	"votre paiement",   // fr
+	"ihre zahlung",     // de
+	"your payment",     // en
+	"suo pagamento",    // it
+	"vostro pagamento", // it
+}
+
+// isCardSettlement reports whether the row is the cardholder's monthly payment
+// to the issuer rather than a card transaction.
+//
+// All three conditions are required. A refund is also negative in issuer signs
+// and some merchant rows arrive with an empty MerchantName, so neither test
+// alone separates a settlement from a transaction worth importing.
+func isCardSettlement(row visecaCSVRow, amount decimal.Decimal) bool {
+	if !amount.IsNegative() || strings.TrimSpace(row.MerchantName) != "" {
+		return false
+	}
+
+	details := strings.ToLower(row.Details)
+	for _, descriptor := range paymentDescriptors {
+		if strings.Contains(details, descriptor) {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseWithCategorizer reads a Viseca CSV export and returns categorized
 // transactions. A malformed row is skipped with a warning rather than failing
 // the file, matching the other CSV parsers.
@@ -68,6 +114,17 @@ func ParseWithCategorizer(
 	r io.Reader,
 	logger logging.Logger,
 	categorizer models.TransactionCategorizer,
+) ([]models.Transaction, error) {
+	return ParseWithOptions(ctx, r, logger, categorizer, Options{})
+}
+
+// ParseWithOptions is ParseWithCategorizer with explicit options.
+func ParseWithOptions(
+	ctx context.Context,
+	r io.Reader,
+	logger logging.Logger,
+	categorizer models.TransactionCategorizer,
+	opts Options,
 ) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
@@ -94,6 +151,7 @@ func ParseWithCategorizer(
 	}
 
 	var transactions []models.Transaction
+	settlements := 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -113,13 +171,22 @@ func ParseWithCategorizer(
 			continue
 		}
 
-		tx, err := convertRowToTransaction(row)
+		tx, err := convertRowToTransaction(row, opts)
 		if err != nil {
+			if err == errSkipRow {
+				settlements++
+				continue
+			}
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "transactionId", Value: row.TransactionID})
 			continue
 		}
 		transactions = append(transactions, tx)
+	}
+
+	if settlements > 0 {
+		logger.Info("Dropped Viseca card settlement rows; the bank statement carries the same payments",
+			logging.Field{Key: "skipped", Value: settlements})
 	}
 
 	return common.ProcessTransactionsWithCategorizationStats(ctx, transactions, logger, categorizer, "Viseca")
@@ -172,7 +239,7 @@ func mapRecord(record []string, columns map[int]string) visecaCSVRow {
 // Viseca writes card-issuer signs: a purchase is positive because it is money
 // the issuer owes, and a refund is negative. Every parser in this tool emits
 // debit-negative amounts, so the sign is inverted here.
-func convertRowToTransaction(row visecaCSVRow) (models.Transaction, error) {
+func convertRowToTransaction(row visecaCSVRow, opts Options) (models.Transaction, error) {
 	amount, err := decimal.NewFromString(row.Amount)
 	if err != nil {
 		return models.Transaction{}, &parsererror.DataExtractionError{
@@ -182,6 +249,11 @@ func convertRowToTransaction(row visecaCSVRow) (models.Transaction, error) {
 			Msg:            fmt.Sprintf("failed to parse amount: %v", err),
 		}
 	}
+
+	if !opts.KeepPayments && isCardSettlement(row, amount) {
+		return models.Transaction{}, errSkipRow
+	}
+
 	amount = amount.Neg()
 
 	// Viseca leaves MerchantName empty on some rows; Details always carries the

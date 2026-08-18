@@ -191,6 +191,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// Viseca parser
 	visecaParser := visecaparser.NewAdapter(logger)
 	visecaParser.SetCategorizer(cat)
+	visecaParser.SetKeepPayments(cfg.Parsers.Viseca.KeepPayments)
 	parsers[Viseca] = visecaParser
 
 	logger.Info("Container initialized successfully",
