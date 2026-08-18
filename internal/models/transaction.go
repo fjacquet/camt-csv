@@ -3,7 +3,6 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -37,7 +36,7 @@ type Transaction struct {
 	Category          string          `csv:"Category"`          // Transaction category
 	Type              string          `csv:"Type"`              // Transaction type
 	Fund              string          `csv:"Fund"`              // Fund name if applicable
-	NumberOfShares    int             `csv:"NumberOfShares"`    // Number of shares for investment transactions
+	NumberOfShares    decimal.Decimal `csv:"NumberOfShares"`    // Number of shares for investment transactions (fractional shares are common)
 	Fees              decimal.Decimal `csv:"Fees"`              // Transaction fees (includes stamp duty)
 	IBAN              string          `csv:"IBAN"`              // IBAN if available
 	EntryReference    string          `csv:"EntryReference"`    // Entry reference number
@@ -240,7 +239,7 @@ func (t *Transaction) MarshalCSV() ([]string, error) {
 		t.Category,
 		t.Type,
 		t.Fund,
-		fmt.Sprintf("%d", t.NumberOfShares),
+		t.NumberOfShares.String(),
 		t.Fees.StringFixed(2),
 		t.IBAN,
 		t.EntryReference,
@@ -289,12 +288,14 @@ func (t *Transaction) UnmarshalCSV(record []string) error {
 	t.Category = record[16]
 	t.Type = record[17]
 	t.Fund = record[18]
-	var numberOfShares int
-	numberOfShares, err = strconv.Atoi(record[19])
-	if err != nil {
-		return err
+	if record[19] == "" {
+		t.NumberOfShares = decimal.Zero
+	} else {
+		t.NumberOfShares, err = decimal.NewFromString(record[19])
+		if err != nil {
+			return err
+		}
 	}
-	t.NumberOfShares = numberOfShares
 	// Fees includes stamp duty
 	t.Fees, err = decimal.NewFromString(record[20])
 	if err != nil {

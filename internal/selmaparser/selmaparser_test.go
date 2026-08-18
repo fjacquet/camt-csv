@@ -117,7 +117,7 @@ func TestParseFile(t *testing.T) {
 		assert.Contains(t, transactions[0].Description, "VANGUARD FTSE ALL WORLD")
 		assert.Equal(t, models.ParseAmount("-247.90"), transactions[0].Amount)
 		assert.Equal(t, "CHF", transactions[0].Currency)
-		assert.Equal(t, 2, transactions[0].NumberOfShares)
+		assert.Equal(t, "2", transactions[0].NumberOfShares.String())
 	}
 	if len(transactions) > 1 {
 		expectedDate2, _ := time.Parse(dateutils.DateLayoutISO, "2023-01-02")
@@ -125,7 +125,7 @@ func TestParseFile(t *testing.T) {
 		assert.Contains(t, transactions[1].Description, "ISHARES CORE S&P 500 UCITS ETF")
 		assert.Equal(t, models.ParseAmount("452.22"), transactions[1].Amount)
 		assert.Equal(t, "CHF", transactions[1].Currency)
-		assert.Equal(t, 1, transactions[1].NumberOfShares)
+		assert.Equal(t, "1", transactions[1].NumberOfShares.String())
 	}
 }
 

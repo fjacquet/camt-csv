@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop the `icompta` output format discarding every investment and identity field. It emitted a fixed 10-column projection that had no `NumberOfShares`, `Fund`, `InvestmentType` or `Fees`, so Selma conversions lost share quantities entirely, and no parser's `ValueDate` or `CreditDebit` ever reached iCompta even though all eleven configured import plugins reference them. The header now carries ten further columns; the original ten keep their names and positions, so existing plugins resolve unchanged.
+- Stop truncating fractional share counts. `Transaction.NumberOfShares` was an `int`, so the Selma parser's `int(sharesFloat)` and the Revolut Investment parser's `int(quantity.IntPart())` silently discarded any fraction — a holding of `0.4523` units was recorded as `0`, and a Revolut buy of `39.81059277` shares as `39`. Shares are now `decimal.Decimal`, matching every other numeric field on `Transaction`.
+- Populate `BookkeepingNumber`, which no parser set despite being read back in the Selma stamp-duty pass. The CAMT parser now sources it from the account servicer reference and the Selma parser from the `Bookkeeping No.` column, giving iCompta a stable `externalID` to deduplicate re-imported statements. Revolut and Viseca have no identifier in their source data and are left empty.
+
+### Added
+
+- Add `TestIComptaHeaderCoversPluginMappings` and `TestIComptaPluginsUseFormatterDelimiter`, which assert that every column and separator the iCompta import plugins reference is actually produced by the formatter. iCompta resolves columns by name and silently drops a mapping that finds no matching column, so this class of loss was previously invisible.
+- Add `docs/icompta-plugin-setup.md` covering plugin configuration, safe editing of the iCompta document, and per-parser `externalID` coverage.
+- Add `TransactionBuilder.WithBookkeepingNumber`.
+
+### Changed
+
+- Regenerate `.planning/reference/icompta-import-plugins.txt` from the iCompta document. The checked-in copy was stale: it recorded the wrong separator for `CSV-Selma` and `CSV-Revolut-CHF` and omitted five plugins.
+
 ## [2.5.0] - 2026-08-15
 
 ### Added

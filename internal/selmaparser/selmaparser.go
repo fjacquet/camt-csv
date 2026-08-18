@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"fjacquet/camt-csv/internal/common"
@@ -121,20 +120,20 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
 func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
-	// Convert NumberOfShares from string to int if not empty
-	var shares int
+	// Shares stay decimal: Selma allocates fractional units and truncating them
+	// to int silently zeroed any holding below one share.
+	shares := decimal.Zero
 	if row.NumberOfShares != "" {
-		// Try to parse as float first since some values might have decimal points
-		sharesFloat, err := strconv.ParseFloat(row.NumberOfShares, 64)
-		if err == nil {
-			shares = int(sharesFloat)
-		} else {
-			// If that fails, try parsing as int
-			shares, err = strconv.Atoi(row.NumberOfShares)
-			if err != nil {
-				shares = 0 // Default to 0 if conversion fails
+		parsed, err := decimal.NewFromString(row.NumberOfShares)
+		if err != nil {
+			return models.Transaction{}, &parsererror.DataExtractionError{
+				FilePath:       "(from reader)",
+				FieldName:      "Number of Shares",
+				RawDataSnippet: row.NumberOfShares,
+				Msg:            fmt.Sprintf("failed to parse number of shares: %v", err),
 			}
 		}
+		shares = parsed
 	}
 
 	// For Selma CSV, we keep the date as is since it's already in YYYY-MM-DD format
@@ -161,7 +160,8 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 		WithDescription(row.Description).
 		WithAmount(amount, row.Currency).
 		WithNumberOfShares(shares).
-		WithFund(row.Fund)
+		WithFund(row.Fund).
+		WithBookkeepingNumber(row.BookkeepingNo)
 
 	// Set transaction direction
 	if isDebit {

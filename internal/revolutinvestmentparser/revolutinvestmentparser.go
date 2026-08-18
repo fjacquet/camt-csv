@@ -188,7 +188,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				builder = builder.WithNumberOfShares(int(quantity.IntPart()))
+				builder = builder.WithNumberOfShares(quantity)
 			} else {
 				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",
@@ -238,7 +238,7 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 		// Parse quantity
 		if row.Quantity != "" {
 			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				builder = builder.WithNumberOfShares(int(quantity.IntPart()))
+				builder = builder.WithNumberOfShares(quantity)
 			} else {
 				return models.Transaction{}, &parsererror.DataExtractionError{
 					FilePath:       "(from reader)",

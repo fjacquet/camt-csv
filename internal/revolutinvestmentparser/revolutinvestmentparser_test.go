@@ -84,7 +84,8 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, "BUY - MARKET", txn2.Type)
 	assert.Equal(t, "Buy 39.81059277 shares of 2B7K", txn2.Description)
 	assert.Equal(t, "Revolut Investment - 2B7K", txn2.PartyName)
-	assert.Equal(t, 39, txn2.NumberOfShares)
+	// Fractional shares must survive: this row buys 39.81059277 units.
+	assert.Equal(t, "39.81059277", txn2.NumberOfShares.String())
 }
 
 func TestParseFile_InvalidFormat(t *testing.T) {
@@ -295,7 +296,7 @@ func TestConvertRowToTransaction_SellType(t *testing.T) {
 	assert.Equal(t, "Sold 10 shares of TSLA", txn.Description)
 	assert.Equal(t, models.TransactionTypeCredit, txn.CreditDebit) // SELL is credit (money in)
 	assert.Equal(t, "500", txn.Amount.String())
-	assert.Equal(t, 10, txn.NumberOfShares)
+	assert.Equal(t, "10", txn.NumberOfShares.String())
 }
 
 func TestConvertRowToTransaction_CustodyFeeType(t *testing.T) {
