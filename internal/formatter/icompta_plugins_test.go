@@ -30,7 +30,11 @@ func loadPluginReference(t *testing.T) []icomptaPlugin {
 
 	f, err := os.Open(filepath.Clean(pluginReferenceFile))
 	require.NoError(t, err, "plugin reference missing; regenerate it from the iCompta document")
-	defer func() { _ = f.Close() }()
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Errorf("close plugin reference: %v", err)
+		}
+	}()
 
 	var plugins []icomptaPlugin
 	scanner := bufio.NewScanner(f)

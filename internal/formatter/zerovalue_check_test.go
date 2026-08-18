@@ -19,4 +19,5 @@ func TestIComptaFormatsZeroValueTransaction(t *testing.T) {
 	assert.Len(t, rows[0], 20)
 	assert.Equal(t, "", rows[0][15]) // NumberOfShares
 	assert.Equal(t, "", rows[0][16]) // Fees
+	assert.Equal(t, "", rows[0][19]) // TaxRate
 }
