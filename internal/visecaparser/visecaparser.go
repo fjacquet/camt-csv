@@ -73,8 +73,11 @@ func ParseWithCategorizer(
 		logger = logging.NewLogrusAdapter("info", "text")
 	}
 
+	// FieldsPerRecord is left at its default so csv.Reader rejects a row whose
+	// column count does not match the header. Without that guard a ragged row is
+	// mapped positionally and silently imported with values shifted between
+	// columns, rather than being skipped as malformed.
 	reader := csv.NewReader(r)
-	reader.FieldsPerRecord = -1
 
 	header, err := reader.Read()
 	if err != nil {
@@ -226,13 +229,17 @@ func convertRowToTransaction(row visecaCSVRow) (models.Transaction, error) {
 }
 
 // mapStateType converts Viseca's state to the status vocabulary the formatters
-// expect. Only BOOKED has been observed in exports; anything else is passed
-// through so an unrecognized state is visible rather than silently booked.
+// expect.
+//
+// Only BOOKED has been observed in exports. Anything else maps to PDNG rather
+// than passing through, because the iCompta formatter turns an unrecognized
+// status into "cleared" — so a pending authorisation would otherwise import as
+// a settled transaction.
 func mapStateType(state string) string {
 	if strings.EqualFold(state, "BOOKED") {
 		return "BOOK"
 	}
-	return state
+	return "PDNG"
 }
 
 // validateFormat reports whether r looks like a Viseca CSV export.
@@ -242,7 +249,6 @@ func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
 	}
 
 	reader := csv.NewReader(r)
-	reader.FieldsPerRecord = -1
 
 	header, err := reader.Read()
 	if err != nil {

@@ -171,3 +171,24 @@ func mustOpen(t *testing.T, path string) *os.File {
 	t.Cleanup(func() { _ = f.Close() })
 	return f
 }
+
+// TestParse_UnbookedStateIsPending guards against a pending authorisation
+// importing as settled: the iCompta formatter maps any unrecognized status to
+// "cleared", so anything other than BOOKED must become an explicit PDNG.
+func TestParse_UnbookedStateIsPending(t *testing.T) {
+	pending := strings.Replace(purchaseRow, ",BOOKED,", ",PENDING,", 1)
+	txs := parseCSV(t, visecaCSV(pending))
+	require.Len(t, txs, 1)
+
+	assert.Equal(t, "PDNG", txs[0].Status)
+}
+
+// TestParse_RejectsRaggedRow pins that a row whose column count disagrees with
+// the header is skipped rather than mapped positionally with shifted values.
+func TestParse_RejectsRaggedRow(t *testing.T) {
+	ragged := "TRX2025010100000000001,462723MDBDQN4748,2025-01-01 10:00:00,2025-01-01 00:00:00,5.000,CHF"
+	txs := parseCSV(t, visecaCSV(purchaseRow, ragged))
+
+	require.Len(t, txs, 1, "the ragged row must be skipped, not silently mismapped")
+	assert.Equal(t, "TRX2025030300002685972", txs[0].BookkeepingNumber)
+}
