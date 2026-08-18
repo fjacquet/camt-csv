@@ -51,7 +51,7 @@ func TestRunConvert_FolderWithoutOutput(t *testing.T) {
 
 	// Prevent os.Exit from killing the test process
 	var capturedExitCode int
-	restore := common.SetOsExitFn(func(code int) { capturedExitCode = code })
+	restore := common.SetExitFn(func(code int) { capturedExitCode = code })
 	defer restore()
 	_ = capturedExitCode
 
@@ -87,12 +87,12 @@ func TestFolderConvert_EmptyDirectory(t *testing.T) {
 
 	// Capture the exit code instead of exiting
 	var capturedExitCode int
-	restore := common.SetOsExitFn(func(code int) { capturedExitCode = code })
+	restore := common.SetExitFn(func(code int) { capturedExitCode = code })
 	defer restore()
 
 	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "standard", false)
 
-	// No FATAL entries — the exit is via osExitFn, not logger.Fatal
+	// No FATAL entries — the exit code is recorded via exitFn, not logger.Fatal
 	fatalEntries := mockLogger.GetEntriesByLevel("FATAL")
 	assert.Empty(t, fatalEntries, "expected no FATAL log entries for empty directory")
 
@@ -114,7 +114,7 @@ func TestFolderConvert_InvalidFormat(t *testing.T) {
 	outputDir := t.TempDir()
 
 	// Prevent os.Exit in case it is reached (it should not be for invalid format)
-	restore := common.SetOsExitFn(func(_ int) {})
+	restore := common.SetExitFn(func(_ int) {})
 	defer restore()
 
 	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "invalid", false)

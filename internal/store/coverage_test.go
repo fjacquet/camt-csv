@@ -27,7 +27,7 @@ func TestCreateBackup_BackupDisabled(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, []byte("data"), models.PermissionNonSecretFile))
 
 	s := NewCategoryStore("", "", "")
-	s.SetBackupConfig(false, "", "20060102_150405")
+	s.SetBackupConfig(false, "", "20060102_150405", DefaultBackupRetention)
 
 	err := s.createBackup(file)
 	assert.NoError(t, err)
@@ -46,7 +46,7 @@ func TestCreateBackup_CannotCreateBackupDir(t *testing.T) {
 	require.NoError(t, os.WriteFile(blockingFile, []byte("x"), 0600))
 
 	s := NewCategoryStore("", "", "")
-	s.SetBackupConfig(true, filepath.Join(blockingFile, "subdir"), "20060102_150405")
+	s.SetBackupConfig(true, filepath.Join(blockingFile, "subdir"), "20060102_150405", DefaultBackupRetention)
 
 	err := s.createBackup(file)
 	assert.Error(t, err)
@@ -81,7 +81,7 @@ func TestCreateBackup_CannotCreateBackupFile(t *testing.T) {
 	defer func() { _ = os.Chmod(backupDir, 0750) }() // #nosec G302 -- restore for cleanup
 
 	s := NewCategoryStore("", "", "")
-	s.SetBackupConfig(true, backupDir, "20060102_150405")
+	s.SetBackupConfig(true, backupDir, "20060102_150405", DefaultBackupRetention)
 
 	err := s.createBackup(file)
 	assert.Error(t, err)
@@ -95,7 +95,7 @@ func TestCreateBackup_SameDirectoryAsOriginal(t *testing.T) {
 
 	s := NewCategoryStore("", "", "")
 	// backupDirectory is empty, so backup goes to same dir as original
-	s.SetBackupConfig(true, "", "20060102_150405")
+	s.SetBackupConfig(true, "", "20060102_150405", DefaultBackupRetention)
 
 	err := s.createBackup(file)
 	assert.NoError(t, err)
@@ -115,7 +115,7 @@ func TestSaveCreditorMappings_AbsolutePathWhenFileNotFound(t *testing.T) {
 	absPath := filepath.Join(tmpDir, "newcreditors.yaml")
 
 	s := NewCategoryStore("", absPath, "")
-	s.SetBackupConfig(false, "", "")
+	s.SetBackupConfig(false, "", "", DefaultBackupRetention)
 
 	mappings := map[string]string{"Test": "Cat"}
 	err := s.SaveCreditorMappings(mappings)
@@ -154,7 +154,7 @@ func TestSaveDebtorMappings_AbsolutePathWhenFileNotFound(t *testing.T) {
 	absPath := filepath.Join(tmpDir, "newdebtors.yaml")
 
 	s := NewCategoryStore("", "", absPath)
-	s.SetBackupConfig(false, "", "")
+	s.SetBackupConfig(false, "", "", DefaultBackupRetention)
 
 	mappings := map[string]string{"Employer": "Salary"}
 	err := s.SaveDebtorMappings(mappings)
@@ -244,7 +244,7 @@ func TestSetBackupConfig(t *testing.T) {
 	assert.Equal(t, "20060102_150405", s.backupTimestampFormat)
 
 	// Override
-	s.SetBackupConfig(false, "/custom/backups", "2006-01-02")
+	s.SetBackupConfig(false, "/custom/backups", "2006-01-02", DefaultBackupRetention)
 	assert.False(t, s.backupEnabled)
 	assert.Equal(t, "/custom/backups", s.backupDirectory)
 	assert.Equal(t, "2006-01-02", s.backupTimestampFormat)
@@ -306,7 +306,7 @@ func TestSaveCreditorMappings_CreatesParentDirectory(t *testing.T) {
 	nestedPath := filepath.Join(tmpDir, "nested", "dir", "creditors.yaml")
 
 	s := NewCategoryStore("", nestedPath, "")
-	s.SetBackupConfig(false, "", "")
+	s.SetBackupConfig(false, "", "", DefaultBackupRetention)
 
 	err := s.SaveCreditorMappings(map[string]string{"A": "B"})
 	assert.NoError(t, err)
@@ -320,7 +320,7 @@ func TestSaveDebtorMappings_CreatesParentDirectory(t *testing.T) {
 	nestedPath := filepath.Join(tmpDir, "nested", "dir", "debtors.yaml")
 
 	s := NewCategoryStore("", "", nestedPath)
-	s.SetBackupConfig(false, "", "")
+	s.SetBackupConfig(false, "", "", DefaultBackupRetention)
 
 	err := s.SaveDebtorMappings(map[string]string{"A": "B"})
 	assert.NoError(t, err)

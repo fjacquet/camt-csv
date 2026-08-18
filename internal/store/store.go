@@ -17,12 +17,34 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"fjacquet/camt-csv/internal/models"
 
 	"gopkg.in/yaml.v3"
 )
+
+// backupSuffix terminates every backup filename produced by createBackup.
+const backupSuffix = ".backup"
+
+// backupFileName builds the backup filename for a saved file, e.g.
+// creditors.yaml.20260201_143022.backup. It is the single definition of the
+// naming convention: pruning recognises backups with isBackupOf, so both stay
+// in step if the convention ever changes.
+func backupFileName(baseName, timestamp string) string {
+	return baseName + "." + timestamp + backupSuffix
+}
+
+// isBackupOf reports whether name is a backup of baseName.
+func isBackupOf(name, baseName string) bool {
+	return strings.HasPrefix(name, baseName+".") && strings.HasSuffix(name, backupSuffix)
+}
+
+// DefaultBackupRetention is how many timestamped backups are kept per file
+// when no explicit retention is configured.
+const DefaultBackupRetention = 10
 
 // Note: Global logger removed in favor of dependency injection.
 // All logging is now done through the logger passed to CategoryStore methods.
@@ -43,6 +65,7 @@ type CategoryStore struct {
 	backupEnabled         bool
 	backupDirectory       string
 	backupTimestampFormat string
+	backupRetention       int
 }
 
 // NewCategoryStore creates a new CategoryStore instance with the specified file paths.
@@ -67,6 +90,7 @@ func NewCategoryStore(categoriesFile, creditorsFile, debtorsFile string) *Catego
 		backupEnabled:         true,              // Default: backup enabled
 		backupDirectory:       "",                // Default: same directory as original
 		backupTimestampFormat: "20060102_150405", // Default: YYYYMMDD_HHMMSS
+		backupRetention:       DefaultBackupRetention,
 	}
 }
 
@@ -78,10 +102,16 @@ func NewCategoryStore(categoriesFile, creditorsFile, debtorsFile string) *Catego
 //   - enabled: Whether to create backups before saving files
 //   - directory: Directory for backup files (empty string = same as original)
 //   - timestampFormat: Go time format string for backup filename timestamps
-func (s *CategoryStore) SetBackupConfig(enabled bool, directory, timestampFormat string) {
+//   - retention: How many backups to keep per file (<= 0 keeps every backup)
+func (s *CategoryStore) SetBackupConfig(enabled bool, directory, timestampFormat string, retention int) {
 	s.backupEnabled = enabled
 	s.backupDirectory = directory
-	s.backupTimestampFormat = timestampFormat
+	// An empty format would collapse every backup onto the same filename, so
+	// callers that leave it unset keep the current one.
+	if timestampFormat != "" {
+		s.backupTimestampFormat = timestampFormat
+	}
+	s.backupRetention = retention
 }
 
 // FindConfigFile looks for a configuration file in standard locations.
@@ -222,7 +252,7 @@ func (s *CategoryStore) createBackup(filePath string) error {
 
 	// Generate timestamped backup filename
 	timestamp := time.Now().Format(s.backupTimestampFormat)
-	backupFilename := filepath.Base(filePath) + "." + timestamp + ".backup"
+	backupFilename := backupFileName(filepath.Base(filePath), timestamp)
 
 	// Determine backup location
 	var backupPath string
@@ -259,7 +289,44 @@ func (s *CategoryStore) createBackup(filePath string) error {
 		return fmt.Errorf("error setting backup file permissions: %w", err)
 	}
 
+	// Prune old backups. Failure to prune is not fatal: the fresh backup is
+	// already on disk, which is what the save actually depends on.
+	s.pruneBackups(filepath.Dir(backupPath), filepath.Base(filePath))
+
 	return nil
+}
+
+// pruneBackups deletes the oldest backups of baseName in dir, keeping at most
+// backupRetention of them. The timestamp format is fixed-width and lexically
+// ordered, so sorting filenames sorts by age.
+func (s *CategoryStore) pruneBackups(dir, baseName string) {
+	if s.backupRetention <= 0 {
+		return
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+
+	var backups []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if name := entry.Name(); isBackupOf(name, baseName) {
+			backups = append(backups, name)
+		}
+	}
+
+	if len(backups) <= s.backupRetention {
+		return
+	}
+
+	sort.Strings(backups)
+	for _, name := range backups[:len(backups)-s.backupRetention] {
+		_ = os.Remove(filepath.Join(dir, name))
+	}
 }
 
 // LoadCreditorMappings loads creditor-to-category mappings from the configured YAML file.

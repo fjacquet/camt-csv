@@ -301,6 +301,20 @@ func cleanCategory(category string) string {
 	category = strings.TrimSpace(category)
 	category = strings.Trim(category, `"'`)
 
+	// Some models echo the parenthetical hint from the prompt's category list
+	// (e.g. "Alimentation (boucherie, boulangerie, traiteur - NOT supermarkets)")
+	// instead of just the bare name.
+	if idx := strings.Index(category, " ("); idx != -1 && strings.HasSuffix(category, ")") {
+		category = strings.TrimSpace(category[:idx])
+	}
+
+	// Some providers redact perceived PII in the answer and return only the
+	// redaction placeholder (e.g. "[ADDRESS]"). No real category is ever
+	// bracket-wrapped, so treat this as no answer rather than a category.
+	if strings.HasPrefix(category, "[") && strings.HasSuffix(category, "]") {
+		return models.CategoryUncategorized
+	}
+
 	if canonical, ok := categorySynonyms[strings.ToLower(category)]; ok {
 		return canonical
 	}
