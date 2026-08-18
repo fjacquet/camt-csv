@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-08-18
+
 ### Fixed
 
 - Stop the Viseca import double-counting the monthly card payment. Viseca's export carries a `Votre paiement - Merci` row for every statement settlement, which is the same money movement as the `Viseca Payment Services SA` debit on the bank statement; with both imported, an accounting tool that books the bank debit as a transfer credits the card account twice. On a real 26-month export that drifted the card balance up by 49,625.50 CHF. Settlement rows are now dropped, recognised by an empty `MerchantName`, an issuer-credit amount and the localised payment descriptor (fr/de/en/it) — a refund or a merchant row without a merchant name is unaffected. Pass `--keep-payments` (or `parsers.viseca.keep_payments: true`) to import them, for a setup that does not import the bank side.
