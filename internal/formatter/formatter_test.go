@@ -38,7 +38,7 @@ func createTestTransaction() models.Transaction {
 		Category:          "Food & Dining",
 		Type:              "Card Payment",
 		Fund:              "",
-		NumberOfShares:    0,
+		NumberOfShares:    decimal.Zero,
 		Fees:              decimal.Zero,
 		IBAN:              "CH9876543210",
 		EntryReference:    "REF001",
@@ -145,13 +145,22 @@ func TestStandardFormatter(t *testing.T) {
 func TestIComptaFormatter(t *testing.T) {
 	formatter := NewIComptaFormatter()
 
-	t.Run("Header returns 10 columns", func(t *testing.T) {
+	t.Run("Header returns 20 columns", func(t *testing.T) {
 		header := formatter.Header()
-		assert.Len(t, header, 10)
-		assert.Equal(t, "Date", header[0])
-		assert.Equal(t, "Name", header[1])
-		assert.Equal(t, "Amount", header[2])
-		assert.Equal(t, "Type", header[9]) // Last column
+		assert.Len(t, header, 20)
+
+		// The original 10 columns keep their names and positions so that
+		// pre-existing iCompta import plugins keep resolving unchanged.
+		assert.Equal(t, []string{
+			"Date", "Name", "Amount", "Description", "Status",
+			"Category", "SplitAmount", "SplitAmountExclTax", "SplitTaxRate", "Type",
+		}, header[:10])
+
+		// Investment and identity columns consumed by the iCompta plugins.
+		assert.Equal(t, []string{
+			"ValueDate", "CreditDebit", "BookkeepingNumber", "InvestmentType", "Fund",
+			"NumberOfShares", "Fees", "Recipient", "Number", "TaxRate",
+		}, header[10:])
 	})
 
 	t.Run("Delimiter is semicolon", func(t *testing.T) {
@@ -163,7 +172,7 @@ func TestIComptaFormatter(t *testing.T) {
 		rows, err := formatter.Format([]models.Transaction{tx})
 		require.NoError(t, err)
 		assert.Len(t, rows, 1)
-		assert.Len(t, rows[0], 10) // 10 columns
+		assert.Len(t, rows[0], 20) // 20 columns
 
 		// Verify key fields
 		assert.Equal(t, "15.02.2026", rows[0][0])      // Date in dd.MM.yyyy
@@ -176,6 +185,83 @@ func TestIComptaFormatter(t *testing.T) {
 		assert.Equal(t, "-14.00", rows[0][7])          // SplitAmountExclTax
 		assert.Equal(t, "7.70", rows[0][8])            // SplitTaxRate
 		assert.Equal(t, "Card Payment", rows[0][9])    // Type
+	})
+
+	t.Run("Investment columns are populated", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Fund = "CH0368190739"
+		tx.Investment = "Buy"
+		tx.NumberOfShares = decimal.RequireFromString("15")
+		tx.Fees = decimal.RequireFromString("-0.21")
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+
+		assert.Equal(t, "16.02.2026", rows[0][10])   // ValueDate
+		assert.Equal(t, "DBIT", rows[0][11])         // CreditDebit
+		assert.Equal(t, "TXN001", rows[0][12])       // BookkeepingNumber
+		assert.Equal(t, "Buy", rows[0][13])          // InvestmentType
+		assert.Equal(t, "CH0368190739", rows[0][14]) // Fund
+		assert.Equal(t, "15", rows[0][15])           // NumberOfShares
+		assert.Equal(t, "-0.21", rows[0][16])        // Fees (2dp, like Amount)
+		assert.Equal(t, "Coffee Shop", rows[0][17])  // Recipient
+		assert.Equal(t, "001", rows[0][18])          // Number
+		assert.Equal(t, "7.70", rows[0][19])         // TaxRate
+	})
+
+	t.Run("Fractional shares survive formatting", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.NumberOfShares = decimal.RequireFromString("0.4523")
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "0.4523", rows[0][15])
+	})
+
+	t.Run("InvestmentType is suppressed on non-investment rows", func(t *testing.T) {
+		// Transaction.Investment is back-filled from Type for every parser, so an
+		// ordinary card payment carries Investment="CARD_PAYMENT". Emitting it
+		// would import that payment into iCompta as an investment transaction.
+		tx := createTestTransaction()
+		tx.Investment = "CARD_PAYMENT"
+		tx.Fund = ""
+		tx.NumberOfShares = decimal.Zero
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][13])
+	})
+
+	t.Run("InvestmentType survives when a security is named", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.Investment = "Buy"
+		tx.Fund = "CH0368190739"
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "Buy", rows[0][13])
+	})
+
+	t.Run("Unset TaxRate is blank not zero", func(t *testing.T) {
+		tx := createTestTransaction()
+		tx.TaxRate = decimal.Zero
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][19])
+	})
+
+	t.Run("Unset investment columns are blank not zero", func(t *testing.T) {
+		// iCompta creates phantom zero-share securities when it reads a literal
+		// "0" for shares, so non-investment rows must leave these empty.
+		tx := createTestTransaction()
+		tx.NumberOfShares = decimal.Zero
+		tx.Fees = decimal.Zero
+
+		rows, err := formatter.Format([]models.Transaction{tx})
+		require.NoError(t, err)
+		assert.Equal(t, "", rows[0][15]) // NumberOfShares
+		assert.Equal(t, "", rows[0][16]) // Fees
 	})
 
 	t.Run("Date format is dd.MM.yyyy", func(t *testing.T) {

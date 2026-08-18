@@ -318,13 +318,13 @@ func TestTransactionBuilder_WithInvestmentFields(t *testing.T) {
 		WithDate("2025-01-15").
 		WithAmount(decimal.NewFromFloat(1000), "CHF").
 		WithInvestment("Buy").
-		WithNumberOfShares(10).
+		WithNumberOfShares(decimal.RequireFromString("10")).
 		WithFees(decimal.NewFromFloat(5.50)).
 		Build()
 
 	require.NoError(t, err)
 	assert.Equal(t, "Buy", tx.Investment)
-	assert.Equal(t, 10, tx.NumberOfShares)
+	assert.Equal(t, "10", tx.NumberOfShares.String())
 	assert.True(t, decimal.NewFromFloat(5.50).Equal(tx.Fees))
 }
 
@@ -382,7 +382,7 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 		WithType("Investment").
 		WithFund("Growth Fund").
 		WithInvestment("Buy").
-		WithNumberOfShares(15).
+		WithNumberOfShares(decimal.RequireFromString("15")).
 		WithFees(decimal.NewFromFloat(12.50)).
 		WithOriginalAmount(decimal.NewFromFloat(1600), "USD").
 		WithExchangeRate(decimal.NewFromFloat(0.94)).
@@ -418,7 +418,7 @@ func TestTransactionBuilder_ComplexTransaction(t *testing.T) {
 	assert.Equal(t, "Investment", tx.Type)
 	assert.Equal(t, "Growth Fund", tx.Fund)
 	assert.Equal(t, "Buy", tx.Investment)
-	assert.Equal(t, 15, tx.NumberOfShares)
+	assert.Equal(t, "15", tx.NumberOfShares.String())
 
 	assert.True(t, decimal.NewFromFloat(12.50).Equal(tx.Fees))
 

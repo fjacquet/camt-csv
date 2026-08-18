@@ -367,8 +367,8 @@ func TestEndToEndConversion_iComptaFormat(t *testing.T) {
 		headers[i] = strings.Trim(strings.TrimSpace(h), "\"")
 	}
 
-	// Verify exactly 10 columns
-	assert.Equal(t, 10, len(headers), "iCompta format should have exactly 10 columns")
+	// Verify exactly 20 columns
+	assert.Equal(t, 20, len(headers), "iCompta format should have exactly 20 columns")
 
 	// Verify iCompta header order
 	expectedHeaders := formatter.NewIComptaFormatter().Header()
@@ -377,7 +377,7 @@ func TestEndToEndConversion_iComptaFormat(t *testing.T) {
 	// Verify at least one data row uses semicolon delimiter
 	if len(lines) > 1 && lines[1] != "" {
 		dataFields := strings.Split(lines[1], ";")
-		assert.Equal(t, 10, len(dataFields), "iCompta data rows should have 10 fields")
+		assert.Equal(t, 20, len(dataFields), "iCompta data rows should have 20 fields")
 	}
 }
 

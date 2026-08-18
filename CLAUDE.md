@@ -111,10 +111,12 @@ When `--auto-learn` is enabled, AI results save directly to YAML files. When dis
 
 **Output Formatter Registry** (`internal/formatter/formatter.go`):
 - **"standard"** - 29-column, comma-delimited (backward-compatible)
-- **"icompta"** - 10-column, semicolon-delimited, dd.MM.yyyy dates
+- **"icompta"** - 20-column, semicolon-delimited, dd.MM.yyyy dates (**default**, `output.format` in `viper.go`)
 - **"jumpsoft"** - 7-column Jumpsoft Money CSV
 
 CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). Directory input takes `--recursive` to descend into subdirectories. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
+
+**iCompta output contract**: iCompta resolves CSV columns **by name** (`CSV_hasHeader=1` on every plugin), and a mapping naming a column the formatter doesn't emit resolves to nothing **with no error**. Appending columns is safe; renaming/removing silently breaks imports. `TestIComptaHeaderCoversPluginMappings` guards this — keep it passing. Plugin config is the `ICImportPlugin` table in `~/Desktop/ic25.cdb`; regenerate `.planning/reference/icompta-import-plugins.txt` from it rather than trusting the checked-in copy, and quit iCompta before any write. Investment columns emit blank, never `0` — iCompta reads a literal `0` as real data. See `docs/icompta-plugin-setup.md`.
 
 **Command Lifecycle** (Cobra hooks in `cmd/root/root.go`):
 1. `PersistentPreRun` - Loads config, creates DI container
@@ -187,6 +189,8 @@ Note: The `.env` file is auto-loaded from the current directory.
 4. **Immutability** - Private fields with getters, return new values.
 5. **Pure Functions** - Same input = same output, no side effects.
 6. **Interface Segregation** - Small, focused interfaces composed when needed.
+7. **Decimal, never float or int** - every numeric `Transaction` field is `shopspring/decimal`.
+   An `int` amount/quantity silently truncates (a 39.81 share buy became 39).
 
 ### Dependency Injection
 
@@ -257,3 +261,6 @@ When creating a release:
 ## Testing Gotchas
 
 - Config error message strings in tests go stale after refactors — use `assert.Contains` with short substrings
+- `TransactionBuilder` mints a random UUID into `Number` (`builder.go:24`) — it changes every run, so never assert on it or use it as an external ID; `BookkeepingNumber` is the stable one
+- To localize a field-loss bug, convert the same file with `--format standard` (the lossless debug dump) and compare — it separates parser bugs from formatter bugs in one step
+- Never populated by any parser: `AmountExclTax`, `TaxRate`, `IBAN`, `EntryReference`, `BankTxCode`

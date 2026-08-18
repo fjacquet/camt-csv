@@ -288,6 +288,16 @@ func (b *TransactionBuilder) WithFund(fund string) *TransactionBuilder {
 	return b
 }
 
+// WithBookkeepingNumber sets the source system's transaction identifier, which
+// iCompta imports as externalID to deduplicate re-imported statements.
+func (b *TransactionBuilder) WithBookkeepingNumber(number string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.BookkeepingNumber = number
+	return b
+}
+
 // WithInvestment sets the investment type
 func (b *TransactionBuilder) WithInvestment(investment string) *TransactionBuilder {
 	if b.err != nil {
@@ -297,8 +307,9 @@ func (b *TransactionBuilder) WithInvestment(investment string) *TransactionBuild
 	return b
 }
 
-// WithNumberOfShares sets the number of shares for investment transactions
-func (b *TransactionBuilder) WithNumberOfShares(shares int) *TransactionBuilder {
+// WithNumberOfShares sets the number of shares for investment transactions.
+// Shares are decimal because brokers routinely allocate fractional units.
+func (b *TransactionBuilder) WithNumberOfShares(shares decimal.Decimal) *TransactionBuilder {
 	if b.err != nil {
 		return b
 	}

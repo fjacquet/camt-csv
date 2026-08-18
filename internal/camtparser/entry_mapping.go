@@ -23,6 +23,10 @@ func (a *Adapter) entryToTransaction(entry camtEntry) models.Transaction {
 		WithValueDatetime(valueDate).
 		WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
 		WithAccountServicer(entry.AccountServicer.Ref).
+		// The account servicer reference is the bank's own per-entry identifier
+		// and is stable across re-exports, so it doubles as the external ID that
+		// iCompta uses to deduplicate re-imported statements.
+		WithBookkeepingNumber(entry.AccountServicer.Ref).
 		WithStatus(entry.Status.Status)
 
 	if entry.CreditDebit.Indicator == models.TransactionTypeDebit {
