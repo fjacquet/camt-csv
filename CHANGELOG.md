@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stop `InvestmentType` being emitted on transactions that are not investments. `Transaction.Investment` is back-filled from `Type` for every parser, so an ordinary Revolut card payment carries `Investment="CARD_PAYMENT"`; the three `CSV-Revolut*` plugins map `investmentTransactionInfo.type` to that column, so all 221 rows of a Revolut export would have imported into iCompta as investment transactions. The column is now emitted only for rows that name a security.
 - Stop the `icompta` output format discarding every investment and identity field. It emitted a fixed 10-column projection that had no `NumberOfShares`, `Fund`, `InvestmentType` or `Fees`, so Selma conversions lost share quantities entirely, and no parser's `ValueDate` or `CreditDebit` ever reached iCompta even though all eleven configured import plugins reference them. The header now carries ten further columns; the original ten keep their names and positions, so existing plugins resolve unchanged.
 - Stop truncating fractional share counts. `Transaction.NumberOfShares` was an `int`, so the Selma parser's `int(sharesFloat)` and the Revolut Investment parser's `int(quantity.IntPart())` silently discarded any fraction — a holding of `0.4523` units was recorded as `0`, and a Revolut buy of `39.81059277` shares as `39`. Shares are now `decimal.Decimal`, matching every other numeric field on `Transaction`.
-- Populate `BookkeepingNumber`, which no parser set despite being read back in the Selma stamp-duty pass. The CAMT parser now sources it from the account servicer reference and the Selma parser from the `Bookkeeping No.` column, giving iCompta a stable `externalID` to deduplicate re-imported statements. Revolut and Viseca have no identifier in their source data and are left empty.
+- Populate `BookkeepingNumber`, which no parser set despite being read back in the Selma stamp-duty pass. The CAMT parser now sources it from the account servicer reference and the Selma parser from the `Bookkeeping No.` column, giving iCompta a stable `externalID` to deduplicate re-imported statements. Revolut and the Viseca PDF statements have no identifier in their source data and are left empty.
 
 ### Added
 
+- Stop an unreadable Selma share count discarding the whole trade. The share count is cosmetic next to the money movement, so the row is now kept with zero shares and a warning naming the offending value.
 - Add `TestIComptaHeaderCoversPluginMappings` and `TestIComptaPluginsUseFormatterDelimiter`, which assert that every column and separator the iCompta import plugins reference is actually produced by the formatter. iCompta resolves columns by name and silently drops a mapping that finds no matching column, so this class of loss was previously invisible.
 - Add `docs/icompta-plugin-setup.md` covering plugin configuration, safe editing of the iCompta document, and per-parser `externalID` coverage.
 - Add `TransactionBuilder.WithBookkeepingNumber`.

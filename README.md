@@ -61,7 +61,7 @@ camt-csv debit -i debit.csv -o output.csv
 # Batch process a directory
 camt-csv batch -i input_dir/ -o output_dir/
 
-# Use iCompta output format (semicolon-delimited, 10 columns)
+# Use iCompta output format (semicolon-delimited, 20 columns)
 camt-csv revolut -i export.csv -o output.csv --format icompta
 
 # Enable AI categorization

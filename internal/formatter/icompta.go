@@ -59,6 +59,17 @@ func blankIfZeroShares(d decimal.Decimal) string {
 	return d.String()
 }
 
+// isInvestment reports whether a transaction is actually an investment.
+//
+// Transaction.Investment is not investment-only: UpdateInvestmentTypeFromLegacyField
+// back-fills it from Type, so an ordinary Revolut card payment carries
+// Investment="CARD_PAYMENT". The Revolut plugins map investmentTransactionInfo.type
+// to InvestmentType, so emitting it unconditionally would import every card payment
+// as an investment transaction. A security is what makes a row an investment.
+func isInvestment(tx models.Transaction) bool {
+	return tx.Fund != "" || !tx.NumberOfShares.IsZero()
+}
+
 // blankIfZeroAmount renders a monetary value with the same two-decimal contract
 // as the Amount column, or an empty cell when there is nothing to report.
 func blankIfZeroAmount(d decimal.Decimal) string {
@@ -116,6 +127,12 @@ func (f *iComptaFormatter) Format(transactions []models.Transaction) ([][]string
 		// Type
 		txType := tx.Type
 
+		// InvestmentType is only meaningful on a row that names a security.
+		investmentType := ""
+		if isInvestment(tx) {
+			investmentType = tx.Investment
+		}
+
 		// ValueDate: same dd.MM.yyyy contract as Date
 		valueDateStr := ""
 		if !tx.ValueDate.IsZero() {
@@ -136,13 +153,13 @@ func (f *iComptaFormatter) Format(transactions []models.Transaction) ([][]string
 			valueDateStr,
 			tx.CreditDebit,
 			tx.BookkeepingNumber,
-			tx.Investment,
+			investmentType,
 			tx.Fund,
 			blankIfZeroShares(tx.NumberOfShares),
 			blankIfZeroAmount(tx.Fees),
 			tx.Recipient,
 			tx.Number,
-			tx.TaxRate.StringFixed(2),
+			blankIfZeroAmount(tx.TaxRate),
 		}
 		rows = append(rows, row)
 	}

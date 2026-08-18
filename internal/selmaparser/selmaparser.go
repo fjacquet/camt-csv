@@ -105,7 +105,12 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 		if row.Date == "" || row.Description == "" {
 			continue
 		}
-		tx, err := convertSelmaRowToTransaction(row)
+		tx, warning, err := convertSelmaRowToTransaction(row)
+		if warning != "" {
+			logger.Warn("Selma row kept despite an unreadable field",
+				logging.Field{Key: "detail", Value: warning},
+				logging.Field{Key: "bookkeepingNumber", Value: row.BookkeepingNo})
+		}
 		if err != nil {
 			logger.WithError(err).Warn("Failed to convert row to transaction",
 				logging.Field{Key: "row", Value: row})
@@ -119,21 +124,22 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 }
 
 // convertSelmaRowToTransaction converts a SelmaCSVRow to a Transaction
-func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
+func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, string, error) {
+	var sharesParseWarning string
 	// Shares stay decimal: Selma allocates fractional units and truncating them
 	// to int silently zeroed any holding below one share.
+	//
+	// An unreadable share count does not invalidate the trade — the money moved
+	// either way — so the row is kept with zero shares rather than dropped.
 	shares := decimal.Zero
 	if row.NumberOfShares != "" {
 		parsed, err := decimal.NewFromString(row.NumberOfShares)
 		if err != nil {
-			return models.Transaction{}, &parsererror.DataExtractionError{
-				FilePath:       "(from reader)",
-				FieldName:      "Number of Shares",
-				RawDataSnippet: row.NumberOfShares,
-				Msg:            fmt.Sprintf("failed to parse number of shares: %v", err),
-			}
+			sharesParseWarning = fmt.Sprintf(
+				"unreadable number of shares %q, recorded as zero", row.NumberOfShares)
+		} else {
+			shares = parsed
 		}
-		shares = parsed
 	}
 
 	// For Selma CSV, we keep the date as is since it's already in YYYY-MM-DD format
@@ -141,7 +147,7 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 
 	amount, err := decimal.NewFromString(row.Amount)
 	if err != nil {
-		return models.Transaction{}, &parsererror.DataExtractionError{
+		return models.Transaction{}, sharesParseWarning, &parsererror.DataExtractionError{
 			FilePath:       "(from reader)",
 			FieldName:      "Amount",
 			RawDataSnippet: row.Amount,
@@ -173,7 +179,7 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 	// Build the transaction
 	transaction, err := builder.Build()
 	if err != nil {
-		return models.Transaction{}, &parsererror.DataExtractionError{
+		return models.Transaction{}, sharesParseWarning, &parsererror.DataExtractionError{
 			FilePath:       "(from reader)",
 			FieldName:      "Transaction",
 			RawDataSnippet: fmt.Sprintf("Date: %s, Amount: %s", row.Date, row.Amount),
@@ -181,7 +187,7 @@ func convertSelmaRowToTransaction(row SelmaCSVRow) (models.Transaction, error) {
 		}
 	}
 
-	return transaction, nil
+	return transaction, sharesParseWarning, nil
 }
 
 // determineCreditDebit determines if a transaction is a debit or credit
