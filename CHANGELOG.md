@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a `viseca` command and parser for the CSV transaction export from the Viseca One portal. It reads structured fields instead of recovering them from laid-out PDF text, so it carries the merchant name, the foreign-currency original and exchange rate, and `TransactionId` — a stable per-transaction identifier the PDF statements never had, which becomes the `BookkeepingNumber` iCompta uses to deduplicate re-imported statements. The `pdf` command and parser are unchanged and remain the route for historical statements.
+
 ### Fixed
 
 - Stop the `icompta` output format discarding every investment and identity field. It emitted a fixed 10-column projection that had no `NumberOfShares`, `Fund`, `InvestmentType` or `Fees`, so Selma conversions lost share quantities entirely, and no parser's `ValueDate` or `CreditDebit` ever reached iCompta even though all eleven configured import plugins reference them. The header now carries ten further columns; the original ten keep their names and positions, so existing plugins resolve unchanged.

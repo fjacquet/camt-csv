@@ -125,7 +125,7 @@ CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is dep
 
 ### Directory Structure
 
-- `cmd/` - Cobra CLI commands (convert, camt, pdf, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
+- `cmd/` - Cobra CLI commands (convert, camt, pdf, viseca, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
 - `internal/` - Core application logic:
   - `*parser/` packages - Format-specific parsers with `adapter.go` implementing the interface
   - `categorizer/` - Transaction categorization with AI integration

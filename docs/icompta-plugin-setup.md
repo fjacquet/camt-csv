@@ -82,9 +82,10 @@ Some columns carry constraints that are not obvious from the name:
 | CAMT | account servicer reference (`657697337026085/1`) | yes |
 | Selma | `Bookkeeping No.` column (`55026832483`) | yes |
 | Revolut | none — source has no identifier | n/a |
+| Viseca (CSV) | `TransactionId` (`TRX2025030300002685972`) | yes |
 | Viseca (PDF) | none — source has no identifier | n/a |
 
-Revolut and Viseca imports therefore rely on iCompta's own reconciliation
+Revolut imports, and Viseca imports taken from PDF rather than CSV, therefore rely on iCompta's own reconciliation
 (`reconcile`, `reconcileUsingDate`, `numberOfDays`) rather than `externalID`.
 Consider enabling `reconcileUsingName` for those two, since date-only matching
 within a three-day window is a loose guard against duplicates.

@@ -62,6 +62,9 @@ COOP PRONTO;15.03.2026;-24.50;CHF`
 
 	revolutCryptoCSV = `Symbol,Type,Quantity,Price,Value,Fees,Date
 BTC,Achat,0.001,50000.00,50.00,0.50,15 mars 2026 10:00:00`
+
+	visecaCSV = `TransactionId,CardId,Date,ValutaDate,Amount,Currency,OriginalAmount,OriginalCurrency,MerchantName,MerchantPlace,MerchantCountry,StateType,Details,Type,Exchange Rate
+TRX2026031500001,000000XXXXXXXXXX,2026-03-15 15:12:22,2026-03-16 00:00:00,29.000,CHF,29.000,CHF,Coop,Montreux,CHE,BOOKED,Coop Montreux,merchant,1.000000`
 )
 
 // Every supported format must be recognized as itself. This is the contract the
@@ -110,6 +113,7 @@ func TestDetectParser_ValidatorsDoNotOverlap(t *testing.T) {
 		RevolutCrypto:     revolutCryptoCSV,
 		Selma:             selmaCSV,
 		Debit:             debitCSV,
+		Viseca:            visecaCSV,
 	}
 
 	for owner, content := range samples {

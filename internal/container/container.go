@@ -20,6 +20,7 @@ import (
 	"fjacquet/camt-csv/internal/revolutparser"
 	"fjacquet/camt-csv/internal/selmaparser"
 	"fjacquet/camt-csv/internal/store"
+	"fjacquet/camt-csv/internal/visecaparser"
 )
 
 // ParserType defines the types of parsers available.
@@ -33,6 +34,7 @@ const (
 	RevolutCrypto     ParserType = "revolut-crypto"
 	Selma             ParserType = "selma"
 	Debit             ParserType = "debit"
+	Viseca            ParserType = "viseca"
 )
 
 // Container holds all application dependencies and provides methods to access them.
@@ -177,6 +179,11 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	debitParser := debitparser.NewAdapter(logger)
 	debitParser.SetCategorizer(cat)
 	parsers[Debit] = debitParser
+
+	// Viseca parser
+	visecaParser := visecaparser.NewAdapter(logger)
+	visecaParser.SetCategorizer(cat)
+	parsers[Viseca] = visecaParser
 
 	logger.Info("Container initialized successfully",
 		logging.Field{Key: "parsers_count", Value: len(parsers)},

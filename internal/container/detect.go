@@ -22,6 +22,7 @@ func detectionOrder() []ParserType {
 		RevolutInvestment,
 		Selma,
 		Debit,
+		Viseca,
 	}
 }
 
