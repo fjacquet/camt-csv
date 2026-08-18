@@ -73,6 +73,12 @@ type Config struct {
 		Revolut struct {
 			DateFormatDetection bool `mapstructure:"date_format_detection" yaml:"date_format_detection"`
 		} `mapstructure:"revolut" yaml:"revolut"`
+		Viseca struct {
+			// KeepPayments imports the monthly card settlement rows. Off by
+			// default: the bank statement already carries the same payments, so
+			// keeping both sides counts every payment twice.
+			KeepPayments bool `mapstructure:"keep_payments" yaml:"keep_payments"`
+		} `mapstructure:"viseca" yaml:"viseca"`
 	} `mapstructure:"parsers" yaml:"parsers"`
 
 	Categories struct {
@@ -204,6 +210,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("parsers.camt.strict_validation", true)
 	v.SetDefault("parsers.pdf.ocr_enabled", false)
 	v.SetDefault("parsers.revolut.date_format_detection", true)
+	v.SetDefault("parsers.viseca.keep_payments", false)
 
 	// Categories defaults
 	v.SetDefault("categories.file", "categories.yaml")

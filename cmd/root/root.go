@@ -50,6 +50,10 @@ It also provides transaction categorization based on the party's name.`,
 			// Initialize configuration first
 			initializeConfiguration()
 
+			// Command flags shadow the file/env configuration, so they must be
+			// applied before the container reads it.
+			applyFlagOverrides(cmd)
+
 			// Initialize container with dependency injection
 			initializeContainer()
 
@@ -92,6 +96,22 @@ func initializeConfiguration() {
 	// Configure logging based on the loaded configuration
 	logrusLogger := config.ConfigureLoggingFromConfig(AppConfig)
 	Log = logging.NewLogrusAdapterFromLogger(logrusLogger)
+}
+
+// applyFlagOverrides copies command flags that shadow configuration onto the
+// loaded config.
+//
+// viper.BindPFlag cannot do this: InitializeConfig builds its own Viper
+// instance, so a binding registered on the global one is never read.
+func applyFlagOverrides(cmd *cobra.Command) {
+	if f := cmd.Flags().Lookup("keep-payments"); f != nil && f.Changed {
+		keep, err := cmd.Flags().GetBool("keep-payments")
+		if err != nil {
+			Log.WithError(err).Warn("Ignoring unreadable --keep-payments flag")
+		} else {
+			AppConfig.Parsers.Viseca.KeepPayments = keep
+		}
+	}
 }
 
 // initializeContainer creates the dependency injection container

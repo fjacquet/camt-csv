@@ -192,3 +192,46 @@ func TestParse_RejectsRaggedRow(t *testing.T) {
 	require.Len(t, txs, 1, "the ragged row must be skipped, not silently mismapped")
 	assert.Equal(t, "TRX2025030300002685972", txs[0].BookkeepingNumber)
 }
+
+// Card settlements ("Votre paiement - Merci") are the counterpart of the bank
+// debit that already imports from the CAMT statement. Keeping both sides makes
+// iCompta count every monthly payment twice and the card balance drifts up by
+// the full payment total, so they are dropped by default.
+const (
+	paymentRowFR = "TRX2025072900002205658,,2025-07-29 18:27:36,2025-07-24 00:00:00," +
+		"-3618.850,CHF,-3618.850,CHF,,,,BOOKED,Votre paiement - Merci,merchant,1.000000"
+	paymentRowDE = "TRX2025062700002160412,,2025-06-27 23:17:20,2025-06-24 00:00:00," +
+		"-4897.750,CHF,-4897.750,CHF,,,,BOOKED,Ihre Zahlung - Besten Dank,merchant,1.000000"
+	paymentRowEN = "TRX2025052900002160413,,2025-05-29 23:17:20,2025-05-24 00:00:00," +
+		"-4709.500,CHF,-4709.500,CHF,,,,BOOKED,Your payment - Thank you,merchant,1.000000"
+	paymentRowIT = "TRX2025042900002160414,,2025-04-29 23:17:20,2025-04-24 00:00:00," +
+		"-4073.550,CHF,-4073.550,CHF,,,,BOOKED,Il Suo pagamento - Grazie,merchant,1.000000"
+)
+
+func TestParse_DropsCardSettlementsByDefault(t *testing.T) {
+	txs := parseCSV(t, visecaCSV(purchaseRow, paymentRowFR, paymentRowDE, paymentRowEN, paymentRowIT))
+
+	require.Len(t, txs, 1)
+	assert.Equal(t, "-29", txs[0].Amount.String())
+}
+
+func TestParse_KeepPaymentsRetainsCardSettlements(t *testing.T) {
+	txs, err := ParseWithOptions(
+		context.Background(),
+		strings.NewReader(visecaCSV(purchaseRow, paymentRowFR)),
+		logging.NewLogrusAdapter("error", "text"), nil,
+		Options{KeepPayments: true},
+	)
+	require.NoError(t, err)
+	require.Len(t, txs, 2)
+
+	assert.Equal(t, "3618.85", txs[1].Amount.String())
+	assert.Equal(t, models.TransactionTypeCredit, txs[1].CreditDebit)
+}
+
+// A refund and a merchant row without a MerchantName both look like a credit or
+// carry an empty merchant, so neither may be mistaken for a settlement.
+func TestParse_KeepsRefundsAndMerchantlessRows(t *testing.T) {
+	txs := parseCSV(t, visecaCSV(refundRow, noMerchantRow))
+	assert.Len(t, txs, 2)
+}
