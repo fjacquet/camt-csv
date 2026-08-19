@@ -1,4 +1,4 @@
-package common_test
+package convert
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"io"
 	"testing"
 
-	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
@@ -45,8 +44,8 @@ func (m *MockFullParser) ValidateFormat(file string) (bool, error) {
 
 // Test error constants
 func TestErrInvalidFormat(t *testing.T) {
-	assert.Equal(t, "file is not in a valid format", common.ErrInvalidFormat.Error())
-	assert.True(t, errors.Is(common.ErrInvalidFormat, common.ErrInvalidFormat))
+	assert.Equal(t, "file is not in a valid format", errInvalidFormat.Error())
+	assert.True(t, errors.Is(errInvalidFormat, errInvalidFormat))
 }
 
 // Test that the original mock implementations still work

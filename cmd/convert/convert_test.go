@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/config"
@@ -45,7 +44,7 @@ func newTestContainer(t *testing.T) *container.Container {
 // if resolution errors.
 func mustResolve(t *testing.T, c *container.Container, from, path string) parser.FullParser {
 	t.Helper()
-	resolve, err := common.ResolverFor(c, from, c.GetLogger())
+	resolve, err := resolverFor(c, from, c.GetLogger())
 	require.NoError(t, err)
 	res, err := resolve(path)
 	require.NoError(t, err)
@@ -58,7 +57,7 @@ func TestResolverFor_AcceptsEveryDetectableType(t *testing.T) {
 	c := newTestContainer(t)
 
 	for _, pt := range container.DetectionOrder() {
-		resolve, err := common.ResolverFor(c, string(pt), c.GetLogger())
+		resolve, err := resolverFor(c, string(pt), c.GetLogger())
 		require.NoError(t, err, "--from %s must be accepted", pt)
 
 		res, err := resolve("/irrelevant/path.csv")
@@ -70,7 +69,7 @@ func TestResolverFor_AcceptsEveryDetectableType(t *testing.T) {
 func TestResolverFor_RejectsUnknownFormat(t *testing.T) {
 	c := newTestContainer(t)
 
-	_, err := common.ResolverFor(c, "postbank", c.GetLogger())
+	_, err := resolverFor(c, "postbank", c.GetLogger())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "postbank")
@@ -86,7 +85,7 @@ func TestResolverFor_PinBypassesDetection(t *testing.T) {
 	revolutFile := filepath.Join(dir, "statement.csv")
 	require.NoError(t, os.WriteFile(revolutFile, []byte(revolutSampleCSV), 0600))
 
-	resolve, err := common.ResolverFor(c, "selma", c.GetLogger())
+	resolve, err := resolverFor(c, "selma", c.GetLogger())
 	require.NoError(t, err)
 
 	res, err := resolve(revolutFile)
@@ -108,7 +107,7 @@ func TestResolverFor_PinSelectsNamedParser(t *testing.T) {
 	revolutFile := filepath.Join(dir, "statement.csv")
 	require.NoError(t, os.WriteFile(revolutFile, []byte(revolutSampleCSV), 0600))
 
-	resolve, err := common.ResolverFor(c, "revolut", c.GetLogger())
+	resolve, err := resolverFor(c, "revolut", c.GetLogger())
 	require.NoError(t, err)
 
 	res, err := resolve(revolutFile)
@@ -127,7 +126,7 @@ func TestResolverFor_DetectsWhenUnset(t *testing.T) {
 	unknown := filepath.Join(dir, "mystery.csv")
 	require.NoError(t, os.WriteFile(unknown, []byte("a,b,c\n1,2,3\n"), 0600))
 
-	resolve, err := common.ResolverFor(c, "", c.GetLogger())
+	resolve, err := resolverFor(c, "", c.GetLogger())
 	require.NoError(t, err)
 
 	_, err = resolve(unknown)
@@ -147,7 +146,7 @@ func TestResolverFor_LogsDetectedFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(revolutFile, []byte(revolutSampleCSV), 0600))
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "", mockLogger)
+	resolve, err := resolverFor(c, "", mockLogger)
 	require.NoError(t, err)
 
 	_, err = resolve(revolutFile)
@@ -176,7 +175,7 @@ func TestResolverFor_PinnedDoesNotLogDetection(t *testing.T) {
 	require.NoError(t, os.WriteFile(revolutFile, []byte(revolutSampleCSV), 0600))
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "revolut", mockLogger)
+	resolve, err := resolverFor(c, "revolut", mockLogger)
 	require.NoError(t, err)
 
 	_, err = resolve(revolutFile)
@@ -195,7 +194,7 @@ func TestConvert_SingleFileWritesNoManifest(t *testing.T) {
 	require.NoError(t, os.WriteFile(input, []byte(revolutSampleCSV), 0600))
 	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
-	err := common.ProcessFileWithErrorFormatted(context.Background(),
+	err := processFileWithErrorFormatted(context.Background(),
 		mustResolve(t, c, "", input), input, outputFile, false, c.GetLogger(), c, "standard")
 
 	require.NoError(t, err)
@@ -211,7 +210,7 @@ func TestResolveOutputFile_ExistingDirectoryGetsGeneratedName(t *testing.T) {
 	require.NoError(t, os.MkdirAll(inputDir, 0750))
 	outputDir := t.TempDir()
 
-	got, err := common.ResolveOutputFile(inputDir, outputDir)
+	got, err := resolveOutputFile(inputDir, outputDir)
 
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(outputDir, "releves-2024.csv"), got)
@@ -230,7 +229,7 @@ func TestResolveOutputFile_TrailingSeparatorIsTreatedAsDirectory(t *testing.T) {
 	require.NoError(t, os.MkdirAll(inputDir, 0750))
 	outputDir := filepath.Join(tempDir, "outdir") + string(filepath.Separator)
 
-	got, err := common.ResolveOutputFile(inputDir, outputDir)
+	got, err := resolveOutputFile(inputDir, outputDir)
 
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(tempDir, "outdir", "releves-2024.csv"), got)
@@ -248,7 +247,7 @@ func TestResolveOutputFile_FileInputIntoExistingDirectoryDoesNotDoubleExtension(
 	require.NoError(t, os.WriteFile(inputFile, []byte("x"), 0600))
 	outputDir := t.TempDir()
 
-	got, err := common.ResolveOutputFile(inputFile, outputDir)
+	got, err := resolveOutputFile(inputFile, outputDir)
 
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(outputDir, "statement.csv"), got,
@@ -266,7 +265,7 @@ func TestResolveOutputFile_FileInputBesideItselfIsRefused(t *testing.T) {
 	require.NoError(t, os.WriteFile(inputFile, []byte("x"), 0600))
 	outputPath := filepath.Join(inputDir, "out.csv")
 
-	_, err := common.ResolveOutputFile(inputFile, outputPath)
+	_, err := resolveOutputFile(inputFile, outputPath)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "inside the input directory")
@@ -276,7 +275,7 @@ func TestResolveOutputFile_PlainPathIsUnchanged(t *testing.T) {
 	inputDir := t.TempDir()
 	want := filepath.Join(t.TempDir(), "out.csv")
 
-	got, err := common.ResolveOutputFile(inputDir, want)
+	got, err := resolveOutputFile(inputDir, want)
 
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -348,7 +347,7 @@ func TestResolveOutputFile_GuardsAgainstInputOverlap(t *testing.T) {
 
 			outputPath := tt.outputFrom(inputDir)
 
-			_, err := common.ResolveOutputFile(inputDir, outputPath)
+			_, err := resolveOutputFile(inputDir, outputPath)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -402,7 +401,7 @@ func TestConvertDirectory_Success(t *testing.T) {
 	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "revolut", mockLogger)
+	resolve, err := resolverFor(c, "revolut", mockLogger)
 	require.NoError(t, err)
 
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
@@ -424,7 +423,7 @@ func TestConvertDirectory_InvalidFormatWritesNothing(t *testing.T) {
 	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "revolut", mockLogger)
+	resolve, err := resolverFor(c, "revolut", mockLogger)
 	require.NoError(t, err)
 
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "not-a-format", false)
@@ -448,7 +447,7 @@ func TestConvertDirectory_OutputUnderInputWritesNothing(t *testing.T) {
 	outputPath := filepath.Join(inputDir, "out.csv")
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "revolut", mockLogger)
+	resolve, err := resolverFor(c, "revolut", mockLogger)
 	require.NoError(t, err)
 
 	convertDirectory(context.Background(), c, resolve, inputDir, outputPath, mockLogger, "standard", false)
@@ -473,7 +472,7 @@ func TestConvertDirectory_RecordsExitCodeThroughSeam(t *testing.T) {
 	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
 	mockLogger := logging.NewMockLogger()
-	resolve, err := common.ResolverFor(c, "revolut", mockLogger)
+	resolve, err := resolverFor(c, "revolut", mockLogger)
 	require.NoError(t, err)
 
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
@@ -498,7 +497,7 @@ func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	}
 
 	c := newTestContainer(t)
-	resolve, err := common.ResolverFor(c, "pdf", c.GetLogger())
+	resolve, err := resolverFor(c, "pdf", c.GetLogger())
 	require.NoError(t, err)
 
 	src, err := os.ReadFile("../../samples/pdf/viseca.pdf")

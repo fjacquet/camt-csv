@@ -1,5 +1,4 @@
-// Package common contains shared functionality for command handlers
-package common
+package convert
 
 import (
 	"context"
@@ -13,19 +12,19 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// ErrInvalidFormat is returned when a file fails format validation.
-var ErrInvalidFormat = errors.New("file is not in a valid format")
+// errInvalidFormat is returned when a file fails format validation.
+var errInvalidFormat = errors.New("file is not in a valid format")
 
-// ProcessFile processes a single file using the given parser with formatter support.
-// Calls ProcessFileWithErrorFormatted and calls log.Fatalf on error.
-func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) {
-	if err := ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile, validate, log, c, format); err != nil {
+// processFile processes a single file using the given parser with formatter support.
+// Calls processFileWithErrorFormatted and calls log.Fatalf on error.
+func processFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) {
+	if err := processFileWithErrorFormatted(ctx, p, inputFile, outputFile, validate, log, c, format); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-// ProcessFileWithErrorFormatted processes a single file using the given parser with formatter support and returns an error on failure.
-func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) error {
+// processFileWithErrorFormatted processes a single file using the given parser with formatter support and returns an error on failure.
+func processFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) error {
 	// Set the logger on the parser using the new interface
 	p.SetLogger(log)
 
@@ -47,7 +46,7 @@ func ProcessFileWithErrorFormatted(ctx context.Context, p parser.FullParser, inp
 			return fmt.Errorf("error validating file: %w", err)
 		}
 		if !valid {
-			return ErrInvalidFormat
+			return errInvalidFormat
 		}
 		log.Info("Validation successful.")
 	}

@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/container"
@@ -32,9 +31,9 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
-	common.RegisterConvertFlags(Cmd)
+	registerConvertFlags(Cmd)
 
-	// Built from common.ParserTypeNames() — the same list DetectionOrder and
+	// Built from parserTypeNames() — the same list DetectionOrder and
 	// --from's help text draw from — so this text can't drift out of sync
 	// with what the command actually accepts, the way its hand-written
 	// predecessor (which never mentioned viseca) did.
@@ -49,7 +48,7 @@ guesses wrong.
 
 When the input is a directory, every file in it is read and their
 transactions are merged into a single, date-sorted output CSV, plus a
-.manifest.json run report beside it.`, strings.Join(common.ParserTypeNames(), ", "))
+.manifest.json run report beside it.`, strings.Join(parserTypeNames(), ", "))
 }
 
 func runConvert(cmd *cobra.Command, _ []string) {
@@ -71,7 +70,7 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	recursive, _ := cmd.Flags().GetBool("recursive")
 	from, _ := cmd.Flags().GetString("from")
 
-	resolve, err := common.ResolverFor(appContainer, from, logger)
+	resolve, err := resolverFor(appContainer, from, logger)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
@@ -92,15 +91,15 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	res, err := resolve(inputPath)
 	if err != nil {
 		logger.Fatalf("Could not determine the format of %s. Supported formats: %s. "+
-			"Use --from to specify it explicitly.", inputPath, strings.Join(common.ParserTypeNames(), ", "))
+			"Use --from to specify it explicitly.", inputPath, strings.Join(parserTypeNames(), ", "))
 	}
 
-	resolvedOutput, err := common.ResolveOutputFile(inputPath, outputPath)
+	resolvedOutput, err := resolveOutputFile(inputPath, outputPath)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
 
-	common.ProcessFile(ctx, res.Parser, inputPath, resolvedOutput, root.SharedFlags.Validate, root.Log, appContainer, format)
+	processFile(ctx, res.Parser, inputPath, resolvedOutput, root.SharedFlags.Validate, root.Log, appContainer, format)
 	root.Log.Info("Conversion completed successfully!")
 }
 
@@ -110,7 +109,7 @@ func runConvert(cmd *cobra.Command, _ []string) {
 func convertDirectory(ctx context.Context, appContainer *container.Container, resolve batch.ParserResolver,
 	inputPath, outputPath string, logger logging.Logger, format string, recursive bool) {
 
-	outputFile, err := common.ResolveOutputFile(inputPath, outputPath)
+	outputFile, err := resolveOutputFile(inputPath, outputPath)
 	if err != nil {
 		logger.Fatalf("%v", err)
 		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger

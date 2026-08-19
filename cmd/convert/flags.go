@@ -1,5 +1,4 @@
-// Package common contains shared functionality for command handlers
-package common
+package convert
 
 import (
 	"strings"
@@ -9,12 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RegisterConvertFlags adds the conversion flags to a command.
-func RegisterConvertFlags(cmd *cobra.Command) {
+// registerConvertFlags adds the conversion flags to a command.
+func registerConvertFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP("format", "f", "",
 		"Output format: icompta (iCompta-compatible), standard (29-column comma-delimited CSV), or jumpsoft (7-column Jumpsoft Money CSV). Default: icompta (overridable via CAMT_OUTPUT_FORMAT env var)")
 	cmd.Flags().String("from", "",
-		"Input format, bypassing auto-detection: "+strings.Join(ParserTypeNames(), ", ")+
+		"Input format, bypassing auto-detection: "+strings.Join(parserTypeNames(), ", ")+
 			". On a directory this pins every file to that parser; files it cannot read fail individually")
 	cmd.Flags().Bool("recursive", false,
 		"When the input is a directory, also process files in its subdirectories")
@@ -32,12 +31,12 @@ func RegisterConvertFlags(cmd *cobra.Command) {
 	}
 }
 
-// ParserTypeNames lists the detectable formats for flag help and error
-// messages. Exported so every place that needs the list — flag help text,
+// parserTypeNames lists the detectable formats for flag help and error
+// messages. Shared so every place that needs the list — flag help text,
 // the unknown-`--from` error, the "could not determine format" error, and the
 // convert command's Long description — draws from the single source that
 // backs DetectionOrder, rather than each keeping its own copy that can drift.
-func ParserTypeNames() []string {
+func parserTypeNames() []string {
 	types := container.DetectionOrder()
 	names := make([]string, len(types))
 	for i, t := range types {
