@@ -417,6 +417,13 @@ func TestConvertDirectory_RecordsExitCodeThroughSeam(t *testing.T) {
 // The behavior the pdf command used to own — a directory of PDFs consolidated
 // into one chronologically sorted CSV — must survive its deletion. This is the
 // regression guard for that removal.
+//
+// samples/pdf holds exactly one file, so consolidating that directory as-is
+// merges nothing and asserting only "at least one file converted" would pass
+// even if BatchProcessor's directory merge were broken. Two independent
+// copies of the same sample, under different names, and an assertion that the
+// consolidated transaction count is exactly double a single parse, is what
+// actually exercises the merge rather than only the single-file path.
 func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	// Skipped where poppler-utils is absent: the PDF parser shells out to pdftotext.
 	if _, err := exec.LookPath("pdftotext"); err != nil {
@@ -424,16 +431,34 @@ func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	}
 
 	c := newTestContainer(t)
-	inputDir := "../../samples/pdf"
-	outputFile := filepath.Join(t.TempDir(), "consolidated.csv")
-
 	resolve, err := common.ResolverFor(c, "pdf", c.GetLogger())
 	require.NoError(t, err)
 
+	src, err := os.ReadFile("../../samples/pdf/viseca.pdf")
+	require.NoError(t, err)
+
+	inputDir := t.TempDir()
+	statementA := filepath.Join(inputDir, "statement-a.pdf")
+	require.NoError(t, os.WriteFile(statementA, src, 0600))                                 // #nosec G703 -- test fixture, path built from t.TempDir() and a literal name
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement-b.pdf"), src, 0600)) // #nosec G703 -- test fixture, path built from t.TempDir() and a literal name
+
+	// Reference count: how many transactions the sample parses to on its own.
+	p, err := resolve(statementA)
+	require.NoError(t, err)
+	f, err := os.Open(statementA)
+	require.NoError(t, err)
+	singleFileTransactions, err := p.Parse(context.Background(), f)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.NotEmpty(t, singleFileTransactions, "the sample PDF must parse to at least one transaction")
+
+	outputFile := filepath.Join(t.TempDir(), "consolidated.csv")
 	bp := batch.NewBatchProcessor(resolve, c.GetLogger(), formatter.NewStandardFormatter(), false)
 	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 
 	require.NoError(t, err)
-	require.Positive(t, manifest.SuccessCount, "at least one sample PDF must convert")
+	assert.Equal(t, 2, manifest.SuccessCount, "both copies must convert")
+	assert.Equal(t, 2*len(singleFileTransactions), manifest.TransactionCount,
+		"the consolidated output must carry both files' transactions merged, not just one")
 	assert.FileExists(t, outputFile)
 }

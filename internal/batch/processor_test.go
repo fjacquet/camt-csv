@@ -170,6 +170,52 @@ func TestProcessDirectory_AllFailed(t *testing.T) {
 	}
 }
 
+// A context cancelled mid-batch must stop ProcessDirectory rather than run to
+// completion: the returned error is ctx.Err(), and the manifest records fewer
+// results than TotalFiles because later files were never reached. This is the
+// only test of ProcessDirectory's ctx.Done() branch (processor.go's
+// select/default at the top of the per-file loop) — the equivalent coverage
+// that used to live in cmd/pdf's TestConsolidatePDFDirectory_ContextCancellation
+// was deleted along with that package and had no replacement here.
+func TestProcessDirectory_ContextCancellationStopsBatch(t *testing.T) {
+	// Setup
+	tempDir := t.TempDir()
+	inputDir := filepath.Join(tempDir, "input")
+	require.NoError(t, os.MkdirAll(inputDir, 0750))
+
+	// Three files, sorted alphabetically by discoverFiles: cancellation
+	// during the first file's parse must prevent the second and third from
+	// ever being processed.
+	testFiles := []string{"a.xml", "b.xml", "c.xml"}
+	for _, name := range testFiles {
+		require.NoError(t, os.WriteFile(filepath.Join(inputDir, name), []byte("test data"), 0644)) // #nosec G306 -- test file
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		cancel() // Cancel as soon as the first file starts parsing.
+		return createTestTransactions(1), nil
+	}
+
+	logger := logging.NewLogrusAdapter("error", "text")
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
+
+	outputFile := filepath.Join(tempDir, "out.csv")
+
+	// Execute
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputFile)
+
+	// Assert
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+	require.NotNil(t, manifest)
+	assert.Equal(t, 3, manifest.TotalFiles)
+	assert.Less(t, len(manifest.Results), manifest.TotalFiles,
+		"cancellation must stop the batch before every file is processed")
+}
+
 func TestProcessDirectory_EmptyDirectory(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()

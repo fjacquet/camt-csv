@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"sort"
 	"testing"
 
@@ -60,4 +61,29 @@ func TestRootCommand_GroupsSeparatePrimaryFromAccessory(t *testing.T) {
 func TestRootCommand_ShortDescriptionIsNotCAMTOnly(t *testing.T) {
 	assert.NotContains(t, root.Cmd.Short, "CAMT.053 XML files to CSV",
 		"the tool converts seven formats, not one")
+}
+
+// cobra validates group wiring — that every GroupID set on a command names a
+// group actually registered via AddGroup — only inside checkCommandGroups,
+// reached solely from Execute/ExecuteC. TestRootCommand_GroupsSeparatePrimaryFromAccessory
+// above only reads the GroupID strings back off the commands, so it cannot
+// catch a missing AddGroup call: that mistake builds clean and passes every
+// other test, then panics the very first time a user runs `camt-csv --help`
+// with "group id '...' is not defined for subcommand '...'". This test is
+// the one that actually exercises that validation path, and pins the group
+// titles that appear in --help output while it's at it.
+func TestRootCommand_HelpRendersGroupTitles(t *testing.T) {
+	buf := new(bytes.Buffer)
+	root.Cmd.SetOut(buf)
+	root.Cmd.SetArgs([]string{"--help"})
+	defer func() {
+		root.Cmd.SetOut(nil)
+		root.Cmd.SetArgs(nil)
+	}()
+
+	require.NoError(t, root.Cmd.Execute(), "Execute must not panic or error rendering --help")
+
+	help := buf.String()
+	assert.Contains(t, help, "Conversion:", "the convert group's title must appear in --help")
+	assert.Contains(t, help, "Tools:", "the categorize group's title must appear in --help")
 }

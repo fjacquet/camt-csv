@@ -13,17 +13,17 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// exitFn records the process exit code requested by a batch run. It defers the
-// actual os.Exit to main so that the root PersistentPostRun hook still runs and
-// saves the creditor/debitor mappings. Replaced in tests.
-var exitFn = root.SetExitCode
-
-// RecordExitCode routes a batch's exit code through the same swappable seam
-// cmd/convert's directory branch uses (exitFn), giving tests the same
-// interception point via SetExitFn instead of calling root.SetExitCode
-// directly.
+// RecordExitCode records the process exit code requested by a batch run
+// (cmd/convert's directory branch). It defers the actual os.Exit to main so
+// that the root PersistentPostRun hook still runs and saves the
+// creditor/debitor mappings.
+//
+// This used to go through a package-level function variable so tests could
+// intercept it without exiting the test process. That seam's only caller was
+// deleted along with common.RunConvert/FolderConvert; cmd/convert's own tests
+// assert through root.ExitCode() instead, so the indirection is gone too.
 func RecordExitCode(code int) {
-	exitFn(code)
+	root.SetExitCode(code)
 }
 
 // ResolverFor builds the ParserResolver for one run. With from empty, each
