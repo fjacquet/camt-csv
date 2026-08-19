@@ -105,6 +105,15 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		return nil, err
 	}
 
+	// A repeat run over the same folder must not ingest its own previous
+	// output: the old manifest name was hidden (.manifest.json) and so
+	// always skipped by discoverFiles, but the new name is not. Without
+	// this, running the same convert command twice would offer the CSV and
+	// manifest from run 1 to every parser as inputs for run 2, recording
+	// both as format_not_recognized failures and turning an idempotent
+	// command into a partial-success exit code.
+	files = excludeOutputArtifacts(files, outputFile, ManifestPathFor(outputFile))
+
 	bp.logger.Info("Starting batch processing",
 		logging.Field{Key: "input_dir", Value: inputDir},
 		logging.Field{Key: "output_file", Value: outputFile},
@@ -145,28 +154,46 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		}
 	}
 
-	// Consolidation is skipped for an empty batch: writing a header-only CSV
-	// would look like a successful conversion of nothing.
+	// merged is nil, not just empty, when nothing succeeded:
+	// WriteTransactionsToCSVWithFormatter errors on a nil slice (it only
+	// no-ops on a non-nil empty one), so an empty batch would otherwise fail
+	// the whole run with a spurious write error instead of the accurate
+	// "no files converted" story the manifest and exit code already tell.
+	var writeErr error
 	if len(merged) > 0 {
 		merged = NewBatchAggregator(bp.logger).Consolidate(merged, filepath.Base(outputFile))
 
 		delimiter := bp.formatter.Delimiter()
 		if err := common.WriteTransactionsToCSVWithFormatter(
 			merged, outputFile, bp.logger, bp.formatter, delimiter); err != nil {
-			return manifest, fmt.Errorf("failed to write consolidated CSV: %w", err)
+			writeErr = fmt.Errorf("failed to write consolidated CSV: %w", err)
 		}
 	}
 
-	// Calculate duration
+	manifest.TransactionCount = len(merged)
 	manifest.Duration = time.Since(startTime)
+
+	// A file that validated and parsed without error but yielded no
+	// transactions is not visible anywhere else in the manifest: every
+	// per-file BatchResult still reports Success=true. This is the only
+	// place that can warn the user their whole batch silently converted
+	// nothing, most commonly because --from pinned the wrong parser.
+	if manifest.SuccessCount > 0 && manifest.TransactionCount == 0 {
+		bp.logger.Warn("All successfully parsed files yielded zero transactions; "+
+			"check that the correct parser was used (e.g. --from)",
+			logging.Field{Key: "success_count", Value: manifest.SuccessCount})
+	}
 
 	bp.logger.Info("Batch processing completed",
 		logging.Field{Key: "total_files", Value: manifest.TotalFiles},
 		logging.Field{Key: "success", Value: manifest.SuccessCount},
 		logging.Field{Key: "failed", Value: manifest.FailureCount},
-		logging.Field{Key: "transactions", Value: len(merged)},
+		logging.Field{Key: "transactions", Value: manifest.TransactionCount},
 		logging.Field{Key: "duration", Value: manifest.Duration.String()})
 
+	// The manifest is written even when the CSV write above failed: it is
+	// the run report naming which files failed, and losing it exactly when
+	// the run failed would defeat its entire purpose (ADR-021).
 	manifestPath := ManifestPathFor(outputFile)
 	if err := manifest.WriteManifest(manifestPath); err != nil {
 		bp.logger.WithError(err).Warn("Failed to write manifest file",
@@ -176,7 +203,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 			logging.Field{Key: "path", Value: manifestPath})
 	}
 
-	return manifest, nil
+	return manifest, writeErr
 }
 
 // discoverFiles returns a sorted list of processable files in the given directory.
@@ -223,6 +250,38 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 	sort.Strings(files)
 
 	return files, nil
+}
+
+// excludeOutputArtifacts drops paths from a discovered file list matching the
+// paths in excludePaths, comparing resolved absolute paths so that relative
+// vs. absolute spelling of the same file doesn't slip through.
+//
+// ProcessDirectory is exported, so this guard lives here rather than only at
+// the CLI layer: any caller writing its output inside the directory it just
+// read deserves the same protection against re-ingesting its own report and
+// CSV on a second run.
+func excludeOutputArtifacts(files []string, excludePaths ...string) []string {
+	excluded := make(map[string]bool, len(excludePaths))
+	for _, p := range excludePaths {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			abs = filepath.Clean(p)
+		}
+		excluded[abs] = true
+	}
+
+	filtered := files[:0]
+	for _, f := range files {
+		abs, err := filepath.Abs(f)
+		if err != nil {
+			abs = filepath.Clean(f)
+		}
+		if excluded[abs] {
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	return filtered
 }
 
 // parseFile resolves a parser for filePath and returns the transactions it

@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -574,8 +575,13 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 	inputDir := t.TempDir()
 	outputFile := filepath.Join(t.TempDir(), "releves.csv")
 
-	writeSample(t, inputDir, "march.csv", "x")
-	writeSample(t, inputDir, "january.csv", "x")
+	// Filenames are chosen so lexicographic discovery order ("a-march.csv"
+	// before "b-january.csv") is the OPPOSITE of chronological order. If
+	// Consolidate were skipped, or silently dropped, the rows would either
+	// appear in filename order or January's row would be missing entirely
+	// — both of which this test must catch, not paper over.
+	writeSample(t, inputDir, "a-march.csv", "x")
+	writeSample(t, inputDir, "b-january.csv", "x")
 
 	march := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
 	january := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -583,7 +589,7 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 	resolve := func(filePath string) (parser.FullParser, error) {
 		when := march
 		desc := "march"
-		if strings.HasPrefix(filepath.Base(filePath), "january") {
+		if strings.HasPrefix(filepath.Base(filePath), "b-january") {
 			when, desc = january, "january"
 		}
 		p := newMockParser()
@@ -608,13 +614,20 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, manifest.SuccessCount)
+	assert.Equal(t, 0, manifest.ExitCode(), "a fully successful run must exit 0")
 	assert.FileExists(t, outputFile)
 
-	// Exactly one CSV, and January's row precedes March's inside it.
+	// Exactly one CSV, and January's row precedes March's inside it. Both
+	// indices must actually be found: strings.Index returns -1 for a
+	// missing substring, and -1 < <positive> would make this assertion pass
+	// even if a row went missing entirely.
 	body, err := os.ReadFile(outputFile)
 	require.NoError(t, err)
-	assert.Less(t, strings.Index(string(body), "january"),
-		strings.Index(string(body), "march"),
+	januaryIdx := strings.Index(string(body), "january")
+	marchIdx := strings.Index(string(body), "march")
+	require.NotEqual(t, -1, januaryIdx, "january's row must be present in the output")
+	require.NotEqual(t, -1, marchIdx, "march's row must be present in the output")
+	assert.Less(t, januaryIdx, marchIdx,
 		"rows must be ordered by date, not by filename")
 
 	entries, err := os.ReadDir(filepath.Dir(outputFile))
@@ -689,8 +702,17 @@ func TestProcessDirectory_WritesManifestBesideOutput(t *testing.T) {
 	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 
 	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(outDir, "releves.manifest.json"))
+	manifestPath := filepath.Join(outDir, "releves.manifest.json")
+	assert.FileExists(t, manifestPath)
 	assert.NoFileExists(t, filepath.Join(outDir, ".manifest.json"), "the old fixed name must be gone")
+
+	data, err := os.ReadFile(manifestPath)
+	require.NoError(t, err)
+	var decoded BatchManifest
+	require.NoError(t, json.Unmarshal(data, &decoded))
+	assert.Equal(t, 1, decoded.TotalFiles)
+	assert.Equal(t, 1, decoded.SuccessCount)
+	assert.Equal(t, 1, decoded.TransactionCount, "the run's actual transaction count must reach the file")
 }
 
 func TestManifestPathFor(t *testing.T) {
@@ -723,6 +745,15 @@ func TestProcessDirectory_RecursiveMergesWholeTree(t *testing.T) {
 	assert.Equal(t, 2, manifest.SuccessCount, "the nested file must be read too")
 	assert.FileExists(t, outputFile)
 
+	// Checking SuccessCount alone would stay green even if only the last
+	// file's transactions made it into merged (e.g. an accidental
+	// `merged = transactions` instead of `append`): assert the row count
+	// the output actually contains, one per successfully parsed file.
+	body, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimRight(string(body), "\n"), "\n")
+	assert.Len(t, lines, 3, "header plus one row per successfully parsed file")
+
 	entries, err := os.ReadDir(filepath.Dir(outputFile))
 	require.NoError(t, err)
 	var csvCount int
@@ -746,4 +777,68 @@ func TestProcessDirectory_EmptyDirectoryExitsTwo(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, manifest.ExitCode())
+}
+
+// A CSV write failure must not swallow the manifest: the run report naming
+// which files succeeded is exactly what a user needs to know what to re-run,
+// and losing it precisely when the run failed would defeat ADR-021's
+// partial-failure design.
+func TestProcessDirectory_WriteErrorIsReturned(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outDir := t.TempDir()
+	outputFile := filepath.Join(outDir, "out.csv")
+	// Making outDir itself read-only would also block the manifest write
+	// (same directory, same permission), which is exactly the bug this test
+	// exists to catch — a false pass. Instead, pre-create the CSV path as a
+	// directory: os.Create(csvFile) fails on it (EISDIR) while the manifest,
+	// a differently-named file in the same otherwise-writable directory,
+	// still succeeds.
+	require.NoError(t, os.MkdirAll(outputFile, 0750))
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.Error(t, err, "a CSV write failure must be returned to the caller")
+	require.NotNil(t, manifest, "the manifest must still be returned on a write failure")
+	assert.Equal(t, 1, manifest.SuccessCount, "the file itself parsed fine; only the final write failed")
+
+	assert.FileExists(t, ManifestPathFor(outputFile),
+		"the run report must be written even when the CSV write fails")
+}
+
+// A second run over the same folder must not treat its own previous CSV and
+// manifest as inputs to convert. The old manifest name (.manifest.json) was
+// hidden and always skipped; the new name is not.
+func TestProcessDirectory_RepeatRunIgnoresOwnOutput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(inputDir, "releves.csv")
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest1, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+	assert.Equal(t, 1, manifest1.TotalFiles, "the first run must only see the real input file")
+	assert.FileExists(t, outputFile)
+	assert.FileExists(t, ManifestPathFor(outputFile))
+
+	// Second run over the same folder: releves.csv and releves.manifest.json
+	// from the first run are now sitting in inputDir alongside a.csv.
+	manifest2, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+	assert.Equal(t, 1, manifest2.TotalFiles,
+		"a repeat run must not discover its own previous CSV or manifest as inputs")
+	assert.Equal(t, 0, manifest2.ExitCode(), "a repeat run over unchanged input must still cleanly succeed")
 }

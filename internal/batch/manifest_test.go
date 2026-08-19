@@ -13,14 +13,32 @@ import (
 
 func TestExitCode_AllSuccess(t *testing.T) {
 	manifest := &BatchManifest{
-		TotalFiles:   5,
-		SuccessCount: 5,
-		FailureCount: 0,
-		Results:      []BatchResult{},
+		TotalFiles:       5,
+		SuccessCount:     5,
+		FailureCount:     0,
+		TransactionCount: 50,
+		Results:          []BatchResult{},
 	}
 
 	exitCode := manifest.ExitCode()
 	assert.Equal(t, 0, exitCode, "All success should return exit code 0")
+}
+
+// A run where every file parsed successfully but none produced a single
+// transaction (e.g. the wrong parser was pinned via --from: it validates
+// the format but extracts nothing) must not report a clean exit. The
+// manifest would otherwise say "3/3 files succeeded" with no CSV on disk.
+func TestExitCode_SuccessfulFilesButZeroTransactions(t *testing.T) {
+	manifest := &BatchManifest{
+		TotalFiles:       3,
+		SuccessCount:     3,
+		FailureCount:     0,
+		TransactionCount: 0,
+		Results:          []BatchResult{},
+	}
+
+	exitCode := manifest.ExitCode()
+	assert.Equal(t, 2, exitCode, "successful parses yielding zero transactions must not exit 0")
 }
 
 func TestExitCode_AllFailed(t *testing.T) {
@@ -37,10 +55,11 @@ func TestExitCode_AllFailed(t *testing.T) {
 
 func TestExitCode_PartialSuccess(t *testing.T) {
 	manifest := &BatchManifest{
-		TotalFiles:   8,
-		SuccessCount: 5,
-		FailureCount: 3,
-		Results:      []BatchResult{},
+		TotalFiles:       8,
+		SuccessCount:     5,
+		FailureCount:     3,
+		TransactionCount: 30,
+		Results:          []BatchResult{},
 	}
 
 	exitCode := manifest.ExitCode()
@@ -67,9 +86,10 @@ func TestWriteManifest_ValidJSON(t *testing.T) {
 	// Create a manifest with sample data
 	now := time.Now()
 	manifest := &BatchManifest{
-		TotalFiles:   3,
-		SuccessCount: 2,
-		FailureCount: 1,
+		TotalFiles:       3,
+		SuccessCount:     2,
+		FailureCount:     1,
+		TransactionCount: 30,
 		Results: []BatchResult{
 			{
 				FilePath:    "/path/to/file1.xml",
@@ -117,6 +137,7 @@ func TestWriteManifest_ValidJSON(t *testing.T) {
 	assert.Equal(t, manifest.TotalFiles, decoded.TotalFiles)
 	assert.Equal(t, manifest.SuccessCount, decoded.SuccessCount)
 	assert.Equal(t, manifest.FailureCount, decoded.FailureCount)
+	assert.Equal(t, manifest.TransactionCount, decoded.TransactionCount)
 	assert.Len(t, decoded.Results, 3)
 
 	// Verify indentation (check that JSON is pretty-printed)
