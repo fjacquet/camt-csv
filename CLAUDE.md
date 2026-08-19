@@ -96,7 +96,7 @@ The CAMT.053 XML shape is described in two places on purpose: `internal/models/i
 
 Directory processing is **not** a parser concern: `batch.BatchProcessor` (`internal/batch/processor.go`) composes a `FullParser` with an `OutputFormatter`, merges every file's transactions into a single date-sorted CSV, and writes a run report beside it (`batch.ManifestPathFor` names it after the output file, e.g. `releves.csv` → `releves.manifest.json`). `cmd/convert.convertDirectory` is the single CLI entry point to it.
 
-New parsers are registered in `internal/container/container.go` (`newParsers`). CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.
+New parsers are registered inline in `internal/container/container.go` (`NewContainer`), which constructs each adapter, wires it with `SetCategorizer`, and adds it to the `parsers` map. CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.
 
 **Format Detection** (`internal/container/detect.go`): `Container.DetectParser(path)` asks each parser's `ValidateFormat` in turn and returns the first that accepts the file; it backs the `convert` command. Adding a parser means adding it to `detectionOrder` — and its `ValidateFormat` must be specific enough to reject other formats, or detection breaks for everyone. `TestDetectParser_ValidatorsDoNotOverlap` enforces this by running every sample past every validator. `detectionOrder` also defines the set of valid `--from` values (`cmd/common.ParserTypeNames`), so a parser missing from it is unreachable by any route, not just auto-detection.
 

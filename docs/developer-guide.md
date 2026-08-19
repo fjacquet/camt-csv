@@ -530,13 +530,29 @@ There is no per-format CLI command to write. The CLI has exactly two
 commands, `convert` and `categorize`; `convert` reaches every parser through
 the DI container and the detection order.
 
-**File: `internal/container/container.go`** — add the parser to `newParsers`:
+**File: `internal/container/container.go`** — parsers are wired inline in
+`NewContainer`, not through a registry function. Add the parser alongside
+the existing ones, following the same shape — construct the adapter, wire
+the shared categorizer into it with `SetCategorizer`, then add it to the
+`parsers` map:
 ```go
-func newParsers(logger logging.Logger) map[ParserType]parser.FullParser {
-    return map[ParserType]parser.FullParser{
-        // ... existing parsers
-        MyFormat: myformatparser.NewAdapter(logger),
-    }
+func NewContainer(cfg *config.Config) (*Container, error) {
+    // ...
+    parsers := make(map[ParserType]parser.FullParser)
+
+    // CAMT parser
+    camtParser := camtparser.NewAdapter(logger)
+    camtParser.SetCategorizer(cat)
+    parsers[CAMT] = camtParser
+
+    // ... existing parsers ...
+
+    // MyFormat parser
+    myFormatParser := myformatparser.NewAdapter(logger)
+    myFormatParser.SetCategorizer(cat)
+    parsers[MyFormat] = myFormatParser
+
+    // ...
 }
 ```
 
