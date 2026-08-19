@@ -136,6 +136,7 @@ const unknownAccount = "unknown"
 type accountGroup struct {
 	account      string
 	transactions []models.Transaction
+	files        []string // source files attributed to this account
 }
 
 // ProcessDirectory reads every file under inputDir and writes one CSV per
@@ -180,7 +181,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// manifest from run 1 to every parser as inputs for run 2, recording
 	// both as format_not_recognized failures and turning an idempotent
 	// command into a partial-success exit code.
-	files = excludeOwnOutputs(files, outputFile)
+	files = excludeOwnOutputs(files, outputFile, bp.logger)
 
 	bp.logger.Info("Starting batch processing",
 		logging.Field{Key: "input_dir", Value: inputDir},
@@ -233,6 +234,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 				byAccount[account] = idx
 			}
 			groups[idx].transactions = append(groups[idx].transactions, transactions...)
+			groups[idx].files = append(groups[idx].files, result.FileName)
 		} else {
 			manifest.FailureCount++
 		}
@@ -242,6 +244,21 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// naming them, are the same from one run to the next regardless of the
 	// order the files happened to be read in.
 	sort.Slice(groups, func(i, j int) bool { return groups[i].account < groups[j].account })
+
+	// Files whose names carry no account number are merged into one CSV, which
+	// is the mixing this split exists to prevent — reached silently, because a
+	// name is the only evidence available (see common.AccountKeyFromFilename).
+	// One such file is an ordinary conversion; several are a merge the user
+	// has to be told about, since nothing in the output reveals it.
+	for _, group := range groups {
+		if group.account == unknownAccount && len(group.files) > 1 {
+			bp.logger.Warn("Several files could not be attributed to an account from their "+
+				"name and were merged into one CSV; rename them to carry the account "+
+				"number (e.g. CAMT.053_54293249_...) to split them",
+				logging.Field{Key: "files", Value: strings.Join(group.files, ", ")},
+				logging.Field{Key: "output", Value: AccountOutputPathFor(outputFile, unknownAccount)})
+		}
+	}
 
 	// A group holding no transactions is skipped rather than written empty:
 	// WriteTransactionsToCSVWithFormatter errors on a nil slice (it only
@@ -416,10 +433,14 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 // the CLI layer: any caller writing its output inside the directory it just
 // read deserves the same protection against re-ingesting its own report and
 // CSVs on a second run.
-func excludeOwnOutputs(files []string, outputFile string) []string {
+func excludeOwnOutputs(files []string, outputFile string, logger logging.Logger) []string {
 	dir, prefix, ext := accountOutputParts(outputFile)
 	outputDir := absPath(dir)
 	manifest := absPath(ManifestPathFor(outputFile))
+	// The unsuffixed output path is no longer written, but a release before
+	// per-account naming did write it, and it may still be sitting in the
+	// folder being read.
+	unsuffixed := absPath(outputFile)
 
 	// The working directory is resolved once, not once per file:
 	// filepath.Abs stats it on every relative path, and discoverFiles hands
@@ -433,10 +454,13 @@ func excludeOwnOutputs(files []string, outputFile string) []string {
 	filtered := files[:0]
 	for _, f := range files {
 		abs := absPathIn(wd, f)
-		if abs == manifest {
-			continue
-		}
-		if filepath.Dir(abs) == outputDir && isAccountOutputName(filepath.Base(abs), prefix, ext) {
+		if abs == manifest || abs == unsuffixed ||
+			(filepath.Dir(abs) == outputDir && isAccountOutputName(filepath.Base(abs), prefix, ext)) {
+			// Skipped files appear nowhere else: not in TotalFiles, not in
+			// the manifest. If the name-shape guess is wrong, this line is
+			// the only trace the user has to find it by.
+			logger.Info("Skipping a file that this run would have written itself",
+				logging.Field{Key: "path", Value: f})
 			continue
 		}
 		filtered = append(filtered, f)
@@ -451,16 +475,21 @@ func excludeOwnOutputs(files []string, outputFile string) []string {
 func staleOutputs(outputFile string) []string {
 	dir, prefix, ext := accountOutputParts(outputFile)
 
-	matches, err := filepath.Glob(filepath.Join(dir, prefix+"*"+ext))
+	// The directory is read rather than globbed: filepath.Glob would read the
+	// user's own path as a pattern, and a folder named "Relevés [2026]" is an
+	// ordinary folder, not a character class. Globbing it silences this
+	// warning exactly where a stale CSV sits.
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil
 	}
 
 	var stale []string
-	for _, m := range matches {
-		if isAccountOutputName(filepath.Base(m), prefix, ext) {
-			stale = append(stale, m)
+	for _, entry := range entries {
+		if entry.IsDir() || !isAccountOutputName(entry.Name(), prefix, ext) {
+			continue
 		}
+		stale = append(stale, filepath.Join(dir, entry.Name()))
 	}
 	sort.Strings(stale)
 	return stale

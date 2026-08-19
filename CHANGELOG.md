@@ -24,6 +24,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CSV written and how many transactions it holds, and record on each file
   result the account it was attributed to. Log each CSV `convert` wrote.
 
+### Fixed
+
+- Warn when several files carry no account number in their name and are merged
+  into `<output>_unknown.csv` — the mixing per-account output exists to
+  prevent, reachable silently when statements have been renamed.
+- Do not read a leading `YYYYMMDD` date as an account number
+  (`20260401_releve.pdf`), which split one account into one CSV per month.
+- Name in the log every file skipped as this run's own output; a wrong guess
+  was invisible, appearing in neither the file count nor the manifest.
+- Skip an unsuffixed `<output>.csv` left in the input directory by a release
+  before per-account naming, instead of offering it to every parser as input.
+- Detect stale outputs by reading the directory rather than globbing, so an
+  output path containing `[`, `*`, or `?` no longer silences the warning.
+- Name the account CSVs that were written before reporting a failed write, so
+  a partial failure no longer hides which outputs exist.
+
+### Security
+
+- Stop leaking the Gemini API key through transport errors. The key travelled
+  as a `?key=` query parameter, and `net/http` embeds the request URL in every
+  transport error (timeout, refused connection, cancelled request), so it was
+  printed in cleartext wherever such an error was logged — routinely, since the
+  background embedding warm-up is cancelled whenever a conversion finishes
+  first. The key now travels in the `x-goog-api-key` header, and transport
+  errors are reported without the URL. **Rotate any key used with a previous
+  release: it may be in terminal scrollback and log files.**
+
 ## [3.0.0] - 2026-08-19
 
 ### Removed

@@ -130,21 +130,26 @@ func convertDirectory(ctx context.Context, appContainer *container.Container, re
 	processor := batch.NewBatchProcessor(resolve, logger, outFormatter, recursive)
 
 	manifest, err := processor.ProcessDirectory(ctx, inputPath, outputFile)
+
+	// Each account's rows are in their own CSV, so the path the user typed is
+	// never the path their transactions ended up in: name every file. This
+	// runs before the error check on purpose — one account's failed write
+	// does not discard the others, and Fatal never returns, so reporting
+	// afterwards would tell the user the batch failed without ever naming the
+	// CSVs it did write.
+	for _, account := range manifest.GetAccounts() {
+		logger.Info("Wrote account CSV",
+			logging.Field{Key: "account", Value: account.Account},
+			logging.Field{Key: "path", Value: account.OutputFile},
+			logging.Field{Key: "transactions", Value: account.TransactionCount})
+	}
+
 	if err != nil {
 		logger.WithError(err).Fatal("Batch conversion failed")
 		return
 	}
 
 	manifestPath := batch.ManifestPathFor(outputFile)
-
-	// Each account's rows are in their own CSV, so the path the user typed
-	// is never the path their transactions ended up in: name every file.
-	for _, account := range manifest.Accounts {
-		logger.Info("Wrote account CSV",
-			logging.Field{Key: "account", Value: account.Account},
-			logging.Field{Key: "path", Value: account.OutputFile},
-			logging.Field{Key: "transactions", Value: account.TransactionCount})
-	}
 
 	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
 		manifest.SuccessCount, manifest.TotalFiles))

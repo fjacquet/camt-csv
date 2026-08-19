@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // AccountIdentifier represents an extracted account identifier with its source
@@ -150,8 +151,27 @@ func AccountKeyFromFilename(path string) string {
 	}
 
 	if matches := leadingAccountKeyPattern.FindStringSubmatch(baseName); len(matches) >= 2 {
+		if isCompactDate(matches[1]) {
+			return ""
+		}
 		return matches[1]
 	}
 
 	return ""
+}
+
+// isCompactDate reports whether a digit run is a YYYYMMDD date rather than an
+// account number.
+//
+// Exports are routinely named by date, and a compact date occupies exactly the
+// position an account number does: 20260401_releve.pdf. Reading it as an
+// account writes one CSV per month for a single account — the mirror image of
+// the mixing this split exists to prevent, and just as invisible. A digit run
+// that only resembles a date (20261301) is not one, and stays an account.
+func isCompactDate(digits string) bool {
+	if len(digits) != 8 {
+		return false
+	}
+	_, err := time.Parse("20060102", digits)
+	return err == nil
 }

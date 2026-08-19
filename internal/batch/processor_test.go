@@ -1248,3 +1248,148 @@ func TestProcessDirectory_ZeroTransactionRunIgnoresUnrelatedFiles(t *testing.T) 
 		}
 	}
 }
+
+// Files whose names carry no account number are merged into one CSV — the
+// exact mixing this feature exists to prevent, reached silently. It cannot be
+// prevented from a file name alone, so it must at least be said out loud.
+func TestProcessDirectory_WarnsWhenSeveralFilesMergeIntoUnknown(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "releves.csv")
+
+	writeSample(t, inputDir, "camt53-47.xml", "x")
+	writeSample(t, inputDir, "camt53-49.xml", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	var warned bool
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		if strings.Contains(entry.Message, "account") && strings.Contains(entry.Message, "name") {
+			warned = true
+		}
+	}
+	assert.True(t, warned,
+		"merging several files of unknown account into one CSV must be warned about")
+}
+
+// A single unknown-account file is not a merge and needs no warning: a
+// warning on every ordinary one-file conversion would train the user to
+// ignore the one that matters.
+func TestProcessDirectory_SingleUnknownFileIsNotWarnedAbout(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "releves.csv")
+
+	writeSample(t, inputDir, "statement.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		assert.NotContains(t, entry.Message, "could not be attributed")
+	}
+}
+
+// A file dropped from the work list because it looks like this run's own
+// output is invisible everywhere else: it is not in TotalFiles and not in the
+// manifest. If the guess is wrong, the only trace is the log.
+func TestProcessDirectory_LogsFilesSkippedAsOwnOutput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(inputDir, "releves.csv")
+
+	writeSample(t, inputDir, "releves_54293249.csv", "x")
+	writeSample(t, inputDir, "a.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	var named bool
+	for _, entry := range logger.GetEntries() {
+		for _, f := range entry.Fields {
+			if v, ok := f.Value.(string); ok && strings.HasSuffix(v, "releves_54293249.csv") {
+				named = true
+			}
+		}
+	}
+	assert.True(t, named, "a file skipped as this run's own output must be named in the log")
+}
+
+// Before per-account naming, the output file itself was excluded by exact
+// path. A releves.csv left in the input directory by an older version is not
+// account-shaped, so nothing skips it now: it would be offered to every
+// parser and recorded as a format failure, turning a repeat run into a
+// partial-success exit code.
+func TestProcessDirectory_IgnoresUnsuffixedOutputLeftByAnOlderRun(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(inputDir, "releves.csv")
+
+	require.NoError(t, os.WriteFile(outputFile, []byte("Date;Amount\n"), 0600))
+	writeSample(t, inputDir, "a.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, manifest.TotalFiles,
+		"the output path itself must never be an input, suffixed or not")
+}
+
+// Stale-output detection must survive a path the user actually has: glob
+// metacharacters are ordinary characters in a folder name, and treating them
+// as a pattern silences the warning exactly when a stale CSV is present.
+func TestProcessDirectory_StaleOutputWarningSurvivesGlobCharsInPath(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := filepath.Join(t.TempDir(), "Relevés [2026]")
+	require.NoError(t, os.MkdirAll(outputDir, 0750))
+	outputFile := filepath.Join(outputDir, "out.csv")
+
+	stale := AccountOutputPathFor(outputFile, "54293249")
+	require.NoError(t, os.WriteFile(stale, []byte("date,amount\n"), 0600))
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return nil, nil // parses fine, yields nothing
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	var named bool
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		for _, f := range entry.Fields {
+			if f.Value == stale {
+				named = true
+			}
+		}
+	}
+	assert.True(t, named, "a stale CSV must be named even when its path contains glob characters")
+}

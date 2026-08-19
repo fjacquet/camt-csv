@@ -93,3 +93,14 @@ func (m *BatchManifest) WriteManifest(filePath string) error {
 func (m *BatchManifest) Summary() string {
 	return fmt.Sprintf("%d/%d files succeeded", m.SuccessCount, m.TotalFiles)
 }
+
+// GetAccounts returns the CSVs written, and is nil-safe: ProcessDirectory
+// returns a nil manifest for a failure with the directories themselves, and a
+// caller reporting what was written before checking the error should not have
+// to guard that separately.
+func (m *BatchManifest) GetAccounts() []AccountSummary {
+	if m == nil {
+		return nil
+	}
+	return m.Accounts
+}
