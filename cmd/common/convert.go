@@ -22,9 +22,12 @@ import (
 // saves the creditor/debitor mappings. Replaced in tests.
 var exitFn = root.SetExitCode
 
-// RunConvert is the shared handler for the eight format-specific convert
-// commands. It pins the parser to parserType rather than detecting it, and is
-// scheduled for removal alongside those commands.
+// RunConvert exists only until the eight format-specific commands (camt, pdf,
+// viseca, revolut, revolut-crypto, revolut-investment, selma, debit) are
+// deleted; it is not a second supported entry point alongside cmd/convert.
+// Do not extend it — ResolverFor/ResolveOutputFile below, used by cmd/convert,
+// are where new convert behavior belongs.
+//
 // It handles: get logger, get container, get parser, stat input, branch to batch or single-file.
 // When input is a directory:
 //   - If --output is not set, it logs a fatal error and exits.
