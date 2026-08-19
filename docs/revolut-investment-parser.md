@@ -51,10 +51,11 @@ The parser maps Revolut investment CSV fields to the standard transaction model 
 
 ## Command Line Usage
 
-The Revolut Investment parser is accessible through a new subcommand:
+The Revolut Investment parser is accessible through `convert --from`, which
+pins the parser instead of relying on format auto-detection:
 
 ```bash
-./camt-csv revolut-investment -i input-file.csv -o output-file.csv
+./camt-csv convert --from revolut-investment -i input-file.csv -o output-file.csv
 ```
 
 ### Options
@@ -62,43 +63,38 @@ The Revolut Investment parser is accessible through a new subcommand:
 - `-i, --input string`: Path to the input Revolut investment CSV file
 - `-o, --output string`: Path to the output standardized CSV file
 - `-v, --validate`: Validate the input file format without processing
+- `--from revolut-investment`: Pin the parser, bypassing auto-detection
 
 ### Examples
 
 ```bash
 # Convert a Revolut investment CSV file
-./camt-csv revolut-investment -i revolut-investments.csv -o transactions.csv
+./camt-csv convert --from revolut-investment -i revolut-investments.csv -o transactions.csv
 
 # Validate a Revolut investment CSV file format
-./camt-csv revolut-investment -i revolut-investments.csv -v
+./camt-csv convert --from revolut-investment -i revolut-investments.csv -v
 ```
 
 ## Implementation Details
 
 ### Package Structure
 
-The feature is implemented in a new package:
+The feature lives in its own package:
 
 ```bash
 internal/revolutinvestmentparser/
 ├── adapter.go
+├── coverage_test.go
 ├── revolutinvestmentparser.go
 └── revolutinvestmentparser_test.go
 ```
 
 ### Interface Compliance
 
-The parser implements the standard `parser.Parser` interface:
-
-```go
-type Parser interface {
-    ParseFile(filePath string) ([]models.Transaction, error)
-    WriteToCSV(transactions []models.Transaction, csvFile string) error
-    ValidateFormat(filePath string) (bool, error)
-    ConvertToCSV(inputFile, outputFile string) error
-    SetLogger(logger *logrus.Logger)
-}
-```
+Like every parser, it implements `parser.FullParser`
+(`internal/parser/parser.go`) — the composition of `Parse`, `ValidateFormat`,
+`ConvertToCSV`, `SetLogger` and `SetCategorizer` — registered with the DI
+container in `internal/container/container.go`.
 
 ### Categorization
 

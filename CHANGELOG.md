@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stray `README.txt` was invisible. `convert` offers every non-hidden file to
   the detector and records the stray as a failure. The CSV content is
   unchanged; only the exit status differs.
+- **BREAKING:** `convert` on a directory now routes `manifest.ExitCode()`:
+  exit 1 on partial failure, exit 2 when nothing converted. The pre-restructure
+  `convert` command's directory mode never set an exit code at all — an
+  unrecognized file only counted as "skipped" in the summary log, and the
+  process always exited 0 regardless of how many files failed.
 - Group the help output, separating conversion from diagnostic tools.
 - Correct the root command description, which described the tool as a
   CAMT.053 converter three formats after it stopped being one.

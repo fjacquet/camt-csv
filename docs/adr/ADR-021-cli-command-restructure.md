@@ -152,8 +152,14 @@ One unreadable file out of forty must not discard the other thirty-nine. The CSV
 is written with what succeeded, the exit code reports partial success, and the
 manifest names the failures so the user knows what to re-run.
 
-Exit codes are unchanged (`manifest.ExitCode()`): `0` all succeeded, `1` partial,
-`2` all failed or no files found.
+Exit codes: `0` all succeeded, `1` partial, `2` all failed or no files found —
+`manifest.ExitCode()`. This was planned as unchanged, but two branches were
+added during implementation that this design did not anticipate: the
+pre-restructure `convert` command's directory mode never called an exit-code
+function at all (always 0, regardless of failures), and a batch that read
+files without error but produced zero transactions now also exits 2. Both are
+deliberate changes made while implementing this ADR, not something this
+document originally specified.
 
 The manifest replaces the output's `.csv` extension rather than appending to it:
 `-o releves/2024.csv` writes `releves/2024.csv` and `releves/2024.manifest.json`.
