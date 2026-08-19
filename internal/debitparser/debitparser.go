@@ -322,9 +322,3 @@ func ValidateFormatWithLogger(filePath string, logger logging.Logger) (bool, err
 
 	return true, nil
 }
-
-// ConvertToCSV converts a Visa Debit CSV file to the standard CSV format.
-// This is a convenience function that combines ParseFile and WriteToCSV.
-func ConvertToCSV(inputFile, outputFile string) error {
-	return common.GeneralizedConvertToCSV(inputFile, outputFile, ParseFile, ValidateFormat)
-}

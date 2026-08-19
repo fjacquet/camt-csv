@@ -18,11 +18,12 @@ CAMT-CSV is a powerful command-line tool that converts various financial stateme
 
 ### Key Features
 
-- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV (English and French locales), Revolut Crypto CSV, Revolut Investment CSV, Selma investment CSV, and generic debit CSV
+- **Multi-format Support**: CAMT.053 XML, PDF bank statements, Revolut CSV (English and French locales), Revolut Crypto CSV, Revolut Investment CSV, Selma investment CSV, Viseca CSV, and generic debit CSV
 - **Smart Categorization**: Four-tier strategy pattern using direct mapping, keyword matching, semantic search, and AI fallback with auto-learning
 - **Dependency Injection Architecture**: Clean architecture with explicit dependencies, eliminating global state
 - **Hierarchical Configuration**: Viper-based configuration system with config files, environment variables, and CLI flags
-- **Batch Processing**: Process multiple files at once with automatic format detection
+- **Format Auto-Detection**: A single `convert` command offers each file to every parser in turn and uses the first that recognizes it; `--from <format>` pins one explicitly
+- **Directory Conversion**: Point `convert` at a directory to merge every file's transactions into one date-sorted CSV, with `--recursive` to descend into subdirectories
 - **Investment Support**: Dedicated parser for Revolut investment transactions with specialized categorization
 - **Extensible Architecture**: Standardized parser interfaces with BaseParser foundation and segregated interfaces
 - **Comprehensive Error Handling**: Custom error types with detailed context and proper error wrapping
@@ -46,7 +47,7 @@ Multi-arch images (amd64/arm64) are available on GitHub Container Registry:
 docker pull ghcr.io/fjacquet/camt-csv:latest
 
 # Run directly
-docker run --rm -v $(pwd):/data ghcr.io/fjacquet/camt-csv:latest camt -i /data/statement.xml -o /data/output.csv
+docker run --rm -v $(pwd):/data ghcr.io/fjacquet/camt-csv:latest convert -i /data/statement.xml -o /data/output.csv
 ```
 
 ### Binary Download
@@ -174,18 +175,15 @@ All commands support these global flags and configuration options:
 
 ### Command-Specific Flags
 
-#### Parser Commands (camt, pdf, revolut, revolut-crypto, revolut-investment, selma, debit)
+#### `convert` Command
 
 | CLI Flag | Default | Description |
 |----------|---------|-------------|
-| `-f, --format` | `standard` | Output format: `standard` (29-col, comma) or `icompta` (10-col, semicolon, dd.MM.yyyy) |
-| `--date-format` | `DD.MM.YYYY` | Date format in output |
-
-#### PDF Command Only
-
-| CLI Flag | Default | Description |
-|----------|---------|-------------|
-| `--batch` | `false` | Batch mode: convert each PDF individually |
+| `-f, --format` | `icompta` | Output format: `icompta` (semicolon-delimited), `standard` (29-col, comma), or `jumpsoft` (7-col, comma) |
+| `--from` | - | Pin the input format instead of auto-detecting it: `camt`, `pdf`, `revolut`, `revolut-crypto`, `revolut-investment`, `selma`, `viseca`, `debit`. On a directory this pins every file; files it cannot read fail individually |
+| `--recursive` | `false` | When the input is a directory, also process files in its subdirectories |
+| `--keep-payments` | `false` | Import the monthly Viseca card settlement rows (dropped by default because the bank statement carries the same payments) |
+| `--date-format` | `DD.MM.YYYY` | Deprecated, has no effect — output dates are always `DD.MM.YYYY` |
 
 #### Categorize Command
 
@@ -264,74 +262,80 @@ export GEMINI_API_KEY=your_api_key_here
 
 ### Command Structure
 
-All CAMT-CSV commands follow this pattern:
+CAMT-CSV has two commands:
 
 ```bash
-./camt-csv [command] -i [input_file] -o [output_file]
+./camt-csv convert -i [input_file_or_directory] -o [output_file]
+./camt-csv categorize -p [party_name]
 ```
 
 ### Supported Commands
 
-| Command | Description | Input Format |
-|---------|-------------|--------------|
-| `camt` | Convert CAMT.053 XML files | XML bank statements |
-| `pdf` | Convert PDF bank statements | PDF files |
-| `revolut` | Process Revolut CSV exports | Revolut CSV format |
-| `revolut-crypto` | Process Revolut Crypto account CSV exports | Revolut Crypto CSV (French locale) |
-| `revolut-investment` | Process Revolut investment transactions | Revolut investment CSV format |
-| `selma` | Process Selma investment files | Selma CSV format |
-| `debit` | Process generic debit CSV files | Generic CSV format |
-| `batch` | Process multiple files | Directory of files |
-| `categorize` | Categorize existing transactions | CSV files |
+| Command | Description |
+|---------|-------------|
+| `convert` | Convert a statement, or a directory of statements, to CSV. The format is auto-detected per file; pass `--from <format>` to pin one |
+| `categorize` | Categorize a single party name using the AI model, without converting a file |
+
+`convert` recognizes: CAMT.053 XML, PDF bank statements (including Viseca card statements), Revolut CSV, Revolut Crypto CSV, Revolut Investment CSV, Selma CSV, Viseca CSV, and generic debit CSV.
 
 ### Quick Start Examples
 
 1. **Convert a CAMT.053 XML file:**
 
    ```bash
-   ./camt-csv camt -i bank_statement.xml -o transactions.csv
+   ./camt-csv convert -i bank_statement.xml -o transactions.csv
    ```
 
 2. **Process a PDF bank statement:**
 
    ```bash
-   ./camt-csv pdf -i statement.pdf -o transactions.csv
+   ./camt-csv convert -i statement.pdf -o transactions.csv
    ```
 
 3. **Convert Revolut export:**
 
    ```bash
-   ./camt-csv revolut -i revolut_export.csv -o processed.csv
+   ./camt-csv convert -i revolut_export.csv -o processed.csv
    ```
 
 4. **Process Revolut Crypto transactions:**
 
    ```bash
-   ./camt-csv revolut-crypto -i crypto_export.csv -o processed.csv
+   ./camt-csv convert -i crypto_export.csv -o processed.csv
    ```
 
 5. **Process Revolut investment transactions:**
 
    ```bash
-   ./camt-csv revolut-investment -i investment_export.csv -o processed.csv
+   ./camt-csv convert -i investment_export.csv -o processed.csv
+   ```
+
+6. **Convert a directory of mixed-format statements into one CSV:**
+
+   ```bash
+   ./camt-csv convert -i statements/ -o processed.csv --recursive
    ```
 
 ## Advanced Features
 
-### Batch Processing
+### Directory (Batch) Processing
 
-Process multiple files in a directory:
+Process every file in a directory by pointing `convert` at the directory instead of a file:
 
 ```bash
-./camt-csv batch -i input_directory -o output_directory
+./camt-csv convert -i input_directory -o output.csv
 ```
 
 **Features:**
 
-- Automatically detects file types
-- Processes all supported formats
-- Maintains original filenames with `.csv` extension
-- Skips unsupported files with warnings
+- Automatically detects each file's format
+- Merges every file's transactions into a single, date-sorted output CSV
+- Writes a run report beside the output, named after it (e.g. `output.csv` → `output.manifest.json`), recording per-file success/failure
+- `--recursive` also processes files in subdirectories
+- `--from <format>` pins every file to one parser instead of auto-detecting, for a directory where detection guesses wrong
+- `-o` pointing at an existing directory generates a filename inside it from the input directory's name
+- `-o` may not point inside the input directory — a later `--recursive` run would read its own output back as input
+- Exits `0` only if every file succeeded and transactions were produced, `1` on partial success, `2` if every file failed or the run produced zero transactions
 
 ### Transaction Categorization
 
@@ -394,7 +398,7 @@ Store configuration files in a custom location by setting the `CAMT_DATA_DIRECTO
 
 ```bash
 export CAMT_DATA_DIRECTORY="/path/to/custom/data"
-./camt-csv camt -i input.xml -o output.csv
+./camt-csv convert -i input.xml -o output.csv
 ```
 
 ## File Format Support
@@ -412,7 +416,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv camt -i bank_statement.xml -o transactions.csv
+./camt-csv convert -i bank_statement.xml -o transactions.csv
 ```
 
 ### PDF Bank Statements
@@ -428,7 +432,34 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv pdf -i statement.pdf -o transactions.csv
+./camt-csv convert -i statement.pdf -o transactions.csv
+```
+
+### Viseca CSV Export
+
+**Description**: Processes the CSV transaction export from the Viseca One portal
+
+**Prefer this over the PDF statement when both are available**: the CSV export
+carries the merchant name, the foreign-currency detail (original amount and
+exchange rate), and a stable per-transaction identifier that the PDF
+statements do not have. The identifier becomes the transaction's
+`BookkeepingNumber`, which iCompta uses to deduplicate re-imported statements.
+The PDF parser remains the route for historical statements you only have as
+PDF.
+
+**Features**:
+
+- Merchant name and foreign-currency detail
+- Stable `TransactionId` used as `BookkeepingNumber`
+- Drops the monthly card settlement row by default (`--keep-payments` to keep it) — the bank statement already carries that same payment, and importing both double-counts it
+
+**Example Usage**:
+
+```bash
+./camt-csv convert -i viseca_export.csv -o transactions.csv
+
+# Keep the monthly settlement row (only if you are not also importing the bank statement)
+./camt-csv convert -i viseca_export.csv -o transactions.csv --keep-payments
 ```
 
 ### Revolut CSV Files
@@ -444,7 +475,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv revolut -i revolut_export.csv -o processed.csv
+./camt-csv convert -i revolut_export.csv -o processed.csv
 ```
 
 ### Revolut Investment CSV Files
@@ -466,7 +497,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv revolut-investment -i investment_export.csv -o processed.csv
+./camt-csv convert -i investment_export.csv -o processed.csv
 ```
 
 ### Selma Investment CSV
@@ -482,7 +513,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv selma -i selma_transactions.csv -o processed.csv
+./camt-csv convert -i selma_transactions.csv -o processed.csv
 ```
 
 ### Generic Debit CSV
@@ -497,7 +528,7 @@ export CAMT_DATA_DIRECTORY="/path/to/custom/data"
 **Example Usage**:
 
 ```bash
-./camt-csv debit -i debit_transactions.csv -o processed.csv
+./camt-csv convert -i debit_transactions.csv -o processed.csv
 ```
 
 ## Transaction Categorization
@@ -598,7 +629,8 @@ sudo apt-get install poppler-utils
 **Problem**: File not recognized or validation fails
 **Solutions**:
 
-- Verify file format matches command (XML for `camt`, PDF for `pdf`, etc.)
+- Verify the file is actually one of the supported formats
+- If auto-detection guesses wrong (or the format can't be told apart from another), pin it with `--from <format>` (e.g. `--from camt`, `--from pdf`)
 - Check file isn't corrupted
 - Try with a sample file first
 - Look for specific error details in the error message (enhanced error types provide detailed context)
@@ -627,7 +659,7 @@ sudo apt-get install poppler-utils
 Enable detailed logging for troubleshooting by setting the log level as a CLI flag:
 
 ```bash
-./camt-csv --log-level debug camt -i input.xml -o output.csv
+./camt-csv --log-level debug convert -i input.xml -o output.csv
 ```
 
 ### Understanding Error Messages
@@ -663,10 +695,10 @@ Configure logging output format and level:
 
 ```bash
 # JSON format for structured logging
-./camt-csv --log-format json --log-level info camt -i input.xml -o output.csv
+./camt-csv --log-format json --log-level info convert -i input.xml -o output.csv
 
 # Text format for human-readable output
-./camt-csv --log-format text --log-level debug camt -i input.xml -o output.csv
+./camt-csv --log-format text --log-level debug convert -i input.xml -o output.csv
 ```
 
 ### Getting Help
@@ -681,7 +713,7 @@ Configure logging output format and level:
 
 ```bash
 # Convert XML bank statement to CSV
-./camt-csv camt -i samples/camt053/statement.xml -o output/transactions.csv
+./camt-csv convert -i samples/camt053/statement.xml -o output/transactions.csv
 
 # View the results
 head -5 output/transactions.csv
@@ -696,10 +728,10 @@ head -5 output/transactions.csv
       delimiter: ";"
     ```
 
-2.  **Process all files in a directory**:
+2.  **Process all files in a directory into one CSV**:
 
     ```bash
-    ./camt-csv batch -i input_files/ -o output_files/
+    ./camt-csv convert -i input_files/ -o output.csv
     ```
 
 ### Example 3: AI-Powered Categorization
@@ -720,7 +752,7 @@ head -5 output/transactions.csv
 3.  **Process with AI categorization**:
 
     ```bash
-    ./camt-csv revolut -i revolut_export.csv -o categorized.csv
+    ./camt-csv convert -i revolut_export.csv -o categorized.csv
     ```
 
 ### Example 4: Custom Categories
@@ -746,14 +778,14 @@ head -5 output/transactions.csv
 3.  **Process transactions**:
 
     ```bash
-    ./camt-csv camt -i statement.xml -o categorized.csv
+    ./camt-csv convert -i statement.xml -o categorized.csv
     ```
 
 ### Example 5: Processing Revolut Investment Transactions
 
 ```bash
 # Process Revolut investment CSV with detailed transaction categorization
-./camt-csv revolut-investment -i revolut_investment_export.csv -o investment_transactions.csv
+./camt-csv convert -i revolut_investment_export.csv -o investment_transactions.csv
 
 # View the processed investment transactions
 head -10 investment_transactions.csv
@@ -771,7 +803,7 @@ Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate
 
 ```bash
 # Process with detailed logging enabled via CLI flag
-./camt-csv --log-level debug --log-format text pdf -i problematic.pdf -o debug.csv 2>&1 | tee debug.log
+./camt-csv --log-level debug --log-format text convert -i problematic.pdf -o debug.csv 2>&1 | tee debug.log
 
 # Review debug information
 less debug.log

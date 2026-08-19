@@ -97,44 +97,6 @@ RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
 	assert.Equal(t, models.TransactionTypeDebit, transactions[0].CreditDebit)
 }
 
-func setupTestCategorizer(t *testing.T) {
-	// The new categorizer system uses dependency injection and doesn't require global setup
-	// Tests that need categorization should create their own categorizer instances
-}
-
-func TestConvertToCSV(t *testing.T) {
-	setupTestCategorizer(t)
-	// Create a temporary valid debit CSV file
-	validContent := `Bénéficiaire;Date;Montant;Monnaie
-PMT CARTE RATP;15.04.2025;-4,21;CHF
-PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF`
-
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.csv")
-	if err := os.WriteFile(inputFile, []byte(validContent), 0600); err != nil {
-		t.Fatalf("Failed to write input file: %v", err)
-	}
-
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Convert to CSV
-	err := ConvertToCSV(inputFile, outputFile)
-	if err != nil {
-		t.Fatalf("ConvertToCSV returned an error: %v", err)
-	}
-
-	// Check if output file exists
-	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
-		t.Errorf("Output file was not created")
-	}
-
-	// Test with invalid input file
-	err = ConvertToCSV("nonexistent.csv", outputFile)
-	if err == nil {
-		t.Errorf("ConvertToCSV should have returned an error for a nonexistent file")
-	}
-}
-
 func TestParseWithCategorizer(t *testing.T) {
 	validContent := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
 PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
@@ -318,17 +280,6 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF`
 func TestDebitParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-
-	t.Run("invalid_file_path_in_error", func(t *testing.T) {
-		invalidPath := "/nonexistent/test_file.csv"
-
-		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
-		require.Error(t, err)
-
-		// Error should include the file path that was attempted
-		assert.Contains(t, err.Error(), invalidPath,
-			"Error message should include file path for debugging")
-	})
 
 	t.Run("malformed_csv_includes_context", func(t *testing.T) {
 		tempDir := t.TempDir()

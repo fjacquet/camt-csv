@@ -1,7 +1,6 @@
 package revolutinvestmentparser
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,45 +30,6 @@ func writeTestFile(t *testing.T, dir, name, content string) string {
 func newTestAdapter() *Adapter {
 	logger := logging.NewLogrusAdapter("info", "text")
 	return NewAdapter(logger)
-}
-
-// --- ConvertToCSV tests ---
-
-func TestConvertToCSV_ValidFile(t *testing.T) {
-	adapter := newTestAdapter()
-	tmpDir := t.TempDir()
-
-	inputFile := writeTestFile(t, tmpDir, "input.csv", validCSVContent())
-	outputFile := filepath.Join(tmpDir, "output.csv")
-
-	err := adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-	require.NoError(t, err)
-
-	info, err := os.Stat(outputFile)
-	require.NoError(t, err)
-	assert.Greater(t, info.Size(), int64(0), "output CSV should not be empty")
-}
-
-func TestConvertToCSV_NonexistentInput(t *testing.T) {
-	adapter := newTestAdapter()
-	tmpDir := t.TempDir()
-
-	outputFile := filepath.Join(tmpDir, "output.csv")
-
-	err := adapter.ConvertToCSV(context.Background(), "/nonexistent/path/file.csv", outputFile)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error opening input file")
-}
-
-func TestConvertToCSV_InvalidContent(t *testing.T) {
-	adapter := newTestAdapter()
-	tmpDir := t.TempDir()
-
-	inputFile := writeTestFile(t, tmpDir, "bad.csv", "not,a,valid,revolut,investment,csv,file,content")
-	outputFile := filepath.Join(tmpDir, "output.csv")
-
-	err := adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-	require.Error(t, err)
 }
 
 // --- ValidateFormat tests ---

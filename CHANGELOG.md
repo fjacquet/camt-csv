@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the `camt`, `pdf`, `selma`, `viseca`, `revolut`, `revolut-crypto`,
+  `revolut-investment` and `debit` commands. Use `convert`, which detects the
+  format, with `--from <format>` to pin one.
+
+### Added
+
+- Add `--from <format>` to `convert`, pinning the parser and bypassing
+  auto-detection. On a directory it pins every file to that parser rather than
+  filtering to files it recognizes; files it cannot read fail individually and
+  are recorded in the manifest. It is an escape hatch for a misdetecting
+  batch, not a filter that selects matching files.
+- Promote `--keep-payments` from the removed `viseca` command to `convert`.
+- Report the detected format for every file `convert` processes, including in
+  directory mode, which never had this before.
+
+### Changed
+
+- **BREAKING:** A directory input now produces a single consolidated CSV
+  sorted by date, instead of one CSV per input file. `--output` always names
+  a file; pointing it at an existing directory generates a name inside it.
+- **BREAKING:** Write the batch run report beside the output
+  (`<output-basename>.manifest.json`, e.g. `releves.manifest.json` for
+  `releves.csv`) rather than as a fixed `.manifest.json` inside the output
+  directory.
+- **BREAKING:** Exit 2 when files were read but produced zero transactions.
+  Previously such a run exited 0 with no output file — a silent success on a
+  failed conversion, which is exactly what a wrong `--from` produces.
+- **BREAKING:** Exit 1 where PDF directory conversion used to exit 0. The
+  removed `pdf` command filtered a directory to `*.pdf` before parsing, so a
+  stray `README.txt` was invisible. `convert` offers every non-hidden file to
+  the detector and records the stray as a failure. The CSV content is
+  unchanged; only the exit status differs.
+- **BREAKING:** `convert` on a directory now routes `manifest.ExitCode()`:
+  exit 1 on partial failure, exit 2 when nothing converted. The pre-restructure
+  `convert` command's directory mode never set an exit code at all — an
+  unrecognized file only counted as "skipped" in the summary log, and the
+  process always exited 0 regardless of how many files failed.
+- Group the help output, separating conversion from diagnostic tools.
+- Correct the root command description, which described the tool as a
+  CAMT.053 converter three formats after it stopped being one.
+
+### Fixed
+
+- Refuse an `--output` path inside the input directory, where a later
+  `--recursive` run would read its own output back as input.
+  `ProcessDirectory` independently excludes its own output and manifest from
+  discovery.
+- Anchor the `specs/` ignore rule to the repository root; a bare pattern also
+  matched nested `specs/` directories.
+
 ## [2.7.0] - 2026-08-18
 
 ### Fixed

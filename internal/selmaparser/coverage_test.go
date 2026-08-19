@@ -54,30 +54,6 @@ func TestAdapter_ValidateFormat(t *testing.T) {
 	})
 }
 
-func TestAdapter_ConvertToCSV(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	t.Run("nonexistent input file", func(t *testing.T) {
-		err := adapter.ConvertToCSV(context.Background(), "/nonexistent/file.csv", "/tmp/out.csv")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error opening input file")
-	})
-
-	t.Run("valid input produces output", func(t *testing.T) {
-		dir := t.TempDir()
-		inputPath := writeSelmaCSV(t, dir, "input.csv", validSelmaCSVHeader+validSelmaCSVRow)
-		outputPath := filepath.Join(dir, "output.csv")
-
-		err := adapter.ConvertToCSV(context.Background(), inputPath, outputPath)
-		assert.NoError(t, err)
-
-		// Verify output file exists
-		_, statErr := os.Stat(outputPath)
-		assert.NoError(t, statErr)
-	})
-}
-
 func TestCategorizeTransaction_AllBranches(t *testing.T) {
 	tests := []struct {
 		name       string

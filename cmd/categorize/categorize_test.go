@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCategorizeCommand_Metadata(t *testing.T) {
@@ -16,6 +17,15 @@ func TestCategorizeCommand_Metadata(t *testing.T) {
 	assert.Contains(t, categorize.Cmd.Short, "Categorize transactions")
 	assert.Contains(t, categorize.Cmd.Long, "Categorize transactions based on the party's name")
 	assert.NotNil(t, categorize.Cmd.Run)
+}
+
+// categorize takes its input entirely through flags (--party, --amount, ...);
+// a stray positional argument is a typo and must be rejected rather than
+// silently discarded.
+func TestCategorizeCommand_RejectsPositionalArgs(t *testing.T) {
+	require.NotNil(t, categorize.Cmd.Args, "categorize must reject positional arguments")
+	assert.NoError(t, categorize.Cmd.Args(categorize.Cmd, []string{}))
+	assert.Error(t, categorize.Cmd.Args(categorize.Cmd, []string{"Migros"}))
 }
 
 func TestCategorizeCommand_Flags(t *testing.T) {

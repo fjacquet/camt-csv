@@ -26,11 +26,6 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 	return ParseWithCategorizer(ctx, r, a.GetLogger(), a.GetCategorizer())
 }
 
-// ConvertToCSV implements parser.FullParser.ConvertToCSV
-func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	return a.ConvertToCSVDefault(ctx, inputFile, outputFile, a.Parse)
-}
-
 // ValidateFormat checks if a file is a valid Visa Debit CSV file.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	return ValidateFormat(file)

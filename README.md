@@ -12,7 +12,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/fjacquet/camt-csv)](https://github.com/fjacquet/camt-csv/releases/latest)
 [![Docker Pulls](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/fjacquet/camt-csv/pkgs/container/camt-csv)
 
-CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Revolut Crypto CSV, Selma CSV) into standardized CSV files with AI-powered transaction categorization.
+CAMT-CSV converts financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Revolut Crypto CSV, Revolut Investment CSV, Selma CSV, Viseca CSV, generic debit CSV) into standardized CSV files with AI-powered transaction categorization.
 
 ## Installation
 
@@ -37,42 +37,39 @@ make build
 ## Usage
 
 ```bash
-# Convert CAMT.053 XML
-camt-csv camt -i statement.xml -o output.csv
+# Convert a statement — the format is auto-detected
+camt-csv convert -i statement.xml -o output.csv
+camt-csv convert -i revolut_export.csv -o output.csv
+camt-csv convert -i statement.pdf -o output.csv
 
-# Convert Revolut CSV
-camt-csv revolut -i revolut_export.csv -o output.csv
+# Viseca card CSV export (preferred over the PDF statements — see below)
+camt-csv convert -i transactions.csv -o output.csv
 
-# Convert PDF bank statement
-camt-csv pdf -i statement.pdf -o output.csv
+# Pin the format when detection can't tell two formats apart, or guesses wrong
+camt-csv convert -i export.csv -o output.csv --from selma
 
-# Revolut investment transactions
-camt-csv revolut-investment -i investments.csv -o output.csv
+# Convert a whole directory into one date-sorted CSV (plus a run report,
+# output.manifest.json, written beside it); add --recursive to descend into
+# subdirectories
+camt-csv convert -i input_dir/ -o output.csv
 
-# Revolut Crypto transactions
-camt-csv revolut-crypto -i crypto.csv -o output.csv
-
-# Selma investment CSV
-camt-csv selma -i selma.csv -o output.csv
-
-# Viseca card CSV export (preferred over the PDF statements)
-camt-csv viseca -i transactions.csv -o output.csv
-
-# Generic debit CSV
-camt-csv debit -i debit.csv -o output.csv
-
-# Batch process a directory
-camt-csv batch -i input_dir/ -o output_dir/
-
-# Use iCompta output format (semicolon-delimited, 20 columns)
-camt-csv revolut -i export.csv -o output.csv --format icompta
+# Use iCompta output format (semicolon-delimited, default)
+camt-csv convert -i export.csv -o output.csv --format icompta
 
 # Enable AI categorization
-camt-csv --ai-enabled --auto-learn camt -i statement.xml -o output.csv
+camt-csv --ai-enabled --auto-learn convert -i statement.xml -o output.csv
 
 # Check version
 camt-csv --version
 ```
+
+`convert` detects the format automatically by offering each file to every
+parser in turn. Supported formats: CAMT.053 XML, PDF (including Viseca card
+statements), Revolut, Revolut Crypto, Revolut Investment, Selma, Viseca CSV,
+and generic debit CSV. Prefer the Viseca CSV export over the PDF statement
+when both are available — the export carries the merchant name, the
+foreign-currency detail and a stable transaction identifier that the PDF
+does not.
 
 ## Configuration
 

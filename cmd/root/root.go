@@ -38,9 +38,12 @@ var (
 	// Cmd is the root command
 	Cmd = &cobra.Command{
 		Use:   "camt-csv",
-		Short: "A CLI tool to convert CAMT.053 XML files to CSV and categorize transactions.",
-		Long: `camt-csv is a CLI tool that converts CAMT.053 XML files to CSV format.
-It also provides transaction categorization based on the party's name.`,
+		Short: "Convert bank and broker statements to CSV, with automatic transaction categorization.",
+		Long: `camt-csv converts financial statements to CSV for import into accounting software.
+
+It reads CAMT.053 XML, PDF statements, and the Revolut, Revolut Crypto, Revolut
+Investment, Selma and Visa Debit CSV exports, detecting the format automatically.
+Transactions are categorized from the party's name.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Do Stuff Here
 			Log.Info("Welcome to camt-csv!")
@@ -172,6 +175,14 @@ func GetContainer() *container.Container {
 
 // Init initializes the root command and all flags
 func Init() {
+	// Groups separate the primary function (conversion) from the diagnostic
+	// (categorize) in --help output. Must run before any AddCommand call so
+	// GroupID on a command resolves to a known group.
+	Cmd.AddGroup(
+		&cobra.Group{ID: "conversion", Title: "Conversion:"},
+		&cobra.Group{ID: "tools", Title: "Tools:"},
+	)
+
 	// Add persistent flags to root command for common options
 	Cmd.PersistentFlags().StringVarP(&SharedFlags.Input, "input", "i", "", "Input file")
 	Cmd.PersistentFlags().StringVarP(&SharedFlags.Output, "output", "o", "", "Output file")

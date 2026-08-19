@@ -2,12 +2,6 @@
 package parser
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"os"
-
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 )
@@ -85,47 +79,4 @@ func (b *BaseParser) SetCategorizer(categorizer models.TransactionCategorizer) {
 //   - models.TransactionCategorizer: The current categorizer instance (nil if not set)
 func (b *BaseParser) GetCategorizer() models.TransactionCategorizer {
 	return b.categorizer
-}
-
-// WriteToCSV provides common CSV writing functionality for all parsers.
-// This method uses the standardized WriteTransactionsToCSV function from the common package
-// to ensure consistent CSV output format across all parsers.
-//
-// Parameters:
-//   - transactions: Slice of Transaction objects to write to CSV
-//   - csvFile: Path to the output CSV file
-//
-// Returns:
-//   - error: nil on success, or an error describing what went wrong
-//
-// This method can be used by parser implementations to provide CSV writing capability
-// without duplicating the CSV writing logic.
-func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-	b.logger.Info("Writing transactions to CSV using common writer",
-		logging.Field{Key: "file", Value: csvFile},
-		logging.Field{Key: "count", Value: len(transactions)})
-
-	return common.WriteTransactionsToCSV(transactions, csvFile)
-}
-
-// ConvertToCSVDefault provides the standard ConvertToCSV implementation.
-// Adapters that follow the open->parse->write pattern can delegate to this.
-func (b *BaseParser) ConvertToCSVDefault(ctx context.Context, inputFile, outputFile string, parseFn func(ctx context.Context, r io.Reader) ([]models.Transaction, error)) error {
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			b.GetLogger().WithError(err).Warn("Failed to close input file",
-				logging.Field{Key: "file", Value: inputFile})
-		}
-	}()
-
-	transactions, err := parseFn(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	return b.WriteToCSV(transactions, outputFile)
 }

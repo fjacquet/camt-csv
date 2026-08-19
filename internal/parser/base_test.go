@@ -1,17 +1,11 @@
 package parser
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"fjacquet/camt-csv/internal/logging"
-	"fjacquet/camt-csv/internal/models"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // mockLogger implements the logging.Logger interface for testing
@@ -101,88 +95,6 @@ func TestBaseParser_GetLogger(t *testing.T) {
 	logger := baseParser.GetLogger()
 
 	assert.Equal(t, mockLog, logger)
-}
-
-func TestBaseParser_WriteToCSV(t *testing.T) {
-	t.Run("writes transactions to CSV successfully", func(t *testing.T) {
-		// Create temporary directory
-		tempDir := t.TempDir()
-		csvFile := filepath.Join(tempDir, "test_output.csv")
-
-		// Create mock logger and base parser
-		mockLog := &mockLogger{}
-		baseParser := NewBaseParser(mockLog)
-
-		// Create test transactions
-		transactions := []models.Transaction{
-			{
-				EntryReference: "test-1",
-				Date:           time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-				ValueDate:      time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-				Amount:         decimal.NewFromFloat(100.50),
-				Currency:       "CHF",
-				Description:    "Test transaction 1",
-				CreditDebit:    models.TransactionTypeCredit,
-			},
-			{
-				EntryReference: "test-2",
-				Date:           time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-				ValueDate:      time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-				Amount:         decimal.NewFromFloat(-50.25),
-				Currency:       "CHF",
-				Description:    "Test transaction 2",
-				CreditDebit:    models.TransactionTypeDebit,
-			},
-		}
-
-		// Write to CSV
-		err := baseParser.WriteToCSV(transactions, csvFile)
-
-		// Verify no error
-		require.NoError(t, err)
-
-		// Verify file was created
-		assert.FileExists(t, csvFile)
-
-		// Verify logger was called
-		assert.Contains(t, mockLog.messages, "INFO: Writing transactions to CSV using common writer")
-
-		// Verify file content (basic check)
-		content, err := os.ReadFile(csvFile)
-		require.NoError(t, err)
-		assert.Contains(t, string(content), "test-1")
-		assert.Contains(t, string(content), "test-2")
-		assert.Contains(t, string(content), "Test transaction 1")
-		assert.Contains(t, string(content), "Test transaction 2")
-	})
-
-	t.Run("handles nil transactions", func(t *testing.T) {
-		tempDir := t.TempDir()
-		csvFile := filepath.Join(tempDir, "test_output.csv")
-
-		mockLog := &mockLogger{}
-		baseParser := NewBaseParser(mockLog)
-
-		err := baseParser.WriteToCSV(nil, csvFile)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot write nil transactions to CSV")
-	})
-
-	t.Run("handles empty transactions slice", func(t *testing.T) {
-		tempDir := t.TempDir()
-		csvFile := filepath.Join(tempDir, "test_output.csv")
-
-		mockLog := &mockLogger{}
-		baseParser := NewBaseParser(mockLog)
-
-		transactions := []models.Transaction{}
-
-		err := baseParser.WriteToCSV(transactions, csvFile)
-
-		require.NoError(t, err)
-		assert.NoFileExists(t, csvFile, "no output file should be created for 0 transactions")
-	})
 }
 
 func TestBaseParser_InterfaceCompliance(t *testing.T) {

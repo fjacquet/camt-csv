@@ -57,7 +57,7 @@ site/
 .specify/
 .kiro/
 .gemini/
-specs/
+/specs/
 
 # Staging files (AI suggestions for review)
 database/staging_*.yaml

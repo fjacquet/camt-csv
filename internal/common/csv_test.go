@@ -122,55 +122,5 @@ func TestWriteTransactionsToCSV(t *testing.T) {
 	assert.Error(t, err, "WriteTransactionsToCSV should return an error for an invalid path")
 }
 
-func TestGeneralizedConvertToCSV(t *testing.T) {
-	// Create a temporary directory for test files
-	tempDir, err := os.MkdirTemp("", "csv-test")
-	assert.NoError(t, err, "Failed to create temp directory")
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Failed to remove temp dir: %v", err)
-		}
-	}()
-
-	// Create a test CSV file
-	csvContent := `Name,Age,Email,Country
-John Doe,30,john@example.com,USA
-Jane Smith,25,jane@example.com,Canada
-Bob Johnson,42,bob@example.com,UK`
-
-	inputPath := filepath.Join(tempDir, "input.csv")
-	err = os.WriteFile(inputPath, []byte(csvContent), 0600)
-	assert.NoError(t, err, "Failed to write test CSV file")
-
-	// Define the parser functions for testing
-	parseFunc := func(string) ([]models.Transaction, error) {
-		// Return simple test transactions
-		transaction := models.Transaction{
-			Date:        time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "Test Transaction",
-			Amount:      models.ParseAmount("100.00"),
-			Currency:    "CHF",
-		}
-		return []models.Transaction{transaction}, nil
-	}
-
-	validateFunc := func(string) (bool, error) {
-		return true, nil
-	}
-
-	// Test the generalized conversion
-	outputPath := filepath.Join(tempDir, "output.csv")
-	err = GeneralizedConvertToCSV(inputPath, outputPath, parseFunc, validateFunc)
-	assert.NoError(t, err, "GeneralizedConvertToCSV should not return an error")
-
-	// Test with an invalid validate function
-	invalidValidateFunc := func(string) (bool, error) {
-		return false, nil
-	}
-
-	err = GeneralizedConvertToCSV(inputPath, outputPath, parseFunc, invalidValidateFunc)
-	assert.Error(t, err, "GeneralizedConvertToCSV should return an error when validation fails")
-}
-
 // TestSetLogger removed - common package no longer uses global logging
 // Logging is now handled through dependency injection

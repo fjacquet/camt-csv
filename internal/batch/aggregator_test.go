@@ -962,3 +962,102 @@ func generateRandomOutputDirectory() string {
 
 	return baseDir
 }
+
+// Consolidate is what BatchProcessor calls once every file in a batch has been
+// parsed. It must order the merged set by date regardless of the order files
+// were read in, and must never drop a transaction: two identical purchases on
+// the same day are a real thing, so duplicates are reported, not removed.
+func TestConsolidate_SortsAndKeepsDuplicates(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	mar := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+	jan := time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC)
+	feb := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
+
+	input := []models.Transaction{
+		{BookkeepingNumber: "c", Date: mar, ValueDate: mar, Amount: decimal.NewFromInt(30), PartyName: "Migros", Payee: "Migros", DebitFlag: true},
+		{BookkeepingNumber: "a", Date: jan, ValueDate: jan, Amount: decimal.NewFromInt(10), PartyName: "Coop", Payee: "Coop", DebitFlag: true},
+		{BookkeepingNumber: "b", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB", DebitFlag: true},
+		{BookkeepingNumber: "b2", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB", DebitFlag: true},
+	}
+
+	got := agg.Consolidate(input, "releves-2024")
+
+	require.Len(t, got, 4, "Consolidate must not drop the duplicate")
+
+	var dates []time.Time
+	for _, tx := range got {
+		dates = append(dates, tx.Date)
+	}
+	assert.Equal(t, []time.Time{jan, feb, feb, mar}, dates, "must be ordered by date")
+
+	// BookkeepingNumber is the stable identifier; Number is a fresh UUID per run.
+	assert.Equal(t, "a", got[0].BookkeepingNumber)
+	assert.Equal(t, "c", got[3].BookkeepingNumber)
+
+	// Verify duplicates are reported: reporting is the deliberate alternative to
+	// removing them, so a later reader does not "simplify" the warning away.
+	warnEntries := logger.GetEntriesByLevel("WARN")
+	require.NotEmpty(t, warnEntries, "Consolidate must log a warning for duplicate transactions")
+
+	// Check that at least one warning contains the duplicate transaction message
+	// and carries the label in the account field.
+	found := false
+	for _, entry := range warnEntries {
+		if entry.Message == "Potential duplicate transaction" {
+			for _, field := range entry.Fields {
+				if field.Key == "account" && field.Value == "releves-2024" {
+					found = true
+					break
+				}
+			}
+		}
+	}
+	assert.True(t, found, "Consolidate must log duplicate warning with the batch label in the account field")
+}
+
+// detectAndLogDuplicates' inner loop breaks as soon as the date no longer
+// matches, on the assumption that the slice is already sorted chronologically
+// (true of its only caller, Consolidate). This must not degrade into breaking
+// on index adjacency instead of on the date actually changing: two same-date
+// transactions separated in the slice by a third, non-duplicate, same-date
+// transaction must still be found.
+func TestDetectAndLogDuplicates_NonAdjacentSameDateDuplicatesStillFound(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	day := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
+	nextDay := time.Date(2024, 2, 21, 0, 0, 0, 0, time.UTC)
+
+	// Already sorted, as Consolidate would leave it. "Migros" appears twice at
+	// the same date with an unrelated "SBB" transaction in between them.
+	transactions := []models.Transaction{
+		{Date: day, Amount: decimal.NewFromInt(10), PartyName: "Migros", Payee: "Migros"},
+		{Date: day, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB"},
+		{Date: day, Amount: decimal.NewFromInt(10), PartyName: "Migros", Payee: "Migros"},
+		{Date: nextDay, Amount: decimal.NewFromInt(30), PartyName: "Coop", Payee: "Coop"},
+	}
+
+	agg.detectAndLogDuplicates(transactions, "TEST_ACCOUNT")
+
+	var duplicateWarnings int
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		if entry.Message == "Potential duplicate transaction" {
+			duplicateWarnings++
+		}
+	}
+	assert.Equal(t, 1, duplicateWarnings,
+		"the two same-date Migros transactions must be found as duplicates despite the SBB transaction between them")
+}
+
+// An empty batch is a normal outcome (a directory of unreadable files), not an
+// error: Consolidate must return cleanly rather than panic on the empty slice.
+func TestConsolidate_EmptyInput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	got := agg.Consolidate(nil, "empty")
+
+	assert.Empty(t, got)
+}

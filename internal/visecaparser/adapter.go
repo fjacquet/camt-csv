@@ -36,11 +36,6 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 		Options{KeepPayments: a.keepPayments})
 }
 
-// ConvertToCSV implements parser.FullParser.ConvertToCSV
-func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	return a.ConvertToCSVDefault(ctx, inputFile, outputFile, a.Parse)
-}
-
 // ValidateFormat checks if a file is a valid Viseca CSV export.
 func (a *Adapter) ValidateFormat(file string) (bool, error) {
 	f, err := os.Open(file) // #nosec G304 -- CLI tool requires user-provided file paths

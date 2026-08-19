@@ -19,19 +19,30 @@ type BatchResult struct {
 
 // BatchManifest aggregates results from a batch operation
 type BatchManifest struct {
-	TotalFiles   int           `json:"total_files"`
-	SuccessCount int           `json:"success_count"`
-	FailureCount int           `json:"failure_count"`
-	Results      []BatchResult `json:"results"`
-	Duration     time.Duration `json:"duration"`
-	ProcessedAt  time.Time     `json:"processed_at"`
+	TotalFiles       int           `json:"total_files"`
+	SuccessCount     int           `json:"success_count"`
+	FailureCount     int           `json:"failure_count"`
+	TransactionCount int           `json:"transaction_count"` // Total transactions written to the consolidated CSV
+	Results          []BatchResult `json:"results"`
+	Duration         time.Duration `json:"duration"`
+	ProcessedAt      time.Time     `json:"processed_at"`
 }
 
 // ExitCode returns the exit code based on batch processing results.
-// Returns 0 if all files succeeded, 2 if all files failed or no files processed, 1 if partial success.
+// Returns 0 if all files succeeded and transactions were produced, 2 if all
+// files failed, no files were processed, or every file that "succeeded"
+// still produced zero transactions (e.g. the wrong parser was pinned via
+// --from and validated but extracted nothing), 1 if partial success.
 func (m *BatchManifest) ExitCode() int {
 	// Treat no files as failure
 	if m.TotalFiles == 0 {
+		return 2
+	}
+	// A run that read files and converted nothing is materially a failed
+	// run, even though every individual parse reported success: a manifest
+	// summary of "3/3 files succeeded" with no output on disk is a silent
+	// success on a failed conversion.
+	if m.SuccessCount > 0 && m.TransactionCount == 0 {
 		return 2
 	}
 	if m.FailureCount == 0 {

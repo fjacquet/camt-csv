@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 
-	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/cmd/root"
+	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
 
@@ -19,24 +17,39 @@ import (
 
 // Cmd represents the convert command.
 var Cmd = &cobra.Command{
-	Use:   "convert",
-	Short: "Convert a statement to CSV, detecting its format automatically",
-	Long: `Convert a statement to CSV without naming its format.
-
-Each parser is asked in turn whether it recognizes the file, and the first one
-that does performs the conversion. This works for every supported format:
-CAMT.053 XML, PDF statements, and the Revolut, Revolut Crypto, Revolut
-Investment, Selma and Visa Debit CSV exports.
-
-When the input is a directory, every file in it is detected and converted
-independently, so a directory holding a mix of formats is handled in one pass.
-
-Use the format-specific commands instead when you want a file rejected rather
-than guessed at.`,
-	Run: runConvert,
+	Use:     "convert",
+	Short:   "Convert a statement to CSV",
+	GroupID: "conversion",
+	// The input/output paths are the -i/-o flags, not positional args: a
+	// natural but wrong invocation like `convert statement.pdf` would
+	// otherwise be silently accepted and fail deep inside with a
+	// confusing "Error accessing input path: stat : no such file or
+	// directory" (the empty, unset -i) rather than cobra's own clear
+	// "unknown command" error.
+	Args: cobra.NoArgs,
+	Run:  runConvert,
 }
 
-func init() { common.RegisterFormatFlags(Cmd) }
+func init() {
+	registerConvertFlags(Cmd)
+
+	// Built from parserTypeNames() — the same list DetectionOrder and
+	// --from's help text draw from — so this text can't drift out of sync
+	// with what the command actually accepts, the way its hand-written
+	// predecessor (which never mentioned viseca) did.
+	Cmd.Long = fmt.Sprintf(`Convert a statement, or a directory of statements, to CSV.
+
+Each file is offered to every parser in turn, and the first one that
+recognizes it performs the conversion. Supported formats: %s.
+
+Use --from to pin a specific format instead of auto-detecting it — required
+when a file's format cannot be told apart from another, or when detection
+guesses wrong.
+
+When the input is a directory, every file in it is read and their
+transactions are merged into a single, date-sorted output CSV, plus a
+.manifest.json run report beside it.`, strings.Join(parserTypeNames(), ", "))
+}
 
 func runConvert(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
@@ -55,6 +68,12 @@ func runConvert(cmd *cobra.Command, _ []string) {
 		format = appContainer.GetConfig().Output.Format
 	}
 	recursive, _ := cmd.Flags().GetBool("recursive")
+	from, _ := cmd.Flags().GetString("from")
+
+	resolve, err := resolverFor(appContainer, from, logger)
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
 
 	fileInfo, err := os.Stat(inputPath)
 	if err != nil {
@@ -63,182 +82,64 @@ func runConvert(cmd *cobra.Command, _ []string) {
 
 	if fileInfo.IsDir() {
 		if outputPath == "" {
-			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
+			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output file.")
 		}
-		convertDirectory(ctx, appContainer, inputPath, outputPath, logger, format, recursive)
+		convertDirectory(ctx, appContainer, resolve, inputPath, outputPath, logger, format, recursive)
 		return
 	}
 
-	p, parserType, err := appContainer.DetectParser(inputPath)
+	res, err := resolve(inputPath)
 	if err != nil {
 		logger.Fatalf("Could not determine the format of %s. Supported formats: %s. "+
-			"Use a format-specific command if you know which one it is.",
-			inputPath, strings.Join(parserTypeNames(), ", "))
+			"Use --from to specify it explicitly.", inputPath, strings.Join(parserTypeNames(), ", "))
 	}
 
-	logger.Info("Detected input format",
-		logging.Field{Key: "file", Value: inputPath},
-		logging.Field{Key: "format", Value: string(parserType)})
+	resolvedOutput, err := resolveOutputFile(inputPath, outputPath)
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
 
-	common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format)
+	processFile(ctx, res.Parser, inputPath, resolvedOutput, root.SharedFlags.Validate, root.Log, appContainer, format)
 	root.Log.Info("Conversion completed successfully!")
 }
 
-// convertDirectory detects and converts each file under inputDir independently,
-// so a directory containing several different statement formats converts in one
-// pass. Unrecognized files are skipped with a warning rather than aborting.
-//
-// Output mirrors the input tree, which is what keeps two statements sharing a
-// basename in different folders from overwriting each other.
-func convertDirectory(ctx context.Context, appContainer *container.Container,
-	inputDir, outputDir string, logger logging.Logger, format string, recursive bool) {
+// convertDirectory merges every file under inputDir into the single CSV named
+// by outputPath (generating a name inside it when outputPath is an existing
+// directory), plus a run report beside that CSV.
+func convertDirectory(ctx context.Context, appContainer *container.Container, resolve batch.ParserResolver,
+	inputPath, outputPath string, logger logging.Logger, format string, recursive bool) {
 
-	// Outputs are named after their inputs, so writing into the input directory
-	// would overwrite the statements being read.
-	if sameDirectory(inputDir, outputDir) {
-		logger.Fatal("--output must differ from --input: converted files are named after their sources and would overwrite them")
-	}
-
-	files, err := discoverInputs(inputDir, recursive)
+	outputFile, err := resolveOutputFile(inputPath, outputPath)
 	if err != nil {
-		logger.Fatalf("Error reading input directory: %v", err)
+		logger.Fatalf("%v", err)
+		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger
 	}
 
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		logger.Fatalf("Error creating output directory: %v", err)
-	}
-
-	var converted, skipped, failed int
-	claimed := make(map[string]bool, len(files))
-
-	for _, inputFile := range files {
-		if err := ctx.Err(); err != nil {
-			logger.Warn("Conversion cancelled",
-				logging.Field{Key: "converted", Value: converted})
-			return
-		}
-
-		p, parserType, err := appContainer.DetectParser(inputFile)
-		if err != nil {
-			logger.Warn("Skipping file of unrecognized format",
-				logging.Field{Key: "file", Value: inputFile})
-			skipped++
-			continue
-		}
-
-		outputFile := outputPathFor(inputDir, inputFile, outputDir, claimed, logger)
-		if err := os.MkdirAll(filepath.Dir(outputFile), 0750); err != nil {
-			logger.WithError(err).Warn("Failed to create output directory",
-				logging.Field{Key: "file", Value: inputFile})
-			failed++
-			continue
-		}
-
-		if err := common.ProcessFileWithErrorFormatted(ctx, p, inputFile, outputFile,
-			root.SharedFlags.Validate, logger, appContainer, format); err != nil {
-			logger.WithError(err).Warn("Failed to convert file",
-				logging.Field{Key: "file", Value: inputFile})
-			failed++
-			continue
-		}
-
-		logger.Info("Converted file",
-			logging.Field{Key: "file", Value: inputFile},
-			logging.Field{Key: "format", Value: string(parserType)})
-		converted++
-	}
-
-	logger.Info(fmt.Sprintf("Convert complete: %d converted, %d skipped, %d failed",
-		converted, skipped, failed))
-}
-
-// discoverInputs lists the files to convert under dir, descending into
-// subdirectories only when recursive is set. Hidden entries are skipped at
-// every level, so .git and a previous run's output never become inputs.
-//
-// A directory that cannot be read is an error rather than an empty result: a
-// short list would otherwise be reported as a complete, successful run.
-func discoverInputs(dir string, recursive bool) ([]string, error) {
-	entries, err := os.ReadDir(dir)
+	outFormatter, err := appContainer.GetFormatterRegistry().Get(format)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
+		logger.Fatalf("Invalid output format '%s': valid formats are standard, icompta, jumpsoft", format)
+		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger
 	}
 
-	var files []string
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
+	processor := batch.NewBatchProcessor(resolve, logger, outFormatter, recursive)
 
-		path := filepath.Join(dir, entry.Name())
-
-		if entry.IsDir() {
-			if !recursive {
-				continue
-			}
-			nested, err := discoverInputs(path, recursive)
-			if err != nil {
-				return nil, err
-			}
-			files = append(files, nested...)
-			continue
-		}
-
-		files = append(files, path)
-	}
-
-	sort.Strings(files)
-	return files, nil
-}
-
-// outputPathFor mirrors the input tree under outputDir, replacing the extension
-// with .csv. Inputs in one directory differing only by extension — statement.pdf
-// and statement.csv — would still land on the same name, so claimed tracks the
-// paths already handed out and folds the source extension into the later one
-// rather than letting it replace the earlier result.
-func outputPathFor(inputDir, filePath, outputDir string, claimed map[string]bool, logger logging.Logger) string {
-	relPath, err := filepath.Rel(inputDir, filePath)
+	manifest, err := processor.ProcessDirectory(ctx, inputPath, outputFile)
 	if err != nil {
-		relPath = filepath.Base(filePath)
+		logger.WithError(err).Fatal("Batch conversion failed")
+		return
 	}
 
-	ext := filepath.Ext(relPath)
-	candidate := filepath.Join(outputDir, strings.TrimSuffix(relPath, ext)+".csv")
+	manifestPath := batch.ManifestPathFor(outputFile)
 
-	if claimed[candidate] {
-		candidate = filepath.Join(outputDir,
-			strings.TrimSuffix(relPath, ext)+"-"+strings.TrimPrefix(ext, ".")+".csv")
-		logger.Info("Output name already taken, disambiguating with the source extension",
-			logging.Field{Key: "file", Value: filePath},
-			logging.Field{Key: "output", Value: candidate})
+	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
+		manifest.SuccessCount, manifest.TotalFiles))
+
+	if manifest.FailureCount > 0 {
+		logger.Warn(fmt.Sprintf("%d files failed (see %s for details)",
+			manifest.FailureCount, manifestPath))
 	}
 
-	claimed[candidate] = true
-	return candidate
-}
-
-// sameDirectory reports whether two paths refer to the same directory,
-// resolving them so that "." and "./out/.." style arguments are compared
-// correctly. Paths that cannot be resolved are treated as different: the
-// output directory may not exist yet.
-func sameDirectory(a, b string) bool {
-	resolvedA, err := filepath.Abs(a)
-	if err != nil {
-		return false
+	if exitCode := manifest.ExitCode(); exitCode != 0 {
+		root.SetExitCode(exitCode)
 	}
-	resolvedB, err := filepath.Abs(b)
-	if err != nil {
-		return false
-	}
-	return filepath.Clean(resolvedA) == filepath.Clean(resolvedB)
-}
-
-// parserTypeNames lists the detectable formats for error messages.
-func parserTypeNames() []string {
-	types := container.DetectionOrder()
-	names := make([]string, len(types))
-	for i, t := range types {
-		names[i] = string(t)
-	}
-	return names
 }

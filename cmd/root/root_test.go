@@ -11,8 +11,8 @@ import (
 
 func TestRootCommand_Metadata(t *testing.T) {
 	assert.Equal(t, "camt-csv", root.Cmd.Use)
-	assert.Contains(t, root.Cmd.Short, "CLI tool to convert CAMT.053 XML files")
-	assert.Contains(t, root.Cmd.Long, "camt-csv is a CLI tool that converts CAMT.053 XML files to CSV format")
+	assert.Contains(t, root.Cmd.Short, "Convert bank and broker statements to CSV")
+	assert.Contains(t, root.Cmd.Long, "camt-csv converts financial statements to CSV")
 	assert.NotNil(t, root.Cmd.Run)
 	assert.NotNil(t, root.Cmd.PersistentPreRun)
 	assert.NotNil(t, root.Cmd.PersistentPostRun)
@@ -222,7 +222,7 @@ func TestRootCommand_HelpText(t *testing.T) {
 	// Test that long description contains key information
 	assert.Contains(t, root.Cmd.Long, "CAMT.053")
 	assert.Contains(t, root.Cmd.Long, "CSV")
-	assert.Contains(t, root.Cmd.Long, "categorization")
+	assert.Contains(t, root.Cmd.Long, "categorized")
 }
 
 func TestRootCommand_FlagDefaults(t *testing.T) {

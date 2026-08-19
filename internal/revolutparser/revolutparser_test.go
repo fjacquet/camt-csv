@@ -291,28 +291,6 @@ func TestConvertRevolutRowToTransactionWithInvalidAmount(t *testing.T) {
 	assert.Contains(t, err.Error(), "error parsing amount to decimal")
 }
 
-func TestAdapter_ConvertToCSV(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.csv")
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	csvContent := `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
-CARD_PAYMENT,Current,2025-01-02 08:07:09,2025-01-03 15:38:51,Coffee Shop,-10.50,0.00,CHF,COMPLETED,100.00`
-
-	err := os.WriteFile(inputFile, []byte(csvContent), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-	assert.NoError(t, err)
-
-	// Verify output file exists
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err)
-}
-
 func TestAdapter_ValidateFormat(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -479,17 +457,6 @@ func TestPostProcessTransactions_CHFVacances(t *testing.T) {
 func TestRevolutParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-
-	t.Run("invalid_file_path_in_error", func(t *testing.T) {
-		invalidPath := "/nonexistent/test_file.csv"
-
-		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
-		require.Error(t, err)
-
-		// Error should include the file path that was attempted
-		assert.Contains(t, err.Error(), invalidPath,
-			"Error message should include file path for debugging")
-	})
 
 	t.Run("malformed_csv_includes_context", func(t *testing.T) {
 		tempDir := t.TempDir()
