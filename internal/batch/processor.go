@@ -13,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
+	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
 )
 
@@ -65,11 +66,28 @@ func NewBatchProcessor(resolve ParserResolver, logger logging.Logger, fmt format
 	}
 }
 
-// ProcessDirectory processes all files in inputDir and writes converted files to outputDir.
+// ManifestPathFor names the run report for an output file by replacing its
+// extension: releves.csv -> releves.manifest.json.
+//
+// The report used to be a fixed .manifest.json inside the output directory.
+// With a directory input now producing a single file, there is no output
+// directory to hold it, and two runs writing into the same folder would
+// otherwise overwrite each other's report.
+func ManifestPathFor(outputFile string) string {
+	return strings.TrimSuffix(outputFile, filepath.Ext(outputFile)) + ".manifest.json"
+}
+
+// ProcessDirectory reads every file under inputDir and writes their merged
+// transactions to the single CSV at outputFile, plus a run report beside it.
+//
 // Returns a manifest (never nil) containing results for each file processed.
-// Individual file failures are captured in the manifest, not returned as errors.
-// An error is returned only for configuration or permission issues with the directories.
-func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, outputDir string) (*BatchManifest, error) {
+// Individual file failures are captured in the manifest, not returned as
+// errors: one unreadable file out of forty must not discard the other
+// thirty-nine, so the CSV is written with what succeeded and the exit code
+// reports partial success.
+//
+// An error is returned only for problems with the directories themselves.
+func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, outputFile string) (*BatchManifest, error) {
 	startTime := time.Now()
 
 	// Validate input directory exists
@@ -77,8 +95,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		return nil, fmt.Errorf("input directory does not exist: %s", inputDir)
 	}
 
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0750); err != nil {
 		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -88,13 +105,9 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		return nil, err
 	}
 
-	// Output names are handed out as files are processed so that collisions can
-	// be detected; see outputPathFor.
-	claimed := make(map[string]bool, len(files))
-
 	bp.logger.Info("Starting batch processing",
 		logging.Field{Key: "input_dir", Value: inputDir},
-		logging.Field{Key: "output_dir", Value: outputDir},
+		logging.Field{Key: "output_file", Value: outputFile},
 		logging.Field{Key: "files_found", Value: len(files)})
 
 	// Initialize manifest
@@ -105,6 +118,8 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		Results:      make([]BatchResult, 0, len(files)),
 		ProcessedAt:  time.Now(),
 	}
+
+	var merged []models.Transaction
 
 	// Process each file sequentially
 	for _, filePath := range files {
@@ -119,13 +134,26 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		default:
 		}
 
-		result := bp.processFile(ctx, filePath, bp.outputPathFor(inputDir, filePath, outputDir, claimed))
+		transactions, result := bp.parseFile(ctx, filePath)
 		manifest.Results = append(manifest.Results, result)
 
 		if result.Success {
 			manifest.SuccessCount++
+			merged = append(merged, transactions...)
 		} else {
 			manifest.FailureCount++
+		}
+	}
+
+	// Consolidation is skipped for an empty batch: writing a header-only CSV
+	// would look like a successful conversion of nothing.
+	if len(merged) > 0 {
+		merged = NewBatchAggregator(bp.logger).Consolidate(merged, filepath.Base(outputFile))
+
+		delimiter := bp.formatter.Delimiter()
+		if err := common.WriteTransactionsToCSVWithFormatter(
+			merged, outputFile, bp.logger, bp.formatter, delimiter); err != nil {
+			return manifest, fmt.Errorf("failed to write consolidated CSV: %w", err)
 		}
 	}
 
@@ -136,10 +164,10 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		logging.Field{Key: "total_files", Value: manifest.TotalFiles},
 		logging.Field{Key: "success", Value: manifest.SuccessCount},
 		logging.Field{Key: "failed", Value: manifest.FailureCount},
+		logging.Field{Key: "transactions", Value: len(merged)},
 		logging.Field{Key: "duration", Value: manifest.Duration.String()})
 
-	// Always write manifest to output directory
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	manifestPath := ManifestPathFor(outputFile)
 	if err := manifest.WriteManifest(manifestPath); err != nil {
 		bp.logger.WithError(err).Warn("Failed to write manifest file",
 			logging.Field{Key: "path", Value: manifestPath})
@@ -197,43 +225,12 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 	return files, nil
 }
 
-// outputPathFor maps an input file to its output path, mirroring the input
-// tree under outputDir and replacing the extension with .csv.
+// parseFile resolves a parser for filePath and returns the transactions it
+// yields. It never writes: a batch produces one consolidated CSV, written once
+// by ProcessDirectory after every file has been read.
 //
-// Mirroring matters: a flat output directory would send inputDir/jan/statement.xml
-// and inputDir/feb/statement.xml to the same file, and the second conversion
-// would overwrite the first while the manifest reported both as successful.
-//
-// Two inputs in the same directory differing only by extension — statement.pdf
-// and statement.csv — still collide. claimed tracks the paths already handed
-// out so those get the source extension folded into the name instead of
-// silently replacing one another.
-func (bp *BatchProcessor) outputPathFor(inputDir, filePath, outputDir string, claimed map[string]bool) string {
-	relPath, err := filepath.Rel(inputDir, filePath)
-	if err != nil {
-		// Fall back to the bare name; Rel only fails on inputs we did not walk.
-		relPath = filepath.Base(filePath)
-	}
-
-	ext := filepath.Ext(relPath)
-	candidate := filepath.Join(outputDir, strings.TrimSuffix(relPath, ext)+".csv")
-
-	if claimed[candidate] {
-		disambiguated := filepath.Join(outputDir,
-			strings.TrimSuffix(relPath, ext)+"-"+strings.TrimPrefix(ext, ".")+".csv")
-		bp.logger.Info("Output name already taken, disambiguating with the source extension",
-			logging.Field{Key: "file", Value: filePath},
-			logging.Field{Key: "output", Value: disambiguated})
-		candidate = disambiguated
-	}
-
-	claimed[candidate] = true
-	return candidate
-}
-
-// processFile converts filePath and writes the result to outputPath.
 // This method never panics and captures all errors in the returned result.
-func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath string) BatchResult {
+func (bp *BatchProcessor) parseFile(ctx context.Context, filePath string) ([]models.Transaction, BatchResult) {
 	fileName := filepath.Base(filePath)
 
 	bp.logger.Info("Processing file",
@@ -252,7 +249,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		result.Error = fmt.Sprintf("format_not_recognized: %v", err)
 		bp.logger.WithError(err).Warn("Skipping file of unrecognized format",
 			logging.Field{Key: "file", Value: fileName})
-		return result
+		return nil, result
 	}
 
 	// Step 1: Validate format
@@ -261,14 +258,14 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		result.Error = fmt.Sprintf("validation_error: %v", err)
 		bp.logger.WithError(err).Warn("Validation error",
 			logging.Field{Key: "file", Value: fileName})
-		return result
+		return nil, result
 	}
 
 	if !isValid {
 		result.Error = "validation_failed"
 		bp.logger.Warn("Invalid format",
 			logging.Field{Key: "file", Value: fileName})
-		return result
+		return nil, result
 	}
 
 	// Step 2: Open and parse file
@@ -277,7 +274,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		result.Error = fmt.Sprintf("open_error: %v", err)
 		bp.logger.WithError(err).Warn("Failed to open file",
 			logging.Field{Key: "file", Value: fileName})
-		return result
+		return nil, result
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
@@ -291,26 +288,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		result.Error = err.Error()
 		bp.logger.WithError(err).Warn("Parse error",
 			logging.Field{Key: "file", Value: fileName})
-		return result
-	}
-
-	// Step 3: Write CSV using formatter. Mirroring the input tree can introduce
-	// subdirectories that do not exist under the output root yet.
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil {
-		result.Error = fmt.Sprintf("output_dir_error: %v", err)
-		bp.logger.WithError(err).Warn("Failed to create output directory",
-			logging.Field{Key: "file", Value: fileName})
-		return result
-	}
-
-	delimiter := bp.formatter.Delimiter()
-	if err := common.WriteTransactionsToCSVWithFormatter(
-		transactions, outputPath, bp.logger, bp.formatter, delimiter); err != nil {
-		result.Error = fmt.Sprintf("write_error: %v", err)
-		bp.logger.WithError(err).Warn("Failed to write CSV",
-			logging.Field{Key: "file", Value: fileName},
-			logging.Field{Key: "output", Value: outputPath})
-		return result
+		return nil, result
 	}
 
 	// Success!
@@ -319,8 +297,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 
 	bp.logger.Info("Successfully processed file",
 		logging.Field{Key: "file", Value: fileName},
-		logging.Field{Key: "records", Value: result.RecordCount},
-		logging.Field{Key: "output", Value: outputPath})
+		logging.Field{Key: "records", Value: result.RecordCount})
 
-	return result
+	return transactions, result
 }

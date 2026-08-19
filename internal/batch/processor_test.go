@@ -2,7 +2,6 @@ package batch
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -78,59 +77,6 @@ func createTestTransactions(count int) []models.Transaction {
 		transactions[i] = tx
 	}
 	return transactions
-}
-
-func TestProcessDirectory_AllSuccess(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	require.NoError(t, os.MkdirAll(inputDir, 0750))
-
-	// Create 3 test files
-	testFiles := []string{"file1.xml", "file2.xml", "file3.xml"}
-	for _, name := range testFiles {
-		require.NoError(t, os.WriteFile(filepath.Join(inputDir, name), []byte("test data"), 0644)) // #nosec G306 -- test file
-	}
-
-	// Setup mock parser
-	mockParser := newMockParser()
-	mockParser.validateFunc = func(filePath string) (bool, error) {
-		return true, nil
-	}
-	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-		return createTestTransactions(10), nil
-	}
-
-	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
-
-	// Execute
-	ctx := context.Background()
-	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
-
-	// Assert
-	require.NoError(t, err)
-	require.NotNil(t, manifest)
-	assert.Equal(t, 3, manifest.TotalFiles)
-	assert.Equal(t, 3, manifest.SuccessCount)
-	assert.Equal(t, 0, manifest.FailureCount)
-	assert.Equal(t, 0, manifest.ExitCode())
-	assert.Len(t, manifest.Results, 3)
-
-	// Verify all results are successful
-	for _, result := range manifest.Results {
-		assert.True(t, result.Success)
-		assert.Equal(t, "", result.Error)
-		assert.Equal(t, 10, result.RecordCount)
-	}
-
-	// Verify CSV files were created
-	for _, name := range testFiles {
-		csvName := name[:len(name)-4] + ".csv"
-		csvPath := filepath.Join(outputDir, csvName)
-		assert.FileExists(t, csvPath)
-	}
 }
 
 func TestProcessDirectory_PartialSuccess(t *testing.T) {
@@ -250,49 +196,6 @@ func TestProcessDirectory_EmptyDirectory(t *testing.T) {
 	assert.Len(t, manifest.Results, 0)
 }
 
-func TestProcessDirectory_WritesManifest(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	require.NoError(t, os.MkdirAll(inputDir, 0750))
-
-	// Create 1 test file
-	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "test.xml"), []byte("test data"), 0644)) // #nosec G306 -- test file
-
-	// Setup mock parser
-	mockParser := newMockParser()
-	mockParser.validateFunc = func(filePath string) (bool, error) {
-		return true, nil
-	}
-	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-		return createTestTransactions(3), nil
-	}
-
-	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
-
-	// Execute
-	ctx := context.Background()
-	_, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
-	require.NoError(t, err)
-
-	// Assert manifest file was created
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	assert.FileExists(t, manifestPath)
-
-	// Verify manifest content
-	data, err := os.ReadFile(manifestPath)
-	require.NoError(t, err)
-
-	var manifest BatchManifest
-	err = json.Unmarshal(data, &manifest)
-	require.NoError(t, err)
-
-	assert.Equal(t, 1, manifest.TotalFiles)
-	assert.Equal(t, 1, manifest.SuccessCount)
-}
-
 func TestProcessDirectory_ContinuesOnError(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
@@ -342,7 +245,6 @@ func TestProcessFile_ValidationFailure(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
 	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
 	require.NoError(t, os.MkdirAll(inputDir, 0750))
 
 	testFile := filepath.Join(inputDir, "test.xml")
@@ -358,19 +260,19 @@ func TestProcessFile_ValidationFailure(t *testing.T) {
 	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
-	result := processor.processFile(context.Background(), testFile, outputDir)
+	transactions, result := processor.parseFile(context.Background(), testFile)
 
 	// Assert
 	assert.False(t, result.Success)
 	assert.Equal(t, "validation_failed", result.Error)
 	assert.Equal(t, 0, result.RecordCount)
+	assert.Nil(t, transactions)
 }
 
 func TestProcessFile_ParseError(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
 	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
 	require.NoError(t, os.MkdirAll(inputDir, 0750))
 
 	testFile := filepath.Join(inputDir, "test.xml")
@@ -389,51 +291,23 @@ func TestProcessFile_ParseError(t *testing.T) {
 	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
-	result := processor.processFile(context.Background(), testFile, outputDir)
+	transactions, result := processor.parseFile(context.Background(), testFile)
 
 	// Assert
 	assert.False(t, result.Success)
 	assert.Contains(t, result.Error, "parse error")
 	assert.Equal(t, 0, result.RecordCount)
+	assert.Nil(t, transactions)
 }
 
-func TestProcessFile_WriteError(t *testing.T) {
-	// Setup - create read-only output directory to force write error
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-	require.NoError(t, os.MkdirAll(inputDir, 0750))
-	require.NoError(t, os.MkdirAll(outputDir, 0444)) // #nosec G301 -- test directory (intentionally read-only)
-
-	testFile := filepath.Join(inputDir, "test.xml")
-	require.NoError(t, os.WriteFile(testFile, []byte("test data"), 0644)) // #nosec G306 -- test file
-
-	// Setup mock parser
-	mockParser := newMockParser()
-	mockParser.validateFunc = func(filePath string) (bool, error) {
-		return true, nil
-	}
-	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-		return createTestTransactions(5), nil
-	}
-
-	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
-
-	// Execute
-	result := processor.processFile(context.Background(), testFile, outputDir)
-
-	// Assert
-	assert.False(t, result.Success)
-	assert.Contains(t, result.Error, "write_error")
-	assert.Equal(t, 0, result.RecordCount)
-}
-
+// Custom formatters (delimiter, column set) still apply to the single
+// consolidated output; this is no longer per-file so the output path is the
+// caller-supplied file rather than a name mirrored from the input.
 func TestBatchProcessorWithFormatter(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
 	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
+	outputFile := filepath.Join(tempDir, "output", "out.csv")
 	require.NoError(t, os.MkdirAll(inputDir, 0750))
 
 	// Create a test file
@@ -463,7 +337,7 @@ func TestBatchProcessorWithFormatter(t *testing.T) {
 
 	// Execute
 	ctx := context.Background()
-	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputFile)
 
 	// Assert
 	require.NoError(t, err)
@@ -471,12 +345,11 @@ func TestBatchProcessorWithFormatter(t *testing.T) {
 	assert.Equal(t, 1, manifest.SuccessCount)
 	assert.Equal(t, 0, manifest.FailureCount)
 
-	// Verify output CSV was created
-	csvPath := filepath.Join(outputDir, "test.csv")
-	assert.FileExists(t, csvPath)
+	// Verify the single consolidated CSV was created at the requested path
+	assert.FileExists(t, outputFile)
 
 	// Read CSV file and verify delimiter and column count
-	content, err := os.ReadFile(csvPath)
+	content, err := os.ReadFile(outputFile)
 	require.NoError(t, err)
 
 	lines := strings.Split(string(content), "\n")
@@ -593,68 +466,6 @@ func TestDiscoverFiles_RecursiveSkipsHiddenDirectories(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "visible.csv"), files[0])
 }
 
-// Two statements with the same basename in different subdirectories must not
-// overwrite each other. Before the output path mirrored the input tree, the
-// second conversion silently replaced the first while the manifest reported
-// both as successful.
-func TestProcessDirectory_RecursiveDoesNotOverwriteSameBasename(t *testing.T) {
-	inputDir := t.TempDir()
-	outputDir := t.TempDir()
-
-	require.NoError(t, os.MkdirAll(filepath.Join(inputDir, "jan"), 0750))
-	require.NoError(t, os.MkdirAll(filepath.Join(inputDir, "feb"), 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "jan", "statement.csv"), []byte("x"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "feb", "statement.csv"), []byte("x"), 0600))
-
-	mockParser := newMockParser()
-	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-		return createTestTransactions(3), nil
-	}
-
-	processor := NewBatchProcessor(PinnedResolver(mockParser), logging.NewLogrusAdapter("error", "text"), nil, true)
-
-	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
-	require.NoError(t, err)
-
-	assert.Equal(t, 2, manifest.SuccessCount)
-	assert.FileExists(t, filepath.Join(outputDir, "jan", "statement.csv"))
-	assert.FileExists(t, filepath.Join(outputDir, "feb", "statement.csv"))
-}
-
-// Inputs in one directory that differ only by extension would map to the same
-// output name. The source extension is folded in rather than one result
-// replacing the other.
-func TestProcessDirectory_DisambiguatesSameStemDifferentExtension(t *testing.T) {
-	inputDir := t.TempDir()
-	outputDir := t.TempDir()
-
-	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement.csv"), []byte("x"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement.xml"), []byte("x"), 0600))
-
-	mockParser := newMockParser()
-	mockParser.parseFunc = func(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
-		return createTestTransactions(3), nil
-	}
-
-	processor := NewBatchProcessor(PinnedResolver(mockParser), logging.NewLogrusAdapter("error", "text"), nil, false)
-
-	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
-	require.NoError(t, err)
-
-	require.Equal(t, 2, manifest.SuccessCount)
-
-	entries, err := os.ReadDir(outputDir)
-	require.NoError(t, err)
-
-	var produced []string
-	for _, e := range entries {
-		if e.Name() != ".manifest.json" {
-			produced = append(produced, e.Name())
-		}
-	}
-	assert.Len(t, produced, 2, "each input must produce its own output: %v", produced)
-}
-
 // A directory that cannot be read must fail the run rather than yield a short
 // work list, which would produce a manifest reporting success for everything it
 // happened to find.
@@ -689,7 +500,7 @@ func TestProcessDirectory_UnreadableSubdirectoryIsAnError(t *testing.T) {
 func TestProcessDirectory_ResolvesPerFile(t *testing.T) {
 	logger := logging.NewLogrusAdapter("error", "text")
 	inputDir := t.TempDir()
-	outputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
 	writeSample(t, inputDir, "a.csv", "ok")
 	writeSample(t, inputDir, "b.csv", "unsupported")
@@ -709,7 +520,7 @@ func TestProcessDirectory_ResolvesPerFile(t *testing.T) {
 	}
 
 	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
-	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputDir)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a.csv", "b.csv", "c.csv"}, asked, "every file must be offered to the resolver")
@@ -738,4 +549,201 @@ func writeSample(t *testing.T, dir, name, content string) string {
 	path := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	return path
+}
+
+// sampleTransaction returns a valid, minimal transaction with a fixed date.
+// time.Now() (as createTestTransactions uses) cannot express sort order
+// between fixtures, so callers that care about ordering need an explicit date.
+func sampleTransaction() models.Transaction {
+	tx, err := models.NewTransactionBuilder().
+		WithDatetime(time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)).
+		WithAmount(decimal.NewFromInt(42), "CHF").
+		WithDescription("Sample transaction").
+		Build()
+	if err != nil {
+		panic(err)
+	}
+	return tx
+}
+
+// A directory always yields one CSV. Files of different formats are merged into
+// it and ordered by date, which is the whole point: drop every statement into a
+// folder, get one import file.
+func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "releves.csv")
+
+	writeSample(t, inputDir, "march.csv", "x")
+	writeSample(t, inputDir, "january.csv", "x")
+
+	march := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
+	january := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	resolve := func(filePath string) (parser.FullParser, error) {
+		when := march
+		desc := "march"
+		if strings.HasPrefix(filepath.Base(filePath), "january") {
+			when, desc = january, "january"
+		}
+		p := newMockParser()
+		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+			tx, err := models.NewTransactionBuilder().
+				WithDatetime(when).
+				WithValueDatetime(when).
+				WithAmount(decimal.NewFromInt(1), "CHF").
+				WithDescription(desc).
+				WithPartyName("Coop").
+				Build()
+			if err != nil {
+				return nil, err
+			}
+			return []models.Transaction{tx}, nil
+		}
+		return p, nil
+	}
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, manifest.SuccessCount)
+	assert.FileExists(t, outputFile)
+
+	// Exactly one CSV, and January's row precedes March's inside it.
+	body, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+	assert.Less(t, strings.Index(string(body), "january"),
+		strings.Index(string(body), "march"),
+		"rows must be ordered by date, not by filename")
+
+	entries, err := os.ReadDir(filepath.Dir(outputFile))
+	require.NoError(t, err)
+	var csvCount int
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".csv") {
+			csvCount++
+		}
+	}
+	assert.Equal(t, 1, csvCount, "a directory input must produce exactly one CSV")
+}
+
+// One unreadable file out of many must not discard the rest: the CSV is written
+// with what succeeded, the exit code reports partial success, and the manifest
+// names the failure so the user knows what to re-run.
+func TestProcessDirectory_PartialFailureStillWritesCSV(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+
+	writeSample(t, inputDir, "good.csv", "x")
+	writeSample(t, inputDir, "bad.csv", "x")
+
+	resolve := func(filePath string) (parser.FullParser, error) {
+		p := newMockParser()
+		if strings.HasPrefix(filepath.Base(filePath), "bad") {
+			p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+				return nil, errors.New("corrupt header")
+			}
+			return p, nil
+		}
+		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+			return []models.Transaction{sampleTransaction()}, nil
+		}
+		return p, nil
+	}
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.FileExists(t, outputFile, "the successes must still be written")
+	assert.Equal(t, 1, manifest.ExitCode(), "partial success")
+
+	var failed *BatchResult
+	for i := range manifest.Results {
+		if !manifest.Results[i].Success {
+			failed = &manifest.Results[i]
+		}
+	}
+	require.NotNil(t, failed)
+	assert.Equal(t, "bad.csv", failed.FileName, "the manifest must name the failure")
+}
+
+// The manifest replaces the output extension rather than appending to it, and
+// lands beside the CSV: there is no output directory to hold it any more.
+func TestProcessDirectory_WritesManifestBesideOutput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outDir := t.TempDir()
+	outputFile := filepath.Join(outDir, "releves.csv")
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	resolve := PinnedResolver(mockParser)
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(outDir, "releves.manifest.json"))
+	assert.NoFileExists(t, filepath.Join(outDir, ".manifest.json"), "the old fixed name must be gone")
+}
+
+func TestManifestPathFor(t *testing.T) {
+	assert.Equal(t, "/out/releves.manifest.json", ManifestPathFor("/out/releves.csv"))
+	assert.Equal(t, "/out/noext.manifest.json", ManifestPathFor("/out/noext"))
+}
+
+// --recursive is about which files are read, not about the shape of the output:
+// a whole tree still lands in the one CSV.
+func TestProcessDirectory_RecursiveMergesWholeTree(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	nested := filepath.Join(inputDir, "2024", "q1")
+	require.NoError(t, os.MkdirAll(nested, 0750))
+
+	writeSample(t, inputDir, "top.csv", "x")
+	writeSample(t, nested, "deep.csv", "x")
+
+	outputFile := filepath.Join(t.TempDir(), "all.csv")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	resolve := PinnedResolver(mockParser)
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), true)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, manifest.SuccessCount, "the nested file must be read too")
+	assert.FileExists(t, outputFile)
+
+	entries, err := os.ReadDir(filepath.Dir(outputFile))
+	require.NoError(t, err)
+	var csvCount int
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".csv") {
+			csvCount++
+		}
+	}
+	assert.Equal(t, 1, csvCount, "recursion must not multiply outputs")
+}
+
+// An empty directory is a failed run, not a silent success: exit code 2 tells
+// the user nothing was converted.
+func TestProcessDirectory_EmptyDirectoryExitsTwo(t *testing.T) {
+	logger := logging.NewMockLogger()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+
+	bp := NewBatchProcessor(PinnedResolver(newMockParser()), logger,
+		formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), t.TempDir(), outputFile)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, manifest.ExitCode())
 }
