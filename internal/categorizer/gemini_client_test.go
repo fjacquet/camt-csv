@@ -41,7 +41,7 @@ func TestGeminiClient_CategorizeWithMockServer(t *testing.T) {
 	var gotPrompt string
 
 	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "test-api-key", r.URL.Query().Get("key"))
+		assert.Equal(t, "test-api-key", r.Header.Get("x-goog-api-key"))
 		assert.Contains(t, r.URL.Path, ":generateContent")
 
 		var req GeminiRequest
@@ -212,4 +212,52 @@ func TestGeminiClient_NeverLogsCredentials(t *testing.T) {
 		assert.False(t, strings.Contains(line, "http://") || strings.Contains(line, "https://"),
 			"URLs may embed the API key and must never be logged: %s", line)
 	}
+}
+
+// A transport-level failure — connection refused, timeout, cancelled context —
+// returns a *url.Error whose message embeds the whole request URL. When the key
+// travels as a query parameter, that error prints the credential in cleartext
+// wherever it is logged, which is exactly what happened in production. The
+// status-code tests above never caught it: they only exercise responses the
+// server actually sent.
+func TestGeminiClient_TransportErrorDoesNotLeakKey(t *testing.T) {
+	// A server that is closed immediately: the next request to it is refused
+	// at the TCP level, so the error comes from the transport, not the API.
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	baseURL := server.URL
+	server.Close()
+
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "super-secret-key", baseURL)
+
+	_, err := client.GetEmbedding(context.Background(), "Coop: groceries")
+
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "super-secret-key",
+		"a transport error must not carry the API key")
+	assert.NotContains(t, err.Error(), "http://",
+		"a transport error must not carry the request URL, which may embed the key")
+}
+
+// The key belongs in the x-goog-api-key header, not the query string: a URL
+// carrying it ends up in error messages, proxy logs, and crash reports. Google
+// documents the header as the authentication method for these endpoints.
+func TestGeminiClient_SendsKeyInHeaderNotURL(t *testing.T) {
+	var gotHeader, gotQuery string
+	baseURL := withGeminiServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get("x-goog-api-key")
+		gotQuery = r.URL.RawQuery
+		require.NoError(t, json.NewEncoder(w).Encode(GeminiEmbeddingResponse{
+			Embedding: struct {
+				Values []float32 `json:"values"`
+			}{Values: []float32{0.1, 0.2}},
+		}))
+	})
+
+	client := NewGeminiClient(testLogger(), 600, "gemini-2.0-flash", 30, "super-secret-key", baseURL)
+
+	_, err := client.GetEmbedding(context.Background(), "Coop: groceries")
+	require.NoError(t, err)
+
+	assert.Equal(t, "super-secret-key", gotHeader, "the key must be sent as a header")
+	assert.NotContains(t, gotQuery, "super-secret-key", "the key must not appear in the URL")
 }

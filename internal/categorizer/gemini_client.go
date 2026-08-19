@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -119,8 +121,7 @@ func (c *GeminiClient) Categorize(ctx context.Context, transaction models.Transa
 // complete posts the prompt to Gemini's generateContent endpoint and returns
 // the model's raw reply.
 func (c *GeminiClient) complete(ctx context.Context, prompt string) (string, error) {
-	// SECURITY: this URL contains the API key as a query parameter — never log it.
-	url := fmt.Sprintf("%s/%s:generateContent?key=%s", c.baseURL, c.model, c.apiKey)
+	url := fmt.Sprintf("%s/%s:generateContent", c.baseURL, c.model)
 
 	request := GeminiRequest{
 		Contents: []GeminiContent{
@@ -151,8 +152,7 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 		return nil, fmt.Errorf("API key not set")
 	}
 
-	// SECURITY: this URL contains the API key as a query parameter — never log it.
-	url := fmt.Sprintf("%s/%s:embedContent?key=%s", c.baseURL, geminiEmbeddingModel, c.apiKey)
+	url := fmt.Sprintf("%s/%s:embedContent", c.baseURL, geminiEmbeddingModel)
 
 	request := GeminiEmbeddingRequest{
 		Content: GeminiContent{Parts: []GeminiPart{{Text: text}}},
@@ -176,8 +176,12 @@ func (c *GeminiClient) GetEmbedding(ctx context.Context, text string) ([]float32
 }
 
 // postJSON marshals payload, POSTs it to url, and returns the response body.
-// A non-200 status becomes an error carrying the status and body — never the URL,
-// which holds the API key. apiLabel names the endpoint in log messages.
+// The API key travels in the x-goog-api-key header, the authentication method
+// Google documents for these endpoints. It is deliberately not a query
+// parameter: net/http reports transport failures as a *url.Error whose message
+// embeds the whole request URL, so a key in the query string is printed in
+// cleartext by every timeout, refused connection, or cancelled request.
+// apiLabel names the endpoint in log messages.
 func (c *GeminiClient) postJSON(ctx context.Context, url string, payload any, apiLabel string) ([]byte, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -189,10 +193,11 @@ func (c *GeminiClient) postJSON(ctx context.Context, url string, payload any, ap
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(req) // #nosec G107 -- URL is built from config, not user input
 	if err != nil {
-		return nil, fmt.Errorf("failed to make API request: %w", err)
+		return nil, fmt.Errorf("failed to make API request: %w", withoutURL(err))
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -214,4 +219,20 @@ func (c *GeminiClient) postJSON(ctx context.Context, url string, payload any, ap
 	}
 
 	return body, nil
+}
+
+// withoutURL strips the request URL from a transport error.
+//
+// net/http wraps every transport failure in a *url.Error, whose Error() prints
+// the full URL. Keeping the key out of the query string (see postJSON) is the
+// first line of defence; this is the second, so that a URL cannot reach a log
+// through a redirect, a proxy setting, or a future endpoint that does take a
+// credential in its query. The operation and the underlying cause — the parts
+// that make the error diagnosable — are preserved.
+func withoutURL(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s request failed: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }
