@@ -477,19 +477,58 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 // A CAMT.053 statement names the account it covers in <Stmt><Acct>. Without
 // it on the transaction, the only remaining evidence of which account a row
 // belongs to is the file's name — which is lost the moment a file is renamed.
+//
+// The document is written inline rather than read from samples/: that folder
+// holds real statements and is not in the repository, so a test reading from
+// it does not run in CI, where this mapping most needs guarding.
 func TestParse_CarriesStatementAccountOnEachTransaction(t *testing.T) {
+	const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Acct><Id><IBAN>CH1700767000K54293249</IBAN></Id><Ccy>CHF</Ccy></Acct>
+			<Ntry>
+				<Amt Ccy="CHF">120.00</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<Sts>BOOK</Sts>
+				<BookgDt><Dt>2026-04-15</Dt></BookgDt>
+				<ValDt><Dt>2026-04-15</Dt></ValDt>
+				<AcctSvcrRef>ref-a</AcctSvcrRef>
+				<NtryDtls><TxDtls>
+					<RltdPties><Cdtr><Nm>Coop</Nm><Acct><Id><IBAN>CH8109000000100165059</IBAN></Id></Acct></Cdtr></RltdPties>
+				</TxDtls></NtryDtls>
+			</Ntry>
+		</Stmt>
+		<Stmt>
+			<Acct><Id><IBAN>CH6000767000Z53153547</IBAN></Id><Ccy>CHF</Ccy></Acct>
+			<Ntry>
+				<Amt Ccy="CHF">40.00</Amt>
+				<CdtDbtInd>CRDT</CdtDbtInd>
+				<Sts>BOOK</Sts>
+				<BookgDt><Dt>2026-04-16</Dt></BookgDt>
+				<ValDt><Dt>2026-04-16</Dt></ValDt>
+				<AcctSvcrRef>ref-b</AcctSvcrRef>
+				<NtryDtls><TxDtls>
+					<RltdPties><Dbtr><Nm>Employer</Nm></Dbtr></RltdPties>
+				</TxDtls></NtryDtls>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
 	adapter := NewAdapter(logging.NewMockLogger())
 
-	f, err := os.Open("../../samples/camt053/camt53-49.xml")
+	transactions, err := adapter.Parse(context.Background(), strings.NewReader(doc))
 	require.NoError(t, err)
-	defer func() { _ = f.Close() }()
+	require.Len(t, transactions, 2)
 
-	transactions, err := adapter.Parse(context.Background(), f)
-	require.NoError(t, err)
-	require.NotEmpty(t, transactions)
+	// One document, two statements, two accounts: each row must carry the
+	// account of the statement it came from, not the first one seen.
+	assert.Equal(t, "CH1700767000K54293249", transactions[0].IBAN)
+	assert.Equal(t, "CH6000767000Z53153547", transactions[1].IBAN)
 
-	for _, tx := range transactions {
-		assert.Equal(t, "CH1700767000K54293249", tx.IBAN,
-			"every row must carry the account its statement covers, not the counterparty's")
-	}
+	// The counterparty's account stays where it was; the two must not be
+	// confused, or every row would be attributed to whoever it paid.
+	assert.Equal(t, "CH8109000000100165059", transactions[0].PartyIBAN,
+		"the statement account must not overwrite the counterparty's")
 }
