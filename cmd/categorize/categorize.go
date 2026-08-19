@@ -14,7 +14,10 @@ var Cmd = &cobra.Command{
 	Short:   "Categorize transactions using Gemini model",
 	Long:    `Categorize transactions based on the party's name and typical activity using Gemini model.`,
 	GroupID: "tools",
-	Run:     categorizeFunc,
+	// Every input is a flag (--party, --amount, ...); a stray positional
+	// argument is a typo, not something to silently ignore.
+	Args: cobra.NoArgs,
+	Run:  categorizeFunc,
 }
 
 func init() {

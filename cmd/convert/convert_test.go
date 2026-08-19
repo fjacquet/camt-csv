@@ -217,6 +217,27 @@ func TestResolveOutputFile_ExistingDirectoryGetsGeneratedName(t *testing.T) {
 	assert.Equal(t, filepath.Join(outputDir, "releves-2024.csv"), got)
 }
 
+// A trailing separator on -o must be read as "this is a directory" even when
+// the directory does not exist yet: os.Stat can't tell existing-dir from
+// not-yet-created-dir, and without this signal the generated name stays
+// "outdir/" verbatim. ProcessDirectory would then os.MkdirAll(filepath.Dir(
+// "outdir/")) — creating outdir as a directory — and only fail once every
+// file has already been parsed, trying to write the CSV into it ("is a
+// directory").
+func TestResolveOutputFile_TrailingSeparatorIsTreatedAsDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	inputDir := filepath.Join(tempDir, "releves-2024")
+	require.NoError(t, os.MkdirAll(inputDir, 0750))
+	outputDir := filepath.Join(tempDir, "outdir") + string(filepath.Separator)
+
+	got, err := common.ResolveOutputFile(inputDir, outputDir)
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(tempDir, "outdir", "releves-2024.csv"), got)
+	assert.NoDirExists(t, filepath.Join(tempDir, "outdir"),
+		"resolving the output path must not itself create the directory")
+}
+
 // A file input pointed at an existing directory must not double the
 // extension: the directory-naming branch used to run before the
 // input-is-a-directory check, so a file input named "statement.csv" got
@@ -337,6 +358,18 @@ func TestResolveOutputFile_GuardsAgainstInputOverlap(t *testing.T) {
 			}
 		})
 	}
+}
+
+// convert takes its input/output via -i/-o, not positional args. Without a
+// cobra.Args validator, `convert statement.pdf` is silently accepted (the
+// argument is just discarded) and fails deep inside with a confusing "Error
+// accessing input path: stat : no such file or directory" (the empty,
+// unset -i) instead of cobra's own clear error naming the problem.
+func TestCmd_RejectsPositionalArgs(t *testing.T) {
+	require.NotNil(t, Cmd.Args, "convert must reject positional arguments")
+	assert.NoError(t, Cmd.Args(Cmd, []string{}), "no positional args must still be accepted")
+	assert.Error(t, Cmd.Args(Cmd, []string{"statement.pdf"}),
+		"a stray positional argument must be rejected, not silently discarded")
 }
 
 func TestCmd_IsRegisteredWithFlags(t *testing.T) {

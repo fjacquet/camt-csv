@@ -220,24 +220,32 @@ func (ba *BatchAggregator) sortTransactionsChronologically(transactions []models
 }
 
 // detectAndLogDuplicates identifies potential duplicate transactions and logs warnings
-// This helps users identify overlapping data but doesn't remove duplicates
+// This helps users identify overlapping data but doesn't remove duplicates.
+//
+// Requires transactions to already be sorted chronologically by date — this is
+// an unexported method, and its one production caller, Consolidate, sorts
+// immediately before calling it. arePotentialDuplicates requires an exact date
+// match, so once transactions[j].Date no longer equals transactions[i].Date,
+// no later j can match i either: the inner loop breaks there instead of
+// scanning the rest of a merged batch that can run into the thousands.
 func (ba *BatchAggregator) detectAndLogDuplicates(transactions []models.Transaction, accountID string) {
 	duplicateCount := 0
 
 	// Simple duplicate detection: same date, amount, and party
 	for i := 0; i < len(transactions)-1; i++ {
 		for j := i + 1; j < len(transactions); j++ {
-			tx1 := transactions[i]
-			tx2 := transactions[j]
+			if !transactions[j].Date.Equal(transactions[i].Date) {
+				break
+			}
 
 			// Check if transactions are potential duplicates
-			if ba.arePotentialDuplicates(tx1, tx2) {
+			if ba.arePotentialDuplicates(transactions[i], transactions[j]) {
 				duplicateCount++
 				ba.logger.Warn("Potential duplicate transaction",
 					logging.Field{Key: "account", Value: accountID},
-					logging.Field{Key: "date", Value: tx1.Date.Format("2006-01-02")},
-					logging.Field{Key: "amount", Value: tx1.Amount.String()},
-					logging.Field{Key: "party", Value: tx1.GetCounterparty()})
+					logging.Field{Key: "date", Value: transactions[i].Date.Format("2006-01-02")},
+					logging.Field{Key: "amount", Value: transactions[i].Amount.String()},
+					logging.Field{Key: "party", Value: transactions[i].GetCounterparty()})
 				break // Only log once per transaction
 			}
 		}

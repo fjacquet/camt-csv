@@ -267,8 +267,10 @@ func TestAdapterValidateFormat(t *testing.T) {
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.pdf")
 
-	// Create dummy PDF file
-	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
+	// Create a dummy file carrying the real PDF magic header: ValidateFormat
+	// checks it before ever calling the extractor, so a file without it would
+	// be rejected before reaching the mock.
+	err := os.WriteFile(inputFile, []byte("%PDF-1.7\ndummy content"), 0600)
 	require.NoError(t, err)
 
 	logger := logging.NewLogrusAdapter("info", "text")
@@ -288,6 +290,55 @@ func TestAdapterValidateFormatWithInvalidFile(t *testing.T) {
 	valid, err := adapter.ValidateFormat("/nonexistent/file.pdf")
 	assert.NoError(t, err) // No error returned, just false validation
 	assert.False(t, valid) // Should fail validation
+}
+
+// A file that exists and carries the PDF magic header, but that the
+// extractor cannot read (corrupted, or pdftotext missing), must still be
+// rejected as invalid rather than erroring the whole batch.
+func TestAdapterValidateFormat_MagicHeaderPresentButExtractionFails(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "input.pdf")
+	require.NoError(t, os.WriteFile(inputFile, []byte("%PDF-1.7\ncorrupted"), 0600))
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
+	adapter := NewAdapter(logger, mockExtractor)
+
+	valid, err := adapter.ValidateFormat(inputFile)
+	assert.NoError(t, err)
+	assert.False(t, valid)
+}
+
+// A file lacking the PDF magic header must never reach the extractor at all:
+// with auto-detection offering every file in a batch to every parser, a
+// directory of N non-PDF statements would otherwise spawn N pdftotext
+// subprocesses for files that can never validate.
+func TestAdapterValidateFormat_RejectsNonPDFWithoutCallingExtractor(t *testing.T) {
+	tempDir := t.TempDir()
+	inputFile := filepath.Join(tempDir, "input.csv")
+	require.NoError(t, os.WriteFile(inputFile, []byte("Date,Amount\n2024-01-01,10\n"), 0600))
+
+	logger := logging.NewLogrusAdapter("info", "text")
+	var extractorCalled bool
+	mockExtractor := NewMockPDFExtractor("some text", nil)
+	adapter := NewAdapter(logger, callCountingExtractor{PDFExtractor: mockExtractor, called: &extractorCalled})
+
+	valid, err := adapter.ValidateFormat(inputFile)
+	assert.NoError(t, err)
+	assert.False(t, valid)
+	assert.False(t, extractorCalled, "a file without the PDF magic header must never reach the extractor")
+}
+
+// callCountingExtractor wraps a PDFExtractor and records whether ExtractText
+// was invoked, without changing its behavior.
+type callCountingExtractor struct {
+	PDFExtractor
+	called *bool
+}
+
+func (c callCountingExtractor) ExtractText(pdfPath string) (string, error) {
+	*c.called = true
+	return c.PDFExtractor.ExtractText(pdfPath)
 }
 
 // Tests for helper functions to improve coverage

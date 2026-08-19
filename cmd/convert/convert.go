@@ -21,7 +21,14 @@ var Cmd = &cobra.Command{
 	Use:     "convert",
 	Short:   "Convert a statement to CSV",
 	GroupID: "conversion",
-	Run:     runConvert,
+	// The input/output paths are the -i/-o flags, not positional args: a
+	// natural but wrong invocation like `convert statement.pdf` would
+	// otherwise be silently accepted and fail deep inside with a
+	// confusing "Error accessing input path: stat : no such file or
+	// directory" (the empty, unset -i) rather than cobra's own clear
+	// "unknown command" error.
+	Args: cobra.NoArgs,
+	Run:  runConvert,
 }
 
 func init() {

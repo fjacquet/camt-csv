@@ -44,11 +44,15 @@ func ResolverFor(c *container.Container, from string, logger logging.Logger) (ba
 // ResolveOutputFile turns the --output value into the single CSV path a run
 // writes.
 //
-// A path naming an existing directory gets a file generated inside it, named
-// after the input — the convenience the PDF command used to offer. For a
-// directory input that is "<dir>/<input-dir-basename>.csv"; for a file input
-// it is the input's own name, unchanged, so a directory -o does not turn
-// "statement.csv" into "statement.csv.csv".
+// A path naming an existing directory, or written with a trailing separator
+// (a directory that does not exist yet — os.Stat can't tell us so, and the
+// alternative is discovering it only after every file has already been
+// parsed, when ProcessDirectory's os.MkdirAll(filepath.Dir(...)) creates it
+// and the final CSV write fails with "is a directory"), gets a file generated
+// inside it, named after the input — the convenience the PDF command used to
+// offer. For a directory input that is "<dir>/<input-dir-basename>.csv"; for
+// a file input it is the input's own name, unchanged, so a directory -o does
+// not turn "statement.csv" into "statement.csv.csv".
 //
 // An output under the input's directory is refused: for a directory input,
 // writing inside it would let a later --recursive run read its own output
@@ -60,8 +64,13 @@ func ResolveOutputFile(inputPath, outputPath string) (string, error) {
 	inputInfo, statErr := os.Stat(inputPath)
 	inputIsDir := statErr == nil && inputInfo.IsDir()
 
-	resolved := outputPath
+	outputIsDir := strings.HasSuffix(outputPath, string(filepath.Separator))
 	if info, err := os.Stat(outputPath); err == nil && info.IsDir() {
+		outputIsDir = true
+	}
+
+	resolved := outputPath
+	if outputIsDir {
 		if inputIsDir {
 			resolved = filepath.Join(outputPath, filepath.Base(filepath.Clean(inputPath))+".csv")
 		} else {

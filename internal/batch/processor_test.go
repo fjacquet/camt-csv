@@ -656,6 +656,29 @@ func TestProcessDirectory_ResolvesPerFile(t *testing.T) {
 	assert.Equal(t, 1, manifest.ExitCode(), "partial success")
 }
 
+// NewBatchProcessor is exported and takes a func value for resolve; a nil one
+// is a caller bug, not something ProcessDirectory should panic on mid-file.
+// It must instead behave like any resolver that rejects every file: each
+// file recorded as a failure, the run completes and returns a manifest.
+func TestNewBatchProcessor_NilResolverFailsFilesInsteadOfPanicking(t *testing.T) {
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+	writeSample(t, inputDir, "a.csv", "x")
+
+	logger := logging.NewLogrusAdapter("error", "text")
+	bp := NewBatchProcessor(nil, logger, nil, false)
+
+	require.NotPanics(t, func() {
+		manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+		require.NoError(t, err)
+		require.NotNil(t, manifest)
+		assert.Equal(t, 1, manifest.TotalFiles)
+		assert.Equal(t, 0, manifest.SuccessCount)
+		assert.Equal(t, 1, manifest.FailureCount)
+		assert.Contains(t, manifest.Results[0].Error, "format_not_recognized")
+	})
+}
+
 // PinnedResolver is what --from produces: the same parser for every file,
 // so a batch the detector misreads can be forced through one parser.
 func TestPinnedResolver_AlwaysReturnsSameParser(t *testing.T) {
@@ -968,4 +991,47 @@ func TestProcessDirectory_RepeatRunIgnoresOwnOutput(t *testing.T) {
 	assert.Equal(t, 1, manifest2.TotalFiles,
 		"a repeat run must not discover its own previous CSV or manifest as inputs")
 	assert.Equal(t, 0, manifest2.ExitCode(), "a repeat run over unchanged input must still cleanly succeed")
+}
+
+// A run that writes nothing (every file yields zero transactions, most
+// commonly a wrong --from pin) must not silently leave a stale CSV from an
+// earlier run looking like this run's output. It is left in place — deleting
+// it would be the more destructive choice for what is often a transient
+// misconfiguration — but the run must warn, by name, that it did not touch it.
+func TestProcessDirectory_ZeroTransactionRerunWarnsAboutStaleCSV(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "out.csv")
+
+	staleContent := "date,amount\n2024-01-01,10\n"
+	require.NoError(t, os.WriteFile(outputFile, []byte(staleContent), 0600))
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return nil, nil // parses fine, yields nothing
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, manifest.TransactionCount)
+
+	body, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+	assert.Equal(t, staleContent, string(body), "the earlier run's CSV must be left untouched, not deleted or overwritten")
+
+	found := false
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		if strings.Contains(entry.Message, "earlier") && strings.Contains(entry.Message, "still present") {
+			for _, f := range entry.Fields {
+				if f.Key == "path" && f.Value == outputFile {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "a zero-transaction run must warn, naming the stale output file")
 }

@@ -1017,6 +1017,40 @@ func TestConsolidate_SortsAndKeepsDuplicates(t *testing.T) {
 	assert.True(t, found, "Consolidate must log duplicate warning with the batch label in the account field")
 }
 
+// detectAndLogDuplicates' inner loop breaks as soon as the date no longer
+// matches, on the assumption that the slice is already sorted chronologically
+// (true of its only caller, Consolidate). This must not degrade into breaking
+// on index adjacency instead of on the date actually changing: two same-date
+// transactions separated in the slice by a third, non-duplicate, same-date
+// transaction must still be found.
+func TestDetectAndLogDuplicates_NonAdjacentSameDateDuplicatesStillFound(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	day := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
+	nextDay := time.Date(2024, 2, 21, 0, 0, 0, 0, time.UTC)
+
+	// Already sorted, as Consolidate would leave it. "Migros" appears twice at
+	// the same date with an unrelated "SBB" transaction in between them.
+	transactions := []models.Transaction{
+		{Date: day, Amount: decimal.NewFromInt(10), PartyName: "Migros", Payee: "Migros"},
+		{Date: day, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB"},
+		{Date: day, Amount: decimal.NewFromInt(10), PartyName: "Migros", Payee: "Migros"},
+		{Date: nextDay, Amount: decimal.NewFromInt(30), PartyName: "Coop", Payee: "Coop"},
+	}
+
+	agg.detectAndLogDuplicates(transactions, "TEST_ACCOUNT")
+
+	var duplicateWarnings int
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		if entry.Message == "Potential duplicate transaction" {
+			duplicateWarnings++
+		}
+	}
+	assert.Equal(t, 1, duplicateWarnings,
+		"the two same-date Migros transactions must be found as duplicates despite the SBB transaction between them")
+}
+
 // An empty batch is a normal outcome (a directory of unreadable files), not an
 // error: Consolidate must return cleanly rather than panic on the empty slice.
 func TestConsolidate_EmptyInput(t *testing.T) {

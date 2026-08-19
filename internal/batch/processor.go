@@ -73,6 +73,14 @@ func NewBatchProcessor(resolve ParserResolver, logger logging.Logger, fmt format
 		fmt = formatter.NewStandardFormatter()
 	}
 
+	// A nil resolve is a caller bug, not something a batch run should panic
+	// on mid-file: NewBatchProcessor is exported and now takes a function
+	// value, so default to a resolver that fails every file individually —
+	// the same outcome any other resolver rejecting a file already produces.
+	if resolve == nil {
+		resolve = func(string) (Resolution, error) { return Resolution{}, ErrNoParser }
+	}
+
 	return &BatchProcessor{
 		resolve:   resolve,
 		logger:    logger,
@@ -184,6 +192,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// below regardless, so the run report — which files completed, and how
 	// many transactions they carried — survives even though the CSV does not.
 	var writeErr error
+	csvWritten := false
 	if !cancelled && len(merged) > 0 {
 		merged = NewBatchAggregator(bp.logger).Consolidate(merged, filepath.Base(outputFile))
 
@@ -191,6 +200,26 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		if err := common.WriteTransactionsToCSVWithFormatter(
 			merged, outputFile, bp.logger, bp.formatter, delimiter); err != nil {
 			writeErr = fmt.Errorf("failed to write consolidated CSV: %w", err)
+		} else {
+			csvWritten = true
+		}
+	}
+
+	// Nothing was written this run (cancelled, or every file yielded zero
+	// transactions), yet a CSV from an earlier run may still be sitting at
+	// outputFile — left there beside a fresh manifest reporting zero
+	// transactions, it reads as this run's output. It is not deleted: an
+	// unexpected zero-transaction run (most commonly --from pinned wrong) is
+	// exactly the situation where silently destroying a prior good
+	// conversion would be least welcome. writeErr == nil excludes the case
+	// where the write itself failed partway — the file there may already be
+	// a truncated new write, not a stale old one, and that failure is
+	// reported separately.
+	if !csvWritten && writeErr == nil {
+		if _, err := os.Stat(outputFile); err == nil {
+			bp.logger.Warn("This run produced no transactions to write, but an earlier "+
+				"run's CSV is still present at the output path and was left untouched",
+				logging.Field{Key: "path", Value: outputFile})
 		}
 	}
 
