@@ -1167,3 +1167,84 @@ func TestProcessDirectory_FilesWithoutAnAccountGoToUnknown(t *testing.T) {
 	assert.Equal(t, "unknown", manifest.Accounts[0].Account)
 	assert.Equal(t, 1, manifest.Accounts[0].TransactionCount)
 }
+
+// Own-output exclusion keys on the name shape AccountOutputPathFor produces,
+// which risks swallowing a real input that merely shares the prefix. Only
+// suffixes it can actually generate — "unknown" or an account number — count as
+// this run's own output; anything else in the folder is a file to convert.
+func TestProcessDirectory_SimilarlyNamedInputIsStillConverted(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(inputDir, "releves.csv")
+
+	// Shares the "releves_" prefix and the .csv extension with this run's
+	// outputs, but "backup" is not an account key.
+	writeSample(t, inputDir, "releves_backup.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, manifest.TotalFiles,
+		"a source file sharing the output prefix must still be converted")
+	assert.Equal(t, 1, manifest.TransactionCount)
+}
+
+// The mirror of the case above: a genuine previous output must still be
+// skipped on a repeat run, so the prefix rule is narrowed, not abandoned.
+func TestProcessDirectory_RepeatRunIgnoresAccountOutputs(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(inputDir, "releves.csv")
+
+	writeSample(t, inputDir, "CAMT.053_54293249_2026-04-01_2026-04-30_1.xml", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+	require.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+	assert.Equal(t, 1, manifest.TotalFiles,
+		"the account CSV written by the first run must not be an input to the second")
+}
+
+// A stale-output warning naming an unrelated file would send the user looking
+// for a CSV this command never wrote.
+func TestProcessDirectory_ZeroTransactionRunIgnoresUnrelatedFiles(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	unrelated := filepath.Join(outputDir, "releves_backup.csv")
+	require.NoError(t, os.WriteFile(unrelated, []byte("date,amount\n"), 0600))
+
+	writeSample(t, inputDir, "a.csv", "x")
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return nil, nil // parses fine, yields nothing
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	for _, entry := range logger.GetEntriesByLevel("WARN") {
+		for _, f := range entry.Fields {
+			assert.NotEqual(t, unrelated, f.Value,
+				"a file this command could not have written must not be reported as a stale output")
+		}
+	}
+}

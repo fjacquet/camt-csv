@@ -415,10 +415,7 @@ func excludeOwnOutputs(files []string, outputFile string) []string {
 		if abs == manifest {
 			continue
 		}
-		base := filepath.Base(abs)
-		if filepath.Dir(abs) == outputDir &&
-			strings.HasPrefix(base, prefix) &&
-			strings.HasSuffix(base, ext) {
+		if filepath.Dir(abs) == outputDir && isAccountOutputName(filepath.Base(abs), prefix, ext) {
 			continue
 		}
 		filtered = append(filtered, f)
@@ -432,12 +429,50 @@ func excludeOwnOutputs(files []string, outputFile string) []string {
 // were this run's output.
 func staleOutputs(outputFile string) []string {
 	ext := filepath.Ext(outputFile)
+	prefix := strings.TrimSuffix(filepath.Base(outputFile), ext) + "_"
+
 	matches, err := filepath.Glob(strings.TrimSuffix(outputFile, ext) + "_*" + ext)
 	if err != nil {
 		return nil
 	}
-	sort.Strings(matches)
-	return matches
+
+	var stale []string
+	for _, m := range matches {
+		if isAccountOutputName(filepath.Base(m), prefix, ext) {
+			stale = append(stale, m)
+		}
+	}
+	sort.Strings(stale)
+	return stale
+}
+
+// isAccountOutputName reports whether a file name is one AccountOutputPathFor
+// could have produced for this output: the base name, an underscore, then
+// either an account number or the "unknown" label.
+//
+// Matching the prefix alone would be too greedy in both directions. A source
+// file the user happens to have named releves_backup.csv would be silently
+// skipped as if this command had written it, and a run that wrote nothing
+// would name it in a stale-output warning, sending the user looking for a CSV
+// this command never produced.
+func isAccountOutputName(name, prefix, ext string) bool {
+	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ext) {
+		return false
+	}
+
+	account := strings.TrimSuffix(strings.TrimPrefix(name, prefix), ext)
+	if account == unknownAccount {
+		return true
+	}
+	if account == "" {
+		return false
+	}
+	for _, r := range account {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // absPath resolves a path, falling back to a cleaned relative one when the

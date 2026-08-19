@@ -31,11 +31,15 @@ type AccountSummary struct {
 
 // BatchManifest aggregates results from a batch operation
 type BatchManifest struct {
-	TotalFiles       int              `json:"total_files"`
-	SuccessCount     int              `json:"success_count"`
-	FailureCount     int              `json:"failure_count"`
-	TransactionCount int              `json:"transaction_count"` // Total transactions written across every account CSV
-	Accounts         []AccountSummary `json:"accounts"`          // One entry per CSV written, ordered by account
+	TotalFiles   int `json:"total_files"`
+	SuccessCount int `json:"success_count"`
+	FailureCount int `json:"failure_count"`
+	// Transactions parsed across every account, whether or not each
+	// account's CSV was written: a run whose write failed still reports what
+	// it read, and ExitCode's zero-transaction check stays a statement about
+	// parsing. Per-CSV counts are in Accounts.
+	TransactionCount int              `json:"transaction_count"`
+	Accounts         []AccountSummary `json:"accounts"` // One entry per CSV actually written, ordered by account
 	Results          []BatchResult    `json:"results"`
 	Duration         time.Duration    `json:"duration"`
 	ProcessedAt      time.Time        `json:"processed_at"`
