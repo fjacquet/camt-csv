@@ -1,7 +1,6 @@
 package pdfparser
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -54,14 +53,4 @@ func TestAdapter_ValidateFormat_WithMockExtractor(t *testing.T) {
 		assert.NoError(t, err) // ValidateFormat returns false, nil on extraction error
 		assert.False(t, valid)
 	})
-}
-
-func TestAdapter_ConvertToCSV_NonexistentFile(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	extractor := NewMockPDFExtractor("", nil)
-	adapter := NewAdapter(logger, extractor)
-
-	err := adapter.ConvertToCSV(context.Background(), "/nonexistent/file.pdf", "/tmp/out.csv")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error opening input file")
 }

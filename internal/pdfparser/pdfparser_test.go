@@ -246,23 +246,6 @@ func TestParseWithExtractorAndCategorizer(t *testing.T) {
 	assert.NotNil(t, transactions)
 }
 
-func TestAdapterConvertToCSV(t *testing.T) {
-	tempDir := t.TempDir()
-	inputFile := filepath.Join(tempDir, "input.pdf")
-	outputFile := filepath.Join(tempDir, "output.csv")
-
-	// Create dummy PDF file
-	err := os.WriteFile(inputFile, []byte("dummy content"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	mockExtractor := NewMockPDFExtractor("", fmt.Errorf("extraction failed"))
-	adapter := NewAdapter(logger, mockExtractor)
-
-	err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-	assert.Error(t, err) // Expected to fail with mock error
-}
-
 func TestAdapterValidateFormat(t *testing.T) {
 	tempDir := t.TempDir()
 	inputFile := filepath.Join(tempDir, "input.pdf")
@@ -1077,24 +1060,5 @@ INVALID_DATE INVALID_AMOUNT Some description`
 		assert.NoError(t, err)
 		// May have 0 transactions if data is completely malformed
 		assert.NotNil(t, transactions)
-	})
-
-	t.Run("converter_includes_file_path", func(t *testing.T) {
-		tempDir := t.TempDir()
-		inputFile := filepath.Join(tempDir, "input.pdf")
-		outputFile := filepath.Join(tempDir, "output.csv")
-
-		// Create a file that will fail conversion
-		err := os.WriteFile(inputFile, []byte("not a real PDF"), 0600)
-		require.NoError(t, err)
-
-		mockExtractor := NewMockPDFExtractor("", fmt.Errorf("failed to extract text from %s", inputFile))
-		adapter := NewAdapter(logger, mockExtractor)
-
-		err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-		require.Error(t, err)
-
-		// Error should include the input file path for debugging
-		assert.Contains(t, err.Error(), inputFile, "Error message should include input file path")
 	})
 }

@@ -53,10 +53,6 @@ func (m *mockFullParser) ValidateFormat(filePath string) (bool, error) {
 	return true, nil
 }
 
-func (m *mockFullParser) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	return errors.New("not implemented in mock")
-}
-
 func (m *mockFullParser) SetLogger(logger logging.Logger) {
 	m.logger = logger
 }

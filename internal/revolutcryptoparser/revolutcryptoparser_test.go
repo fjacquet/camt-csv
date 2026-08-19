@@ -274,20 +274,3 @@ func TestAdapter_Parse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 }
-
-func TestAdapter_ConvertToCSV(t *testing.T) {
-	tmpDir := t.TempDir()
-	inputPath := filepath.Join(tmpDir, "input.csv")
-	outputPath := filepath.Join(tmpDir, "output.csv")
-
-	err := os.WriteFile(inputPath, []byte(validCryptoCSV()), 0600)
-	require.NoError(t, err)
-
-	adapter := NewAdapter(newTestLogger())
-	err = adapter.ConvertToCSV(context.Background(), inputPath, outputPath)
-	assert.NoError(t, err)
-
-	data, err := os.ReadFile(outputPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "BTC")
-}

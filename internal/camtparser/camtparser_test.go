@@ -156,38 +156,6 @@ func TestParseFile(t *testing.T) {
 	assert.Equal(t, "John Doe", transactions[0].PartyName)
 }
 
-func TestConvertToCSV(t *testing.T) {
-	// CSV delimiter is now a constant (models.DefaultCSVDelimiter)
-
-	// Create a temporary directory for test files
-	tempDir, err := os.MkdirTemp("", "camt-test")
-	assert.NoError(t, err)
-	defer func() { assert.NoError(t, os.RemoveAll(tempDir)) }()
-
-	// Create a dummy XML file
-	xmlFile := filepath.Join(tempDir, "input.xml")
-	err = os.WriteFile(xmlFile, []byte(testXMLContent), 0600)
-	assert.NoError(t, err)
-
-	// Define the output CSV file path
-	csvFile := filepath.Join(tempDir, "output.csv")
-
-	// Convert XML to CSV
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-	err = adapter.ConvertToCSV(context.Background(), xmlFile, csvFile)
-	assert.NoError(t, err)
-
-	// Read the generated CSV file
-	csvContent, err := os.ReadFile(csvFile)
-	assert.NoError(t, err)
-
-	// Expected CSV content (comma-separated) - updated to 29-column format per Phase 10
-	expectedCSV := "Status,Date,ValueDate,Name,PartyName,PartyIBAN,Description,RemittanceInfo,Amount,CreditDebit,Currency,Product,AmountExclTax,TaxRate,InvestmentType,Number,Category,Type,Fund,NumberOfShares,Fees,IBAN,EntryReference,Reference,AccountServicer,BankTxCode,OriginalCurrency,OriginalAmount,ExchangeRate\n,01.01.2023,02.01.2023,Test Payee,Test Payee,,Test Transaction,Test Transaction,-100.00,DBIT,EUR,,0.00,0.00,,,Uncategorized,,,0,0.00,,,BK123,,,,0.00,0.00\n"
-
-	assert.Equal(t, expectedCSV, string(csvContent))
-}
-
 // Test error scenarios in CAMT parser
 func TestCAMTParser_ErrorScenarios(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
@@ -400,62 +368,10 @@ func TestCAMTParser_FileValidation(t *testing.T) {
 	})
 }
 
-// Test CSV conversion error scenarios
-func TestCAMTParser_CSVConversionErrors(t *testing.T) {
-	logger := logging.NewLogrusAdapter("info", "text")
-	adapter := NewAdapter(logger)
-
-	t.Run("invalid input file", func(t *testing.T) {
-		tempDir := t.TempDir()
-		outputFile := filepath.Join(tempDir, "output.csv")
-
-		err := adapter.ConvertToCSV(context.Background(), "/non/existent/input.xml", outputFile)
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid output directory", func(t *testing.T) {
-		tempDir := t.TempDir()
-		inputFile := filepath.Join(tempDir, "input.xml")
-		err := os.WriteFile(inputFile, []byte(testXMLContent), 0600)
-		require.NoError(t, err)
-
-		// Try to write to non-existent directory
-		err = adapter.ConvertToCSV(context.Background(), inputFile, "/non/existent/dir/output.csv")
-		assert.Error(t, err)
-	})
-
-	t.Run("permission denied on output", func(t *testing.T) {
-		tempDir := t.TempDir()
-		inputFile := filepath.Join(tempDir, "input.xml")
-		err := os.WriteFile(inputFile, []byte(testXMLContent), 0600)
-		require.NoError(t, err)
-
-		// Create read-only directory
-		readOnlyDir := filepath.Join(tempDir, "readonly")
-		err = os.MkdirAll(readOnlyDir, 0400)
-		require.NoError(t, err)
-
-		outputFile := filepath.Join(readOnlyDir, "output.csv")
-		err = adapter.ConvertToCSV(context.Background(), inputFile, outputFile)
-		assert.Error(t, err)
-	})
-}
-
 // TestCAMTParser_ErrorMessagesIncludeFilePath validates error messages include helpful context
 func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger)
-
-	t.Run("invalid_file_path_in_error", func(t *testing.T) {
-		invalidPath := "/nonexistent/test_file.xml"
-
-		err := adapter.ConvertToCSV(context.Background(), invalidPath, "/tmp/output.csv")
-		require.Error(t, err)
-
-		// Error should include the file path that was attempted
-		assert.Contains(t, err.Error(), invalidPath,
-			"Error message should include file path for debugging")
-	})
 
 	t.Run("malformed_xml_includes_context", func(t *testing.T) {
 		tempDir := t.TempDir()

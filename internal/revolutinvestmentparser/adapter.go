@@ -29,11 +29,6 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 	return ParseWithCategorizer(ctx, r, a.GetLogger(), a.GetCategorizer())
 }
 
-// ConvertToCSV implements parser.FullParser.ConvertToCSV
-func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	return a.ConvertToCSVDefault(ctx, inputFile, outputFile, a.Parse)
-}
-
 // expectedHeaders returns the columns a Revolut Investment CSV export starts
 // with, in order. They are what distinguishes this format from every other CSV
 // the tool accepts. A fresh slice is returned each call so no caller can alter

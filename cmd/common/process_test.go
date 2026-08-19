@@ -19,7 +19,6 @@ type MockFullParser struct {
 	mock.Mock
 	ValidateResult bool
 	ValidateError  error
-	ConvertError   error
 	ParseResult    []models.Transaction
 	ParseError     error
 	logger         logging.Logger
@@ -28,11 +27,6 @@ type MockFullParser struct {
 func (m *MockFullParser) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
 	args := m.Called(ctx, r)
 	return args.Get(0).([]models.Transaction), args.Error(1)
-}
-
-func (m *MockFullParser) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	args := m.Called(ctx, inputFile, outputFile)
-	return args.Error(0)
 }
 
 func (m *MockFullParser) SetLogger(logger logging.Logger) {
@@ -64,7 +58,6 @@ func TestMockFullParser_ImplementsInterface(t *testing.T) {
 	parser.On("SetLogger", mockLogger).Return()
 	parser.On("SetCategorizer", mock.Anything).Return()
 	parser.On("ValidateFormat", "test.xml").Return(false, nil)
-	parser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
 	parser.On("Parse", mock.Anything, mock.Anything).Return([]models.Transaction{}, nil)
 
 	// Test SetLogger
@@ -79,10 +72,6 @@ func TestMockFullParser_ImplementsInterface(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, valid)
 
-	// Test ConvertToCSV
-	err = parser.ConvertToCSV(context.Background(), "input.xml", "output.csv")
-	assert.NoError(t, err)
-
 	// Test Parse
 	txns, err := parser.Parse(context.Background(), nil)
 	assert.NoError(t, err)
@@ -95,19 +84,14 @@ func TestMockFullParser_ImplementsInterface(t *testing.T) {
 func TestMockFullParser_WithErrors(t *testing.T) {
 	parser := &MockFullParser{
 		ValidateError: assert.AnError,
-		ConvertError:  assert.AnError,
 		ParseError:    assert.AnError,
 	}
 
 	// Setup expectations for error scenarios
 	parser.On("ValidateFormat", "test.xml").Return(false, assert.AnError)
-	parser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(assert.AnError)
 	parser.On("Parse", mock.Anything, mock.Anything).Return([]models.Transaction{}, assert.AnError)
 
 	_, err := parser.ValidateFormat("test.xml")
-	assert.Error(t, err)
-
-	err = parser.ConvertToCSV(context.Background(), "input.xml", "output.csv")
 	assert.Error(t, err)
 
 	_, err = parser.Parse(context.Background(), nil)

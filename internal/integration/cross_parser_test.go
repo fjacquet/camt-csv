@@ -240,6 +240,7 @@ func TestBatchProcessingWithMixedFileTypes(t *testing.T) {
 // **Validates: Requirements INT-03**
 func TestEndToEndConversion_StandardFormat(t *testing.T) {
 	tempDir := t.TempDir()
+	logger := logging.NewMockLogger()
 
 	// Setup container with default (standard) formatter
 	cfg := &config.Config{}
@@ -277,10 +278,19 @@ func TestEndToEndConversion_StandardFormat(t *testing.T) {
 			parser, err := cont.GetParser(tc.parserType)
 			require.NoError(t, err)
 
+			file, err := os.Open(tc.sampleFile)
+			require.NoError(t, err)
+			defer func() { _ = file.Close() }()
+
+			transactions, err := parser.Parse(context.Background(), file)
+			require.NoError(t, err, "Parsing should succeed for %s", tc.description)
+
 			outputFile := filepath.Join(tempDir, fmt.Sprintf("%s_output.csv", tc.parserType))
 
-			// Convert file
-			err = parser.ConvertToCSV(context.Background(), tc.sampleFile, outputFile)
+			// Write transactions using the standard formatter
+			standardFormatter := formatter.NewStandardFormatter()
+			err = common.WriteTransactionsToCSVWithFormatter(
+				transactions, outputFile, logger, standardFormatter, standardFormatter.Delimiter())
 			require.NoError(t, err, "Conversion should succeed for %s", tc.description)
 
 			// Read and verify output
@@ -290,7 +300,7 @@ func TestEndToEndConversion_StandardFormat(t *testing.T) {
 			assert.Equal(t, 29, len(headers), "%s should produce 29 columns", tc.description)
 
 			// Verify header matches StandardFormatter
-			expectedHeaders := formatter.NewStandardFormatter().Header()
+			expectedHeaders := standardFormatter.Header()
 			assert.Equal(t, expectedHeaders, headers, "%s should produce standard headers", tc.description)
 		})
 	}

@@ -2,7 +2,6 @@ package pdfparser
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 
@@ -31,27 +30,6 @@ func NewAdapter(logger logging.Logger, extractor PDFExtractor) *Adapter {
 // Parse reads data from the provided io.Reader and returns a slice of Transaction models.
 func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction, error) {
 	return ParseWithExtractorAndCategorizer(ctx, r, a.extractor, a.GetLogger(), a.GetCategorizer())
-}
-
-// ConvertToCSV implements parser.FullParser.ConvertToCSV
-func (a *Adapter) ConvertToCSV(ctx context.Context, inputFile, outputFile string) error {
-	file, err := os.Open(inputFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening input file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			a.GetLogger().WithError(err).Warn("Failed to close input file",
-				logging.Field{Key: "file", Value: inputFile})
-		}
-	}()
-
-	transactions, err := a.Parse(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	return a.WriteToCSV(transactions, outputFile)
 }
 
 // pdfMagicHeader is the byte signature every PDF file starts with.

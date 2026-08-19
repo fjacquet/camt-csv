@@ -6,10 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -118,43 +115,6 @@ func (a *Adapter) categorizeTransaction(ctx context.Context, transaction models.
 	).Debug("Transaction categorized successfully")
 
 	return transaction
-}
-
-// ConvertToCSV converts a CAMT.053 XML file to a CSV file.
-func (a *Adapter) ConvertToCSV(ctx context.Context, xmlFile, csvFile string) error {
-	file, err := os.Open(xmlFile) // #nosec G304 -- CLI tool requires user-provided file paths
-	if err != nil {
-		return fmt.Errorf("error opening XML file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			a.GetLogger().Warn("Failed to close file",
-				logging.Field{Key: "error", Value: err})
-		}
-	}()
-
-	transactions, err := a.Parse(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	a.GetLogger().Info("Writing transactions to CSV file",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: csvFile})
-
-	if err := os.MkdirAll(filepath.Dir(csvFile), 0750); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := common.WriteTransactionsToCSV(transactions, csvFile); err != nil {
-		return err
-	}
-
-	a.GetLogger().Info("Successfully wrote transactions to CSV file",
-		logging.Field{Key: "count", Value: len(transactions)},
-		logging.Field{Key: "file", Value: csvFile})
-
-	return nil
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.

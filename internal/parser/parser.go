@@ -32,20 +32,6 @@ type Validator interface {
 	ValidateFormat(filePath string) (bool, error)
 }
 
-// CSVConverter defines CSV conversion capability.
-// This interface allows parsers to provide a convenient method for converting
-// input files directly to CSV format without requiring separate Parse and Write steps.
-type CSVConverter interface {
-	// ConvertToCSV converts an input file to CSV format and writes it to the output file.
-	// This is a convenience method that typically combines Parse and WriteToCSV operations.
-	//
-	// Parameters:
-	//   - ctx: Context for cancellation and timeout control
-	//   - inputFile: Path to the input file
-	//   - outputFile: Path to the output CSV file
-	ConvertToCSV(ctx context.Context, inputFile, outputFile string) error
-}
-
 // LoggerConfigurable defines the ability to configure logging.
 // This allows parsers to accept logger instances for structured logging.
 type LoggerConfigurable interface {
@@ -72,7 +58,6 @@ type CategorizerConfigurable interface {
 type FullParser interface {
 	Parser
 	Validator
-	CSVConverter
 	LoggerConfigurable
 	CategorizerConfigurable
 }
