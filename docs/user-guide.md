@@ -310,7 +310,7 @@ CAMT-CSV has two commands:
    ./camt-csv convert -i investment_export.csv -o processed.csv
    ```
 
-6. **Convert a directory of mixed-format statements into one CSV:**
+6. **Convert a directory of mixed-format statements, one CSV per account:**
 
    ```bash
    ./camt-csv convert -i statements/ -o processed.csv --recursive
@@ -329,8 +329,10 @@ Process every file in a directory by pointing `convert` at the directory instead
 **Features:**
 
 - Automatically detects each file's format
-- Merges every file's transactions into a single, date-sorted output CSV
-- Writes a run report beside the output, named after it (e.g. `output.csv` → `output.manifest.json`), recording per-file success/failure
+- Groups transactions by account and writes one date-sorted CSV per account, named from `-o`: `output.csv` produces `output_54293249.csv`, `output_53153547.csv`, and so on
+- Reads the account from each file name (`CAMT.053_54293249_...`, or a leading account number); files carrying none are written together to `output_unknown.csv`
+- Runs duplicate detection per account, so a transfer between two of your own accounts is not reported as a duplicate
+- Writes one run report beside the outputs, named after `-o` (e.g. `output.csv` → `output.manifest.json`), recording per-file success/failure and naming every CSV written with its transaction count
 - `--recursive` also processes files in subdirectories
 - `--from <format>` pins every file to one parser instead of auto-detecting, for a directory where detection guesses wrong
 - `-o` pointing at an existing directory generates a filename inside it from the input directory's name
@@ -728,7 +730,7 @@ head -5 output/transactions.csv
       delimiter: ";"
     ```
 
-2.  **Process all files in a directory into one CSV**:
+2.  **Process all files in a directory, one CSV per account**:
 
     ```bash
     ./camt-csv convert -i input_files/ -o output.csv
