@@ -15,17 +15,30 @@ type BatchResult struct {
 	Success     bool   `json:"success"`
 	Error       string `json:"error"`        // Only populated if Success=false
 	RecordCount int    `json:"record_count"` // Number of transactions extracted
+	Account     string `json:"account"`      // Account this file's rows were written to
+}
+
+// AccountSummary names one CSV a batch wrote and the account it holds.
+//
+// A directory of bank downloads covers several accounts, each written to its
+// own file, so "where did my rows go" is no longer answerable from the output
+// path alone — this section of the manifest is the run's only record of it.
+type AccountSummary struct {
+	Account          string `json:"account"`
+	OutputFile       string `json:"output_file"`
+	TransactionCount int    `json:"transaction_count"`
 }
 
 // BatchManifest aggregates results from a batch operation
 type BatchManifest struct {
-	TotalFiles       int           `json:"total_files"`
-	SuccessCount     int           `json:"success_count"`
-	FailureCount     int           `json:"failure_count"`
-	TransactionCount int           `json:"transaction_count"` // Total transactions written to the consolidated CSV
-	Results          []BatchResult `json:"results"`
-	Duration         time.Duration `json:"duration"`
-	ProcessedAt      time.Time     `json:"processed_at"`
+	TotalFiles       int              `json:"total_files"`
+	SuccessCount     int              `json:"success_count"`
+	FailureCount     int              `json:"failure_count"`
+	TransactionCount int              `json:"transaction_count"` // Total transactions written across every account CSV
+	Accounts         []AccountSummary `json:"accounts"`          // One entry per CSV written, ordered by account
+	Results          []BatchResult    `json:"results"`
+	Duration         time.Duration    `json:"duration"`
+	ProcessedAt      time.Time        `json:"processed_at"`
 }
 
 // ExitCode returns the exit code based on batch processing results.

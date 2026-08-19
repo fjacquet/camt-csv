@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: a directory conversion now writes one CSV per account instead
+  of a single merged one, and every output carries the account as a suffix:
+  `-o releves.csv` produces `releves_54293249.csv`, `releves_53153547.csv`,
+  and so on. Accounts are read from file names (`CAMT.053_54293249_...`, or a
+  leading account number); files carrying none are written together to
+  `releves_unknown.csv`. A folder downloaded from a bank routinely covers
+  several accounts, and one merged CSV mixed rows an accounting import must
+  keep apart — invisibly, in the output.
+- Duplicate detection runs per account rather than across the whole batch: the
+  same amount on the same day in two accounts is what a transfer between them
+  looks like, not a duplicate.
+- The single `.manifest.json` run report gains an `accounts` section naming
+  every CSV written and how many transactions it holds, and each file result
+  records the account it was attributed to. `convert` also logs each CSV it
+  wrote.
+
 ## [3.0.0] - 2026-08-19
 
 ### Removed

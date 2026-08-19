@@ -407,7 +407,9 @@ func TestConvertDirectory_Success(t *testing.T) {
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
 
 	assert.Empty(t, mockLogger.GetEntriesByLevel("FATAL"))
-	assert.FileExists(t, outputFile)
+	// Outputs carry the account they hold; a.csv names none, so its rows go
+	// to the "unknown" CSV.
+	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "unknown"))
 	assert.FileExists(t, batch.ManifestPathFor(outputFile))
 }
 
@@ -526,5 +528,33 @@ func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	assert.Equal(t, 2, manifest.SuccessCount, "both copies must convert")
 	assert.Equal(t, 2*len(singleFileTransactions), manifest.TransactionCount,
 		"the consolidated output must carry both files' transactions merged, not just one")
-	assert.FileExists(t, outputFile)
+	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "unknown"))
+}
+
+// With several CSVs written per run, the output path the user typed is no
+// longer the path their rows are in. The command has to name each file it
+// wrote, or the only record of where the transactions went is the manifest.
+func TestConvertDirectory_LogsEachAccountOutput(t *testing.T) {
+	c := newTestContainer(t)
+	inputDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(inputDir, "a.csv"), []byte(revolutSampleCSV), 0600))
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+
+	mockLogger := logging.NewMockLogger()
+	resolve, err := resolverFor(c, "revolut", mockLogger)
+	require.NoError(t, err)
+
+	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
+
+	written := batch.AccountOutputPathFor(outputFile, "unknown")
+	found := false
+	for _, entry := range mockLogger.GetEntriesByLevel("INFO") {
+		for _, f := range entry.Fields {
+			if f.Key == "path" && f.Value == written {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "the run must log the path of every CSV it wrote")
 }

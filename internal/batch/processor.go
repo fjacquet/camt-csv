@@ -100,8 +100,40 @@ func ManifestPathFor(outputFile string) string {
 	return strings.TrimSuffix(outputFile, filepath.Ext(outputFile)) + ".manifest.json"
 }
 
-// ProcessDirectory reads every file under inputDir and writes their merged
-// transactions to the single CSV at outputFile, plus a run report beside it.
+// AccountOutputPathFor names the CSV holding one account's rows, by suffixing
+// the base output name: releves.csv + 54293249 -> releves_54293249.csv.
+//
+// Every account gets a suffix, including a lone one: a run's outputs are then
+// recognizable as a set, and no file's name silently means "everything that
+// was left over".
+func AccountOutputPathFor(outputFile, account string) string {
+	ext := filepath.Ext(outputFile)
+	return strings.TrimSuffix(outputFile, ext) + "_" + account + ext
+}
+
+// unknownAccount labels rows from files whose names carry no account number.
+// They are written to their own CSV rather than dropped or folded into a real
+// account's file: an unrecognized name is a naming problem, not a reason to
+// lose transactions.
+const unknownAccount = "unknown"
+
+// accountGroup collects one account's transactions in the order its files were
+// read. Groups are kept in a slice, not just a map, so outputs and the
+// manifest are ordered by account and reproducible across runs.
+type accountGroup struct {
+	account      string
+	transactions []models.Transaction
+}
+
+// ProcessDirectory reads every file under inputDir and writes one CSV per
+// account found there, named by AccountOutputPathFor, plus a single run report
+// beside them.
+//
+// Files are attributed to an account by name (common.AccountKeyFromFilename);
+// those carrying no account number are written together to the "unknown" CSV.
+// Splitting is unconditional: a folder downloaded from a bank routinely covers
+// several accounts, and one merged CSV mixes rows that an accounting import
+// must keep apart — a mistake that is invisible in the output.
 //
 // Returns a manifest (never nil) containing results for each file processed.
 // Individual file failures are captured in the manifest, not returned as
@@ -135,7 +167,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// manifest from run 1 to every parser as inputs for run 2, recording
 	// both as format_not_recognized failures and turning an idempotent
 	// command into a partial-success exit code.
-	files = excludeOutputArtifacts(files, outputFile, ManifestPathFor(outputFile))
+	files = excludeOwnOutputs(files, outputFile)
 
 	bp.logger.Info("Starting batch processing",
 		logging.Field{Key: "input_dir", Value: inputDir},
@@ -151,7 +183,8 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		ProcessedAt:  time.Now(),
 	}
 
-	var merged []models.Transaction
+	var groups []accountGroup
+	byAccount := make(map[string]int) // account -> index into groups
 	var cancelled bool
 
 	// Process each file sequentially
@@ -170,39 +203,83 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		}
 
 		transactions, result := bp.parseFile(ctx, filePath)
+
+		account := common.AccountKeyFromFilename(filePath)
+		if account == "" {
+			account = unknownAccount
+		}
+		result.Account = account
 		manifest.Results = append(manifest.Results, result)
 
 		if result.Success {
 			manifest.SuccessCount++
-			merged = append(merged, transactions...)
+			idx, seen := byAccount[account]
+			if !seen {
+				groups = append(groups, accountGroup{account: account})
+				idx = len(groups) - 1
+				byAccount[account] = idx
+			}
+			groups[idx].transactions = append(groups[idx].transactions, transactions...)
 		} else {
 			manifest.FailureCount++
 		}
 	}
 
-	// merged is nil, not just empty, when nothing succeeded:
+	// Ordered by account so the CSVs a run writes, and the manifest section
+	// naming them, are the same from one run to the next regardless of the
+	// order the files happened to be read in.
+	sort.Slice(groups, func(i, j int) bool { return groups[i].account < groups[j].account })
+
+	// A group holding no transactions is skipped rather than written empty:
 	// WriteTransactionsToCSVWithFormatter errors on a nil slice (it only
 	// no-ops on a non-nil empty one), so an empty batch would otherwise fail
 	// the whole run with a spurious write error instead of the accurate
 	// "no files converted" story the manifest and exit code already tell.
 	//
-	// On cancellation, the CSV is deliberately not written even if some
-	// files already succeeded: a truncated statement set silently imported
-	// into accounting software is worse than none. The manifest is written
-	// below regardless, so the run report — which files completed, and how
-	// many transactions they carried — survives even though the CSV does not.
+	// On cancellation, nothing is written even if some files already
+	// succeeded: a truncated statement set silently imported into accounting
+	// software is worse than none. The manifest is written below regardless,
+	// so the run report — which files completed, and how many transactions
+	// they carried — survives even though the CSVs do not.
+	//
+	// Duplicate detection runs per account, not across the whole batch: two
+	// accounts holding the same amount on the same day is what a transfer
+	// between them looks like, and warning about it would train the user to
+	// ignore the warning that matters.
 	var writeErr error
 	csvWritten := false
-	if !cancelled && len(merged) > 0 {
-		merged = NewBatchAggregator(bp.logger).Consolidate(merged, filepath.Base(outputFile))
+	aggregator := NewBatchAggregator(bp.logger)
+	delimiter := bp.formatter.Delimiter()
 
-		delimiter := bp.formatter.Delimiter()
-		if err := common.WriteTransactionsToCSVWithFormatter(
-			merged, outputFile, bp.logger, bp.formatter, delimiter); err != nil {
-			writeErr = fmt.Errorf("failed to write consolidated CSV: %w", err)
-		} else {
-			csvWritten = true
+	for i := range groups {
+		if cancelled || len(groups[i].transactions) == 0 {
+			continue
 		}
+
+		group := &groups[i]
+		group.transactions = aggregator.Consolidate(group.transactions, group.account)
+		accountFile := AccountOutputPathFor(outputFile, group.account)
+
+		if err := common.WriteTransactionsToCSVWithFormatter(
+			group.transactions, accountFile, bp.logger, bp.formatter, delimiter); err != nil {
+			// One account's failed write must not discard the others: the
+			// remaining CSVs are still written, and the first error is
+			// returned so the run reports the failure.
+			bp.logger.WithError(err).Error("Failed to write account CSV",
+				logging.Field{Key: "account", Value: group.account},
+				logging.Field{Key: "path", Value: accountFile})
+			if writeErr == nil {
+				writeErr = fmt.Errorf("failed to write CSV for account %s: %w", group.account, err)
+			}
+			continue
+		}
+
+		csvWritten = true
+		manifest.Accounts = append(manifest.Accounts, AccountSummary{
+			Account:          group.account,
+			OutputFile:       accountFile,
+			TransactionCount: len(group.transactions),
+		})
 	}
 
 	// Nothing was written this run (cancelled, or every file yielded zero
@@ -216,14 +293,16 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// a truncated new write, not a stale old one, and that failure is
 	// reported separately.
 	if !csvWritten && writeErr == nil {
-		if _, err := os.Stat(outputFile); err == nil {
+		for _, stale := range staleOutputs(outputFile) {
 			bp.logger.Warn("This run produced no transactions to write, but an earlier "+
 				"run's CSV is still present at the output path and was left untouched",
-				logging.Field{Key: "path", Value: outputFile})
+				logging.Field{Key: "path", Value: stale})
 		}
 	}
 
-	manifest.TransactionCount = len(merged)
+	for _, group := range groups {
+		manifest.TransactionCount += len(group.transactions)
+	}
 	manifest.Duration = time.Since(startTime)
 
 	// A file that validated and parsed without error but yielded no
@@ -310,36 +389,65 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 	return files, nil
 }
 
-// excludeOutputArtifacts drops paths from a discovered file list matching the
-// paths in excludePaths, comparing resolved absolute paths so that relative
-// vs. absolute spelling of the same file doesn't slip through.
+// excludeOwnOutputs drops a run's own artifacts from a discovered file list:
+// the manifest, and every per-account CSV a previous run wrote for this same
+// output name.
+//
+// The account CSVs cannot be listed up front — which accounts exist is only
+// known after every file has been read — so they are matched by the name shape
+// AccountOutputPathFor produces: same directory, same base name, one suffix,
+// same extension. Comparison is on resolved absolute paths so relative vs.
+// absolute spelling of the same directory doesn't slip through.
 //
 // ProcessDirectory is exported, so this guard lives here rather than only at
 // the CLI layer: any caller writing its output inside the directory it just
 // read deserves the same protection against re-ingesting its own report and
-// CSV on a second run.
-func excludeOutputArtifacts(files []string, excludePaths ...string) []string {
-	excluded := make(map[string]bool, len(excludePaths))
-	for _, p := range excludePaths {
-		abs, err := filepath.Abs(p)
-		if err != nil {
-			abs = filepath.Clean(p)
-		}
-		excluded[abs] = true
-	}
+// CSVs on a second run.
+func excludeOwnOutputs(files []string, outputFile string) []string {
+	outputDir := absPath(filepath.Dir(outputFile))
+	ext := filepath.Ext(outputFile)
+	prefix := strings.TrimSuffix(filepath.Base(outputFile), ext) + "_"
+	manifest := absPath(ManifestPathFor(outputFile))
 
 	filtered := files[:0]
 	for _, f := range files {
-		abs, err := filepath.Abs(f)
-		if err != nil {
-			abs = filepath.Clean(f)
+		abs := absPath(f)
+		if abs == manifest {
+			continue
 		}
-		if excluded[abs] {
+		base := filepath.Base(abs)
+		if filepath.Dir(abs) == outputDir &&
+			strings.HasPrefix(base, prefix) &&
+			strings.HasSuffix(base, ext) {
 			continue
 		}
 		filtered = append(filtered, f)
 	}
 	return filtered
+}
+
+// staleOutputs lists the per-account CSVs an earlier run left at this output
+// name. A run writing nothing must name them, so a fresh manifest reporting
+// zero transactions is never read alongside an older run's CSVs as if they
+// were this run's output.
+func staleOutputs(outputFile string) []string {
+	ext := filepath.Ext(outputFile)
+	matches, err := filepath.Glob(strings.TrimSuffix(outputFile, ext) + "_*" + ext)
+	if err != nil {
+		return nil
+	}
+	sort.Strings(matches)
+	return matches
+}
+
+// absPath resolves a path, falling back to a cleaned relative one when the
+// working directory cannot be read.
+func absPath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	return abs
 }
 
 // parseFile resolves a parser for filePath and returns the transactions it

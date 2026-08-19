@@ -468,11 +468,13 @@ func TestBatchProcessorWithFormatter(t *testing.T) {
 	assert.Equal(t, 1, manifest.SuccessCount)
 	assert.Equal(t, 0, manifest.FailureCount)
 
-	// Verify the single consolidated CSV was created at the requested path
-	assert.FileExists(t, outputFile)
+	// Verify the CSV was created, under the account suffix every output
+	// carries — test.xml names no account, so it lands in "unknown".
+	writtenFile := AccountOutputPathFor(outputFile, unknownAccount)
+	assert.FileExists(t, writtenFile)
 
 	// Read CSV file and verify delimiter and column count
-	content, err := os.ReadFile(outputFile)
+	content, err := os.ReadFile(writtenFile)
 	require.NoError(t, err)
 
 	lines := strings.Split(string(content), "\n")
@@ -761,13 +763,17 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, manifest.SuccessCount)
 	assert.Equal(t, 0, manifest.ExitCode(), "a fully successful run must exit 0")
-	assert.FileExists(t, outputFile)
+
+	// Neither file names an account, so both belong to the same "unknown"
+	// output — which is what makes this a test of ordering within one CSV.
+	writtenFile := AccountOutputPathFor(outputFile, unknownAccount)
+	assert.FileExists(t, writtenFile)
 
 	// Exactly one CSV, and January's row precedes March's inside it. Both
 	// indices must actually be found: strings.Index returns -1 for a
 	// missing substring, and -1 < <positive> would make this assertion pass
 	// even if a row went missing entirely.
-	body, err := os.ReadFile(outputFile)
+	body, err := os.ReadFile(writtenFile)
 	require.NoError(t, err)
 	januaryIdx := strings.Index(string(body), "january")
 	marchIdx := strings.Index(string(body), "march")
@@ -816,7 +822,8 @@ func TestProcessDirectory_PartialFailureStillWritesCSV(t *testing.T) {
 	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 
 	require.NoError(t, err)
-	assert.FileExists(t, outputFile, "the successes must still be written")
+	assert.FileExists(t, AccountOutputPathFor(outputFile, unknownAccount),
+		"the successes must still be written")
 	assert.Equal(t, 1, manifest.ExitCode(), "partial success")
 
 	var failed *BatchResult
@@ -889,13 +896,15 @@ func TestProcessDirectory_RecursiveMergesWholeTree(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, manifest.SuccessCount, "the nested file must be read too")
-	assert.FileExists(t, outputFile)
+
+	writtenFile := AccountOutputPathFor(outputFile, unknownAccount)
+	assert.FileExists(t, writtenFile)
 
 	// Checking SuccessCount alone would stay green even if only the last
-	// file's transactions made it into merged (e.g. an accidental
-	// `merged = transactions` instead of `append`): assert the row count
-	// the output actually contains, one per successfully parsed file.
-	body, err := os.ReadFile(outputFile)
+	// file's transactions made it into the group (e.g. an accidental
+	// assignment instead of `append`): assert the row count the output
+	// actually contains, one per successfully parsed file.
+	body, err := os.ReadFile(writtenFile)
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimRight(string(body), "\n"), "\n")
 	assert.Len(t, lines, 3, "header plus one row per successfully parsed file")
@@ -939,8 +948,9 @@ func TestProcessDirectory_WriteErrorIsReturned(t *testing.T) {
 	// exists to catch — a false pass. Instead, pre-create the CSV path as a
 	// directory: os.Create(csvFile) fails on it (EISDIR) while the manifest,
 	// a differently-named file in the same otherwise-writable directory,
-	// still succeeds.
-	require.NoError(t, os.MkdirAll(outputFile, 0750))
+	// still succeeds. The blocked path is the account CSV actually written,
+	// not the base name, which no run writes to.
+	require.NoError(t, os.MkdirAll(AccountOutputPathFor(outputFile, unknownAccount), 0750))
 
 	writeSample(t, inputDir, "a.csv", "x")
 	mockParser := newMockParser()
@@ -977,11 +987,12 @@ func TestProcessDirectory_RepeatRunIgnoresOwnOutput(t *testing.T) {
 	manifest1, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 	require.NoError(t, err)
 	assert.Equal(t, 1, manifest1.TotalFiles, "the first run must only see the real input file")
-	assert.FileExists(t, outputFile)
+	assert.FileExists(t, AccountOutputPathFor(outputFile, unknownAccount))
 	assert.FileExists(t, ManifestPathFor(outputFile))
 
-	// Second run over the same folder: releves.csv and releves.manifest.json
-	// from the first run are now sitting in inputDir alongside a.csv.
+	// Second run over the same folder: releves_unknown.csv and
+	// releves.manifest.json from the first run are now sitting in inputDir
+	// alongside a.csv.
 	manifest2, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
 	require.NoError(t, err)
 	assert.Equal(t, 1, manifest2.TotalFiles,
@@ -1000,8 +1011,11 @@ func TestProcessDirectory_ZeroTransactionRerunWarnsAboutStaleCSV(t *testing.T) {
 	outputDir := t.TempDir()
 	outputFile := filepath.Join(outputDir, "out.csv")
 
+	// The stale file carries the account suffix a real earlier run would
+	// have written: the base name is never an output path.
+	staleFile := AccountOutputPathFor(outputFile, "54293249")
 	staleContent := "date,amount\n2024-01-01,10\n"
-	require.NoError(t, os.WriteFile(outputFile, []byte(staleContent), 0600))
+	require.NoError(t, os.WriteFile(staleFile, []byte(staleContent), 0600))
 
 	writeSample(t, inputDir, "a.csv", "x")
 	mockParser := newMockParser()
@@ -1015,7 +1029,7 @@ func TestProcessDirectory_ZeroTransactionRerunWarnsAboutStaleCSV(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, manifest.TransactionCount)
 
-	body, err := os.ReadFile(outputFile)
+	body, err := os.ReadFile(staleFile)
 	require.NoError(t, err)
 	assert.Equal(t, staleContent, string(body), "the earlier run's CSV must be left untouched, not deleted or overwritten")
 
@@ -1023,11 +1037,133 @@ func TestProcessDirectory_ZeroTransactionRerunWarnsAboutStaleCSV(t *testing.T) {
 	for _, entry := range logger.GetEntriesByLevel("WARN") {
 		if strings.Contains(entry.Message, "earlier") && strings.Contains(entry.Message, "still present") {
 			for _, f := range entry.Fields {
-				if f.Key == "path" && f.Value == outputFile {
+				if f.Key == "path" && f.Value == staleFile {
 					found = true
 				}
 			}
 		}
 	}
 	assert.True(t, found, "a zero-transaction run must warn, naming the stale output file")
+}
+
+// A folder of statements downloaded from a bank holds several accounts at
+// once. Merging them into one CSV silently mixes accounts that an accounting
+// import must keep apart, so each account gets its own output file, named
+// after it.
+func TestProcessDirectory_WritesOneCSVPerAccount(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "CAMT.053_11111111_2026-04-01_2026-04-30_1.xml", "x")
+	writeSample(t, inputDir, "CAMT.053_11111111_2026-05-01_2026-05-31_1.xml", "x")
+	writeSample(t, inputDir, "CAMT.053_22222222_2026-04-01_2026-04-30_1.xml", "x")
+
+	resolve := func(filePath string) (Resolution, error) {
+		// The description carries the source file's account so the rows can
+		// be traced back to it in the written CSVs.
+		account := filepath.Base(filePath)[len("CAMT.053_") : len("CAMT.053_")+8]
+		p := newMockParser()
+		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+			tx, err := models.NewTransactionBuilder().
+				WithDatetime(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)).
+				WithValueDatetime(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)).
+				WithAmount(decimal.NewFromInt(1), "CHF").
+				WithDescription("row-for-" + account).
+				WithPartyName("Coop").
+				Build()
+			if err != nil {
+				return nil, err
+			}
+			return []models.Transaction{tx}, nil
+		}
+		return Resolution{Parser: p}, nil
+	}
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, manifest.SuccessCount)
+	assert.Equal(t, 3, manifest.TransactionCount)
+
+	first := filepath.Join(outputDir, "releves_11111111.csv")
+	second := filepath.Join(outputDir, "releves_22222222.csv")
+	assert.FileExists(t, first)
+	assert.FileExists(t, second)
+	assert.NoFileExists(t, outputFile, "the unsuffixed name must not also be written")
+
+	firstBody, err := os.ReadFile(first)
+	require.NoError(t, err)
+	assert.Equal(t, 2, strings.Count(string(firstBody), "row-for-11111111"))
+	assert.NotContains(t, string(firstBody), "row-for-22222222",
+		"one account's CSV must not carry another account's rows")
+
+	secondBody, err := os.ReadFile(second)
+	require.NoError(t, err)
+	assert.Contains(t, string(secondBody), "row-for-22222222")
+	assert.NotContains(t, string(secondBody), "row-for-11111111")
+}
+
+// The manifest is the run report: with several CSVs now written, it has to
+// name each one and how many transactions it carries, or the user has no
+// record of where their rows went.
+func TestProcessDirectory_ManifestReportsEachAccountOutput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "CAMT.053_11111111_2026-04-01_2026-04-30_1.xml", "x")
+	writeSample(t, inputDir, "CAMT.053_22222222_2026-04-01_2026-04-30_1.xml", "x")
+	writeSample(t, inputDir, "CAMT.053_22222222_2026-05-01_2026-05-31_1.xml", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	require.Len(t, manifest.Accounts, 2)
+	assert.Equal(t, "11111111", manifest.Accounts[0].Account)
+	assert.Equal(t, filepath.Join(outputDir, "releves_11111111.csv"), manifest.Accounts[0].OutputFile)
+	assert.Equal(t, 1, manifest.Accounts[0].TransactionCount)
+	assert.Equal(t, "22222222", manifest.Accounts[1].Account)
+	assert.Equal(t, 2, manifest.Accounts[1].TransactionCount)
+
+	// The manifest on disk carries the same account section: it is what the
+	// user reads after the run, not the in-memory value.
+	body, err := os.ReadFile(ManifestPathFor(outputFile))
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "releves_22222222.csv")
+}
+
+// A file whose name carries no account number still holds real transactions.
+// Dropping them, or quietly folding them into another account's CSV, would
+// lose money; they go to their own clearly-named file instead.
+func TestProcessDirectory_FilesWithoutAnAccountGoToUnknown(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "statement-export.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, filepath.Join(outputDir, "releves_unknown.csv"))
+	require.Len(t, manifest.Accounts, 1)
+	assert.Equal(t, "unknown", manifest.Accounts[0].Account)
+	assert.Equal(t, 1, manifest.Accounts[0].TransactionCount)
 }

@@ -108,3 +108,37 @@ func ExtractAccountFromFilename(filename string) AccountIdentifier {
 		Source: "default",
 	}
 }
+
+// Account numbers in this bank's exports appear in one of two places: after
+// the CAMT.053_ prefix of an ISO 20022 statement, or at the very start of a
+// PDF statement's name. Both are matched against the base name only.
+//
+// The length floors reject the two numbers that sit near an account number
+// without being one: the 053 of the format prefix, and a single-digit
+// sequence number leading a file name.
+var (
+	camtAccountKeyPattern    = regexp.MustCompile(`(?i)^camt\.053_(\d{4,})_`)
+	leadingAccountKeyPattern = regexp.MustCompile(`^(\d{6,})[_.]`)
+)
+
+// AccountKeyFromFilename returns the number of the account a statement file
+// belongs to, or "" when its name carries none.
+//
+// This is deliberately not ExtractAccountFromFilename: that helper always
+// answers with something, falling back to the whole base name, which is the
+// right behaviour for labelling but the wrong one for grouping — every
+// unrecognized file would become its own account. Callers grouping by account
+// need to be able to tell "account 54293249" from "no account here".
+func AccountKeyFromFilename(path string) string {
+	baseName := filepath.Base(path)
+
+	if matches := camtAccountKeyPattern.FindStringSubmatch(baseName); len(matches) >= 2 {
+		return matches[1]
+	}
+
+	if matches := leadingAccountKeyPattern.FindStringSubmatch(baseName); len(matches) >= 2 {
+		return matches[1]
+	}
+
+	return ""
+}
