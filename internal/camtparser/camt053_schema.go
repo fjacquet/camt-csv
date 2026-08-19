@@ -115,7 +115,13 @@ type camtEntry struct {
 }
 
 // camtStatement is one <Stmt> block: a statement for one account and period.
+//
+// Account is the account the statement covers — the reader's own — as opposed
+// to the counterparty accounts inside each entry. A CAMT document may hold
+// several statements for several accounts, so this cannot be read once per
+// file; it belongs to the statement.
 type camtStatement struct {
+	Account camtAccount `xml:"Acct"`
 	Entries []camtEntry `xml:"Ntry"`
 }
 

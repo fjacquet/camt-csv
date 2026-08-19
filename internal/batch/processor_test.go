@@ -1393,3 +1393,120 @@ func TestProcessDirectory_StaleOutputWarningSurvivesGlobCharsInPath(t *testing.T
 	}
 	assert.True(t, named, "a stale CSV must be named even when its path contains glob characters")
 }
+
+// The statement names the account it covers; the file name is only a label a
+// user can change. When they disagree, the statement is the authority — a
+// renamed or hand-edited file must not send rows to the wrong account.
+func TestProcessDirectory_StatementAccountBeatsFileName(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "CAMT.053_99999999_2026-04-01_2026-04-30_1.xml", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		tx := sampleTransaction()
+		tx.IBAN = "CH1700767000K54293249"
+		return []models.Transaction{tx}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
+	assert.NoFileExists(t, AccountOutputPathFor(outputFile, "99999999"),
+		"the file name must not override what the statement says")
+	require.Len(t, manifest.Accounts, 1)
+	assert.Equal(t, "54293249", manifest.Accounts[0].Account)
+}
+
+// A renamed export carries no account in its name, which is what used to send
+// it to the "unknown" CSV. Read from the statement, it splits correctly.
+func TestProcessDirectory_RenamedFilesSplitByStatementAccount(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "camt53-47.xml", "x")
+	writeSample(t, inputDir, "camt53-49.xml", "x")
+
+	ibans := map[string]string{
+		"camt53-47.xml": "CH6000767000Z53153547",
+		"camt53-49.xml": "CH1700767000K54293249",
+	}
+	resolve := func(filePath string) (Resolution, error) {
+		iban := ibans[filepath.Base(filePath)]
+		p := newMockParser()
+		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+			tx := sampleTransaction()
+			tx.IBAN = iban
+			return []models.Transaction{tx}, nil
+		}
+		return Resolution{Parser: p}, nil
+	}
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "53153547"))
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
+	assert.NoFileExists(t, AccountOutputPathFor(outputFile, unknownAccount),
+		"nothing is unattributed once the statements are read")
+}
+
+// One CAMT document may hold several statements for several accounts, so
+// attribution cannot be per file: rows from one file must be able to land in
+// different CSVs.
+func TestProcessDirectory_OneFileCoveringTwoAccountsSplits(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "both-accounts.xml", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		first, second := sampleTransaction(), sampleTransaction()
+		first.IBAN = "CH6000767000Z53153547"
+		second.IBAN = "CH1700767000K54293249"
+		return []models.Transaction{first, second}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "53153547"))
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
+	require.Len(t, manifest.Accounts, 2)
+	assert.Equal(t, 1, manifest.Accounts[0].TransactionCount)
+	assert.Equal(t, 1, manifest.Accounts[1].TransactionCount)
+}
+
+// Formats that carry no account in their content — PDF, Revolut, Selma — still
+// have only their file name to go on, and must keep working exactly as before.
+func TestProcessDirectory_FallsBackToFileNameWhenContentIsSilent(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "releves.csv")
+
+	writeSample(t, inputDir, "54293249_2026-05-01_E100.pdf", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return []models.Transaction{sampleTransaction()}, nil // no IBAN
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
+}

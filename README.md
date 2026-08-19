@@ -50,8 +50,9 @@ camt-csv convert -i export.csv -o output.csv --from selma
 
 # Convert a whole directory: one date-sorted CSV per account, named from -o
 # (output_54293249.csv, output_53153547.csv, ...), plus a run report,
-# output.manifest.json, beside them; add --recursive to descend into
-# subdirectories
+# output.manifest.json, beside them. The account is read from the statement
+# where the format carries one, and from the file name otherwise; add
+# --recursive to descend into subdirectories
 camt-csv convert -i input_dir/ -o output.csv
 
 # Use iCompta output format (semicolon-delimited, default)

@@ -13,7 +13,7 @@ import (
 //
 // If the builder rejects the assembled values, a minimal fallback transaction
 // is returned instead so that one malformed entry does not abort a statement.
-func (a *Adapter) entryToTransaction(entry camtEntry) models.Transaction {
+func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) models.Transaction {
 	bookingDate := parseCAMTDate(entry.BookingDate.Date)
 	valueDate := parseCAMTDate(entry.ValueDate.Date)
 
@@ -27,7 +27,11 @@ func (a *Adapter) entryToTransaction(entry camtEntry) models.Transaction {
 		// and is stable across re-exports, so it doubles as the external ID that
 		// iCompta uses to deduplicate re-imported statements.
 		WithBookkeepingNumber(entry.AccountServicer.Ref).
-		WithStatus(entry.Status.Status)
+		WithStatus(entry.Status.Status).
+		// The account this row belongs to, which is what splits a batch of
+		// statements into one CSV per account. Distinct from PartyIBAN, the
+		// counterparty's.
+		WithIBAN(statementAccount)
 
 	if entry.CreditDebit.Indicator == models.TransactionTypeDebit {
 		builder = builder.AsDebit()

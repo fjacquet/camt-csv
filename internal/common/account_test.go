@@ -451,3 +451,51 @@ func TestAccountKeyFromFilename_CompactDateIsNotAnAccount(t *testing.T) {
 		})
 	}
 }
+
+// A statement names its account by IBAN, but file names carry only the bank's
+// short account number. Both must resolve to the same key or one account ends
+// up split across two CSVs depending on how each file happened to be named.
+func TestAccountKeyFromIBAN(t *testing.T) {
+	tests := []struct {
+		name string
+		iban string
+		want string
+	}{
+		{
+			name: "Swiss IBAN ends in the number its file names carry",
+			iban: "CH1700767000K54293249",
+			want: "54293249",
+		},
+		{
+			name: "another account of the same bank",
+			iban: "CH6000767000Z53153547",
+			want: "53153547",
+		},
+		{
+			name: "spacing is how humans write IBANs",
+			iban: "CH17 0076 7000 K542 9324 9",
+			want: "54293249",
+		},
+		{
+			name: "a trailing digit run is taken whole",
+			iban: "DE89370400440532013000",
+			want: "89370400440532013000",
+		},
+		{
+			name: "an IBAN ending in letters keeps its whole identifier",
+			iban: "CH930024024044090701E",
+			want: "CH930024024044090701E",
+		},
+		{
+			name: "no identifier, no key",
+			iban: "",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, AccountKeyFromIBAN(tt.iban))
+		})
+	}
+}

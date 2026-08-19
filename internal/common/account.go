@@ -123,6 +123,11 @@ func ExtractAccountFromFilename(filename string) AccountIdentifier {
 // an account, and grouping it as "unknown" would be worse than reading the
 // number it plainly carries. Both encode the same CAMT.053_<account>_ prefix,
 // so a change to that convention has to be made in both.
+// minAccountKeyDigits is the shortest digit run treated as an account number
+// rather than a sequence number or a fragment of something else. It is the
+// same floor the file-name patterns use, so both sources agree on what counts.
+const minAccountKeyDigits = 6
+
 var (
 	camtAccountKeyPattern    = regexp.MustCompile(`(?i)^camt\.053_(\d{4,})_`)
 	leadingAccountKeyPattern = regexp.MustCompile(`^(\d{6,})[_.]`)
@@ -174,4 +179,38 @@ func isCompactDate(digits string) bool {
 	}
 	_, err := time.Parse("20060102", digits)
 	return err == nil
+}
+
+// AccountKeyFromIBAN reduces an account identifier read from a statement to
+// the key used to name that account's output.
+//
+// It takes the trailing run of digits when there is a long enough one, because
+// that is the number the same bank puts in its file names: the statement says
+// CH17 0076 7000 K542 9324 9 and the file is called CAMT.053_54293249_…, and
+// both must land in one CSV rather than two. The letter that separates the
+// account number from the branch part of a Swiss IBAN is what makes the run
+// end where it does; an identifier with no such run keeps its whole sanitized
+// form, which is still stable, just longer.
+func AccountKeyFromIBAN(iban string) string {
+	compact := strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\t' {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(iban))
+
+	if compact == "" {
+		return ""
+	}
+
+	digits := 0
+	for i := len(compact) - 1; i >= 0 && compact[i] >= '0' && compact[i] <= '9'; i-- {
+		digits++
+	}
+
+	if digits >= minAccountKeyDigits {
+		return compact[len(compact)-digits:]
+	}
+
+	return SanitizeAccountID(compact)
 }
