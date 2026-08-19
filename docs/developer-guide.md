@@ -50,9 +50,9 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 camt-csv/
 ├── cmd/                    # CLI command implementations
 │   ├── root/              # Root cobra command
-│   ├── camt/              # CAMT.053 XML conversion
-│   ├── pdf/               # PDF conversion
-│   └── ...                # Other format commands
+│   ├── convert/           # convert — detects the format, or pins one with --from
+│   ├── categorize/        # categorize — categorizes a single party name
+│   └── common/            # Shared flag registration and conversion helpers
 ├── internal/              # Private application code
 │   ├── models/            # Core data structures
 │   ├── parser/            # Parser interfaces and base
@@ -524,81 +524,47 @@ func (m *MockLogger) Info(msg string, fields ...logging.Field) {
 // Implement other Logger interface methods...
 ```
 
-#### 5. Add CLI Command
+#### 5. Register the Parser
 
-**File: `cmd/myformat/convert.go`**
+There is no per-format CLI command to write. The CLI has exactly two
+commands, `convert` and `categorize`; `convert` reaches every parser through
+the DI container and the detection order.
+
+**File: `internal/container/container.go`** — add the parser to `newParsers`:
 ```go
-package myformat
-
-import (
-    "github.com/spf13/cobra"
-    "github.com/fjacquet/camt-csv/internal/container"
-    "github.com/fjacquet/camt-csv/internal/factory"
-)
-
-// NewConvertCmd creates the myformat conversion command
-func NewConvertCmd() *cobra.Command {
-    var inputFile, outputFile string
-    
-    cmd := &cobra.Command{
-        Use:   "myformat",
-        Short: "Convert MyFormat files to CSV",
-        Long:  "Convert MyFormat files to standardized CSV format with transaction categorization",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            // Create container with dependencies
-            container, err := container.NewContainer(config.GetGlobalConfig())
-            if err != nil {
-                return err
-            }
-            
-            // Get parser from container
-            parser, err := container.GetParser(factory.MyFormat)
-            if err != nil {
-                return err
-            }
-            
-            // Execute conversion
-            return parser.ConvertToCSV(inputFile, outputFile)
-        },
-    }
-    
-    cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Input MyFormat file")
-    cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output CSV file")
-    cmd.MarkFlagRequired("input")
-    cmd.MarkFlagRequired("output")
-    
-    return cmd
-}
-```
-
-#### 6. Register Parser in Factory
-
-**File: `internal/factory/factory.go`**
-```go
-const (
-    // ... existing parser types
-    MyFormat ParserType = "myformat"
-)
-
-func GetParserWithLogger(parserType ParserType, logger logging.Logger) (models.Parser, error) {
-    switch parserType {
-    // ... existing cases
-    case MyFormat:
-        return myformatparser.NewAdapter(logger), nil
-    default:
-        return nil, fmt.Errorf("unknown parser type: %s", parserType)
+func newParsers(logger logging.Logger) map[ParserType]parser.FullParser {
+    return map[ParserType]parser.FullParser{
+        // ... existing parsers
+        MyFormat: myformatparser.NewAdapter(logger),
     }
 }
 ```
 
-#### 7. Add Sample Files
+**File: `internal/container/detect.go`** — add it to `detectionOrder`:
+```go
+func detectionOrder() []ParserType {
+    return []ParserType{
+        // ... existing types
+        MyFormat,
+    }
+}
+```
+
+`detectionOrder` does double duty: it is both the sequence `convert` tries
+each parser's `ValidateFormat` in during auto-detection, and the source of
+the valid `--from <format>` values. A parser missing from it is unreachable
+by either route. Its `ValidateFormat` must be specific enough to reject other
+formats — `TestDetectParser_ValidatorsDoNotOverlap` checks every sample
+against every validator to catch overlap.
+
+#### 6. Add Sample Files
 
 ```bash
 mkdir samples/myformat
 # Add sample input files for testing
 ```
 
-#### 8. Update Documentation
+#### 7. Update Documentation
 
 Update `README.md` and `docs/user-guide.md` to include the new parser.
 

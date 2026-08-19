@@ -4,13 +4,13 @@ This document provides a comprehensive overview of the `camt-csv` project, detai
 
 ## 1. Project Overview
 
-The `camt-csv` project is a command-line interface (CLI) application designed to convert various financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Selma CSV, Debit CSV) into a standardized CSV format. A key feature is its intelligent transaction categorization, which employs a hybrid approach combining local keyword matching with AI-based classification using the Gemini model.
+The `camt-csv` project is a command-line interface (CLI) application designed to convert various financial statement formats (CAMT.053 XML, PDF, Revolut CSV, Revolut Crypto CSV, Revolut Investment CSV, Selma CSV, Viseca CSV, generic Debit CSV) into a standardized CSV format. A key feature is its intelligent transaction categorization, which employs a hybrid approach combining local keyword matching with AI-based classification using the Gemini model.
 
 **Key Features:**
 
-* **Multi-format Conversion:** Supports CAMT.053 XML, PDF (including Viseca credit card statements), Revolut CSV, Revolut Investment CSV, Selma CSV, and generic Debit CSV.
+* **Multi-format Conversion:** Supports CAMT.053 XML, PDF (including Viseca credit card statements), Revolut CSV, Revolut Crypto CSV, Revolut Investment CSV, Selma CSV, Viseca CSV, and generic Debit CSV.
 * **Transaction Categorization:** Hybrid approach using local YAML-based keyword matching and AI (Gemini) as a fallback.
-* **CLI Interface:** Modular command structure for various operations (camt, pdf, batch, categorize, revolut-investment).
+* **CLI Interface:** Two commands — `convert`, which auto-detects the format (or pins one with `--from`) and converts a file or a whole directory to CSV, and `categorize`, which categorizes a single party name.
 * **Hierarchical Configuration:** Viper-based configuration system supporting config files, environment variables, and CLI flags with full backward compatibility.
 * **Extensible Parser Architecture:** Standardized interface for easy addition of new data sources.
 
@@ -18,7 +18,7 @@ The `camt-csv` project is a command-line interface (CLI) application designed to
 
 The project follows a clean separation of concerns built on dependency injection principles:
 
-* **`cmd/`**: Contains the entry points for the CLI commands (e.g., `camt`, `pdf`, `batch`). Each command receives dependencies through a `Container` instance, eliminating global state.
+* **`cmd/`**: Contains the entry points for the CLI commands (`convert`, `categorize`). Each command receives dependencies through a `Container` instance, eliminating global state.
 * **`internal/`**: Houses the core application logic, divided into specialized packages. This directory adheres to Go best practices, ensuring its contents are not importable by external projects, promoting encapsulation. Key architectural improvements include:
   - **Dependency Injection**: All components receive dependencies through constructors
   - **Logging Abstraction**: Framework-agnostic `logging.Logger` interface with `LogrusAdapter` implementation
@@ -53,21 +53,11 @@ The `camt-csv` project, particularly its `internal` packages, demonstrates a str
 
 ### 3. Key Modules and Their Responsibilities
 
-* **`cmd/`**: 
-  * `analyze/analyze.go`: CLI command for codebase analysis and compliance checking.
-  * `batch/batch.go`: Handles batch conversion of multiple files.
-  * `camt/convert.go`: CLI command for CAMT.053 XML conversion.
-  * `categorize/categorize.go`: CLI command for categorizing transactions.
-  * `common/process.go`: Common processing logic for CLI commands.
-  * `debit/convert.go`: CLI command for Debit CSV conversion.
-  * `implement/implement.go`: CLI command for implementing development tasks.
-  * `pdf/convert.go`: CLI command for PDF statement conversion.
-  * `review/review.go`: CLI command for codebase compliance review.
-  * `revolut/convert.go`: CLI command for Revolut CSV conversion.
-  * `revolut-investment/convert.go`: CLI command for Revolut investment CSV conversion.
+* **`cmd/`**:
+  * `convert/convert.go`: CLI command that converts a statement, or a directory of statements, to CSV. Detects the format per file by offering it to every parser in turn; `--from <format>` pins one instead.
+  * `categorize/categorize.go`: CLI command for categorizing a single party name.
+  * `common/`: Shared flag registration and conversion helpers used by `convert` (`flags.go`, `convert.go`, `process.go`).
   * `root/root.go`: Defines the root Cobra command for the CLI.
-  * `selma/convert.go`: CLI command for Selma CSV conversion.
-  * `tasks/tasks.go`: CLI command for task management and tracking.
 
 * **`main.go`**: Main entry point for the CLI application.
 

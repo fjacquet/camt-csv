@@ -94,11 +94,11 @@ type FullParser interface {
 
 The CAMT.053 XML shape is described in two places on purpose: `internal/models/iso20022.go` models only what format *validation* needs (root element, statement count), while `internal/camtparser/camt053_schema.go` models what *extraction* needs. Keep them separate — merging them would let a validation tweak change parsing output.
 
-Directory processing is **not** a parser concern: `batch.BatchProcessor` (`internal/batch/processor.go`) composes a `FullParser` with an `OutputFormatter` and writes a `.manifest.json` run report. `cmd/common.FolderConvert` is the single CLI entry point to it.
+Directory processing is **not** a parser concern: `batch.BatchProcessor` (`internal/batch/processor.go`) composes a `FullParser` with an `OutputFormatter`, merges every file's transactions into a single date-sorted CSV, and writes a run report beside it (`batch.ManifestPathFor` names it after the output file, e.g. `releves.csv` → `releves.manifest.json`). `cmd/convert.convertDirectory` is the single CLI entry point to it.
 
 New parsers are registered in `internal/container/container.go` (`newParsers`). CLI commands must get parsers from the DI Container (`root.GetContainer().GetParser()`) so categorizers are wired.
 
-**Format Detection** (`internal/container/detect.go`): `Container.DetectParser(path)` asks each parser's `ValidateFormat` in turn and returns the first that accepts the file; it backs the `convert` command. Adding a parser means adding it to `detectionOrder` — and its `ValidateFormat` must be specific enough to reject other formats, or detection breaks for everyone. `TestDetectParser_ValidatorsDoNotOverlap` enforces this by running every sample past every validator.
+**Format Detection** (`internal/container/detect.go`): `Container.DetectParser(path)` asks each parser's `ValidateFormat` in turn and returns the first that accepts the file; it backs the `convert` command. Adding a parser means adding it to `detectionOrder` — and its `ValidateFormat` must be specific enough to reject other formats, or detection breaks for everyone. `TestDetectParser_ValidatorsDoNotOverlap` enforces this by running every sample past every validator. `detectionOrder` also defines the set of valid `--from` values (`cmd/common.ParserTypeNames`), so a parser missing from it is unreachable by any route, not just auto-detection.
 
 **Four-Tier Categorization** (`internal/categorizer/`):
 
@@ -114,7 +114,7 @@ When `--auto-learn` is enabled, AI results save directly to YAML files. When dis
 - **"icompta"** - 20-column, semicolon-delimited, dd.MM.yyyy dates (**default**, `output.format` in `viper.go`)
 - **"jumpsoft"** - 7-column Jumpsoft Money CSV
 
-CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). Directory input takes `--recursive` to descend into subdirectories. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
+CLI usage: `camt-csv convert -i <input> -o <output> --format standard|icompta|jumpsoft`. A directory input produces one consolidated, date-sorted CSV — not one CSV per file. The `--date-format` flag is deprecated and has no effect — output dates are always `DD.MM.YYYY` (`models.DateFormatCSV`). Directory input takes `--recursive` to descend into subdirectories. New formatters: implement `OutputFormatter` interface, register via `registry.Register("name", formatter)`.
 
 **iCompta output contract**: iCompta resolves CSV columns **by name** (`CSV_hasHeader=1` on every plugin), and a mapping naming a column the formatter doesn't emit resolves to nothing **with no error**. Appending columns is safe; renaming/removing silently breaks imports. `TestIComptaHeaderCoversPluginMappings` guards this — keep it passing. Plugin config is the `ICImportPlugin` table in `~/Desktop/ic25.cdb`; regenerate `.planning/reference/icompta-import-plugins.txt` from it rather than trusting the checked-in copy, and quit iCompta before any write. Investment columns emit blank, never `0` — iCompta reads a literal `0` as real data. See `docs/icompta-plugin-setup.md`.
 
@@ -125,7 +125,7 @@ CLI usage: `--format standard|icompta|jumpsoft`. The `--date-format` flag is dep
 
 ### Directory Structure
 
-- `cmd/` - Cobra CLI commands (convert, camt, pdf, viseca, categorize, revolut, revolut-crypto, selma, debit, revolut-investment)
+- `cmd/` - Cobra CLI commands (`convert` — detects the format, or pin one with `--from`; `categorize`)
 - `internal/` - Core application logic:
   - `*parser/` packages - Format-specific parsers with `adapter.go` implementing the interface
   - `categorizer/` - Transaction categorization with AI integration
@@ -173,9 +173,7 @@ Note: The `.env` file is auto-loaded from the current directory.
 2. Implement core parsing in `{name}parser.go`
 3. Create adapter implementing `parser.FullParser` in `adapter.go`
 4. Register in `internal/container/container.go`
-5. Add CLI command in `cmd/{name}/convert.go` — delegate to `common.RunConvert`, do not hand-roll the handler
-6. Wire command in `main.go`
-7. Add the parser type to `detectionOrder` in `internal/container/detect.go`
+5. Add the parser type to `detectionOrder` in `internal/container/detect.go` — this is what makes it reachable, both by auto-detection and as a `--from` value; there is no per-format CLI command to add or wire
 
 ## Coding Principles
 
