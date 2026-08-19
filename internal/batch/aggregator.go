@@ -145,6 +145,23 @@ func (ba *BatchAggregator) extractDateRangeFromFilename(filename string) DateRan
 	return DateRange{}
 }
 
+// Consolidate orders a merged transaction set chronologically and reports
+// potential duplicates without removing any.
+//
+// Merging a directory of mixed formats is exactly where overlaps appear — a
+// Viseca PDF statement alongside the Viseca CSV export of the same month. They
+// are reported rather than deduplicated because a similarity heuristic would
+// eventually erase two genuine identical purchases made on the same day;
+// iCompta runs its own duplicate detection at import.
+//
+// label names the batch in the duplicate warnings so a user reading the log
+// knows which run they refer to.
+func (ba *BatchAggregator) Consolidate(transactions []models.Transaction, label string) []models.Transaction {
+	ba.sortTransactionsChronologically(transactions)
+	ba.detectAndLogDuplicates(transactions, label)
+	return transactions
+}
+
 // AggregateTransactions aggregates transactions from multiple files in a file group
 // It sorts transactions chronologically and handles potential duplicates
 func (ba *BatchAggregator) AggregateTransactions(group FileGroup, parseFunc func(string) ([]models.Transaction, error)) ([]models.Transaction, error) {
@@ -174,11 +191,7 @@ func (ba *BatchAggregator) AggregateTransactions(group FileGroup, parseFunc func
 		sourceFiles = append(sourceFiles, filepath.Base(file))
 	}
 
-	// Sort transactions chronologically by date
-	ba.sortTransactionsChronologically(allTransactions)
-
-	// Log potential duplicates (but keep all transactions as per requirements)
-	ba.detectAndLogDuplicates(allTransactions, group.AccountID)
+	allTransactions = ba.Consolidate(allTransactions, group.AccountID)
 
 	ba.logger.Info("Aggregated transactions for account",
 		logging.Field{Key: "total_transactions", Value: len(allTransactions)},

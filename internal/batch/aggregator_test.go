@@ -962,3 +962,48 @@ func generateRandomOutputDirectory() string {
 
 	return baseDir
 }
+
+// Consolidate is what BatchProcessor calls once every file in a batch has been
+// parsed. It must order the merged set by date regardless of the order files
+// were read in, and must never drop a transaction: two identical purchases on
+// the same day are a real thing, so duplicates are reported, not removed.
+func TestConsolidate_SortsAndKeepsDuplicates(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	mar := time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC)
+	jan := time.Date(2024, 1, 10, 0, 0, 0, 0, time.UTC)
+	feb := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
+
+	input := []models.Transaction{
+		{BookkeepingNumber: "c", Date: mar, ValueDate: mar, Amount: decimal.NewFromInt(30), PartyName: "Migros"},
+		{BookkeepingNumber: "a", Date: jan, ValueDate: jan, Amount: decimal.NewFromInt(10), PartyName: "Coop"},
+		{BookkeepingNumber: "b", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB"},
+		{BookkeepingNumber: "b2", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB"},
+	}
+
+	got := agg.Consolidate(input, "releves-2024")
+
+	require.Len(t, got, 4, "Consolidate must not drop the duplicate")
+
+	var dates []time.Time
+	for _, tx := range got {
+		dates = append(dates, tx.Date)
+	}
+	assert.Equal(t, []time.Time{jan, feb, feb, mar}, dates, "must be ordered by date")
+
+	// BookkeepingNumber is the stable identifier; Number is a fresh UUID per run.
+	assert.Equal(t, "a", got[0].BookkeepingNumber)
+	assert.Equal(t, "c", got[3].BookkeepingNumber)
+}
+
+// An empty batch is a normal outcome (a directory of unreadable files), not an
+// error: Consolidate must return cleanly rather than panic on the empty slice.
+func TestConsolidate_EmptyInput(t *testing.T) {
+	logger := logging.NewMockLogger()
+	agg := NewBatchAggregator(logger)
+
+	got := agg.Consolidate(nil, "empty")
+
+	assert.Empty(t, got)
+}
