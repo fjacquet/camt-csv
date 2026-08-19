@@ -16,31 +16,6 @@ import (
 // ErrInvalidFormat is returned when a file fails format validation.
 var ErrInvalidFormat = errors.New("file is not in a valid format")
 
-// ProcessFileWithError processes a single file using the given parser and returns an error on failure.
-// This is the preferred function for testable code.
-func ProcessFileWithError(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger) error {
-	// Set the logger on the parser using the new interface
-	p.SetLogger(log)
-
-	if validate {
-		log.Info("Validating format...")
-		valid, err := p.ValidateFormat(inputFile)
-		if err != nil {
-			return fmt.Errorf("error validating file: %w", err)
-		}
-		if !valid {
-			return ErrInvalidFormat
-		}
-		log.Info("Validation successful.")
-	}
-
-	if err := p.ConvertToCSV(ctx, inputFile, outputFile); err != nil {
-		return fmt.Errorf("error converting to CSV: %w", err)
-	}
-	log.Info("Conversion completed successfully!")
-	return nil
-}
-
 // ProcessFile processes a single file using the given parser with formatter support.
 // Calls ProcessFileWithErrorFormatted and calls log.Fatalf on error.
 func ProcessFile(ctx context.Context, p parser.FullParser, inputFile, outputFile string, validate bool, log logging.Logger, c *container.Container, format string) {

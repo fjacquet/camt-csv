@@ -14,7 +14,6 @@ import (
 	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -214,6 +213,25 @@ func TestProcessDirectory_ContextCancellationStopsBatch(t *testing.T) {
 	assert.Equal(t, 3, manifest.TotalFiles)
 	assert.Less(t, len(manifest.Results), manifest.TotalFiles,
 		"cancellation must stop the batch before every file is processed")
+
+	// The run report must survive the cancellation with the partial counts
+	// intact: a.xml completed before cancel() fired, so it must be reflected
+	// both in SuccessCount and in TransactionCount, not just in Results.
+	assert.Equal(t, 1, manifest.SuccessCount, "the file already parsed before cancellation must be counted")
+	assert.Equal(t, 1, manifest.TransactionCount,
+		"the manifest must record the transactions already parsed, not report 0 alongside SuccessCount > 0")
+
+	manifestPath := ManifestPathFor(outputFile)
+	require.FileExists(t, manifestPath, "the manifest must be written even when the run was cancelled")
+	assert.NoFileExists(t, outputFile, "no partial CSV must be written on cancellation")
+
+	data, err := os.ReadFile(manifestPath)
+	require.NoError(t, err)
+	var onDisk BatchManifest
+	require.NoError(t, json.Unmarshal(data, &onDisk))
+	assert.Equal(t, 3, onDisk.TotalFiles)
+	assert.Equal(t, 1, onDisk.SuccessCount)
+	assert.Equal(t, 1, onDisk.TransactionCount, "the written manifest must carry the partial counts too")
 }
 
 func TestProcessDirectory_EmptyDirectory(t *testing.T) {
@@ -345,6 +363,68 @@ func TestProcessFile_ParseError(t *testing.T) {
 	assert.Contains(t, result.Error, "parse error")
 	assert.Equal(t, 0, result.RecordCount)
 	assert.Nil(t, transactions)
+}
+
+// When the resolver already proved the format (what the detect path does, as
+// a side effect of picking a parser via ValidateFormat), parseFile must not
+// validate again: a second call would repeat the most expensive step of the
+// slowest formats — a second pdftotext subprocess per PDF, a second
+// whole-document unmarshal per CAMT.
+func TestProcessFile_SkipsValidationWhenResolverAlreadyValidated(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.xml")
+	require.NoError(t, os.WriteFile(testFile, []byte("test data"), 0600))
+
+	var validateCalls int
+	mockParser := newMockParser()
+	mockParser.validateFunc = func(string) (bool, error) {
+		validateCalls++
+		return true, nil
+	}
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		return createTestTransactions(1), nil
+	}
+
+	resolve := func(string) (Resolution, error) {
+		return Resolution{Parser: mockParser, Validated: true}, nil
+	}
+
+	logger := logging.NewLogrusAdapter("error", "text")
+	processor := NewBatchProcessor(resolve, logger, nil, false)
+
+	transactions, result := processor.parseFile(context.Background(), testFile)
+
+	assert.True(t, result.Success)
+	assert.Len(t, transactions, 1)
+	assert.Equal(t, 0, validateCalls,
+		"parseFile must not re-validate a file the resolver already proved")
+}
+
+// The counterpart of the test above: a pinned parser (--from) has proved
+// nothing about the file, so it must still be validated by parseFile, and a
+// file it rejects must still be recorded as validation_failed rather than
+// silently accepted.
+func TestProcessFile_PinnedResolutionStillValidatesAndRejects(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.xml")
+	require.NoError(t, os.WriteFile(testFile, []byte("test data"), 0600))
+
+	var validateCalls int
+	mockParser := newMockParser()
+	mockParser.validateFunc = func(string) (bool, error) {
+		validateCalls++
+		return false, nil
+	}
+
+	logger := logging.NewLogrusAdapter("error", "text")
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
+
+	transactions, result := processor.parseFile(context.Background(), testFile)
+
+	assert.False(t, result.Success)
+	assert.Equal(t, "validation_failed", result.Error)
+	assert.Nil(t, transactions)
+	assert.Equal(t, 1, validateCalls, "a pinned parser must still be validated once")
 }
 
 // Custom formatters (delimiter, column set) still apply to the single
@@ -554,16 +634,16 @@ func TestProcessDirectory_ResolvesPerFile(t *testing.T) {
 	writeSample(t, inputDir, "c.csv", "ok")
 
 	var asked []string
-	resolve := func(filePath string) (parser.FullParser, error) {
+	resolve := func(filePath string) (Resolution, error) {
 		asked = append(asked, filepath.Base(filePath))
 		if strings.HasPrefix(filepath.Base(filePath), "b") {
-			return nil, ErrNoParser
+			return Resolution{}, ErrNoParser
 		}
 		p := newMockParser()
 		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
 			return createTestTransactions(1), nil
 		}
-		return p, nil
+		return Resolution{Parser: p}, nil
 	}
 
 	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
@@ -587,8 +667,9 @@ func TestPinnedResolver_AlwaysReturnsSameParser(t *testing.T) {
 
 	require.NoError(t, err1)
 	require.NoError(t, err2)
-	assert.Same(t, p, got1)
-	assert.Same(t, p, got2)
+	assert.Same(t, p, got1.Parser)
+	assert.Same(t, p, got2.Parser)
+	assert.False(t, got1.Validated, "a pinned parser has not proved the format")
 }
 
 func writeSample(t *testing.T, dir, name, content string) string {
@@ -632,7 +713,7 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 	march := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
 	january := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	resolve := func(filePath string) (parser.FullParser, error) {
+	resolve := func(filePath string) (Resolution, error) {
 		when := march
 		desc := "march"
 		if strings.HasPrefix(filepath.Base(filePath), "b-january") {
@@ -652,7 +733,7 @@ func TestProcessDirectory_WritesSingleSortedCSV(t *testing.T) {
 			}
 			return []models.Transaction{tx}, nil
 		}
-		return p, nil
+		return Resolution{Parser: p}, nil
 	}
 
 	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
@@ -698,18 +779,18 @@ func TestProcessDirectory_PartialFailureStillWritesCSV(t *testing.T) {
 	writeSample(t, inputDir, "good.csv", "x")
 	writeSample(t, inputDir, "bad.csv", "x")
 
-	resolve := func(filePath string) (parser.FullParser, error) {
+	resolve := func(filePath string) (Resolution, error) {
 		p := newMockParser()
 		if strings.HasPrefix(filepath.Base(filePath), "bad") {
 			p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
 				return nil, errors.New("corrupt header")
 			}
-			return p, nil
+			return Resolution{Parser: p}, nil
 		}
 		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
 			return []models.Transaction{sampleTransaction()}, nil
 		}
-		return p, nil
+		return Resolution{Parser: p}, nil
 	}
 
 	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)

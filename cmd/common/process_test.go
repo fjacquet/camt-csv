@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"testing"
-	"time"
 
 	"fjacquet/camt-csv/cmd/common"
 	"fjacquet/camt-csv/internal/logging"
@@ -50,106 +49,10 @@ func (m *MockFullParser) ValidateFormat(file string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-// Test ProcessFileWithError function
-func TestProcessFileWithError_Success(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(true, nil)
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
-
-	// Test with validation
-	err := common.ProcessFileWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.NoError(t, err)
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileWithError_ValidationError(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(false, errors.New("validation failed"))
-
-	// Test with validation error
-	err := common.ProcessFileWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error validating file")
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileWithError_InvalidFormat(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ValidateFormat", "input.xml").Return(false, nil)
-
-	// Test with invalid format
-	err := common.ProcessFileWithError(context.Background(), mockParser, "input.xml", "output.csv", true, mockLogger)
-
-	assert.Error(t, err)
-	assert.Equal(t, common.ErrInvalidFormat, err)
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileWithError_ConversionError(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(errors.New("conversion failed"))
-
-	// Test without validation (skip validation)
-	err := common.ProcessFileWithError(context.Background(), mockParser, "input.xml", "output.csv", false, mockLogger)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error converting to CSV")
-	mockParser.AssertExpectations(t)
-}
-
-func TestProcessFileWithError_NoValidation(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(nil)
-
-	// Test without validation
-	err := common.ProcessFileWithError(context.Background(), mockParser, "input.xml", "output.csv", false, mockLogger)
-
-	assert.NoError(t, err)
-	mockParser.AssertExpectations(t)
-}
-
 // Test error constants
 func TestErrInvalidFormat(t *testing.T) {
 	assert.Equal(t, "file is not in a valid format", common.ErrInvalidFormat.Error())
 	assert.True(t, errors.Is(common.ErrInvalidFormat, common.ErrInvalidFormat))
-}
-
-// Test edge cases - removed nil logger test as it's not a realistic scenario
-func TestProcessFileWithError_EdgeCases(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Setup expectations for empty file paths
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "", "").Return(nil)
-
-	// Test with empty file paths
-	err := common.ProcessFileWithError(context.Background(), mockParser, "", "", false, mockLogger)
-
-	assert.NoError(t, err)
-	mockParser.AssertExpectations(t)
 }
 
 // Test that the original mock implementations still work
@@ -228,51 +131,4 @@ func TestMockLogger_CapturesEntries(t *testing.T) {
 	assert.True(t, logger.HasEntry("WARN", "warning message"))
 	assert.True(t, logger.HasEntry("ERROR", "error message"))
 	assert.True(t, logger.HasEntry("FATAL", "fatal: critical error"))
-}
-
-// Test context cancellation
-func TestProcessFileWithError_ContextCancellation(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Create cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	// Setup expectations - ConvertToCSV should check context
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(context.Canceled)
-
-	// Test with cancelled context
-	err := common.ProcessFileWithError(ctx, mockParser, "input.xml", "output.csv", false, mockLogger)
-
-	// Should return context.Canceled error
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
-	mockParser.AssertExpectations(t)
-}
-
-// Test context timeout
-func TestProcessFileWithError_ContextTimeout(t *testing.T) {
-	mockParser := &MockFullParser{}
-	mockLogger := logging.NewLogrusAdapter("info", "text")
-
-	// Create context with very short timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-	defer cancel()
-
-	// Sleep to ensure timeout occurs
-	time.Sleep(10 * time.Millisecond)
-
-	// Setup expectations
-	mockParser.On("SetLogger", mockLogger).Return()
-	mockParser.On("ConvertToCSV", mock.Anything, "input.xml", "output.csv").Return(context.DeadlineExceeded)
-
-	// Test with timed out context
-	err := common.ProcessFileWithError(ctx, mockParser, "input.xml", "output.csv", false, mockLogger)
-
-	// Should return deadline exceeded error
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
-	mockParser.AssertExpectations(t)
 }

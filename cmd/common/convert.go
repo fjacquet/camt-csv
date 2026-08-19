@@ -6,25 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/container"
 	"fjacquet/camt-csv/internal/logging"
-	"fjacquet/camt-csv/internal/parser"
 )
-
-// RecordExitCode records the process exit code requested by a batch run
-// (cmd/convert's directory branch). It defers the actual os.Exit to main so
-// that the root PersistentPostRun hook still runs and saves the
-// creditor/debitor mappings.
-//
-// This used to go through a package-level function variable so tests could
-// intercept it without exiting the test process. That seam's only caller was
-// deleted along with common.RunConvert/FolderConvert; cmd/convert's own tests
-// assert through root.ExitCode() instead, so the indirection is gone too.
-func RecordExitCode(code int) {
-	root.SetExitCode(code)
-}
 
 // ResolverFor builds the ParserResolver for one run. With from empty, each
 // file is offered to every validator in turn, and the detected format is
@@ -34,15 +19,17 @@ func RecordExitCode(code int) {
 // is logged: the format was already named on the command line.
 func ResolverFor(c *container.Container, from string, logger logging.Logger) (batch.ParserResolver, error) {
 	if from == "" {
-		return func(filePath string) (parser.FullParser, error) {
+		return func(filePath string) (batch.Resolution, error) {
 			p, parserType, err := c.DetectParser(filePath)
 			if err != nil {
-				return nil, batch.ErrNoParser
+				return batch.Resolution{}, batch.ErrNoParser
 			}
 			logger.Info("Detected input format",
 				logging.Field{Key: "file", Value: filePath},
 				logging.Field{Key: "format", Value: string(parserType)})
-			return p, nil
+			// DetectParser already ran ValidateFormat to pick p, so parseFile
+			// does not need to run it again.
+			return batch.Resolution{Parser: p, Validated: true}, nil
 		}, nil
 	}
 
@@ -58,23 +45,42 @@ func ResolverFor(c *container.Container, from string, logger logging.Logger) (ba
 // writes.
 //
 // A path naming an existing directory gets a file generated inside it, named
-// after the input — the convenience the PDF command used to offer.
+// after the input — the convenience the PDF command used to offer. For a
+// directory input that is "<dir>/<input-dir-basename>.csv"; for a file input
+// it is the input's own name, unchanged, so a directory -o does not turn
+// "statement.csv" into "statement.csv.csv".
 //
-// An output under the input directory is refused: a later --recursive run would
-// read its own output back as input. Relying on no validator ever accepting our
-// own CSV is not a guarantee worth depending on.
+// An output under the input's directory is refused: for a directory input,
+// writing inside it would let a later --recursive run read its own output
+// back as input; for a file input, the equivalent hazard is writing beside
+// the file, in the same directory a later directory conversion would read.
+// Relying on no validator ever accepting our own CSV is not a guarantee
+// worth depending on.
 func ResolveOutputFile(inputPath, outputPath string) (string, error) {
+	inputInfo, statErr := os.Stat(inputPath)
+	inputIsDir := statErr == nil && inputInfo.IsDir()
+
 	resolved := outputPath
 	if info, err := os.Stat(outputPath); err == nil && info.IsDir() {
-		resolved = filepath.Join(outputPath, filepath.Base(filepath.Clean(inputPath))+".csv")
+		if inputIsDir {
+			resolved = filepath.Join(outputPath, filepath.Base(filepath.Clean(inputPath))+".csv")
+		} else {
+			resolved = filepath.Join(outputPath, filepath.Base(filepath.Clean(inputPath)))
+		}
 	}
 
-	inputInfo, err := os.Stat(inputPath)
-	if err != nil || !inputInfo.IsDir() {
-		return resolved, nil
+	// containDir is the directory a later run must not have its input
+	// re-seeded into: the input directory itself, or a file input's own
+	// parent directory. Nothing to guard when inputPath could not be stat'd.
+	containDir := inputPath
+	if !inputIsDir {
+		if statErr != nil {
+			return resolved, nil
+		}
+		containDir = filepath.Dir(inputPath)
 	}
 
-	absInput, err := filepath.Abs(inputPath)
+	absInput, err := filepath.Abs(containDir)
 	if err != nil {
 		return resolved, nil
 	}
@@ -86,7 +92,7 @@ func ResolveOutputFile(inputPath, outputPath string) (string, error) {
 	rel, err := filepath.Rel(absInput, filepath.Dir(absOutput))
 	if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("--output must not be inside the input directory %s: "+
-			"a later --recursive run would read the output back as input", inputPath)
+			"a later --recursive run would read the output back as input", containDir)
 	}
 
 	return resolved, nil

@@ -47,9 +47,9 @@ func mustResolve(t *testing.T, c *container.Container, from, path string) parser
 	t.Helper()
 	resolve, err := common.ResolverFor(c, from, c.GetLogger())
 	require.NoError(t, err)
-	p, err := resolve(path)
+	res, err := resolve(path)
 	require.NoError(t, err)
-	return p
+	return res.Parser
 }
 
 // --from must offer exactly the registered parser types, so the flag cannot
@@ -61,9 +61,9 @@ func TestResolverFor_AcceptsEveryDetectableType(t *testing.T) {
 		resolve, err := common.ResolverFor(c, string(pt), c.GetLogger())
 		require.NoError(t, err, "--from %s must be accepted", pt)
 
-		p, err := resolve("/irrelevant/path.csv")
+		res, err := resolve("/irrelevant/path.csv")
 		require.NoError(t, err)
-		assert.NotNil(t, p)
+		assert.NotNil(t, res.Parser)
 	}
 }
 
@@ -89,10 +89,10 @@ func TestResolverFor_PinBypassesDetection(t *testing.T) {
 	resolve, err := common.ResolverFor(c, "selma", c.GetLogger())
 	require.NoError(t, err)
 
-	p, err := resolve(revolutFile)
+	res, err := resolve(revolutFile)
 	require.NoError(t, err, "the pin resolves regardless of content")
 
-	valid, _ := p.ValidateFormat(revolutFile)
+	valid, _ := res.Parser.ValidateFormat(revolutFile)
 	assert.False(t, valid, "the pinned Selma parser must not accept a Revolut file")
 }
 
@@ -111,10 +111,10 @@ func TestResolverFor_PinSelectsNamedParser(t *testing.T) {
 	resolve, err := common.ResolverFor(c, "revolut", c.GetLogger())
 	require.NoError(t, err)
 
-	p, err := resolve(revolutFile)
+	res, err := resolve(revolutFile)
 	require.NoError(t, err)
 
-	valid, err := p.ValidateFormat(revolutFile)
+	valid, err := res.Parser.ValidateFormat(revolutFile)
 	require.NoError(t, err)
 	assert.True(t, valid, "pinning --from revolut must select a parser that accepts a Revolut file")
 }
@@ -215,6 +215,40 @@ func TestResolveOutputFile_ExistingDirectoryGetsGeneratedName(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(outputDir, "releves-2024.csv"), got)
+}
+
+// A file input pointed at an existing directory must not double the
+// extension: the directory-naming branch used to run before the
+// input-is-a-directory check, so a file input named "statement.csv" got
+// ".csv" appended on top of its own extension, yielding "statement.csv.csv".
+func TestResolveOutputFile_FileInputIntoExistingDirectoryDoesNotDoubleExtension(t *testing.T) {
+	inputDir := t.TempDir()
+	inputFile := filepath.Join(inputDir, "statement.csv")
+	require.NoError(t, os.WriteFile(inputFile, []byte("x"), 0600))
+	outputDir := t.TempDir()
+
+	got, err := common.ResolveOutputFile(inputFile, outputDir)
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(outputDir, "statement.csv"), got,
+		"a file input's own name must be reused verbatim, not have .csv appended again")
+}
+
+// The output-under-input guard used to apply only to directory inputs,
+// leaving a single-file conversion free to seed its own directory:
+// `convert -i samples/revolut.csv -o samples/out.csv` would write a CSV that
+// a later `convert -i samples/ --recursive` reads back as input. The guard
+// now covers file inputs too, refusing output in the file's own directory.
+func TestResolveOutputFile_FileInputBesideItselfIsRefused(t *testing.T) {
+	inputDir := t.TempDir()
+	inputFile := filepath.Join(inputDir, "statement.csv")
+	require.NoError(t, os.WriteFile(inputFile, []byte("x"), 0600))
+	outputPath := filepath.Join(inputDir, "out.csv")
+
+	_, err := common.ResolveOutputFile(inputFile, outputPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inside the input directory")
 }
 
 func TestResolveOutputFile_PlainPathIsUnchanged(t *testing.T) {
@@ -395,8 +429,8 @@ func TestConvertDirectory_OutputUnderInputWritesNothing(t *testing.T) {
 }
 
 // convertDirectory's non-zero exit codes must reach root.ExitCode() — the
-// value main() actually exits with — via common.RecordExitCode rather than
-// a route that bypasses it.
+// value main() actually exits with — via root.SetExitCode rather than a
+// route that bypasses it.
 func TestConvertDirectory_RecordsExitCodeThroughSeam(t *testing.T) {
 	root.ResetExitCode()
 	defer root.ResetExitCode()
@@ -443,11 +477,11 @@ func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "statement-b.pdf"), src, 0600)) // #nosec G703 -- test fixture, path built from t.TempDir() and a literal name
 
 	// Reference count: how many transactions the sample parses to on its own.
-	p, err := resolve(statementA)
+	res, err := resolve(statementA)
 	require.NoError(t, err)
 	f, err := os.Open(statementA)
 	require.NoError(t, err)
-	singleFileTransactions, err := p.Parse(context.Background(), f)
+	singleFileTransactions, err := res.Parser.Parse(context.Background(), f)
 	require.NoError(t, f.Close())
 	require.NoError(t, err)
 	require.NotEmpty(t, singleFileTransactions, "the sample PDF must parse to at least one transaction")

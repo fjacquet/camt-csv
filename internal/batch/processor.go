@@ -17,13 +17,27 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
-// ParserResolver returns the parser to use for one input file.
+// Resolution is the parser chosen for one input file, and whether choosing it
+// already proved the file is in that parser's format.
+//
+// Auto-detection proves it as a side effect — DetectParser returns the first
+// parser whose ValidateFormat accepts the file — so re-validating in parseFile
+// would repeat the most expensive step of the slowest formats: a second
+// pdftotext subprocess per PDF, a second whole-document unmarshal per CAMT.
+// A pinned parser (--from) has proved nothing, so it still gets validated.
+type Resolution struct {
+	Parser    parser.FullParser
+	Validated bool
+}
+
+// ParserResolver returns the parser to use for one input file, and whether
+// resolving it already proved the format.
 //
 // It is the seam that lets a single directory hold several formats: the CLI
 // supplies either a closure over Container.DetectParser (the default) or one
 // returning a parser pinned by --from. Package batch therefore needs no
 // knowledge of the container or of how formats are recognized.
-type ParserResolver func(filePath string) (parser.FullParser, error)
+type ParserResolver func(filePath string) (Resolution, error)
 
 // ErrNoParser reports that no parser accepts a file. Resolvers return it so a
 // batch records the file as a failure and moves on.
@@ -32,9 +46,10 @@ var ErrNoParser = errors.New("no parser recognizes this file format")
 // PinnedResolver returns a ParserResolver that hands back p for every file.
 // This is what --from produces: an escape hatch for a batch the detector reads
 // wrongly, not a filter that selects matching files. Files p cannot read fail
-// individually and are recorded in the manifest.
+// individually and are recorded in the manifest. Validated is always false: a
+// pinned parser has proved nothing about the file yet, unlike detection.
 func PinnedResolver(p parser.FullParser) ParserResolver {
-	return func(string) (parser.FullParser, error) { return p, nil }
+	return func(string) (Resolution, error) { return Resolution{Parser: p}, nil }
 }
 
 // BatchProcessor handles standardized batch processing for any parser
@@ -129,6 +144,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	}
 
 	var merged []models.Transaction
+	var cancelled bool
 
 	// Process each file sequentially
 	for _, filePath := range files {
@@ -138,9 +154,11 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 			bp.logger.Warn("Batch processing cancelled",
 				logging.Field{Key: "processed", Value: len(manifest.Results)},
 				logging.Field{Key: "total", Value: manifest.TotalFiles})
-			manifest.Duration = time.Since(startTime)
-			return manifest, ctx.Err()
+			cancelled = true
 		default:
+		}
+		if cancelled {
+			break
 		}
 
 		transactions, result := bp.parseFile(ctx, filePath)
@@ -159,8 +177,14 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// no-ops on a non-nil empty one), so an empty batch would otherwise fail
 	// the whole run with a spurious write error instead of the accurate
 	// "no files converted" story the manifest and exit code already tell.
+	//
+	// On cancellation, the CSV is deliberately not written even if some
+	// files already succeeded: a truncated statement set silently imported
+	// into accounting software is worse than none. The manifest is written
+	// below regardless, so the run report — which files completed, and how
+	// many transactions they carried — survives even though the CSV does not.
 	var writeErr error
-	if len(merged) > 0 {
+	if !cancelled && len(merged) > 0 {
 		merged = NewBatchAggregator(bp.logger).Consolidate(merged, filepath.Base(outputFile))
 
 		delimiter := bp.formatter.Delimiter()
@@ -178,7 +202,7 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	// per-file BatchResult still reports Success=true. This is the only
 	// place that can warn the user their whole batch silently converted
 	// nothing, most commonly because --from pinned the wrong parser.
-	if manifest.SuccessCount > 0 && manifest.TransactionCount == 0 {
+	if !cancelled && manifest.SuccessCount > 0 && manifest.TransactionCount == 0 {
 		bp.logger.Warn("All successfully parsed files yielded zero transactions; "+
 			"check that the correct parser was used (e.g. --from)",
 			logging.Field{Key: "success_count", Value: manifest.SuccessCount})
@@ -191,9 +215,10 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 		logging.Field{Key: "transactions", Value: manifest.TransactionCount},
 		logging.Field{Key: "duration", Value: manifest.Duration.String()})
 
-	// The manifest is written even when the CSV write above failed: it is
-	// the run report naming which files failed, and losing it exactly when
-	// the run failed would defeat its entire purpose (ADR-021).
+	// The manifest is written even when the CSV write above failed, or the
+	// run was cancelled: it is the run report naming which files completed,
+	// and losing it exactly when the run failed would defeat its entire
+	// purpose (ADR-021).
 	manifestPath := ManifestPathFor(outputFile)
 	if err := manifest.WriteManifest(manifestPath); err != nil {
 		bp.logger.WithError(err).Warn("Failed to write manifest file",
@@ -201,6 +226,10 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 	} else {
 		bp.logger.Info("Wrote batch manifest",
 			logging.Field{Key: "path", Value: manifestPath})
+	}
+
+	if cancelled {
+		return manifest, ctx.Err()
 	}
 
 	return manifest, writeErr
@@ -303,28 +332,33 @@ func (bp *BatchProcessor) parseFile(ctx context.Context, filePath string) ([]mod
 		RecordCount: 0,
 	}
 
-	p, err := bp.resolve(filePath)
+	res, err := bp.resolve(filePath)
 	if err != nil {
 		result.Error = fmt.Sprintf("format_not_recognized: %v", err)
 		bp.logger.WithError(err).Warn("Skipping file of unrecognized format",
 			logging.Field{Key: "file", Value: fileName})
 		return nil, result
 	}
+	p := res.Parser
 
-	// Step 1: Validate format
-	isValid, err := p.ValidateFormat(filePath)
-	if err != nil {
-		result.Error = fmt.Sprintf("validation_error: %v", err)
-		bp.logger.WithError(err).Warn("Validation error",
-			logging.Field{Key: "file", Value: fileName})
-		return nil, result
-	}
+	// Step 1: Validate format, unless the resolver already proved it (the
+	// detect path validates as a side effect of choosing the parser; a
+	// pinned --from parser has not, so it is still validated here).
+	if !res.Validated {
+		isValid, err := p.ValidateFormat(filePath)
+		if err != nil {
+			result.Error = fmt.Sprintf("validation_error: %v", err)
+			bp.logger.WithError(err).Warn("Validation error",
+				logging.Field{Key: "file", Value: fileName})
+			return nil, result
+		}
 
-	if !isValid {
-		result.Error = "validation_failed"
-		bp.logger.Warn("Invalid format",
-			logging.Field{Key: "file", Value: fileName})
-		return nil, result
+		if !isValid {
+			result.Error = "validation_failed"
+			bp.logger.Warn("Invalid format",
+				logging.Field{Key: "file", Value: fileName})
+			return nil, result
+		}
 	}
 
 	// Step 2: Open and parse file

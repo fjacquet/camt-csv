@@ -82,13 +82,18 @@ func runConvert(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	p, err := resolve(inputPath)
+	res, err := resolve(inputPath)
 	if err != nil {
 		logger.Fatalf("Could not determine the format of %s. Supported formats: %s. "+
 			"Use --from to specify it explicitly.", inputPath, strings.Join(common.ParserTypeNames(), ", "))
 	}
 
-	common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format)
+	resolvedOutput, err := common.ResolveOutputFile(inputPath, outputPath)
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
+
+	common.ProcessFile(ctx, res.Parser, inputPath, resolvedOutput, root.SharedFlags.Validate, root.Log, appContainer, format)
 	root.Log.Info("Conversion completed successfully!")
 }
 
@@ -128,7 +133,7 @@ func convertDirectory(ctx context.Context, appContainer *container.Container, re
 			manifest.FailureCount, manifestPath))
 	}
 
-	if manifest.ExitCode() != 0 {
-		common.RecordExitCode(manifest.ExitCode())
+	if exitCode := manifest.ExitCode(); exitCode != 0 {
+		root.SetExitCode(exitCode)
 	}
 }
