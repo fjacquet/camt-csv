@@ -225,6 +225,16 @@ func (b *TransactionBuilder) WithPartyIBAN(iban string) *TransactionBuilder {
 	return b
 }
 
+// WithIBAN sets the IBAN of the account the transaction belongs to — the
+// reader's own account, not the counterparty's, which is WithPartyIBAN.
+func (b *TransactionBuilder) WithIBAN(iban string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.IBAN = iban
+	return b
+}
+
 // WithReference sets the transaction reference
 func (b *TransactionBuilder) WithReference(reference string) *TransactionBuilder {
 	if b.err != nil {

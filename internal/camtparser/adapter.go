@@ -50,12 +50,19 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 
 	var transactions []models.Transaction
 	for _, stmt := range doc.BkToCstmrStmt.Stmt {
+		// Banks put the account in either element of <Acct><Id>, so both are
+		// read; whichever is present identifies the statement's account.
+		statementAccount := stmt.Account.IBAN
+		if statementAccount == "" {
+			statementAccount = stmt.Account.ID
+		}
+
 		for _, entry := range stmt.Entries {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
 
-			transaction := a.categorizeTransaction(ctx, a.entryToTransaction(entry))
+			transaction := a.categorizeTransaction(ctx, a.entryToTransaction(entry, statementAccount))
 
 			// categorizeTransaction swallows categorizer errors by design, so a
 			// cancellation surfaces here rather than as a failed transaction.

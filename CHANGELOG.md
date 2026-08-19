@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CSV written and how many transactions it holds, and record on each file
   result the account it was attributed to. Log each CSV `convert` wrote.
 
+### Added
+
+- Read the account a CAMT.053 statement covers from `<Stmt><Acct>` and carry it
+  on every transaction as `IBAN` (the reader's own account, as distinct from
+  `PartyIBAN`), so a directory of renamed exports still splits by account
+  instead of merging into `<output>_unknown.csv`.
+- Attribute transactions individually rather than whole files, so one CAMT
+  document covering several statements is split across their CSVs.
+
 ### Fixed
 
 - Warn when several files carry no account number in their name and are merged

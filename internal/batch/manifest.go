@@ -10,12 +10,12 @@ import (
 
 // BatchResult represents the result of processing a single file
 type BatchResult struct {
-	FilePath    string `json:"file_path"`
-	FileName    string `json:"file_name"`
-	Success     bool   `json:"success"`
-	Error       string `json:"error"`        // Only populated if Success=false
-	RecordCount int    `json:"record_count"` // Number of transactions extracted
-	Account     string `json:"account"`      // Account this file's rows were written to
+	FilePath    string   `json:"file_path"`
+	FileName    string   `json:"file_name"`
+	Success     bool     `json:"success"`
+	Error       string   `json:"error"`        // Only populated if Success=false
+	RecordCount int      `json:"record_count"` // Number of transactions extracted
+	Accounts    []string `json:"accounts"`     // Accounts this file's rows were written to, in the order first seen
 }
 
 // AccountSummary names one CSV a batch wrote and the account it holds.

@@ -473,3 +473,23 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 		}
 	})
 }
+
+// A CAMT.053 statement names the account it covers in <Stmt><Acct>. Without
+// it on the transaction, the only remaining evidence of which account a row
+// belongs to is the file's name — which is lost the moment a file is renamed.
+func TestParse_CarriesStatementAccountOnEachTransaction(t *testing.T) {
+	adapter := NewAdapter(logging.NewMockLogger())
+
+	f, err := os.Open("../../samples/camt053/camt53-49.xml")
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+
+	transactions, err := adapter.Parse(context.Background(), f)
+	require.NoError(t, err)
+	require.NotEmpty(t, transactions)
+
+	for _, tx := range transactions {
+		assert.Equal(t, "CH1700767000K54293249", tx.IBAN,
+			"every row must carry the account its statement covers, not the counterparty's")
+	}
+}

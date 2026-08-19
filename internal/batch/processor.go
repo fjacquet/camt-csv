@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -130,6 +131,24 @@ func accountOutputParts(outputFile string) (dir, prefix, ext string) {
 // lose transactions.
 const unknownAccount = "unknown"
 
+// accountFor names the account a transaction belongs to.
+//
+// The statement is the authority: it states the account it covers, while a
+// file name is a label anyone can change, and a renamed or hand-edited export
+// would otherwise send its rows to the wrong account — or to "unknown", the
+// merged CSV this split exists to avoid. The name is used only for formats
+// that carry no account in their content (PDF statements, Revolut and Selma
+// exports), and "unknown" only when neither says anything.
+func accountFor(tx models.Transaction, fromFileName string) string {
+	if account := common.AccountKeyFromIBAN(tx.IBAN); account != "" {
+		return account
+	}
+	if fromFileName != "" {
+		return fromFileName
+	}
+	return unknownAccount
+}
+
 // accountGroup collects one account's transactions in the order its files were
 // read. Groups are kept in a slice, not just a map, so outputs and the
 // manifest are ordered by account and reproducible across runs.
@@ -218,26 +237,36 @@ func (bp *BatchProcessor) ProcessDirectory(ctx context.Context, inputDir, output
 
 		transactions, result := bp.parseFile(ctx, filePath)
 
-		account := common.AccountKeyFromFilename(filePath)
-		if account == "" {
-			account = unknownAccount
+		if !result.Success {
+			manifest.FailureCount++
+			manifest.Results = append(manifest.Results, result)
+			continue
 		}
-		result.Account = account
-		manifest.Results = append(manifest.Results, result)
+		manifest.SuccessCount++
 
-		if result.Success {
-			manifest.SuccessCount++
+		// Attribution is per transaction, not per file: one CAMT document may
+		// carry statements for several accounts, and splitting a file whole
+		// would put one account's rows in another's CSV.
+		fromName := common.AccountKeyFromFilename(filePath)
+		for _, tx := range transactions {
+			account := accountFor(tx, fromName)
+
 			idx, seen := byAccount[account]
 			if !seen {
 				groups = append(groups, accountGroup{account: account})
 				idx = len(groups) - 1
 				byAccount[account] = idx
 			}
-			groups[idx].transactions = append(groups[idx].transactions, transactions...)
-			groups[idx].files = append(groups[idx].files, result.FileName)
-		} else {
-			manifest.FailureCount++
+			groups[idx].transactions = append(groups[idx].transactions, tx)
+			if last := len(groups[idx].files) - 1; last < 0 || groups[idx].files[last] != result.FileName {
+				groups[idx].files = append(groups[idx].files, result.FileName)
+			}
+			if !slices.Contains(result.Accounts, account) {
+				result.Accounts = append(result.Accounts, account)
+			}
 		}
+
+		manifest.Results = append(manifest.Results, result)
 	}
 
 	// Ordered by account so the CSVs a run writes, and the manifest section

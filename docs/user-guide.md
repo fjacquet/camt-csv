@@ -330,7 +330,10 @@ Process every file in a directory by pointing `convert` at the directory instead
 
 - Automatically detects each file's format
 - Groups transactions by account and writes one date-sorted CSV per account, named from `-o`: `output.csv` produces `output_54293249.csv`, `output_53153547.csv`, and so on
-- Reads the account from each file name (`CAMT.053_54293249_...`, or a leading account number); files carrying none are written together to `output_unknown.csv`
+- Reads the account from the statement itself for CAMT.053 files, so renamed exports still split correctly; for formats that carry no account (PDF, Revolut, Selma) it reads the file name (`CAMT.053_54293249_...`, or a leading account number)
+- The statement wins when the two disagree — a file renamed or copied under the wrong name does not send its rows to another account
+- A single CAMT document covering several accounts is split across their CSVs, not merged into one
+- Files with neither source are written together to `output_unknown.csv`, and a run merging several of them says so
 - Runs duplicate detection per account, so a transfer between two of your own accounts is not reported as a duplicate
 - Writes one run report beside the outputs, named after `-o` (e.g. `output.csv` → `output.manifest.json`), recording per-file success/failure and naming every CSV written with its transaction count
 - `--recursive` also processes files in subdirectories
