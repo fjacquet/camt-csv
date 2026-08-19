@@ -4,6 +4,12 @@ site_url: https://fjacquet.github.io/camt-csv/
 repo_url: https://github.com/fjacquet/camt-csv
 repo_name: fjacquet/camt-csv
 
+# MkDocs copies every file under docs/ into the built site, whether or not it
+# appears in nav. Implementation plans and design specs are versioned on purpose
+# but are internal working documents, not pages for the public site.
+exclude_docs: |
+  superpowers/
+
 theme:
   name: material
   palette:
