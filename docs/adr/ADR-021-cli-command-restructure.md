@@ -91,6 +91,11 @@ Root persistent flags are unchanged: `-i`, `-o`, `-v`, `--config`,
 `revolut-investment`, `selma`, `debit`, `viseca`. The list is derived from
 `container.DetectionOrder()` so it cannot drift from the registered parsers.
 
+When the input is a directory, `--from` pins the parser for **every** file in
+the batch; files the pinned parser cannot read fail individually and are
+recorded in the manifest. It is an escape hatch for a misdetecting batch, not a
+filter that selects matching files.
+
 `--format` keeps its current meaning (output format). Renaming it into a
 symmetric `--from`/`--to` pair was considered and rejected: symmetry is not worth
 breaking the flag the user types most.
@@ -149,6 +154,13 @@ manifest names the failures so the user knows what to re-run.
 
 Exit codes are unchanged (`manifest.ExitCode()`): `0` all succeeded, `1` partial,
 `2` all failed or no files found.
+
+The manifest replaces the output's `.csv` extension rather than appending to it:
+`-o releves/2024.csv` writes `releves/2024.csv` and `releves/2024.manifest.json`.
+This replaces the current fixed `<outputDir>/.manifest.json`
+(`internal/batch/processor.go:117`), which has no directory to live in once the
+output is a file. A single-file conversion writes no manifest: its outcome is
+the exit code, and a one-entry report adds nothing.
 
 ### Duplicates: report, never remove
 
