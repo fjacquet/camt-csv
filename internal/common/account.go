@@ -116,6 +116,12 @@ func ExtractAccountFromFilename(filename string) AccountIdentifier {
 // The length floors reject the two numbers that sit near an account number
 // without being one: the 053 of the format prefix, and a single-digit
 // sequence number leading a file name.
+// camtAccountKeyPattern is deliberately looser than camtFilenamePattern above,
+// which additionally requires the date range, sequence number, and a known
+// extension: a CAMT export that names those parts differently still belongs to
+// an account, and grouping it as "unknown" would be worse than reading the
+// number it plainly carries. Both encode the same CAMT.053_<account>_ prefix,
+// so a change to that convention has to be made in both.
 var (
 	camtAccountKeyPattern    = regexp.MustCompile(`(?i)^camt\.053_(\d{4,})_`)
 	leadingAccountKeyPattern = regexp.MustCompile(`^(\d{6,})[_.]`)
@@ -123,6 +129,13 @@ var (
 
 // AccountKeyFromFilename returns the number of the account a statement file
 // belongs to, or "" when its name carries none.
+//
+// The name is the only source available: CAMT.053 carries the statement's own
+// account in <Stmt><Acct>, but camtparser's schema models only counterparty
+// accounts (internal/camtparser/camt053_schema.go), and parser.Parser.Parse
+// takes an io.Reader with no filename channel — so reading identity out of the
+// statement instead would mean changing that schema, models.Transaction, and
+// the Parser interface every format implements.
 //
 // This is deliberately not ExtractAccountFromFilename: that helper always
 // answers with something, falling back to the whole base name, which is the

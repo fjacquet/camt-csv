@@ -107,8 +107,21 @@ func ManifestPathFor(outputFile string) string {
 // recognizable as a set, and no file's name silently means "everything that
 // was left over".
 func AccountOutputPathFor(outputFile, account string) string {
-	ext := filepath.Ext(outputFile)
-	return strings.TrimSuffix(outputFile, ext) + "_" + account + ext
+	dir, prefix, ext := accountOutputParts(outputFile)
+	return filepath.Join(dir, prefix+account+ext)
+}
+
+// accountOutputParts splits an output path into the three pieces every
+// per-account name is built from: the directory holding them, the base name
+// plus its separator, and the extension.
+//
+// Naming, own-output exclusion, and stale-output detection all have to agree
+// on this shape; derived independently, they drift the moment the convention
+// changes (a different separator, an account allowed to carry a dot), and
+// nothing fails to compile.
+func accountOutputParts(outputFile string) (dir, prefix, ext string) {
+	ext = filepath.Ext(outputFile)
+	return filepath.Dir(outputFile), strings.TrimSuffix(filepath.Base(outputFile), ext) + "_", ext
 }
 
 // unknownAccount labels rows from files whose names carry no account number.
@@ -404,14 +417,22 @@ func (bp *BatchProcessor) discoverFiles(inputDir string) ([]string, error) {
 // read deserves the same protection against re-ingesting its own report and
 // CSVs on a second run.
 func excludeOwnOutputs(files []string, outputFile string) []string {
-	outputDir := absPath(filepath.Dir(outputFile))
-	ext := filepath.Ext(outputFile)
-	prefix := strings.TrimSuffix(filepath.Base(outputFile), ext) + "_"
+	dir, prefix, ext := accountOutputParts(outputFile)
+	outputDir := absPath(dir)
 	manifest := absPath(ManifestPathFor(outputFile))
+
+	// The working directory is resolved once, not once per file:
+	// filepath.Abs stats it on every relative path, and discoverFiles hands
+	// back one relative path per file whenever the input directory was given
+	// relatively — the common case from a shell.
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = ""
+	}
 
 	filtered := files[:0]
 	for _, f := range files {
-		abs := absPath(f)
+		abs := absPathIn(wd, f)
 		if abs == manifest {
 			continue
 		}
@@ -428,10 +449,9 @@ func excludeOwnOutputs(files []string, outputFile string) []string {
 // zero transactions is never read alongside an older run's CSVs as if they
 // were this run's output.
 func staleOutputs(outputFile string) []string {
-	ext := filepath.Ext(outputFile)
-	prefix := strings.TrimSuffix(filepath.Base(outputFile), ext) + "_"
+	dir, prefix, ext := accountOutputParts(outputFile)
 
-	matches, err := filepath.Glob(strings.TrimSuffix(outputFile, ext) + "_*" + ext)
+	matches, err := filepath.Glob(filepath.Join(dir, prefix+"*"+ext))
 	if err != nil {
 		return nil
 	}
@@ -483,6 +503,19 @@ func absPath(path string) string {
 		return filepath.Clean(path)
 	}
 	return abs
+}
+
+// absPathIn resolves a path against an already-known working directory, for
+// callers resolving many paths at once. An empty wd means the working
+// directory could not be read, and each path falls back to absPath.
+func absPathIn(wd, path string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	if wd == "" {
+		return absPath(path)
+	}
+	return filepath.Join(wd, path)
 }
 
 // parseFile resolves a parser for filePath and returns the transactions it
