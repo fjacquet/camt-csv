@@ -44,7 +44,7 @@ transactions into a single CSV file, sorted chronologically by date.`,
 }
 
 func init() {
-	common.RegisterFormatFlags(Cmd)
+	common.RegisterConvertFlags(Cmd)
 }
 
 func pdfFunc(cmd *cobra.Command, _ []string) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/batch"
@@ -21,7 +22,9 @@ import (
 // saves the creditor/debitor mappings. Replaced in tests.
 var exitFn = root.SetExitCode
 
-// RunConvert is the shared handler for all convert commands.
+// RunConvert is the shared handler for the eight format-specific convert
+// commands. It pins the parser to parserType rather than detecting it, and is
+// scheduled for removal alongside those commands.
 // It handles: get logger, get container, get parser, stat input, branch to batch or single-file.
 // When input is a directory:
 //   - If --output is not set, it logs a fatal error and exits.
@@ -61,7 +64,7 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 
 	if fileInfo.IsDir() {
 		if outputPath == "" {
-			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output directory.")
+			logger.Fatal("--output flag is required when processing a folder. Use -o or --output to specify the output file.")
 		}
 		FolderConvert(ctx, p, inputPath, outputPath, logger, format, recursive)
 	} else {
@@ -70,18 +73,19 @@ func RunConvert(cmd *cobra.Command, _ []string, parserType container.ParserType,
 	}
 }
 
-// FolderConvert processes all files in a directory using BatchProcessor with formatter support.
-// This is the single directory-processing path for every parser.
+// FolderConvert converts every file under inputDir into the single CSV at
+// outputFile, using BatchProcessor with formatter support. This is the only
+// directory-processing path for every parser.
 //
 // Parameters:
 //   - ctx: context for cancellation
 //   - p: parser (must implement parser.FullParser)
 //   - inputDir: path to directory containing input files
-//   - outputDir: path to output directory (will be created if absent)
+//   - outputFile: path to the single consolidated CSV to write
 //   - logger: structured logger
 //   - format: output format name ("standard", "icompta" or "jumpsoft")
 //   - recursive: also process files in subdirectories of inputDir
-func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logger logging.Logger, format string, recursive bool) {
+func FolderConvert(ctx context.Context, p any, inputDir, outputFile string, logger logging.Logger, format string, recursive bool) {
 	// Resolve formatter
 	formatterReg := formatter.NewFormatterRegistry()
 	outFormatter, err := formatterReg.Get(format)
@@ -100,15 +104,13 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 	// Create and run the batch processor
 	processor := batch.NewBatchProcessor(batch.PinnedResolver(fullParser), logger, outFormatter, recursive)
 
-	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputDir)
+	manifest, err := processor.ProcessDirectory(ctx, inputDir, outputFile)
 	if err != nil {
 		logger.WithError(err).Fatal("Batch conversion failed")
 		return
 	}
 
-	// ProcessDirectory already wrote the manifest; we only need its path to
-	// point the user at it.
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
+	manifestPath := batch.ManifestPathFor(outputFile)
 
 	logger.Info(fmt.Sprintf("Batch complete: %d/%d files succeeded",
 		manifest.SuccessCount, manifest.TotalFiles))
@@ -121,4 +123,64 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputDir string, logge
 	if manifest.ExitCode() != 0 {
 		exitFn(manifest.ExitCode())
 	}
+}
+
+// ResolverFor builds the ParserResolver for one run. With from empty, each file
+// is offered to every validator in turn; with from set, the named parser is
+// pinned for every file.
+func ResolverFor(c *container.Container, from string) (batch.ParserResolver, error) {
+	if from == "" {
+		return func(filePath string) (parser.FullParser, error) {
+			p, _, err := c.DetectParser(filePath)
+			if err != nil {
+				return nil, batch.ErrNoParser
+			}
+			return p, nil
+		}, nil
+	}
+
+	p, err := c.GetParser(container.ParserType(from))
+	if err != nil {
+		return nil, fmt.Errorf("unknown input format %q: valid values are %s",
+			from, strings.Join(parserTypeNames(), ", "))
+	}
+	return batch.PinnedResolver(p), nil
+}
+
+// ResolveOutputFile turns the --output value into the single CSV path a run
+// writes.
+//
+// A path naming an existing directory gets a file generated inside it, named
+// after the input — the convenience the PDF command used to offer.
+//
+// An output under the input directory is refused: a later --recursive run would
+// read its own output back as input. Relying on no validator ever accepting our
+// own CSV is not a guarantee worth depending on.
+func ResolveOutputFile(inputPath, outputPath string) (string, error) {
+	resolved := outputPath
+	if info, err := os.Stat(outputPath); err == nil && info.IsDir() {
+		resolved = filepath.Join(outputPath, filepath.Base(filepath.Clean(inputPath))+".csv")
+	}
+
+	inputInfo, err := os.Stat(inputPath)
+	if err != nil || !inputInfo.IsDir() {
+		return resolved, nil
+	}
+
+	absInput, err := filepath.Abs(inputPath)
+	if err != nil {
+		return resolved, nil
+	}
+	absOutput, err := filepath.Abs(resolved)
+	if err != nil {
+		return resolved, nil
+	}
+
+	rel, err := filepath.Rel(absInput, filepath.Dir(absOutput))
+	if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("--output must not be inside the input directory %s: "+
+			"a later --recursive run would read the output back as input", inputPath)
+	}
+
+	return resolved, nil
 }

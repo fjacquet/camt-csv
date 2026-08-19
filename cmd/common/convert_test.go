@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"fjacquet/camt-csv/cmd/common"
+	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -77,20 +78,20 @@ func TestRunConvert_FolderWithoutOutput(t *testing.T) {
 // TestFolderConvert_EmptyDirectory verifies that FolderConvert completes successfully
 // when the input directory exists but contains no files.
 // A 0-file batch results in ExitCode()==2 per BatchManifest contract; this test
-// verifies that no FATAL is logged and that the manifest file is written.
+// verifies that no FATAL is logged.
 func TestFolderConvert_EmptyDirectory(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
 	mockParser := &convertMockParser{}
 
 	inputDir := t.TempDir()
-	outputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
 
 	// Capture the exit code instead of exiting
 	var capturedExitCode int
 	restore := common.SetExitFn(func(code int) { capturedExitCode = code })
 	defer restore()
 
-	common.FolderConvert(context.Background(), mockParser, inputDir, outputDir, mockLogger, "standard", false)
+	common.FolderConvert(context.Background(), mockParser, inputDir, outputFile, mockLogger, "standard", false)
 
 	// No FATAL entries — the exit code is recorded via exitFn, not logger.Fatal
 	fatalEntries := mockLogger.GetEntriesByLevel("FATAL")
@@ -98,10 +99,22 @@ func TestFolderConvert_EmptyDirectory(t *testing.T) {
 
 	// Empty directory → ExitCode()==2 per BatchManifest contract
 	assert.Equal(t, 2, capturedExitCode, "expected exit code 2 for empty directory (no files)")
+}
 
-	// Manifest file should have been written
-	manifestPath := filepath.Join(outputDir, ".manifest.json")
-	assert.FileExists(t, manifestPath, "expected .manifest.json to be written")
+// The run report lands beside the output file now that there is no output
+// directory to hold it.
+func TestFolderConvert_WritesManifestBesideOutput(t *testing.T) {
+	mockLogger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+
+	restore := common.SetExitFn(func(int) {})
+	defer restore()
+
+	common.FolderConvert(context.Background(), &convertMockParser{}, inputDir, outputFile,
+		mockLogger, "standard", false)
+
+	assert.FileExists(t, batch.ManifestPathFor(outputFile))
 }
 
 // TestFolderConvert_InvalidFormat verifies that FolderConvert logs a FATAL entry

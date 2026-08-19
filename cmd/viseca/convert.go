@@ -23,10 +23,7 @@ statements do not.`,
 }
 
 func init() {
-	common.RegisterFormatFlags(Cmd)
-
-	// Read back by root.applyFlagOverrides; a viper.BindPFlag would be ignored
-	// because InitializeConfig builds its own Viper instance.
-	Cmd.Flags().Bool("keep-payments", false,
-		"Import the monthly card settlement rows (dropped by default because the bank statement carries the same payments)")
+	// --keep-payments is registered by RegisterConvertFlags now that it is
+	// promoted to every convert command.
+	common.RegisterConvertFlags(Cmd)
 }

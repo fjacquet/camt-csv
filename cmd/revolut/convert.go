@@ -18,4 +18,4 @@ var Cmd = &cobra.Command{
 	},
 }
 
-func init() { common.RegisterFormatFlags(Cmd) }
+func init() { common.RegisterConvertFlags(Cmd) }
