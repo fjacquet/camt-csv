@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: write one CSV per account on a directory conversion instead of
+  a single merged one, and carry the account as a suffix on every output:
+  `-o releves.csv` produces `releves_54293249.csv`, `releves_53153547.csv`,
+  and so on. Accounts are read from file names (`CAMT.053_54293249_...`, or a
+  leading account number); files carrying none are written together to
+  `releves_unknown.csv`. A folder downloaded from a bank routinely covers
+  several accounts, and one merged CSV mixed rows an accounting import must
+  keep apart — invisibly, in the output.
+- Run duplicate detection per account rather than across the whole batch: the
+  same amount on the same day in two accounts is what a transfer between them
+  looks like, not a duplicate.
+- Add an `accounts` section to the `.manifest.json` run report, naming every
+  CSV written and how many transactions it holds, and record on each file
+  result the account it was attributed to. Log each CSV `convert` wrote.
+
+### Fixed
+
+- Warn when several files carry no account number in their name and are merged
+  into `<output>_unknown.csv` — the mixing per-account output exists to
+  prevent, reachable silently when statements have been renamed.
+- Do not read a leading `YYYYMMDD` date as an account number
+  (`20260401_releve.pdf`), which split one account into one CSV per month.
+- Name in the log every file skipped as this run's own output; a wrong guess
+  was invisible, appearing in neither the file count nor the manifest.
+- Skip an unsuffixed `<output>.csv` left in the input directory by a release
+  before per-account naming, instead of offering it to every parser as input.
+- Detect stale outputs by reading the directory rather than globbing, so an
+  output path containing `[`, `*`, or `?` no longer silences the warning.
+- Name the account CSVs that were written before reporting a failed write, so
+  a partial failure no longer hides which outputs exist.
+
+### Security
+
+- Stop leaking the Gemini API key through transport errors. The key travelled
+  as a `?key=` query parameter, and `net/http` embeds the request URL in every
+  transport error (timeout, refused connection, cancelled request), so it was
+  printed in cleartext wherever such an error was logged — routinely, since the
+  background embedding warm-up is cancelled whenever a conversion finishes
+  first. The key now travels in the `x-goog-api-key` header, and transport
+  errors are reported without the URL. **Rotate any key used with a previous
+  release: it may be in terminal scrollback and log files.**
+
 ## [3.0.0] - 2026-08-19
 
 ### Removed

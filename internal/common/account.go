@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // AccountIdentifier represents an extracted account identifier with its source
@@ -107,4 +108,70 @@ func ExtractAccountFromFilename(filename string) AccountIdentifier {
 		ID:     SanitizeAccountID(baseWithoutExt),
 		Source: "default",
 	}
+}
+
+// Account numbers in this bank's exports appear in one of two places: after
+// the CAMT.053_ prefix of an ISO 20022 statement, or at the very start of a
+// PDF statement's name. Both are matched against the base name only.
+//
+// The length floors reject the two numbers that sit near an account number
+// without being one: the 053 of the format prefix, and a single-digit
+// sequence number leading a file name.
+// camtAccountKeyPattern is deliberately looser than camtFilenamePattern above,
+// which additionally requires the date range, sequence number, and a known
+// extension: a CAMT export that names those parts differently still belongs to
+// an account, and grouping it as "unknown" would be worse than reading the
+// number it plainly carries. Both encode the same CAMT.053_<account>_ prefix,
+// so a change to that convention has to be made in both.
+var (
+	camtAccountKeyPattern    = regexp.MustCompile(`(?i)^camt\.053_(\d{4,})_`)
+	leadingAccountKeyPattern = regexp.MustCompile(`^(\d{6,})[_.]`)
+)
+
+// AccountKeyFromFilename returns the number of the account a statement file
+// belongs to, or "" when its name carries none.
+//
+// The name is the only source available: CAMT.053 carries the statement's own
+// account in <Stmt><Acct>, but camtparser's schema models only counterparty
+// accounts (internal/camtparser/camt053_schema.go), and parser.Parser.Parse
+// takes an io.Reader with no filename channel — so reading identity out of the
+// statement instead would mean changing that schema, models.Transaction, and
+// the Parser interface every format implements.
+//
+// This is deliberately not ExtractAccountFromFilename: that helper always
+// answers with something, falling back to the whole base name, which is the
+// right behaviour for labelling but the wrong one for grouping — every
+// unrecognized file would become its own account. Callers grouping by account
+// need to be able to tell "account 54293249" from "no account here".
+func AccountKeyFromFilename(path string) string {
+	baseName := filepath.Base(path)
+
+	if matches := camtAccountKeyPattern.FindStringSubmatch(baseName); len(matches) >= 2 {
+		return matches[1]
+	}
+
+	if matches := leadingAccountKeyPattern.FindStringSubmatch(baseName); len(matches) >= 2 {
+		if isCompactDate(matches[1]) {
+			return ""
+		}
+		return matches[1]
+	}
+
+	return ""
+}
+
+// isCompactDate reports whether a digit run is a YYYYMMDD date rather than an
+// account number.
+//
+// Exports are routinely named by date, and a compact date occupies exactly the
+// position an account number does: 20260401_releve.pdf. Reading it as an
+// account writes one CSV per month for a single account — the mirror image of
+// the mixing this split exists to prevent, and just as invisible. A digit run
+// that only resembles a date (20261301) is not one, and stays an account.
+func isCompactDate(digits string) bool {
+	if len(digits) != 8 {
+		return false
+	}
+	_, err := time.Parse("20060102", digits)
+	return err == nil
 }

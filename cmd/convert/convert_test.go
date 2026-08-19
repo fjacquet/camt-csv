@@ -407,7 +407,9 @@ func TestConvertDirectory_Success(t *testing.T) {
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
 
 	assert.Empty(t, mockLogger.GetEntriesByLevel("FATAL"))
-	assert.FileExists(t, outputFile)
+	// Outputs carry the account they hold; a.csv names none, so its rows go
+	// to the "unknown" CSV.
+	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "unknown"))
 	assert.FileExists(t, batch.ManifestPathFor(outputFile))
 }
 
@@ -526,5 +528,80 @@ func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
 	assert.Equal(t, 2, manifest.SuccessCount, "both copies must convert")
 	assert.Equal(t, 2*len(singleFileTransactions), manifest.TransactionCount,
 		"the consolidated output must carry both files' transactions merged, not just one")
-	assert.FileExists(t, outputFile)
+	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "unknown"))
+}
+
+// With several CSVs written per run, the output path the user typed is no
+// longer the path their rows are in. The command has to name each file it
+// wrote, or the only record of where the transactions went is the manifest.
+func TestConvertDirectory_LogsEachAccountOutput(t *testing.T) {
+	c := newTestContainer(t)
+	inputDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(inputDir, "a.csv"), []byte(revolutSampleCSV), 0600))
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+
+	mockLogger := logging.NewMockLogger()
+	resolve, err := resolverFor(c, "revolut", mockLogger)
+	require.NoError(t, err)
+
+	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
+
+	written := batch.AccountOutputPathFor(outputFile, "unknown")
+	found := false
+	for _, entry := range mockLogger.GetEntriesByLevel("INFO") {
+		for _, f := range entry.Fields {
+			if f.Key == "path" && f.Value == written {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "the run must log the path of every CSV it wrote")
+}
+
+// One account's failed write must not discard the others — ProcessDirectory
+// keeps writing and returns the first error. At the CLI that intent was lost:
+// the fatal fired before the loop naming each CSV, so a user told "batch
+// conversion failed" never learned which account CSVs were in fact written.
+func TestConvertDirectory_NamesWrittenCSVsEvenWhenOneWriteFails(t *testing.T) {
+	c := newTestContainer(t)
+	inputDir := t.TempDir()
+	for _, name := range []string{"CAMT.053_11111111_x.csv", "CAMT.053_22222222_x.csv"} {
+		require.NoError(t, os.WriteFile(filepath.Join(inputDir, name), []byte(revolutSampleCSV), 0600))
+	}
+
+	outputFile := filepath.Join(t.TempDir(), "out.csv")
+	// A directory in place of one account's CSV: that write fails (EISDIR)
+	// while the other account's succeeds.
+	require.NoError(t, os.MkdirAll(batch.AccountOutputPathFor(outputFile, "22222222"), 0750))
+
+	mockLogger := logging.NewMockLogger()
+	resolve, err := resolverFor(c, "revolut", mockLogger)
+	require.NoError(t, err)
+
+	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
+
+	// The mock logger's Fatal returns instead of exiting, so presence alone
+	// proves nothing: in production nothing after the fatal runs. Order is
+	// what the assertion has to be about.
+	written := batch.AccountOutputPathFor(outputFile, "11111111")
+	namedAt, fatalAt := -1, -1
+	for i, entry := range mockLogger.GetEntries() {
+		if entry.Level == "FATAL" && fatalAt == -1 {
+			fatalAt = i
+		}
+		if entry.Message != "Wrote account CSV" {
+			continue // the batch layer logs its own write; this is about the CLI's summary
+		}
+		for _, f := range entry.Fields {
+			if f.Value == written && namedAt == -1 {
+				namedAt = i
+			}
+		}
+	}
+
+	require.NotEqual(t, -1, fatalAt, "the failed write must still be fatal")
+	require.NotEqual(t, -1, namedAt, "the CSV that was written must be named")
+	assert.Less(t, namedAt, fatalAt,
+		"the written CSVs must be named before the fatal, which ends the process")
 }

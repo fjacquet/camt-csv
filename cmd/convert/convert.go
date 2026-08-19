@@ -47,8 +47,12 @@ when a file's format cannot be told apart from another, or when detection
 guesses wrong.
 
 When the input is a directory, every file in it is read and their
-transactions are merged into a single, date-sorted output CSV, plus a
-.manifest.json run report beside it.`, strings.Join(parserTypeNames(), ", "))
+transactions are grouped by the account named in each file name, then
+written date-sorted to one CSV per account: -o releves.csv produces
+releves_54293249.csv, releves_53153547.csv, and so on. Files whose names
+carry no account number are written together to releves_unknown.csv. A
+single releves.manifest.json run report names every CSV written.`,
+		strings.Join(parserTypeNames(), ", "))
 }
 
 func runConvert(cmd *cobra.Command, _ []string) {
@@ -103,9 +107,11 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	root.Log.Info("Conversion completed successfully!")
 }
 
-// convertDirectory merges every file under inputDir into the single CSV named
-// by outputPath (generating a name inside it when outputPath is an existing
-// directory), plus a run report beside that CSV.
+// convertDirectory reads every file under inputDir and writes one CSV per
+// account it finds, named after the CSV at outputPath (generating that name
+// inside it when outputPath is an existing directory): out.csv becomes
+// out_54293249.csv, out_unknown.csv, and so on, plus one run report beside
+// them naming each.
 func convertDirectory(ctx context.Context, appContainer *container.Container, resolve batch.ParserResolver,
 	inputPath, outputPath string, logger logging.Logger, format string, recursive bool) {
 
@@ -124,6 +130,20 @@ func convertDirectory(ctx context.Context, appContainer *container.Container, re
 	processor := batch.NewBatchProcessor(resolve, logger, outFormatter, recursive)
 
 	manifest, err := processor.ProcessDirectory(ctx, inputPath, outputFile)
+
+	// Each account's rows are in their own CSV, so the path the user typed is
+	// never the path their transactions ended up in: name every file. This
+	// runs before the error check on purpose — one account's failed write
+	// does not discard the others, and Fatal never returns, so reporting
+	// afterwards would tell the user the batch failed without ever naming the
+	// CSVs it did write.
+	for _, account := range manifest.GetAccounts() {
+		logger.Info("Wrote account CSV",
+			logging.Field{Key: "account", Value: account.Account},
+			logging.Field{Key: "path", Value: account.OutputFile},
+			logging.Field{Key: "transactions", Value: account.TransactionCount})
+	}
+
 	if err != nil {
 		logger.WithError(err).Fatal("Batch conversion failed")
 		return

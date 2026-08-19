@@ -15,17 +15,34 @@ type BatchResult struct {
 	Success     bool   `json:"success"`
 	Error       string `json:"error"`        // Only populated if Success=false
 	RecordCount int    `json:"record_count"` // Number of transactions extracted
+	Account     string `json:"account"`      // Account this file's rows were written to
+}
+
+// AccountSummary names one CSV a batch wrote and the account it holds.
+//
+// A directory of bank downloads covers several accounts, each written to its
+// own file, so "where did my rows go" is no longer answerable from the output
+// path alone — this section of the manifest is the run's only record of it.
+type AccountSummary struct {
+	Account          string `json:"account"`
+	OutputFile       string `json:"output_file"`
+	TransactionCount int    `json:"transaction_count"`
 }
 
 // BatchManifest aggregates results from a batch operation
 type BatchManifest struct {
-	TotalFiles       int           `json:"total_files"`
-	SuccessCount     int           `json:"success_count"`
-	FailureCount     int           `json:"failure_count"`
-	TransactionCount int           `json:"transaction_count"` // Total transactions written to the consolidated CSV
-	Results          []BatchResult `json:"results"`
-	Duration         time.Duration `json:"duration"`
-	ProcessedAt      time.Time     `json:"processed_at"`
+	TotalFiles   int `json:"total_files"`
+	SuccessCount int `json:"success_count"`
+	FailureCount int `json:"failure_count"`
+	// Transactions parsed across every account, whether or not each
+	// account's CSV was written: a run whose write failed still reports what
+	// it read, and ExitCode's zero-transaction check stays a statement about
+	// parsing. Per-CSV counts are in Accounts.
+	TransactionCount int              `json:"transaction_count"`
+	Accounts         []AccountSummary `json:"accounts"` // One entry per CSV actually written, ordered by account
+	Results          []BatchResult    `json:"results"`
+	Duration         time.Duration    `json:"duration"`
+	ProcessedAt      time.Time        `json:"processed_at"`
 }
 
 // ExitCode returns the exit code based on batch processing results.
@@ -75,4 +92,15 @@ func (m *BatchManifest) WriteManifest(filePath string) error {
 // Format: "X/Y files succeeded"
 func (m *BatchManifest) Summary() string {
 	return fmt.Sprintf("%d/%d files succeeded", m.SuccessCount, m.TotalFiles)
+}
+
+// GetAccounts returns the CSVs written, and is nil-safe: ProcessDirectory
+// returns a nil manifest for a failure with the directories themselves, and a
+// caller reporting what was written before checking the error should not have
+// to guard that separately.
+func (m *BatchManifest) GetAccounts() []AccountSummary {
+	if m == nil {
+		return nil
+	}
+	return m.Accounts
 }

@@ -48,8 +48,9 @@ camt-csv convert -i transactions.csv -o output.csv
 # Pin the format when detection can't tell two formats apart, or guesses wrong
 camt-csv convert -i export.csv -o output.csv --from selma
 
-# Convert a whole directory into one date-sorted CSV (plus a run report,
-# output.manifest.json, written beside it); add --recursive to descend into
+# Convert a whole directory: one date-sorted CSV per account, named from -o
+# (output_54293249.csv, output_53153547.csv, ...), plus a run report,
+# output.manifest.json, beside them; add --recursive to descend into
 # subdirectories
 camt-csv convert -i input_dir/ -o output.csv
 

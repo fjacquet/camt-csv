@@ -368,3 +368,86 @@ func TestExtractAccountFromFilename(t *testing.T) {
 		})
 	}
 }
+
+// AccountKeyFromFilename answers a narrower question than
+// ExtractAccountFromFilename: which own-account does this statement belong to,
+// or none at all. An empty answer is meaningful — it is what routes a file to
+// the "unknown" output — so the whole-basename fallback of the older helper
+// would be actively wrong here.
+func TestAccountKeyFromFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		want     string
+	}{
+		{
+			name:     "CAMT export names the account after the format prefix",
+			filename: "CAMT.053_54293249_2026-04-01_2026-04-30_1.xml",
+			want:     "54293249",
+		},
+		{
+			name:     "lowercase camt prefix is the same export",
+			filename: "camt.053_54293249_2026-04-01_2026-04-30_1.xml",
+			want:     "54293249",
+		},
+		{
+			name:     "full path resolves on the base name only",
+			filename: "/tmp/e-documents/CAMT.053_53153547_2026-05-01_2026-05-31_1.xml",
+			want:     "53153547",
+		},
+		{
+			name:     "PDF statement leads with the account number",
+			filename: "54293249_2026-05-01_E100_96411.pdf",
+			want:     "54293249",
+		},
+		{
+			name:     "the 053 of the CAMT prefix is never the account",
+			filename: "CAMT.053_54293250_2026-07-01_2026-07-31_1.xml",
+			want:     "54293250",
+		},
+		{
+			name:     "a name carrying no account number yields none",
+			filename: "releves.csv",
+			want:     "",
+		},
+		{
+			name:     "a short leading number is a sequence, not an account",
+			filename: "1_statement.csv",
+			want:     "",
+		},
+		{
+			name:     "digits later in the name are not the account",
+			filename: "statement_54293249.csv",
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, AccountKeyFromFilename(tt.filename))
+		})
+	}
+}
+
+// Statement exports are routinely named by date, and a compact date is a run
+// of eight digits in exactly the position an account number occupies. Reading
+// one as an account splits a single account into one CSV per month — the
+// mirror image of the bug per-account output exists to prevent.
+func TestAccountKeyFromFilename_CompactDateIsNotAnAccount(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		want     string
+	}{
+		{"compact date leading a statement name", "20260401_releve.pdf", ""},
+		{"another month of the same account", "20260501_releve.pdf", ""},
+		{"a date-like number that is not a valid date is an account", "20261301_releve.pdf", "20261301"},
+		{"an eight-digit account number that is not a date", "54293249_2026-05-01_E100.pdf", "54293249"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, AccountKeyFromFilename(tt.filename))
+		})
+	}
+}
