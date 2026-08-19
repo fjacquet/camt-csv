@@ -10,10 +10,11 @@ import (
 
 // Cmd represents the categorize command
 var Cmd = &cobra.Command{
-	Use:   "categorize",
-	Short: "Categorize transactions using Gemini model",
-	Long:  `Categorize transactions based on the party's name and typical activity using Gemini model.`,
-	Run:   categorizeFunc,
+	Use:     "categorize",
+	Short:   "Categorize transactions using Gemini model",
+	Long:    `Categorize transactions based on the party's name and typical activity using Gemini model.`,
+	GroupID: "tools",
+	Run:     categorizeFunc,
 }
 
 func init() {

@@ -3,6 +3,7 @@ package convert
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/container"
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 
@@ -410,4 +412,28 @@ func TestConvertDirectory_RecordsExitCodeThroughSeam(t *testing.T) {
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
 
 	assert.Equal(t, 2, root.ExitCode())
+}
+
+// The behavior the pdf command used to own — a directory of PDFs consolidated
+// into one chronologically sorted CSV — must survive its deletion. This is the
+// regression guard for that removal.
+func TestConvert_PDFDirectoryConsolidates(t *testing.T) {
+	// Skipped where poppler-utils is absent: the PDF parser shells out to pdftotext.
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext not installed")
+	}
+
+	c := newTestContainer(t)
+	inputDir := "../../samples/pdf"
+	outputFile := filepath.Join(t.TempDir(), "consolidated.csv")
+
+	resolve, err := common.ResolverFor(c, "pdf", c.GetLogger())
+	require.NoError(t, err)
+
+	bp := batch.NewBatchProcessor(resolve, c.GetLogger(), formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+
+	require.NoError(t, err)
+	require.Positive(t, manifest.SuccessCount, "at least one sample PDF must convert")
+	assert.FileExists(t, outputFile)
 }

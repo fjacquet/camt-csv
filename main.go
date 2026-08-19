@@ -6,17 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fjacquet/camt-csv/cmd/camt"
 	"fjacquet/camt-csv/cmd/categorize"
 	"fjacquet/camt-csv/cmd/convert"
-	"fjacquet/camt-csv/cmd/debit"
-	"fjacquet/camt-csv/cmd/pdf"
-	"fjacquet/camt-csv/cmd/revolut"
-	revolutcrypto "fjacquet/camt-csv/cmd/revolut-crypto"
-	revolutinvestment "fjacquet/camt-csv/cmd/revolut-investment"
 	"fjacquet/camt-csv/cmd/root"
-	"fjacquet/camt-csv/cmd/selma"
-	"fjacquet/camt-csv/cmd/viseca"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -46,15 +38,7 @@ func init() {
 
 	// 6. Add all subcommands
 	root.Cmd.AddCommand(convert.Cmd)
-	root.Cmd.AddCommand(camt.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)
-	root.Cmd.AddCommand(pdf.Cmd)
-	root.Cmd.AddCommand(selma.Cmd)
-	root.Cmd.AddCommand(viseca.Cmd)
-	root.Cmd.AddCommand(revolut.Cmd)
-	root.Cmd.AddCommand(revolutcrypto.Cmd)
-	root.Cmd.AddCommand(debit.Cmd)
-	root.Cmd.AddCommand(revolutinvestment.Cmd)
 }
 
 // loadEnvSilently loads environment variables without logging anything

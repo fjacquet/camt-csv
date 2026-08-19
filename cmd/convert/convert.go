@@ -18,9 +18,10 @@ import (
 
 // Cmd represents the convert command.
 var Cmd = &cobra.Command{
-	Use:   "convert",
-	Short: "Convert a statement to CSV",
-	Run:   runConvert,
+	Use:     "convert",
+	Short:   "Convert a statement to CSV",
+	GroupID: "conversion",
+	Run:     runConvert,
 }
 
 func init() {
