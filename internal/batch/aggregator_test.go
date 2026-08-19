@@ -976,10 +976,10 @@ func TestConsolidate_SortsAndKeepsDuplicates(t *testing.T) {
 	feb := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
 
 	input := []models.Transaction{
-		{BookkeepingNumber: "c", Date: mar, ValueDate: mar, Amount: decimal.NewFromInt(30), PartyName: "Migros"},
-		{BookkeepingNumber: "a", Date: jan, ValueDate: jan, Amount: decimal.NewFromInt(10), PartyName: "Coop"},
-		{BookkeepingNumber: "b", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB"},
-		{BookkeepingNumber: "b2", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB"},
+		{BookkeepingNumber: "c", Date: mar, ValueDate: mar, Amount: decimal.NewFromInt(30), PartyName: "Migros", Payee: "Migros", DebitFlag: true},
+		{BookkeepingNumber: "a", Date: jan, ValueDate: jan, Amount: decimal.NewFromInt(10), PartyName: "Coop", Payee: "Coop", DebitFlag: true},
+		{BookkeepingNumber: "b", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB", DebitFlag: true},
+		{BookkeepingNumber: "b2", Date: feb, ValueDate: feb, Amount: decimal.NewFromInt(20), PartyName: "SBB", Payee: "SBB", DebitFlag: true},
 	}
 
 	got := agg.Consolidate(input, "releves-2024")
@@ -995,6 +995,26 @@ func TestConsolidate_SortsAndKeepsDuplicates(t *testing.T) {
 	// BookkeepingNumber is the stable identifier; Number is a fresh UUID per run.
 	assert.Equal(t, "a", got[0].BookkeepingNumber)
 	assert.Equal(t, "c", got[3].BookkeepingNumber)
+
+	// Verify duplicates are reported: reporting is the deliberate alternative to
+	// removing them, so a later reader does not "simplify" the warning away.
+	warnEntries := logger.GetEntriesByLevel("WARN")
+	require.NotEmpty(t, warnEntries, "Consolidate must log a warning for duplicate transactions")
+
+	// Check that at least one warning contains the duplicate transaction message
+	// and carries the label in the account field.
+	found := false
+	for _, entry := range warnEntries {
+		if entry.Message == "Potential duplicate transaction" {
+			for _, field := range entry.Fields {
+				if field.Key == "account" && field.Value == "releves-2024" {
+					found = true
+					break
+				}
+			}
+		}
+	}
+	assert.True(t, found, "Consolidate must log duplicate warning with the batch label in the account field")
 }
 
 // An empty batch is a normal outcome (a directory of unreadable files), not an
