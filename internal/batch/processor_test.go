@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -101,7 +103,7 @@ func TestProcessDirectory_AllSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -157,7 +159,7 @@ func TestProcessDirectory_PartialSuccess(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -199,7 +201,7 @@ func TestProcessDirectory_AllFailed(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -232,7 +234,7 @@ func TestProcessDirectory_EmptyDirectory(t *testing.T) {
 
 	mockParser := newMockParser()
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -268,7 +270,7 @@ func TestProcessDirectory_WritesManifest(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -317,7 +319,7 @@ func TestProcessDirectory_ContinuesOnError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	ctx := context.Background()
@@ -353,7 +355,7 @@ func TestProcessFile_ValidationFailure(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -384,7 +386,7 @@ func TestProcessFile_ParseError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -416,7 +418,7 @@ func TestProcessFile_WriteError(t *testing.T) {
 	}
 
 	logger := logging.NewLogrusAdapter("error", "text")
-	processor := NewBatchProcessor(mockParser, logger, nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, nil, false)
 
 	// Execute
 	result := processor.processFile(context.Background(), testFile, outputDir)
@@ -457,7 +459,7 @@ func TestBatchProcessorWithFormatter(t *testing.T) {
 
 	// Test with IComptaFormatter
 	icomptaFormatter := &testIComptaFormatter{}
-	processor := NewBatchProcessor(mockParser, logger, icomptaFormatter, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logger, icomptaFormatter, false)
 
 	// Execute
 	ctx := context.Background()
@@ -545,7 +547,7 @@ func TestDiscoverFiles_NonRecursiveByDefault(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub"), 0750))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
 
-	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, false)
+	bp := NewBatchProcessor(PinnedResolver(newMockParser()), logging.NewLogrusAdapter("error", "text"), nil, false)
 
 	files, err := bp.discoverFiles(dir)
 	require.NoError(t, err)
@@ -562,7 +564,7 @@ func TestDiscoverFiles_Recursive(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "nested.csv"), []byte("x"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "deeper", "deep.csv"), []byte("x"), 0600))
 
-	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+	bp := NewBatchProcessor(PinnedResolver(newMockParser()), logging.NewLogrusAdapter("error", "text"), nil, true)
 
 	files, err := bp.discoverFiles(dir)
 	require.NoError(t, err)
@@ -582,7 +584,7 @@ func TestDiscoverFiles_RecursiveSkipsHiddenDirectories(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "secret.csv"), []byte("x"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".manifest.json"), []byte("{}"), 0600))
 
-	bp := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+	bp := NewBatchProcessor(PinnedResolver(newMockParser()), logging.NewLogrusAdapter("error", "text"), nil, true)
 
 	files, err := bp.discoverFiles(dir)
 	require.NoError(t, err)
@@ -609,7 +611,7 @@ func TestProcessDirectory_RecursiveDoesNotOverwriteSameBasename(t *testing.T) {
 		return createTestTransactions(3), nil
 	}
 
-	processor := NewBatchProcessor(mockParser, logging.NewLogrusAdapter("error", "text"), nil, true)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logging.NewLogrusAdapter("error", "text"), nil, true)
 
 	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
 	require.NoError(t, err)
@@ -634,7 +636,7 @@ func TestProcessDirectory_DisambiguatesSameStemDifferentExtension(t *testing.T) 
 		return createTestTransactions(3), nil
 	}
 
-	processor := NewBatchProcessor(mockParser, logging.NewLogrusAdapter("error", "text"), nil, false)
+	processor := NewBatchProcessor(PinnedResolver(mockParser), logging.NewLogrusAdapter("error", "text"), nil, false)
 
 	manifest, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
 	require.NoError(t, err)
@@ -673,10 +675,67 @@ func TestProcessDirectory_UnreadableSubdirectoryIsAnError(t *testing.T) {
 	// Restore permissions so t.TempDir cleanup can remove the tree.
 	t.Cleanup(func() { _ = os.Chmod(locked, 0700) }) // #nosec G302 -- test fixture directory, restored so cleanup can run
 
-	processor := NewBatchProcessor(newMockParser(), logging.NewLogrusAdapter("error", "text"), nil, true)
+	processor := NewBatchProcessor(PinnedResolver(newMockParser()), logging.NewLogrusAdapter("error", "text"), nil, true)
 
 	_, err := processor.ProcessDirectory(context.Background(), inputDir, outputDir)
 
 	require.Error(t, err, "an unreadable subdirectory must not be silently skipped")
 	assert.Contains(t, err.Error(), "failed to read directory")
+}
+
+// The resolver is consulted per file, which is what lets one directory hold
+// several formats. A file the resolver rejects is recorded as a failure and
+// must not stop the files after it.
+func TestProcessDirectory_ResolvesPerFile(t *testing.T) {
+	logger := logging.NewLogrusAdapter("error", "text")
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	writeSample(t, inputDir, "a.csv", "ok")
+	writeSample(t, inputDir, "b.csv", "unsupported")
+	writeSample(t, inputDir, "c.csv", "ok")
+
+	var asked []string
+	resolve := func(filePath string) (parser.FullParser, error) {
+		asked = append(asked, filepath.Base(filePath))
+		if strings.HasPrefix(filepath.Base(filePath), "b") {
+			return nil, ErrNoParser
+		}
+		p := newMockParser()
+		p.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+			return createTestTransactions(1), nil
+		}
+		return p, nil
+	}
+
+	bp := NewBatchProcessor(resolve, logger, formatter.NewStandardFormatter(), false)
+	manifest, err := bp.ProcessDirectory(context.Background(), inputDir, outputDir)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a.csv", "b.csv", "c.csv"}, asked, "every file must be offered to the resolver")
+	assert.Equal(t, 2, manifest.SuccessCount)
+	assert.Equal(t, 1, manifest.FailureCount)
+	assert.Equal(t, 1, manifest.ExitCode(), "partial success")
+}
+
+// PinnedResolver is what --from produces: the same parser for every file,
+// so a batch the detector misreads can be forced through one parser.
+func TestPinnedResolver_AlwaysReturnsSameParser(t *testing.T) {
+	p := newMockParser()
+	resolve := PinnedResolver(p)
+
+	got1, err1 := resolve("/any/path.csv")
+	got2, err2 := resolve("/other/file.xml")
+
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	assert.Same(t, p, got1)
+	assert.Same(t, p, got2)
+}
+
+func writeSample(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	return path
 }

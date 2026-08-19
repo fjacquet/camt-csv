@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,28 +16,49 @@ import (
 	"fjacquet/camt-csv/internal/parser"
 )
 
+// ParserResolver returns the parser to use for one input file.
+//
+// It is the seam that lets a single directory hold several formats: the CLI
+// supplies either a closure over Container.DetectParser (the default) or one
+// returning a parser pinned by --from. Package batch therefore needs no
+// knowledge of the container or of how formats are recognized.
+type ParserResolver func(filePath string) (parser.FullParser, error)
+
+// ErrNoParser reports that no parser accepts a file. Resolvers return it so a
+// batch records the file as a failure and moves on.
+var ErrNoParser = errors.New("no parser recognizes this file format")
+
+// PinnedResolver returns a ParserResolver that hands back p for every file.
+// This is what --from produces: an escape hatch for a batch the detector reads
+// wrongly, not a filter that selects matching files. Files p cannot read fail
+// individually and are recorded in the manifest.
+func PinnedResolver(p parser.FullParser) ParserResolver {
+	return func(string) (parser.FullParser, error) { return p, nil }
+}
+
 // BatchProcessor handles standardized batch processing for any parser
 type BatchProcessor struct {
-	parser    parser.FullParser
+	resolve   ParserResolver
 	logger    logging.Logger
 	formatter formatter.OutputFormatter
 	recursive bool
 }
 
-// NewBatchProcessor creates a new BatchProcessor instance that wraps the provided parser.
-// The processor will use the parser for validation, parsing, and CSV writing operations.
+// NewBatchProcessor creates a new BatchProcessor instance that resolves a
+// parser per file via resolve. The processor uses the resolved parser for
+// validation, parsing, and CSV writing operations.
 // If fmt is nil, a StandardFormatter will be used by default for backward compatibility.
 //
 // recursive is fixed here rather than settable afterwards: ProcessDirectory
 // reads it, so a later change could alter a run already under way.
-func NewBatchProcessor(p parser.FullParser, logger logging.Logger, fmt formatter.OutputFormatter, recursive bool) *BatchProcessor {
+func NewBatchProcessor(resolve ParserResolver, logger logging.Logger, fmt formatter.OutputFormatter, recursive bool) *BatchProcessor {
 	// Default to StandardFormatter if formatter is nil (backward compatibility)
 	if fmt == nil {
 		fmt = formatter.NewStandardFormatter()
 	}
 
 	return &BatchProcessor{
-		parser:    p,
+		resolve:   resolve,
 		logger:    logger,
 		formatter: fmt,
 		recursive: recursive,
@@ -225,8 +247,16 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		RecordCount: 0,
 	}
 
+	p, err := bp.resolve(filePath)
+	if err != nil {
+		result.Error = fmt.Sprintf("format_not_recognized: %v", err)
+		bp.logger.WithError(err).Warn("Skipping file of unrecognized format",
+			logging.Field{Key: "file", Value: fileName})
+		return result
+	}
+
 	// Step 1: Validate format
-	isValid, err := bp.parser.ValidateFormat(filePath)
+	isValid, err := p.ValidateFormat(filePath)
 	if err != nil {
 		result.Error = fmt.Sprintf("validation_error: %v", err)
 		bp.logger.WithError(err).Warn("Validation error",
@@ -256,7 +286,7 @@ func (bp *BatchProcessor) processFile(ctx context.Context, filePath, outputPath 
 		}
 	}()
 
-	transactions, err := bp.parser.Parse(ctx, file)
+	transactions, err := p.Parse(ctx, file)
 	if err != nil {
 		result.Error = err.Error()
 		bp.logger.WithError(err).Warn("Parse error",
