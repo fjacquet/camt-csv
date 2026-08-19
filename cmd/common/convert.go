@@ -128,16 +128,30 @@ func FolderConvert(ctx context.Context, p any, inputDir, outputFile string, logg
 	}
 }
 
-// ResolverFor builds the ParserResolver for one run. With from empty, each file
-// is offered to every validator in turn; with from set, the named parser is
-// pinned for every file.
-func ResolverFor(c *container.Container, from string) (batch.ParserResolver, error) {
+// RecordExitCode routes a batch's exit code through the same swappable seam
+// FolderConvert uses (exitFn), so callers outside this package — cmd/convert's
+// own directory branch — get the same test-interception point via SetExitFn
+// instead of calling root.SetExitCode directly.
+func RecordExitCode(code int) {
+	exitFn(code)
+}
+
+// ResolverFor builds the ParserResolver for one run. With from empty, each
+// file is offered to every validator in turn, and the detected format is
+// logged at INFO per file — this is the only place that can, since it is the
+// only code that sees both the file path and the ParserType DetectParser
+// chose. With from set, the named parser is pinned for every file and nothing
+// is logged: the format was already named on the command line.
+func ResolverFor(c *container.Container, from string, logger logging.Logger) (batch.ParserResolver, error) {
 	if from == "" {
 		return func(filePath string) (parser.FullParser, error) {
-			p, _, err := c.DetectParser(filePath)
+			p, parserType, err := c.DetectParser(filePath)
 			if err != nil {
 				return nil, batch.ErrNoParser
 			}
+			logger.Info("Detected input format",
+				logging.Field{Key: "file", Value: filePath},
+				logging.Field{Key: "format", Value: string(parserType)})
 			return p, nil
 		}, nil
 	}
@@ -145,7 +159,7 @@ func ResolverFor(c *container.Container, from string) (batch.ParserResolver, err
 	p, err := c.GetParser(container.ParserType(from))
 	if err != nil {
 		return nil, fmt.Errorf("unknown input format %q: valid values are %s",
-			from, strings.Join(parserTypeNames(), ", "))
+			from, strings.Join(ParserTypeNames(), ", "))
 	}
 	return batch.PinnedResolver(p), nil
 }

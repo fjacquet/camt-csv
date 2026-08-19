@@ -20,12 +20,20 @@ import (
 var Cmd = &cobra.Command{
 	Use:   "convert",
 	Short: "Convert a statement to CSV",
-	Long: `Convert a statement, or a directory of statements, to CSV.
+	Run:   runConvert,
+}
+
+func init() {
+	common.RegisterConvertFlags(Cmd)
+
+	// Built from common.ParserTypeNames() — the same list DetectionOrder and
+	// --from's help text draw from — so this text can't drift out of sync
+	// with what the command actually accepts, the way its hand-written
+	// predecessor (which never mentioned viseca) did.
+	Cmd.Long = fmt.Sprintf(`Convert a statement, or a directory of statements, to CSV.
 
 Each file is offered to every parser in turn, and the first one that
-recognizes it performs the conversion. This works for every supported format:
-CAMT.053 XML, PDF statements, and the Revolut, Revolut Crypto, Revolut
-Investment, Selma and Visa Debit CSV exports.
+recognizes it performs the conversion. Supported formats: %s.
 
 Use --from to pin a specific format instead of auto-detecting it — required
 when a file's format cannot be told apart from another, or when detection
@@ -33,11 +41,8 @@ guesses wrong.
 
 When the input is a directory, every file in it is read and their
 transactions are merged into a single, date-sorted output CSV, plus a
-.manifest.json run report beside it.`,
-	Run: runConvert,
+.manifest.json run report beside it.`, strings.Join(common.ParserTypeNames(), ", "))
 }
-
-func init() { common.RegisterConvertFlags(Cmd) }
 
 func runConvert(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
@@ -58,7 +63,7 @@ func runConvert(cmd *cobra.Command, _ []string) {
 	recursive, _ := cmd.Flags().GetBool("recursive")
 	from, _ := cmd.Flags().GetString("from")
 
-	resolve, err := common.ResolverFor(appContainer, from)
+	resolve, err := common.ResolverFor(appContainer, from, logger)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
@@ -78,13 +83,8 @@ func runConvert(cmd *cobra.Command, _ []string) {
 
 	p, err := resolve(inputPath)
 	if err != nil {
-		types := container.DetectionOrder()
-		names := make([]string, len(types))
-		for i, t := range types {
-			names[i] = string(t)
-		}
 		logger.Fatalf("Could not determine the format of %s. Supported formats: %s. "+
-			"Use --from to specify it explicitly.", inputPath, strings.Join(names, ", "))
+			"Use --from to specify it explicitly.", inputPath, strings.Join(common.ParserTypeNames(), ", "))
 	}
 
 	common.ProcessFile(ctx, p, inputPath, outputPath, root.SharedFlags.Validate, root.Log, appContainer, format)
@@ -100,11 +100,13 @@ func convertDirectory(ctx context.Context, appContainer *container.Container, re
 	outputFile, err := common.ResolveOutputFile(inputPath, outputPath)
 	if err != nil {
 		logger.Fatalf("%v", err)
+		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger
 	}
 
 	outFormatter, err := appContainer.GetFormatterRegistry().Get(format)
 	if err != nil {
 		logger.Fatalf("Invalid output format '%s': valid formats are standard, icompta, jumpsoft", format)
+		return // unreachable in production (logger.Fatal exits), but enables testing with mock logger
 	}
 
 	processor := batch.NewBatchProcessor(resolve, logger, outFormatter, recursive)
@@ -126,6 +128,6 @@ func convertDirectory(ctx context.Context, appContainer *container.Container, re
 	}
 
 	if manifest.ExitCode() != 0 {
-		root.SetExitCode(manifest.ExitCode())
+		common.RecordExitCode(manifest.ExitCode())
 	}
 }
