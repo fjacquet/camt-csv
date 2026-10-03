@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-10-03
+
+### Added
+
+- CI: security workflow added, calling the shared `go-security` reusable workflow from `fjacquet/ci`.
+
+### Changed
+
+- Go 1.26 -> 1.27.1 (`go` directive in `go.mod`).
+- Makefile tool pins: golangci-lint v2.8.0 -> v2.13.2, goreleaser v2.7.0 -> v2.18.0, govulncheck v1.4.0 -> v1.8.0.
+- SLSA provenance workflow (`go-ossf-slsa3-publish.yml`): `go-version` 1.24 -> 1.27.1.
+- Dependencies refreshed with `go get -u ./...`: `sirupsen/logrus` 1.9.4 -> 1.10.2, `stretchr/testify` 1.11.1 -> 1.12.1,
+  `golang.org/x/net` 0.57.0 -> 0.59.0, `golang.org/x/time` 0.15.0 -> 0.16.0, `gocarina/gocsv` to 20260926.
+
 ## [4.0.0] - 2026-08-19
 
 ### Changed

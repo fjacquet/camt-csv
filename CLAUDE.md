@@ -23,7 +23,7 @@ go test -v -coverprofile=coverage.txt ./...         # Coverage profile
 
 ## Module
 
-- Module: `fjacquet/camt-csv`, Go 1.24+
+- Module: `fjacquet/camt-csv`, Go 1.27.1+
 - PDF support requires `poppler-utils` (`pdftotext` CLI)
 
 ## Architecture Overview

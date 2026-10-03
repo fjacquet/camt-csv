@@ -17,7 +17,7 @@
 
 ### Prerequisites
 
-- **Go 1.24.2 or higher**: [Download Go](https://golang.org/dl/)
+- **Go 1.27.1 or higher**: [Download Go](https://golang.org/dl/)
 - **Git**: For version control
 - **pdftotext**: For PDF processing (`brew install poppler` on macOS)
 - **golangci-lint**: For code quality checks
