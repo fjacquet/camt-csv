@@ -29,8 +29,7 @@ func newFixtureDB(t *testing.T) string {
 	path := filepath.Join(t.TempDir(), "ic test.cdb") // a space: the DSN must escape it
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	defer db.Close()
-
+	defer func() { _ = db.Close() }()
 	stmts := []string{
 		fixtureSchema,
 		`INSERT INTO ICCategory VALUES ('C-ALI','Alimentation'),('C-DIV','Divers'),('C-NC','Non Classe` + "́" + `')`,
@@ -131,7 +130,7 @@ func TestStore_StateChangesWhenDataChanges(t *testing.T) {
 
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	_, err = db.Exec(`UPDATE ICTransactionSplit SET lastModificationDate='2026-10-04 19:00:00' WHERE ID='S1'`)
 	require.NoError(t, err)
 
@@ -150,7 +149,7 @@ func TestOpenReadOnly_Errors(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec(`CREATE TABLE ICCategory (ID TEXT)`)
 	require.NoError(t, err)
-	db.Close()
+	_ = db.Close()
 
 	_, err = OpenReadOnly(context.Background(), path)
 	require.Error(t, err)

@@ -20,7 +20,7 @@ import (
 
 // The root namespace holds verbs only, grouped so the primary function and
 // the diagnostic do not read as peers.
-func TestRootCommand_HasOnlyConvertAndCategorize(t *testing.T) {
+func TestRootCommand_HasOnlyTheKnownVerbs(t *testing.T) {
 	var names []string
 	for _, c := range root.Cmd.Commands() {
 		if c.Hidden || c.Name() == "help" || c.Name() == "completion" {
@@ -30,7 +30,7 @@ func TestRootCommand_HasOnlyConvertAndCategorize(t *testing.T) {
 	}
 	sort.Strings(names)
 
-	assert.Equal(t, []string{"categorize", "convert"}, names)
+	assert.Equal(t, []string{"categorize", "convert", "recategorize"}, names)
 }
 
 func TestRootCommand_RemovedFormatCommandsAreGone(t *testing.T) {

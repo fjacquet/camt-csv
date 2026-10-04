@@ -105,17 +105,14 @@ func requireColumns(ctx context.Context, db *sql.DB) error {
 	sort.Strings(tables)
 	for _, table := range tables {
 		cols := requiredColumns[table]
-		rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%q)", table))
+		rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
 		if err != nil {
 			return fmt.Errorf("inspect %s: %w", table, err)
 		}
 		have := map[string]bool{}
 		for rows.Next() {
-			var cid int
-			var name, typ string
-			var notnull, pk int
-			var dflt sql.NullString
-			if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			var name string
+			if err := rows.Scan(&name); err != nil {
 				_ = rows.Close()
 				return fmt.Errorf("inspect %s: %w", table, err)
 			}
@@ -191,8 +188,7 @@ ORDER BY t.date, s.ID`)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("read splits: %w", err)
 	}
-	defer rows.Close()
-
+	defer func() { _ = rows.Close() }()
 	var cands []Candidate
 	for rows.Next() {
 		var c Candidate
@@ -228,7 +224,7 @@ func loadCategories(ctx context.Context, q rowsQuerier) (Categories, error) {
 	if err != nil {
 		return Categories{}, fmt.Errorf("read categories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	cats := Categories{byName: map[string]string{}, byID: map[string]string{}}
 	for rows.Next() {
 		var id, name string

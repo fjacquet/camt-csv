@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `camt-csv recategorize preview|apply` to recategorize transactions stored in an
+  iCompta database: a read-only preview writes a reviewable CSV report, and apply
+  writes the approved rows with a backup and a log line per change.
+- Add `Categorizer.CategorizeLocal`, which runs only the network-free tiers.
+- Add the `modernc.org/sqlite` dependency (pure Go, no CGO).
+
 ### Fixed
 
 - Keep the semantic embeddings computed before a short run ends, and resume from

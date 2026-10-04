@@ -87,7 +87,7 @@ func runPreview(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	snap, err := store.Snapshot(ctx)
 	if err != nil {
 		return err

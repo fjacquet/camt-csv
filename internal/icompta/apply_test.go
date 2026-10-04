@@ -23,7 +23,7 @@ func categoryOf(t *testing.T, path, splitID string) (cat, modified string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var c, m sql.NullString
 	require.NoError(t, db.QueryRow(
 		`SELECT category, lastModificationDate FROM ICTransactionSplit WHERE ID=?`, splitID).Scan(&c, &m))
@@ -35,7 +35,7 @@ func previewState(t *testing.T, path string) string {
 	t.Helper()
 	s, err := OpenReadOnly(context.Background(), path)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 	st, err := s.State(context.Background())
 	require.NoError(t, err)
 	return st
@@ -105,7 +105,7 @@ func TestApply_Refusals(t *testing.T) {
 		{"database changed since preview", func(t *testing.T, path string, _ *Report, _ *ApplyOptions) {
 			db, err := sql.Open("sqlite", path)
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			_, err = db.Exec(`UPDATE ICTransactionSplit SET lastModificationDate='2026-10-04 20:00:00' WHERE ID='S1'`)
 			require.NoError(t, err)
 		}, "changed since the preview"},

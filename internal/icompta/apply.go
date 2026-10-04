@@ -90,7 +90,7 @@ func Apply(ctx context.Context, rep Report, opts ApplyOptions, log logging.Logge
 	if err != nil {
 		return res, fmt.Errorf("open database for writing: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(1)
 
 	if err := integrityCheck(ctx, db); err != nil {
@@ -196,7 +196,7 @@ func copyVerified(src, dst string) (err error) {
 	if err != nil {
 		return fmt.Errorf("back up database: %w", err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return fmt.Errorf("back up database: %w", err)
