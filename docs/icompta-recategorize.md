@@ -11,8 +11,9 @@ camt-csv recategorize preview --db ~/Desktop/ic25.cdb -o report.csv
 
 iCompta may stay open for this step; the database is opened read-only. The AI
 tier is limited to about 5 requests a minute, so a first run can take tens of
-minutes. Progress is logged every 100 splits. Ctrl-C keeps the rows decided so
-far.
+minutes. Progress is logged every 100 splits. Ctrl-C stops cleanly and keeps the
+rows decided so far. The report file is created first, so a bad path fails at
+once; an existing report is never overwritten unless you pass `--force`.
 
 The report has one row per proposed change. Columns:
 `split_id,date,name,amount,old_category,new_category,tier,decision,reason,apply`.

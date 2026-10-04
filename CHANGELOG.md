@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `camt-csv recategorize preview|apply` to recategorize transactions stored in an
   iCompta database: a read-only preview writes a reviewable CSV report, and apply
   writes the approved rows with a backup and a log line per change.
+- `recategorize preview` stops cleanly on Ctrl-C and keeps the rows decided so far, opens
+  its report before the run, and refuses to overwrite an existing report without `--force`.
 - Add `Categorizer.CategorizeLocal`, which runs only the network-free tiers.
 - Add the `modernc.org/sqlite` dependency (pure Go, no CGO).
 

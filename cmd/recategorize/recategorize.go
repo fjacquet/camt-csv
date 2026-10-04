@@ -3,12 +3,16 @@
 package recategorize
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"time"
 
 	"fjacquet/camt-csv/cmd/root"
 	"fjacquet/camt-csv/internal/icompta"
+	"fjacquet/camt-csv/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -16,10 +20,11 @@ import (
 // Each subcommand owns its flag variables: sharing one --db variable between
 // preview and apply would let one command's value leak into the other.
 var (
-	previewDB  string
-	outputPath string
-	applyDB    string
-	reportPath string
+	previewDB   string
+	outputPath  string
+	forceOutput bool
+	applyDB     string
+	reportPath  string
 )
 
 // Cmd is the recategorize command.
@@ -58,6 +63,7 @@ var applyCmd = &cobra.Command{
 func init() {
 	previewCmd.Flags().StringVar(&previewDB, "db", "", "Path to the iCompta database (ic25.cdb)")
 	previewCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Path of the report CSV to write")
+	previewCmd.Flags().BoolVar(&forceOutput, "force", false, "Overwrite the report if it already exists")
 	_ = previewCmd.MarkFlagRequired("db")
 	_ = previewCmd.MarkFlagRequired("output")
 
@@ -75,15 +81,40 @@ func runPreview(cmd *cobra.Command, _ []string) error {
 	if previewDB == "" || outputPath == "" {
 		return fmt.Errorf("--db and --output are required")
 	}
-	ctx := cmd.Context()
-	log := root.GetLogrusAdapter()
-
 	appContainer := root.GetContainer()
 	if appContainer == nil {
 		return fmt.Errorf("container not initialized")
 	}
+	cl := icompta.NewCategorizerClassifier(appContainer.GetCategorizer())
+	return runPreviewWith(cmd.Context(), previewDB, outputPath, forceOutput, cl, root.GetLogrusAdapter())
+}
 
-	store, err := icompta.OpenReadOnly(ctx, previewDB)
+// runPreviewWith opens the report first, so a bad path fails before any slow
+// classification and a reviewed report is never overwritten by accident. If ctx
+// is cancelled mid-run the rows decided so far are still written.
+func runPreviewWith(ctx context.Context, db, out string, force bool, cl icompta.Classifier, log logging.Logger) (err error) {
+	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	if force {
+		flags = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	}
+	f, err := os.OpenFile(out, flags, 0o600)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("%s already exists: use --force to overwrite it", out)
+		}
+		return fmt.Errorf("create report: %w", err)
+	}
+	// A run that fails before the report is written must not leave an empty
+	// file that the next run would refuse to overwrite.
+	written := false
+	defer func() {
+		_ = f.Close()
+		if !written {
+			_ = os.Remove(out)
+		}
+	}()
+
+	store, err := icompta.OpenReadOnly(ctx, db)
 	if err != nil {
 		return err
 	}
@@ -93,20 +124,16 @@ func runPreview(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	rep := icompta.Preview(ctx, snap, icompta.NewCategorizerClassifier(appContainer.GetCategorizer()), log)
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create report: %w", err)
-	}
+	rep := icompta.Preview(ctx, snap, cl, log)
 	if err := rep.Write(f); err != nil {
-		_ = f.Close()
 		return fmt.Errorf("write report: %w", err)
 	}
+	written = true
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("write report: %w", err)
 	}
-	log.Infof("Report written to %s: review it, set apply to no on rows you reject, then run apply", outputPath)
+	log.Info("Report written: review it, set apply to no on rows you reject, then run apply",
+		logging.Field{Key: "path", Value: out})
 	return nil
 }
 

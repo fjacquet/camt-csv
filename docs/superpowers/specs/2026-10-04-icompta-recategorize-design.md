@@ -178,3 +178,10 @@ CGO-free. Its API is to be checked against current documentation (Context7) at i
    file copy would not be a consistent backup.
 6. **Category comparison is Unicode-NFC normalised**, so a decomposed accent
    in the database still matches.
+7. **Preview does not feed the staging files.** `Categorizer.CategorizeTransaction`
+   does not write AI suggestions to `database/staging_*.yaml` (only
+   `Categorize` does). Preview results live in the reviewed report and reach the
+   database through `apply`; learning them into the YAML mappings is out of scope.
+8. **The report file is opened before the run** and an existing file is refused
+   unless `--force` is given, so a bad path fails at once and a reviewed report
+   is not overwritten. Ctrl-C is wired through `signal.NotifyContext` in `main`.
