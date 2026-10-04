@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `recategorize` replaces an already chosen category only on a direct mapping (an exact
+  party-name match); keyword, semantic and AI results only fill empty or "unknown"
+  categories, and the preview report is sorted by category move.
 - Match category keywords as whole words instead of substrings. `ai` no longer fires
   inside `SAINT` and `rc` no longer fires inside `ARRCO`, which filed supermarkets under
   Pension and Assurances. Plural or glued forms (`assurances`, `migroscity`) no longer

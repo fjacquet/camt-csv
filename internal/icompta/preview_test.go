@@ -67,6 +67,7 @@ func TestPreview(t *testing.T) {
 		fullErr: map[string]error{"ERR": errors.New("provider down")},
 		local: map[string]models.Category{
 			"REAL KEYWORD": {Name: "Courses", Source: TierKeyword},
+			"REAL DIRECT":  {Name: "Courses", Source: TierDirectMapping},
 			"REAL SAME":    {Name: "Alimentation", Source: TierDirectMapping},
 		},
 	}
@@ -79,6 +80,7 @@ func TestPreview(t *testing.T) {
 			cand("S3", "UNKNOWN SEM", "Divers"),
 			cand("S4", "NOTHING", ""),
 			cand("S5", "REAL KEYWORD", "Alimentation"),
+			cand("S11", "REAL DIRECT", "Alimentation"),
 			cand("S6", "REAL SAME", "Alimentation"),
 			cand("S7", "REAL NOMATCH", "Alimentation"),
 			{SplitID: "S8", Name: "BUY", IsInvestment: true},
@@ -104,19 +106,19 @@ func TestPreview(t *testing.T) {
 	assert.Equal(t, "Divers", got["S3"].OldCategory)
 	assert.Equal(t, ActionKeep, got["S4"].Decision)
 	assert.Equal(t, ReasonNoSuggestion, got["S4"].Reason)
-	assert.Equal(t, ActionChange, got["S5"].Decision)
-	assert.Equal(t, TierKeyword, got["S5"].Tier)
+	assert.Equal(t, ActionChange, got["S11"].Decision)
+	assert.Equal(t, TierDirectMapping, got["S11"].Tier)
 	assert.Equal(t, ActionSkip, got["S10"].Decision)
 	assert.Contains(t, got["S10"].Reason, "categorizer error")
 
-	for _, id := range []string{"S6", "S7", "S8", "S9"} {
+	for _, id := range []string{"S5", "S6", "S7", "S8", "S9"} {
 		_, present := got[id]
 		assert.False(t, present, "%s must not appear in the report", id)
 	}
 
 	// Networked tiers are asked only for empty/unknown splits.
 	assert.ElementsMatch(t, []string{"EMPTY AI", "EMPTY NOCAT", "UNKNOWN SEM", "NOTHING", "ERR"}, cl.fullCalls)
-	assert.ElementsMatch(t, []string{"REAL KEYWORD", "REAL SAME", "REAL NOMATCH"}, cl.localCall)
+	assert.ElementsMatch(t, []string{"REAL KEYWORD", "REAL DIRECT", "REAL SAME", "REAL NOMATCH"}, cl.localCall)
 }
 
 type captureClassifier struct{ seen []categorizer.Transaction }
@@ -168,4 +170,29 @@ func TestPreview_LogsSummary(t *testing.T) {
 		Candidates: []Candidate{cand("S1", "A", ""), {SplitID: "S2", IsInvestment: true}}}, cl, log)
 
 	assert.True(t, log.HasEntry("INFO", "Recategorization preview complete"))
+}
+
+// Hundreds of rows are easier to review when identical moves sit together, so
+// the report is grouped by old and new category.
+func TestPreview_GroupsRowsByCategoryMove(t *testing.T) {
+	cl := &fakeClassifier{
+		full: map[string]models.Category{
+			"A": {Name: "Voiture", Source: TierAI},
+			"B": {Name: "Courses", Source: TierAI},
+			"C": {Name: "Voiture", Source: TierAI},
+			"D": {Name: "Courses", Source: TierAI},
+		},
+	}
+	snap := Snapshot{Categories: testCategories(), Candidates: []Candidate{
+		cand("S1", "A", ""), cand("S2", "B", "Divers"), cand("S3", "C", ""), cand("S4", "D", "Divers"),
+	}}
+
+	rep := Preview(context.Background(), snap, cl, logging.NewMockLogger())
+
+	var ids []string
+	for _, r := range rep.Rows {
+		ids = append(ids, r.SplitID)
+	}
+	// ("" -> Voiture): S1,S3 then (Divers -> Courses): S2,S4, each keeping date order.
+	assert.Equal(t, []string{"S1", "S3", "S2", "S4"}, ids)
 }
