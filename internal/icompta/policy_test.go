@@ -17,7 +17,9 @@ func TestDecide(t *testing.T) {
 	}{
 		{"empty filled by ai", "", Proposal{"Alimentation", TierAI}, ActionChange, ""},
 		{"unknown replaced by semantic", "Divers", Proposal{"Voiture", TierSemantic}, ActionChange, ""},
-		{"real replaced by keyword", "Alimentation", Proposal{"Courses", TierKeyword}, ActionChange, ""},
+		{"real never replaced by keyword", "Alimentation", Proposal{"Courses", TierKeyword}, ActionKeep, "does not override"},
+		{"unknown filled by keyword", "Divers", Proposal{"Courses", TierKeyword}, ActionChange, ""},
+		{"empty filled by keyword", "", Proposal{"Courses", TierKeyword}, ActionChange, ""},
 		{"real replaced by direct mapping", "Alimentation", Proposal{"Courses", TierDirectMapping}, ActionChange, ""},
 		{"real never replaced by ai", "Alimentation", Proposal{"Courses", TierAI}, ActionKeep, "does not override"},
 		{"real never replaced by semantic", "Alimentation", Proposal{"Courses", TierSemantic}, ActionKeep, "does not override"},

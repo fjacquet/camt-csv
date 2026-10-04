@@ -15,7 +15,8 @@ minutes. Progress is logged every 100 splits. Ctrl-C stops cleanly and keeps the
 rows decided so far. The report file is created first, so a bad path fails at
 once; an existing report is never overwritten unless you pass `--force`.
 
-The report has one row per proposed change. Columns:
+The report has one row per proposed change, sorted by category move (old, then
+new) so identical changes sit together. Columns:
 `split_id,date,name,amount,old_category,new_category,tier,decision,reason,apply`.
 Set `apply` to `no` on any row you reject, or delete the row. Only rows with
 `decision=change` and `apply=yes` are written. Text that would be read as a
@@ -38,9 +39,11 @@ skipped, so a report cannot overwrite a change you made afterwards.
 
 ## Rules
 
-- A category you chose is replaced only by a **direct mapping** or **keyword**
-  match. **Semantic** and **AI** results only fill empty or unknown categories
-  (`Divers`, `Non Classé`, `Autre`, `Uncategorized`, `Uncategorized (AI)`).
+- A category you chose is replaced only by a **direct mapping** (an exact match
+  on the party name). **Keyword**, **semantic** and **AI** results only fill
+  empty or unknown categories (`Divers`, `Non Classé`, `Autre`, `Uncategorized`,
+  `Uncategorized (AI)`). Keyword matching proved too loose to overrule a choice:
+  on real data it swapped near-synonyms such as Transferts and Virements.
 - Investment splits and linked transfers are never touched.
 - A proposed category that does not exist in iCompta is reported as
   `skipped: unknown category`, never created.

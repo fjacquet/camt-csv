@@ -57,7 +57,10 @@ func (p Proposal) usable() bool {
 }
 
 // Decide applies the overwrite rule: an unknown or empty category takes any
-// suggestion; a real category is replaced only by a deterministic tier.
+// suggestion; a real category is replaced only by a direct mapping, an exact
+// match on the party name. Keyword matching is a fill-in, not a verdict: on real
+// data it filed supermarkets under Pension and swapped near-synonyms
+// (Transferts/Virements, Alimentation/Courses), so it never overrides a choice.
 func Decide(current string, p Proposal) Decision {
 	if !p.usable() {
 		return Decision{ActionKeep, ReasonNoSuggestion}
@@ -68,7 +71,7 @@ func Decide(current string, p Proposal) Decision {
 	if IsUnknownCategory(current) {
 		return Decision{ActionChange, ""}
 	}
-	if p.Tier == TierDirectMapping || p.Tier == TierKeyword {
+	if p.Tier == TierDirectMapping {
 		return Decision{ActionChange, ""}
 	}
 	return Decision{ActionKeep, "tier " + p.Tier + " does not override a chosen category"}

@@ -3,6 +3,7 @@ package icompta
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"fjacquet/camt-csv/internal/categorizer"
@@ -81,6 +82,15 @@ func Preview(ctx context.Context, snap Snapshot, cl Classifier, log logging.Logg
 		}
 	}
 
+	// Identical moves side by side are far quicker to review than date order.
+	sort.SliceStable(rep.Rows, func(i, j int) bool {
+		a, b := rep.Rows[i], rep.Rows[j]
+		if a.OldCategory != b.OldCategory {
+			return a.OldCategory < b.OldCategory
+		}
+		return a.NewCategory < b.NewCategory
+	})
+
 	log.WithFields(
 		logging.Field{Key: "candidates", Value: len(snap.Candidates)},
 		logging.Field{Key: "reported", Value: len(rep.Rows)},
@@ -129,6 +139,11 @@ func classify(ctx context.Context, c Candidate, cats Categories, cl Classifier, 
 
 	d := Decide(c.CategoryName, proposal)
 	if d.Reason == ReasonUnchanged {
+		return Row{}, false
+	}
+	// A real category that a weaker tier merely disagrees with is not news:
+	// reporting it would bury the changes worth reviewing.
+	if d.Action == ActionKeep && !IsUnknownCategory(c.CategoryName) {
 		return Row{}, false
 	}
 	row.NewCategory = proposal.Category

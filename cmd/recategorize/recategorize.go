@@ -37,9 +37,11 @@ var Cmd = &cobra.Command{
   preview  reads the database (read-only) and writes a CSV report of proposed changes.
   apply    writes the rows you approved in that report into the database.
 
-A category you chose is replaced only by a direct mapping or keyword match. The
-semantic and AI tiers only fill empty or "unknown" categories (Divers, Non Classé,
-Autre, Uncategorized). Investment splits and linked transfers are left alone.
+A category you chose is replaced only by a direct mapping (an exact match on the
+party name). Keyword, semantic and AI results only fill empty or "unknown"
+categories (Divers, Non Classé, Autre, Uncategorized). Investment splits and
+linked transfers are left alone. The report is sorted by category move, so
+identical changes sit together.
 
 apply refuses to run while iCompta is open, backs up the database first, and
 logs every change. If you use iCloud sync, check another device after the first

@@ -185,3 +185,10 @@ CGO-free. Its API is to be checked against current documentation (Context7) at i
 8. **The report file is opened before the run** and an existing file is refused
    unless `--force` is given, so a bad path fails at once and a reviewed report
    is not overwritten. Ctrl-C is wired through `signal.NotifyContext` in `main`.
+9. **Only direct mapping overrides a chosen category** (supersedes the policy
+   table and the overwrite rule above). A preview on a copy of the real database
+   showed the keyword tier proposing ~700 overrides after the whole-word fix,
+   mostly near-synonym swaps (Transferts/Virements, Alimentation/Courses) or a
+   generic word outranking the user's choice. Keyword, semantic and AI now only
+   fill empty or "unknown" categories. A real category that a weaker tier merely
+   disagrees with is not reported. The report is sorted by (old, new) category.
