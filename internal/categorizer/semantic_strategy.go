@@ -169,25 +169,37 @@ func (s *SemanticStrategy) Categorize(ctx context.Context, tx Transaction) (mode
 func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories []models.CategoryConfig) {
 	s.log.Info("Initializing semantic embeddings...")
 
-	// Try loading from disk cache first
+	// Resume from whatever the disk cache holds. It may be partial: an earlier run
+	// can have been cut off, so only the categories it lacks are embedded.
 	hash := ComputeHash(categories)
+	tempEmbeddings := make(map[string][]float32)
 	if s.diskCache != nil {
 		if cached, ok := s.diskCache.Load(hash); ok {
-			s.mu.Lock()
-			s.categoryEmbeddings = cached
-			s.initialized = true
-			s.mu.Unlock()
-			return
+			tempEmbeddings = cached
 		}
 	}
 
-	tempEmbeddings := make(map[string][]float32)
+	// Keep what was computed even when interrupted, so a short run still makes
+	// progress and the next one finishes the job.
+	computed := 0
+	save := func() {
+		if s.diskCache != nil && computed > 0 {
+			if err := s.diskCache.Save(hash, tempEmbeddings); err != nil {
+				s.log.WithError(err).Warn("Failed to save embedding cache")
+			}
+		}
+	}
 
 	for _, cat := range categories {
+		if _, done := tempEmbeddings[cat.Name]; done {
+			continue
+		}
+
 		// Stop promptly on shutdown rather than working through every remaining
 		// category; each one is a network round trip to the embedding provider.
 		if ctx.Err() != nil {
 			s.log.Debug("Embedding warm-up cancelled")
+			save()
 			return
 		}
 
@@ -200,6 +212,7 @@ func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories 
 			// Shutdown aborted this call: an orderly stop, not a provider failure.
 			if ctx.Err() != nil {
 				s.log.Debug("Embedding warm-up cancelled")
+				save()
 				return
 			}
 			s.log.WithError(err).WithFields(
@@ -208,14 +221,10 @@ func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories 
 			continue
 		}
 		tempEmbeddings[cat.Name] = embedding
+		computed++
 	}
 
-	// Save to disk cache for next startup
-	if s.diskCache != nil && len(tempEmbeddings) > 0 {
-		if err := s.diskCache.Save(hash, tempEmbeddings); err != nil {
-			s.log.WithError(err).Warn("Failed to save embedding cache")
-		}
-	}
+	save()
 
 	s.mu.Lock()
 	s.categoryEmbeddings = tempEmbeddings

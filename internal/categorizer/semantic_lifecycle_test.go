@@ -3,6 +3,7 @@ package categorizer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -170,6 +171,69 @@ func TestSemanticStrategy_WarmupProviderFailureStillWarns(t *testing.T) {
 	<-s.warmupDone
 
 	assert.True(t, logger.HasEntry("WARN", "Failed to generate embedding for category"))
+}
+
+// gatedEmbedder serves its first `allow` calls, then blocks until cancelled.
+type gatedEmbedder struct {
+	countingEmbedder
+	allow int
+}
+
+func (g *gatedEmbedder) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
+	g.mu.Lock()
+	g.calls++
+	n := g.calls
+	g.mu.Unlock()
+
+	if n > g.allow {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return []float32{1, 0, 0}, nil
+}
+
+func namedCategories(n int) []models.CategoryConfig {
+	cats := make([]models.CategoryConfig, n)
+	for i := range cats {
+		cats[i] = models.CategoryConfig{Name: fmt.Sprintf("cat%d", i), Keywords: []string{"keyword"}}
+	}
+	return cats
+}
+
+// Every short run that is cut off before the warm-up ends would otherwise throw
+// away the embeddings it did compute, so tier 3 never warms for a user who only
+// ever runs short conversions.
+func TestSemanticStrategy_ShutdownSavesPartialCache(t *testing.T) {
+	cats := namedCategories(5)
+	cache := NewEmbeddingCache(t.TempDir(), testLogger())
+	embedder := &gatedEmbedder{allow: 2}
+
+	s := NewSemanticStrategyWithCache(embedder, testLogger(), cats, 0.70, cache)
+	require.Eventually(t, func() bool { return embedder.callCount() > 2 },
+		2*time.Second, 5*time.Millisecond, "warm-up should be blocked on the third category")
+	s.Shutdown()
+
+	saved, ok := cache.Load(ComputeHash(cats))
+	require.True(t, ok, "the cancelled warm-up must leave a cache behind")
+	assert.Len(t, saved, 2, "the two completed embeddings must be kept")
+}
+
+// A partial cache must be completed, not trusted: treating it as whole would mark
+// the tier initialized while silently missing categories.
+func TestSemanticStrategy_PartialCacheOnlyEmbedsMissing(t *testing.T) {
+	cats := namedCategories(5)
+	cache := NewEmbeddingCache(t.TempDir(), testLogger())
+	require.NoError(t, cache.Save(ComputeHash(cats), map[string][]float32{
+		"cat0": {1, 0, 0}, "cat1": {1, 0, 0},
+	}))
+	embedder := &countingEmbedder{}
+
+	s := NewSemanticStrategyWithCache(embedder, testLogger(), cats, 0.70, cache)
+	<-s.warmupDone
+
+	assert.Equal(t, 3, embedder.callCount(), "only the three missing categories may be embedded")
+	assert.Len(t, s.categoryEmbeddings, 5)
+	assert.True(t, s.initialized)
 }
 
 // Shutdown is safe when no warm-up ever started, and safe to call twice.

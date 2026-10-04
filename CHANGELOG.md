@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep the semantic embeddings computed before a short run ends, and resume from
+  that partial cache next time instead of starting over. A run shorter than the
+  warm-up used to discard everything, so the semantic tier never became active.
 - Stop logging a `Failed to generate embedding for category ... context canceled`
   warning when a conversion finishes before the semantic embedding warm-up does;
   the cancellation is an orderly stop, not a provider failure.
