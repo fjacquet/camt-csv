@@ -133,6 +133,7 @@ CLI usage: `camt-csv convert -i <input> -o <output> --format standard|icompta|ju
   - `config/` - Viper-based hierarchical configuration
   - `store/` - YAML category database management
   - `common/` - Shared CSV utilities
+  - `icompta/` - Recategorize an iCompta database (`ic25.cdb`): read-only `store`, pure `policy`/`report`, `preview` loop, `apply` with backup. Command: `cmd/recategorize`. Real-category splits run only local tiers (`Categorizer.CategorizeLocal`). Tests build fixture databases, never the real file. See `docs/icompta-recategorize.md`.
 - `database/` - YAML configuration files for categorization rules
 
 ### Configuration Hierarchy

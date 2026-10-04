@@ -192,6 +192,29 @@ func (c *Categorizer) CategorizeTransaction(ctx context.Context, transaction Tra
 	return c.categorizeTransaction(ctx, transaction)
 }
 
+// CategorizeLocal tries only the tiers that need no network, direct mapping
+// and keyword matching, and reports whether one matched. It does not use the
+// batch cache and never auto-learns, so it is safe to run over a whole
+// database without spending embedding or AI quota.
+func (c *Categorizer) CategorizeLocal(ctx context.Context, transaction Transaction) (models.Category, bool) {
+	if strings.TrimSpace(transaction.PartyName) == "" {
+		return models.Category{}, false
+	}
+	for _, strategy := range c.strategies {
+		switch strategy.(type) {
+		case *DirectMappingStrategy, *KeywordStrategy:
+		default:
+			continue
+		}
+		category, found, err := strategy.Categorize(ctx, transaction)
+		if err != nil || !found {
+			continue
+		}
+		return category, true
+	}
+	return models.Category{}, false
+}
+
 // Categorize implements the models.TransactionCategorizer interface.
 // This method provides a simple interface for categorizing transactions without
 // requiring the caller to create a Transaction struct.
