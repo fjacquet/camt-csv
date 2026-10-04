@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop logging a `Failed to generate embedding for category ... context canceled`
+  warning when a conversion finishes before the semantic embedding warm-up does;
+  the cancellation is an orderly stop, not a provider failure.
+
 ## [4.0.1] - 2026-10-03
 
 ### Added

@@ -197,6 +197,11 @@ func (s *SemanticStrategy) initializeEmbeddings(ctx context.Context, categories 
 
 		embedding, err := s.client.GetEmbedding(ctx, text)
 		if err != nil {
+			// Shutdown aborted this call: an orderly stop, not a provider failure.
+			if ctx.Err() != nil {
+				s.log.Debug("Embedding warm-up cancelled")
+				return
+			}
 			s.log.WithError(err).WithFields(
 				logging.Field{Key: "category", Value: cat.Name},
 			).Warn("Failed to generate embedding for category")
