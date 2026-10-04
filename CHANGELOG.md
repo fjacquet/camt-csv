@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `Categorizer.CategorizeLocal`, which runs only the network-free tiers.
 - Add the `modernc.org/sqlite` dependency (pure Go, no CGO).
 
+### Changed
+
+- Match category keywords as whole words instead of substrings. `ai` no longer fires
+  inside `SAINT` and `rc` no longer fires inside `ARRCO`, which filed supermarkets under
+  Pension and Assurances. Plural or glued forms (`assurances`, `migroscity`) no longer
+  match a singular keyword: list the form you want as its own keyword.
+
 ### Fixed
 
 - Keep the semantic embeddings computed before a short run ends, and resume from
