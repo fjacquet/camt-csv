@@ -2,10 +2,12 @@ package categorizer
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -136,6 +138,38 @@ func TestSemanticStrategy_ShutdownCancelsWarmup(t *testing.T) {
 	}
 
 	assert.Less(t, embedder.callCount(), 500, "warm-up must stop early, not embed every category")
+}
+
+// A warm-up call aborted by Shutdown is an orderly stop, not a provider failure:
+// logging it as a Warn alarms the user over a run that succeeded.
+func TestSemanticStrategy_ShutdownDuringWarmupDoesNotWarn(t *testing.T) {
+	embedder := &countingEmbedder{release: make(chan struct{})} // never released
+	logger := logging.NewMockLogger()
+
+	s := NewSemanticStrategyWithCache(embedder, logger, manyCategories(5), 0.70, nil)
+	require.Eventually(t, func() bool { return embedder.callCount() > 0 },
+		2*time.Second, 5*time.Millisecond, "warm-up should be blocked in a call")
+
+	s.Shutdown()
+
+	assert.Empty(t, logger.GetEntriesByLevel("WARN"), "cancellation must not be reported as a failure")
+}
+
+// failingEmbedder always returns a provider error, regardless of context.
+type failingEmbedder struct{ countingEmbedder }
+
+func (f *failingEmbedder) GetEmbedding(context.Context, string) ([]float32, error) {
+	return nil, errors.New("provider down")
+}
+
+// A genuine provider failure must still be reported.
+func TestSemanticStrategy_WarmupProviderFailureStillWarns(t *testing.T) {
+	logger := logging.NewMockLogger()
+
+	s := NewSemanticStrategyWithCache(&failingEmbedder{}, logger, manyCategories(2), 0.70, nil)
+	<-s.warmupDone
+
+	assert.True(t, logger.HasEntry("WARN", "Failed to generate embedding for category"))
 }
 
 // Shutdown is safe when no warm-up ever started, and safe to call twice.
