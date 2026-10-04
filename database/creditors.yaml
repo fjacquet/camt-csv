@@ -1,6 +1,8 @@
 al volo pizzeria: Restaurants
 amazon: Shopping
 angel s bar: Restaurants
+apple: Shopping
+apple.com/bill: Shopping
 apple.com/bill, itunes.com ie: Virements
 avenir assurance malad: Assurance Maladie
 avenir assurance maladie sa: Assurance Maladie
@@ -17,6 +19,7 @@ cpev lausanne: Pension
 cr twint laurent claude p majch: Virements
 cr twint matteo sorci: Virements
 cr twint romain joncour: Virements
+cr twint thomas bettems: Virements
 cr twint vladimir budimirovic: Virements
 dell sa: Salaire
 dipl. ing. fust ag: Shopping
@@ -36,6 +39,7 @@ frederic jacquet: Virements
 frederic yvan joseph jacquet: Virements
 gofundme: Dons
 institutions hotela: Salaire
+intersport: Sport
 jacquet florence c. i.: Virements
 jacquet florence caroline isabelle: Virements
 jacquet frederic: Virements
@@ -43,6 +47,7 @@ jacquet frederic yvan joseph: Virements
 jacquet-pagan florence et frederic: Virements
 jordi ochoa: Virements
 kiro ai: Revenus Professionnels
+levis online shop: Shopping
 migros: Courses
 mutuel assurance maladie sa: Assurance Maladie
 obsidian: Revenus Professionnels
@@ -55,6 +60,7 @@ payment from swissborg solutions oue: Revenus Financiers
 pensionskasse bundes p: Pension
 pocket withdrawal: Divers
 premium plan fee: Virements
+radisson blu: Vacances
 radisson blu hotel basel, basel ch: Vacances
 resultat de cloture: Revenus Financiers
 revenu titre    460782: Revenus Financiers
@@ -83,6 +89,8 @@ transfer from revolut digital assets europe ltd: Virements
 trenitalia: Voiture
 unknown payee: Divers
 unknown payer: Divers
+ur ederra: Sport
 vaudoise generale, com: Assurances
 vaudoise generale, comp. d'ass: Assurances
 vaudoise generale. comp. d'ass: Assurances
+votre paiement - merci: Assurances
