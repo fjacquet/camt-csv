@@ -70,3 +70,30 @@ func TestReadReport_Errors(t *testing.T) {
 		})
 	}
 }
+
+// Bank labels are untrusted text and the report is meant to be opened in a
+// spreadsheet: a label such as "=HYPERLINK(...)" must not become a formula.
+func TestReport_NeutralisesSpreadsheetFormulas(t *testing.T) {
+	rep := Report{DBState: "s", Rows: []Row{
+		{SplitID: "S1", Date: "2026-01-02", Name: `=HYPERLINK("http://evil","x")`, Amount: "-5",
+			OldCategory: "+cmd", NewCategory: "@sum", Decision: ActionKeep, Reason: "-1"},
+		{SplitID: "S2", Date: "2026-01-02", Name: "\t=1+1", Amount: "5", Decision: ActionKeep},
+		{SplitID: "S3", Date: "2026-01-02", Name: "'=already quoted", Amount: "5", Decision: ActionKeep},
+		{SplitID: "S4", Date: "2026-01-02", Name: "'plain apostrophe", Amount: "5", Decision: ActionKeep},
+	}}
+
+	var buf bytes.Buffer
+	require.NoError(t, rep.Write(&buf))
+
+	for _, line := range strings.Split(buf.String(), "\n")[3:] {
+		for _, field := range strings.Split(line, ",") {
+			f := strings.Trim(field, `"`)
+			assert.False(t, strings.HasPrefix(f, "=") || strings.HasPrefix(f, "+") || strings.HasPrefix(f, "@"),
+				"field %q would be read as a formula", f)
+		}
+	}
+
+	got, err := ReadReport(&buf)
+	require.NoError(t, err)
+	assert.Equal(t, rep, got, "escaping must be exactly reversible")
+}

@@ -40,6 +40,41 @@ type Report struct {
 	Rows    []Row
 }
 
+// formulaTriggers are the leading characters a spreadsheet treats as the start
+// of a formula (OWASP, CSV injection).
+const formulaTriggers = "=+-@\t\r"
+
+// needsEscape reports whether a spreadsheet could read s as a formula, or s is
+// already shaped like an escaped value and so would not round-trip unescaped.
+func needsEscape(s string) bool {
+	if s == "" {
+		return false
+	}
+	if strings.ContainsRune(formulaTriggers, rune(s[0])) {
+		return true
+	}
+	return s[0] == '\'' && len(s) > 1 && strings.ContainsRune(formulaTriggers, rune(s[1]))
+}
+
+// escapeCell neutralises text that comes from the database, which a spreadsheet
+// would otherwise evaluate. A leading apostrophe is the spreadsheet convention
+// for "this is text".
+func escapeCell(s string) string {
+	if needsEscape(s) {
+		return "'" + s
+	}
+	return s
+}
+
+// unescapeCell reverses escapeCell exactly: it strips one leading apostrophe
+// only when what remains is something escapeCell would have escaped.
+func unescapeCell(s string) string {
+	if len(s) > 1 && s[0] == '\'' && needsEscape(s[1:]) {
+		return s[1:]
+	}
+	return s
+}
+
 // Write encodes the report: two comment lines, then a CSV with a header.
 func (r Report) Write(w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "%s\n%s%s\n", reportMagic, stateKey, r.DBState); err != nil {
@@ -55,8 +90,9 @@ func (r Report) Write(w io.Writer) error {
 			apply = "yes"
 		}
 		rec := []string{
-			row.SplitID, row.Date, row.Name, row.Amount, row.OldCategory, row.NewCategory,
-			row.Tier, string(row.Decision), row.Reason, apply,
+			row.SplitID, row.Date, escapeCell(row.Name), row.Amount,
+			escapeCell(row.OldCategory), escapeCell(row.NewCategory),
+			row.Tier, string(row.Decision), escapeCell(row.Reason), apply,
 		}
 		if err := cw.Write(rec); err != nil {
 			return err
@@ -131,9 +167,9 @@ func ReadReport(rd io.Reader) (Report, error) {
 			return Report{}, fmt.Errorf("line %d: apply %q is not yes or no", lineNo, rec[9])
 		}
 		rep.Rows = append(rep.Rows, Row{
-			SplitID: rec[0], Date: rec[1], Name: rec[2], Amount: rec[3],
-			OldCategory: rec[4], NewCategory: rec[5], Tier: rec[6],
-			Decision: decision, Reason: rec[8], Apply: apply,
+			SplitID: rec[0], Date: rec[1], Name: unescapeCell(rec[2]), Amount: rec[3],
+			OldCategory: unescapeCell(rec[4]), NewCategory: unescapeCell(rec[5]), Tier: rec[6],
+			Decision: decision, Reason: unescapeCell(rec[8]), Apply: apply,
 		})
 	}
 	return rep, nil
