@@ -133,7 +133,10 @@ CGO-free. Its API is to be checked against current documentation (Context7) at i
 - **iCloud sync.** Direct writes bypass iCompta's own change tracking. Setting
   `lastModificationDate` mirrors what iCompta does, but propagation to other
   devices is unverified. Mitigation: documented in the command help; after the
-  first apply, check a second device. The backup allows rollback.
+  first apply, check a second device. Rollback does not depend on iCloud: the
+  command's own pre-apply backup, plus the user's existing Acronis and iCloud
+  backups, each allow restoring the previous state. The command's own backup
+  stays: it is cheap and is the only copy taken at the exact moment of the write.
 - **AI rate limit.** The default is 5 requests/minute. The categorizer already
   deduplicates by `party|isDebtor` within a run, but bank labels often embed
   dates and references, so many names will be unique. A first preview can take
