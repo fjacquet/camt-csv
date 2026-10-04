@@ -120,7 +120,7 @@ In order, aborting on the first failure with nothing written:
 ## Dependency
 
 Add `modernc.org/sqlite` (pure Go, no CGO) so the GoReleaser build stays
-CGO-free. Verified against its documentation before use.
+CGO-free. Its API is to be checked against current documentation (Context7) at implementation time, before any code uses it.
 
 ## Out of scope
 
