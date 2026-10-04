@@ -156,3 +156,25 @@ CGO-free. Its API is to be checked against current documentation (Context7) at i
   category skipped; failed integrity check rolls back; refused when the DB-state
   header mismatches.
 - `recategorizer`: fake `TransactionCategorizer` returning each `Source`.
+
+## Amendments from implementation planning
+
+1. **Real-category splits run only the local tiers.** For a split that already
+   has a real category, only direct mapping and keyword can override it (policy
+   table), so the networked tiers are never asked. This adds
+   `Categorizer.CategorizeLocal` and keeps the AI/semantic quota for the ~720
+   splits that need it. Empty or "unknown" splits run the full chain through
+   `Categorizer.CategorizeTransaction`, which does not auto-learn.
+2. **State marker is data-based, not file size.** `db_state` is
+   `splits=<count>;split_modified=<max>;tx_modified=<max>`. File size can change
+   when iCompta merely opens and closes the database, which would force a
+   needless, slow re-preview. The per-row `old_category` check still protects
+   every individual write.
+3. **Report has a `reason` column** between `decision` and `apply`. Columns:
+   `split_id,date,name,amount,old_category,new_category,tier,decision,reason,apply`.
+4. **A cancelled preview writes a partial report.** Rows already decided are
+   valid; `apply` handles a partial report like any other.
+5. **Apply refuses a database with a non-empty `-wal` file**, because a plain
+   file copy would not be a consistent backup.
+6. **Category comparison is Unicode-NFC normalised**, so a decomposed accent
+   in the database still matches.
