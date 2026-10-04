@@ -8,6 +8,7 @@ import (
 
 	"fjacquet/camt-csv/cmd/categorize"
 	"fjacquet/camt-csv/cmd/convert"
+	"fjacquet/camt-csv/cmd/recategorize"
 	"fjacquet/camt-csv/cmd/root"
 
 	"github.com/joho/godotenv"
@@ -39,6 +40,7 @@ func init() {
 	// 6. Add all subcommands
 	root.Cmd.AddCommand(convert.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)
+	root.Cmd.AddCommand(recategorize.Cmd)
 }
 
 // loadEnvSilently loads environment variables without logging anything
