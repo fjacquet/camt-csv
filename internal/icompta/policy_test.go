@@ -27,6 +27,9 @@ func TestDecide(t *testing.T) {
 		{"uncategorized proposal is no suggestion", "", Proposal{"Uncategorized", ""}, ActionKeep, ReasonNoSuggestion},
 		{"failed ai proposal is no suggestion", "Divers", Proposal{"Uncategorized (AI)", TierAI}, ActionKeep, ReasonNoSuggestion},
 		{"empty proposal is no suggestion", "Non Classé", Proposal{}, ActionKeep, ReasonNoSuggestion},
+		{"unknown to unknown is no suggestion", "Divers", Proposal{"Non Classé", TierAI}, ActionKeep, ReasonNoSuggestion},
+		{"empty to unknown is no suggestion", "", Proposal{"Divers", TierKeyword}, ActionKeep, ReasonNoSuggestion},
+		{"real to unknown is no suggestion", "Alimentation", Proposal{"Autre", TierDirectMapping}, ActionKeep, ReasonNoSuggestion},
 		{"decomposed accent still unknown", "Non Classé", Proposal{"Alimentation", TierAI}, ActionChange, ""},
 		{"decomposed accent still same", "Séjours", Proposal{"Séjours", TierKeyword}, ActionKeep, ReasonUnchanged},
 	}

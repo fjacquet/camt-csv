@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"golang.org/x/text/unicode/norm"
-
-	"fjacquet/camt-csv/internal/models"
 )
 
 // unknownCategories are the categories that mean "nobody decided". A split in
@@ -47,13 +45,12 @@ func Exclusion(c Candidate) string {
 	return ""
 }
 
-// usable reports whether the categorizer actually suggested something.
+// usable reports whether the categorizer actually suggested something. A
+// suggestion that is itself an "unknown" category (Divers, Non Classé, Autre,
+// Uncategorized) says nothing: swapping one for another is noise, and turning a
+// chosen category into one would be a downgrade.
 func (p Proposal) usable() bool {
-	switch normalize(p.Category) {
-	case "", models.CategoryUncategorized, "Uncategorized (AI)":
-		return false
-	}
-	return true
+	return !IsUnknownCategory(p.Category)
 }
 
 // Decide applies the overwrite rule: an unknown or empty category takes any
