@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `recategorize` no longer proposes an "unknown" category (Divers, Non Classé, Autre,
+  Uncategorized) as a suggestion: swapping one for another was noise in the report.
 - Keep the semantic embeddings computed before a short run ends, and resume from
   that partial cache next time instead of starting over. A run shorter than the
   warm-up used to discard everything, so the semantic tier never became active.
