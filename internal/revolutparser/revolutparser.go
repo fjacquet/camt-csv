@@ -206,6 +206,15 @@ func convertRevolutRowToTransaction(row RevolutCSVRow, logger logging.Logger) (m
 		}
 	}
 
+	// Revolut books some charges and refunds (a Metal subscription) with a zero
+	// Amount and the money in Fee: the fee is then the movement itself, charged
+	// when positive and refunded when negative.
+	if amountDecimal.IsZero() && !feeDecimal.IsZero() {
+		isDebit = feeDecimal.IsPositive()
+		amountDecimal = feeDecimal.Abs()
+		feeDecimal = decimal.Zero
+	}
+
 	// Use TransactionBuilder for consistent transaction construction
 	builder := models.NewTransactionBuilder().
 		WithStatus(row.State).
@@ -217,7 +226,8 @@ func convertRevolutRowToTransaction(row RevolutCSVRow, logger logging.Logger) (m
 		WithType(row.Type).
 		WithInvestment(row.Type).
 		WithFees(feeDecimal).
-		WithProduct(row.Product)
+		WithProduct(row.Product).
+		WithAccountKey(accountKey(row.Product, row.Currency))
 
 	// Handle exchange transactions - preserve both currencies
 	if row.Type == "EXCHANGE" {
@@ -401,4 +411,16 @@ func validateFormatWithLogger(r io.Reader, logger logging.Logger) (bool, error) 
 
 	logger.Info("Reader contains valid Revolut CSV")
 	return true, nil
+}
+
+// accountKey names the Revolut sub-account a row belongs to. Revolut exports
+// one file per product and currency under a random file name, so the row is
+// the only place the account is stated: revolut-chf, revolut-eur,
+// revolut-chf-savings.
+func accountKey(product, currency string) string {
+	key := "revolut-" + strings.ToLower(strings.TrimSpace(currency))
+	if p := strings.ToLower(strings.TrimSpace(product)); p != "" && p != "current" {
+		key += "-" + p
+	}
+	return key
 }

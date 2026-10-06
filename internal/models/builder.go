@@ -235,6 +235,16 @@ func (b *TransactionBuilder) WithIBAN(iban string) *TransactionBuilder {
 	return b
 }
 
+// WithAccountKey sets the key of the account the transaction belongs to, for
+// formats that identify it without an IBAN.
+func (b *TransactionBuilder) WithAccountKey(key string) *TransactionBuilder {
+	if b.err != nil {
+		return b
+	}
+	b.tx.AccountKey = key
+	return b
+}
+
 // WithReference sets the transaction reference
 func (b *TransactionBuilder) WithReference(reference string) *TransactionBuilder {
 	if b.err != nil {

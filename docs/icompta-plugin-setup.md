@@ -89,3 +89,32 @@ Revolut imports, and Viseca imports taken from PDF rather than CSV, therefore re
 (`reconcile`, `reconcileUsingDate`, `numberOfDays`) rather than `externalID`.
 Consider enabling `reconcileUsingName` for those two, since date-only matching
 within a three-day window is a loose guard against duplicates.
+
+## Revolut sub-accounts
+
+Revolut exports one file per currency and product, named by a random hash
+(`account-statement_…_fr-fr_6ae050.csv`). Convert the whole directory and
+camt-csv writes one CSV per sub-account, read from each row's Product and
+Currency columns:
+
+```bash
+camt-csv convert -i work/in/revolut -o revolut.csv
+```
+
+| Output | iCompta plugin | iCompta account |
+| --- | --- | --- |
+| `revolut_revolut-chf.csv` | `CSV-Revolut-CHF` | Revolut CHF |
+| `revolut_revolut-eur.csv` | `CSV-Revolut-EUR` | Revolut EUR |
+| `revolut_revolut-chf-savings.csv` | `CSV-Revolut-CHF` | Revolut CHF Vacances (create it first) |
+
+iCompta cannot route rows to several accounts in one import, so import each
+file separately into its account.
+
+### Importing over existing data
+
+Revolut exports carry no stable identifier, so `externalID` cannot deduplicate
+them. When a statement overlaps rows already in iCompta, the only guard is the
+plugin's reconciliation: `CSV-Revolut-CHF` and `CSV-Revolut-EUR` match by date
+within 3 days, not by name (names edited in iCompta would not match anyway).
+Check the import preview: overlapping rows must show as matched to existing
+ones. Untick any that show as new before confirming.
