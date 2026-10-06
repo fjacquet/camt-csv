@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its report before the run, and refuses to overwrite an existing report without `--force`.
 - Add `Categorizer.CategorizeLocal`, which runs only the network-free tiers.
 - Add the `modernc.org/sqlite` dependency (pure Go, no CGO).
+- Split a Revolut directory conversion by sub-account. Revolut now exports one file per
+  currency and product under a random name, so each row's Product and Currency name the
+  account (`revolut-chf`, `revolut-eur`, `revolut-chf-savings`) instead of the file name,
+  which used to merge every Revolut export into `_unknown.csv`.
 
 ### Changed
 
@@ -29,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep Revolut rows whose money sits in `Fee` with a zero `Amount` (a Metal subscription
+  and its refund). They were dropped with "transaction amount is required", so the
+  converted account no longer matched Revolut's balance.
 - `recategorize` no longer proposes an "unknown" category (Divers, Non Classé, Autre,
   Uncategorized) as a suggestion: swapping one for another was noise in the report.
 - Keep the semantic embeddings computed before a short run ends, and resume from

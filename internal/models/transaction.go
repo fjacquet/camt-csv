@@ -50,6 +50,10 @@ type Transaction struct {
 	// Fields not exported to CSV but used internally
 	Payee string `csv:"-"` // Beneficiary/recipient name (kept for backwards compatibility)
 	Payer string `csv:"-"` // Payer name (kept for backwards compatibility)
+	// AccountKey names the reader's own account for formats that carry no
+	// IBAN but do identify the sub-account in their content (Revolut's
+	// Product and Currency). Used to split a batch by account; IBAN wins.
+	AccountKey string `csv:"-"`
 }
 
 // ParseAmount parses a string amount to decimal.Decimal with proper formatting

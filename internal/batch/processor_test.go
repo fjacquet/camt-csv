@@ -1510,3 +1510,30 @@ func TestProcessDirectory_FallsBackToFileNameWhenContentIsSilent(t *testing.T) {
 
 	assert.FileExists(t, AccountOutputPathFor(outputFile, "54293249"))
 }
+
+// Formats with no IBAN may still name the sub-account in their content —
+// Revolut's Product and Currency columns — and that beats the file name.
+func TestProcessDirectory_AccountKeySplitsWhenThereIsNoIBAN(t *testing.T) {
+	logger := logging.NewMockLogger()
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+	outputFile := filepath.Join(outputDir, "revolut.csv")
+
+	writeSample(t, inputDir, "account-statement_2026-01-01_2026-10-06_fr-fr_6ae050.csv", "x")
+
+	mockParser := newMockParser()
+	mockParser.parseFunc = func(_ context.Context, _ io.Reader) ([]models.Transaction, error) {
+		chf, eur := sampleTransaction(), sampleTransaction()
+		chf.AccountKey = "revolut-chf"
+		eur.AccountKey = "revolut-eur"
+		return []models.Transaction{chf, eur}, nil
+	}
+	bp := NewBatchProcessor(PinnedResolver(mockParser), logger, formatter.NewStandardFormatter(), false)
+
+	_, err := bp.ProcessDirectory(context.Background(), inputDir, outputFile)
+	require.NoError(t, err)
+
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "revolut-chf"))
+	assert.FileExists(t, AccountOutputPathFor(outputFile, "revolut-eur"))
+	assert.NoFileExists(t, AccountOutputPathFor(outputFile, unknownAccount))
+}

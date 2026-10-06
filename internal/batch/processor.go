@@ -136,12 +136,16 @@ const unknownAccount = "unknown"
 // The statement is the authority: it states the account it covers, while a
 // file name is a label anyone can change, and a renamed or hand-edited export
 // would otherwise send its rows to the wrong account — or to "unknown", the
-// merged CSV this split exists to avoid. The name is used only for formats
-// that carry no account in their content (PDF statements, Revolut and Selma
-// exports), and "unknown" only when neither says anything.
+// merged CSV this split exists to avoid. Formats without an IBAN may still
+// name the sub-account (Revolut's Product and Currency, as tx.AccountKey). The
+// name is used only for formats that carry no account in their content (PDF
+// statements, Selma exports), and "unknown" only when neither says anything.
 func accountFor(tx models.Transaction, fromFileName string) string {
 	if account := common.AccountKeyFromIBAN(tx.IBAN); account != "" {
 		return account
+	}
+	if tx.AccountKey != "" {
+		return common.SanitizeAccountID(tx.AccountKey)
 	}
 	if fromFileName != "" {
 		return fromFileName

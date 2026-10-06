@@ -701,3 +701,60 @@ func TestParseWithCategorizer_FrenchCSV(t *testing.T) {
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, "Coffee Shop", transactions[0].Description)
 }
+
+// Revolut now exports one file per currency and product, named by a random
+// hash, so the sub-account can only come from the rows themselves.
+func TestParseWithCategorizer_AccountKeyFromProductAndCurrency(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	frenchCSV := "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde\n" +
+		"Paiement par carte,Valeur actuelle,2026-01-01 07:32:23,2026-01-01 15:41:13,Kiro,-19.09,0.00,CHF,TERMINÉ,476.05\n" +
+		"Paiement par carte,Valeur actuelle,2026-07-17 10:29:19,2026-07-18 10:04:21,SDC Le Polygone,-0.50,0.00,EUR,TERMINÉ,0.15\n" +
+		"Virement,Épargne,2026-02-01 10:00:00,2026-02-01 10:00:00,To CHF Vacances,100.00,0.00,CHF,TERMINÉ,100.00\n"
+
+	data := normalizeCSVData([]byte(frenchCSV))
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(string(data)), logger, nil)
+	require.NoError(t, err)
+	require.Len(t, transactions, 3)
+
+	assert.Equal(t, "revolut-chf", transactions[0].AccountKey)
+	assert.Equal(t, "revolut-eur", transactions[1].AccountKey)
+	assert.Equal(t, "revolut-chf-savings", transactions[2].AccountKey)
+}
+
+// Revolut books a subscription and its refund with Amount 0 and the money in
+// Fee (balance 476.05 -> 296.05 -> 305.22). Dropping them loses 170.83 CHF;
+// the fee is the movement, charged when positive and refunded when negative.
+func TestConvertRevolutRowToTransaction_FeeOnlyRows(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+
+	tests := []struct {
+		name       string
+		typ        string
+		fee        string
+		wantAmount string
+		wantDebit  bool
+	}{
+		{"subscription charged as a fee", "CARD_PAYMENT", "180.00", "-180", true},
+		{"subscription refunded as a negative fee", "FEE_REFUND", "-9.17", "9.17", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row := RevolutCSVRow{
+				Type:          tt.typ,
+				Product:       "CURRENT",
+				StartedDate:   "2026-01-05 13:12:41",
+				CompletedDate: "2026-01-05 13:12:41",
+				Description:   "Frais d'abonnement Metal",
+				Amount:        "0.00",
+				Fee:           tt.fee,
+				Currency:      "CHF",
+				State:         "COMPLETED",
+			}
+			tx, err := convertRevolutRowToTransaction(row, logger)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAmount, tx.Amount.String())
+			assert.Equal(t, tt.wantDebit, tx.DebitFlag)
+			assert.True(t, tx.Fees.IsZero(), "the fee is the amount; reporting it twice double-counts it")
+		})
+	}
+}

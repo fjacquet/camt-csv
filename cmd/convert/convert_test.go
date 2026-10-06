@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"fjacquet/camt-csv/cmd/root"
@@ -407,9 +408,9 @@ func TestConvertDirectory_Success(t *testing.T) {
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
 
 	assert.Empty(t, mockLogger.GetEntriesByLevel("FATAL"))
-	// Outputs carry the account they hold; a.csv names none, so its rows go
-	// to the "unknown" CSV.
-	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "unknown"))
+	// Outputs carry the account they hold; the Revolut row names its
+	// sub-account (Current, CHF) even though a.csv's name does not.
+	assert.FileExists(t, batch.AccountOutputPathFor(outputFile, "revolut-chf"))
 	assert.FileExists(t, batch.ManifestPathFor(outputFile))
 }
 
@@ -547,7 +548,7 @@ func TestConvertDirectory_LogsEachAccountOutput(t *testing.T) {
 
 	convertDirectory(context.Background(), c, resolve, inputDir, outputFile, mockLogger, "standard", false)
 
-	written := batch.AccountOutputPathFor(outputFile, "unknown")
+	written := batch.AccountOutputPathFor(outputFile, "revolut-chf")
 	found := false
 	for _, entry := range mockLogger.GetEntriesByLevel("INFO") {
 		for _, f := range entry.Fields {
@@ -566,14 +567,15 @@ func TestConvertDirectory_LogsEachAccountOutput(t *testing.T) {
 func TestConvertDirectory_NamesWrittenCSVsEvenWhenOneWriteFails(t *testing.T) {
 	c := newTestContainer(t)
 	inputDir := t.TempDir()
-	for _, name := range []string{"CAMT.053_11111111_x.csv", "CAMT.053_22222222_x.csv"} {
-		require.NoError(t, os.WriteFile(filepath.Join(inputDir, name), []byte(revolutSampleCSV), 0600))
-	}
+	// Two Revolut exports, one per currency: two sub-accounts, two CSVs.
+	eurSample := strings.Replace(revolutSampleCSV, ",CHF,", ",EUR,", 1)
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "chf.csv"), []byte(revolutSampleCSV), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(inputDir, "eur.csv"), []byte(eurSample), 0600))
 
 	outputFile := filepath.Join(t.TempDir(), "out.csv")
 	// A directory in place of one account's CSV: that write fails (EISDIR)
 	// while the other account's succeeds.
-	require.NoError(t, os.MkdirAll(batch.AccountOutputPathFor(outputFile, "22222222"), 0750))
+	require.NoError(t, os.MkdirAll(batch.AccountOutputPathFor(outputFile, "revolut-eur"), 0750))
 
 	mockLogger := logging.NewMockLogger()
 	resolve, err := resolverFor(c, "revolut", mockLogger)
@@ -584,7 +586,7 @@ func TestConvertDirectory_NamesWrittenCSVsEvenWhenOneWriteFails(t *testing.T) {
 	// The mock logger's Fatal returns instead of exiting, so presence alone
 	// proves nothing: in production nothing after the fatal runs. Order is
 	// what the assertion has to be about.
-	written := batch.AccountOutputPathFor(outputFile, "11111111")
+	written := batch.AccountOutputPathFor(outputFile, "revolut-chf")
 	namedAt, fatalAt := -1, -1
 	for i, entry := range mockLogger.GetEntries() {
 		if entry.Level == "FATAL" && fatalAt == -1 {

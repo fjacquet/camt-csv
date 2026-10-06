@@ -89,3 +89,23 @@ Revolut imports, and Viseca imports taken from PDF rather than CSV, therefore re
 (`reconcile`, `reconcileUsingDate`, `numberOfDays`) rather than `externalID`.
 Consider enabling `reconcileUsingName` for those two, since date-only matching
 within a three-day window is a loose guard against duplicates.
+
+## Revolut sub-accounts
+
+Revolut exports one file per currency and product, named by a random hash
+(`account-statement_…_fr-fr_6ae050.csv`). Convert the whole directory and
+camt-csv writes one CSV per sub-account, read from each row's Product and
+Currency columns:
+
+```bash
+camt-csv convert -i work/in/revolut -o revolut.csv
+```
+
+| Output | iCompta plugin | iCompta account |
+| --- | --- | --- |
+| `revolut_revolut-chf.csv` | `CSV-Revolut-CHF` | Revolut CHF |
+| `revolut_revolut-eur.csv` | `CSV-Revolut-EUR` | Revolut EUR |
+| `revolut_revolut-chf-savings.csv` | `CSV-Revolut-CHF` | Revolut CHF Vacances |
+
+iCompta cannot route rows to several accounts in one import, so import each
+file separately into its account.
