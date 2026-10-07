@@ -18,3 +18,11 @@ type AIClient interface {
 	// GetEmbedding returns the vector embedding for the given text.
 	GetEmbedding(ctx context.Context, text string) ([]float32, error)
 }
+
+// BatchAIClient is optionally implemented by AI clients that can categorize
+// many transactions in one request (the Gemini and OpenRouter clients do).
+// Keys of the result are lowercased, trimmed party names; values are cleaned
+// category answers.
+type BatchAIClient interface {
+	CategorizeBatch(ctx context.Context, transactions []models.Transaction) (map[string]string, error)
+}

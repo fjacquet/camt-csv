@@ -2,6 +2,7 @@ package categorizer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -322,10 +323,7 @@ func cleanCategory(category string) string {
 	return category
 }
 
-// buildCategorizationPrompt renders the categorization prompt for a transaction.
-// Both providers use the identical prompt so their answers stay comparable.
-func buildCategorizationPrompt(transaction models.Transaction) string {
-	return fmt.Sprintf(`You are a financial transaction categorizer for a personal finance application.
+const categorizationPreamble = `You are a financial transaction categorizer for a personal finance application.
 
 Your goal is to categorize the given transaction into ONE of the specific categories listed below.
 
@@ -405,11 +403,62 @@ FEW-SHOT EXAMPLES:
 - Transaction: "La Vaudoise Assurances", Amount: 450.00 -> Category: Assurances
 - Transaction: "EasyJet", Amount: 120.00 -> Category: Vacances
 
-TRANSACTION TO CATEGORIZE:
+`
+
+// buildCategorizationPrompt renders the categorization prompt for a transaction.
+// Both providers use the identical prompt so their answers stay comparable.
+func buildCategorizationPrompt(transaction models.Transaction) string {
+	return categorizationPreamble + fmt.Sprintf(`TRANSACTION TO CATEGORIZE:
 
 Party: %s
 Description: %s
 Amount: %s CHF
 
 Category:`, transaction.PartyName, transaction.Description, transaction.Amount.String())
+}
+
+func buildBatchCategorizationPrompt(transactions []models.Transaction) string {
+	var b strings.Builder
+	b.WriteString(categorizationPreamble)
+	b.WriteString("TRANSACTIONS TO CATEGORIZE (one per line: party | description | amount CHF):\n\n")
+	for _, tx := range transactions {
+		fmt.Fprintf(&b, "%s | %s | %s\n", tx.PartyName, tx.Description, tx.Amount.String())
+	}
+	b.WriteString("\nAnswer with ONLY a JSON object mapping each party name, exactly as written above, to one category from the list. No other text.\n")
+	return b.String()
+}
+
+// parseBatchAnswer reads the JSON object a batch prompt asks for, tolerating
+// a fenced code block or text around it. Keys are normalized like the cache.
+func parseBatchAnswer(raw string) (map[string]string, error) {
+	start, end := strings.Index(raw, "{"), strings.LastIndex(raw, "}")
+	if start < 0 || end <= start {
+		return nil, fmt.Errorf("no JSON object in batch answer")
+	}
+	var answers map[string]string
+	if err := json.Unmarshal([]byte(raw[start:end+1]), &answers); err != nil {
+		return nil, fmt.Errorf("invalid JSON in batch answer: %w", err)
+	}
+	out := make(map[string]string, len(answers))
+	for party, category := range answers {
+		out[strings.ToLower(strings.TrimSpace(party))] = cleanCategory(category)
+	}
+	return out, nil
+}
+
+// categorizeBatch asks for many parties in one request: one rate-limiter
+// token, one prompt. A party missing from the answer is simply absent from
+// the map; the caller decides what to do with it.
+func (b *baseAIClient) categorizeBatch(ctx context.Context, transactions []models.Transaction, complete completeFn) (map[string]string, error) {
+	if b.apiKey == "" || len(transactions) == 0 {
+		return map[string]string{}, nil
+	}
+	if err := b.limiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limiter wait cancelled: %w", err)
+	}
+	raw, err := b.completeWithRetry(ctx, buildBatchCategorizationPrompt(transactions), complete)
+	if err != nil {
+		return nil, err
+	}
+	return parseBatchAnswer(raw)
 }

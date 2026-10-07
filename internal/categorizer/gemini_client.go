@@ -236,3 +236,8 @@ func withoutURL(err error) error {
 	}
 	return err
 }
+
+// CategorizeBatch categorizes many transactions in one request.
+func (c *GeminiClient) CategorizeBatch(ctx context.Context, transactions []models.Transaction) (map[string]string, error) {
+	return c.categorizeBatch(ctx, transactions, c.complete)
+}

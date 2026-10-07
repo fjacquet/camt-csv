@@ -156,3 +156,8 @@ func (c *OpenRouterClient) complete(ctx context.Context, prompt string) (string,
 
 	return strings.TrimSpace(openRouterResp.Choices[0].Message.Content), nil
 }
+
+// CategorizeBatch categorizes many transactions in one request.
+func (c *OpenRouterClient) CategorizeBatch(ctx context.Context, transactions []models.Transaction) (map[string]string, error) {
+	return c.categorizeBatch(ctx, transactions, c.complete)
+}
