@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -422,7 +423,7 @@ func buildBatchCategorizationPrompt(transactions []models.Transaction) string {
 	b.WriteString(categorizationPreamble)
 	b.WriteString("TRANSACTIONS TO CATEGORIZE (one per line: party | description | amount CHF):\n\n")
 	for _, tx := range transactions {
-		fmt.Fprintf(&b, "%s | %s | %s\n", tx.PartyName, tx.Description, tx.Amount.String())
+		fmt.Fprintf(&b, "%s | %s | %s\n", oneLine(tx.PartyName), oneLine(tx.Description), tx.Amount.String())
 	}
 	b.WriteString("\nAnswer with ONLY a JSON object mapping each party name, exactly as written above, to one category from the list. No other text.\n")
 	return b.String()
@@ -439,11 +440,22 @@ func parseBatchAnswer(raw string) (map[string]string, error) {
 	if err := json.Unmarshal([]byte(raw[start:end+1]), &answers); err != nil {
 		return nil, fmt.Errorf("invalid JSON in batch answer: %w", err)
 	}
+	parties := make([]string, 0, len(answers))
+	for party := range answers {
+		parties = append(parties, party)
+	}
+	sort.Strings(parties) // map order is random; keys that normalize alike must resolve the same way every time
 	out := make(map[string]string, len(answers))
-	for party, category := range answers {
-		out[strings.ToLower(strings.TrimSpace(party))] = cleanCategory(category)
+	for _, party := range parties {
+		out[strings.ToLower(strings.TrimSpace(party))] = cleanCategory(answers[party])
 	}
 	return out, nil
+}
+
+// oneLine keeps a field on its own prompt line: a line break inside a party or
+// description could otherwise forge extra transaction lines.
+func oneLine(s string) string {
+	return strings.NewReplacer("\r", " ", "\n", " ").Replace(s)
 }
 
 // categorizeBatch asks for many parties in one request: one rate-limiter
