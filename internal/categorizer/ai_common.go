@@ -455,7 +455,7 @@ func parseBatchAnswer(raw string) (map[string]string, error) {
 // oneLine keeps a field on its own prompt line: a line break inside a party or
 // description could otherwise forge extra transaction lines.
 func oneLine(s string) string {
-	return strings.NewReplacer("\r", " ", "\n", " ").Replace(s)
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // categorizeBatch asks for many parties in one request: one rate-limiter

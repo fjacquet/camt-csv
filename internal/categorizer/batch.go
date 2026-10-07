@@ -11,6 +11,8 @@ import (
 // aiBatchSize is how many parties one AI request carries.
 const aiBatchSize = 25
 
+var _ models.BatchCategorizer = (*Categorizer)(nil)
+
 // CategorizeBatch categorizes many transactions, asking the AI once per chunk
 // of parties the local tiers could not place instead of once per party.
 // Results are in request order and go through the same cache, validation,
@@ -104,6 +106,18 @@ func (c *Categorizer) answerChunk(ctx context.Context, batcher BatchAIClient, ca
 				logging.Field{Key: "parties", Value: len(chunk)})
 		} else {
 			answers = got
+			var missing int
+			for _, key := range chunk {
+				party := strings.ToLower(strings.TrimSpace(oneLine(requests[pending[key][0]].PartyName)))
+				if _, ok := answers[party]; !ok {
+					missing++
+				}
+			}
+			if missing > 0 {
+				c.logger.Info("Batch AI answer left out parties; asking them one by one",
+					logging.Field{Key: "missing", Value: missing},
+					logging.Field{Key: "chunk_size", Value: len(chunk)})
+			}
 		}
 	}
 

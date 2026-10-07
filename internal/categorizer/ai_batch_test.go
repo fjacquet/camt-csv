@@ -227,3 +227,8 @@ func TestCategorizeBatch_PartyWithNewlineIsFoundInAnswer(t *testing.T) {
 	assert.Equal(t, "Abonnements", got[0].Name)
 	assert.Zero(t, ai.callCount())
 }
+
+func TestOneLine_CollapsesAllWhitespace(t *testing.T) {
+	assert.Equal(t, "Foo Bar Baz", oneLine("Foo Bar  Baz"))
+	assert.Equal(t, "a b c d", oneLine(" a b c\vd\f"))
+}

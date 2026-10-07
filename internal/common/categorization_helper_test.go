@@ -553,3 +553,20 @@ func TestProcessTransactions_BatchErrorMarksUncategorized(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, models.CategoryUncategorized, out[0].Category)
 }
+
+type shortBatchCategorizer struct{ fakeBatchCategorizer }
+
+func (s *shortBatchCategorizer) CategorizeBatch(context.Context, []models.CategorizeRequest) ([]models.Category, error) {
+	return []models.Category{{Name: "Courses"}}, nil
+}
+
+func TestProcessTransactions_ShortBatchAnswerMarksUncategorized(t *testing.T) {
+	txs := []models.Transaction{
+		{PartyName: "A", Amount: decimal.NewFromInt(-1)},
+		{PartyName: "B", Amount: decimal.NewFromInt(-2)},
+	}
+	out, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, &shortBatchCategorizer{}, "Test")
+	require.NoError(t, err)
+	assert.Equal(t, models.CategoryUncategorized, out[0].Category)
+	assert.Equal(t, models.CategoryUncategorized, out[1].Category)
+}

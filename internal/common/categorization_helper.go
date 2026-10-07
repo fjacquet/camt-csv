@@ -3,6 +3,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -155,6 +156,9 @@ func ProcessTransactionsWithPartyName(
 
 	if len(batchIdx) > 0 {
 		categories, err := batcher.CategorizeBatch(ctx, batchReqs)
+		if err == nil && len(categories) != len(batchReqs) {
+			err = fmt.Errorf("batch categorizer returned %d results for %d requests", len(categories), len(batchReqs))
+		}
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, ctxErr

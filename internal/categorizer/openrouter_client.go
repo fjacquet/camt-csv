@@ -21,6 +21,8 @@ import (
 //
 // Everything except the HTTP call itself lives in baseAIClient; see the
 // security notes there, which apply to this client too.
+var _ BatchAIClient = (*OpenRouterClient)(nil)
+
 type OpenRouterClient struct {
 	baseAIClient
 	model      string
