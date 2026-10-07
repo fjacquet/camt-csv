@@ -158,7 +158,7 @@ func (b *BaseParser) SetLogger(logger logging.Logger) {
 }
 
 func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-    return common.WriteTransactionsToCSV(transactions, csvFile)
+    return common.WriteTransactionsToCSVWithFormatter(transactions, csvFile, b.logger, formatter.NewStandardFormatter(), ',')
 }
 ```
 

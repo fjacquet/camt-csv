@@ -45,13 +45,13 @@ func TestCrossParserConsistency(t *testing.T) {
 	pdfCSVPath := filepath.Join(tempDir, "pdf_output.csv")
 	selmaCSVPath := filepath.Join(tempDir, "selma_output.csv")
 
-	err := common.WriteTransactionsToCSVWithLogger(camtTransactions, camtCSVPath, logger)
+	err := common.WriteTransactionsToCSVWithFormatter(camtTransactions, camtCSVPath, logger, formatter.NewStandardFormatter(), ',')
 	require.NoError(t, err, "Failed to write CAMT transactions to CSV")
 
-	err = common.WriteTransactionsToCSVWithLogger(pdfTransactions, pdfCSVPath, logger)
+	err = common.WriteTransactionsToCSVWithFormatter(pdfTransactions, pdfCSVPath, logger, formatter.NewStandardFormatter(), ',')
 	require.NoError(t, err, "Failed to write PDF transactions to CSV")
 
-	err = common.WriteTransactionsToCSVWithLogger(selmaTransactions, selmaCSVPath, logger)
+	err = common.WriteTransactionsToCSVWithFormatter(selmaTransactions, selmaCSVPath, logger, formatter.NewStandardFormatter(), ',')
 	require.NoError(t, err, "Failed to write Selma transactions to CSV")
 
 	// Read and compare CSV headers

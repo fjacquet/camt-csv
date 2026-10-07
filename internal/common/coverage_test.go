@@ -194,92 +194,6 @@ func TestWriteTransactionsToCSVWithFormatter_WithExplicitLogger(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ReadCSVFile error paths (75% -> higher)
-// ---------------------------------------------------------------------------
-
-func TestReadCSVFile_NilLogger(t *testing.T) {
-	tmpDir := t.TempDir()
-	csvPath := filepath.Join(tmpDir, "data.csv")
-	err := os.WriteFile(csvPath, []byte("Name,Age\nAlice,30\n"), 0600)
-	require.NoError(t, err)
-
-	rows, err := ReadCSVFile[TestCSVRow](csvPath, nil)
-	require.NoError(t, err)
-	assert.Len(t, rows, 1)
-}
-
-func TestReadCSVFile_MalformedCSV(t *testing.T) {
-	tmpDir := t.TempDir()
-	csvPath := filepath.Join(tmpDir, "bad.csv")
-	// Write content that gocsv cannot unmarshal into TestCSVRow (wrong number of fields)
-	err := os.WriteFile(csvPath, []byte("Name,Age,Email,Country\n\"unclosed quote\n"), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	_, err = ReadCSVFile[TestCSVRow](csvPath, logger)
-	assert.Error(t, err, "malformed CSV should produce a parse error")
-	assert.Contains(t, err.Error(), "error parsing CSV file")
-}
-
-func TestReadCSVFile_NonExistentFile(t *testing.T) {
-	_, err := ReadCSVFile[TestCSVRow]("/nonexistent/path/file.csv", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error opening CSV file")
-}
-
-// ---------------------------------------------------------------------------
-// WriteTransactionsToCSVWithLogger error paths (76.9% -> higher)
-// ---------------------------------------------------------------------------
-
-func TestWriteTransactionsToCSVWithLogger_NilTransactions(t *testing.T) {
-	err := WriteTransactionsToCSVWithLogger(nil, "/tmp/test.csv", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot write nil transactions")
-}
-
-func TestWriteTransactionsToCSVWithLogger_InvalidPath(t *testing.T) {
-	txs := sampleTransactions()
-	err := WriteTransactionsToCSVWithLogger(txs, "/dev/null/impossible/file.csv", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error creating directory")
-}
-
-func TestWriteTransactionsToCSVWithLogger_NilLogger(t *testing.T) {
-	csvPath := filepath.Join(t.TempDir(), "nil_logger.csv")
-	txs := sampleTransactions()
-
-	err := WriteTransactionsToCSVWithLogger(txs, csvPath, nil)
-	require.NoError(t, err)
-
-	content, readErr := os.ReadFile(csvPath)
-	require.NoError(t, readErr)
-	assert.Contains(t, string(content), "Grocery Store")
-}
-
-func TestWriteTransactionsToCSVWithLogger_DebitFlagFromNegativeAmount(t *testing.T) {
-	csvPath := filepath.Join(t.TempDir(), "debit_flag.csv")
-	txs := []models.Transaction{
-		{
-			Date:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "Negative amount debit",
-			Amount:      models.ParseAmount("-100.00"),
-			Currency:    "CHF",
-			CreditDebit: "", // Leave empty so the Amount sign determines debit flag
-		},
-		{
-			Date:        time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
-			Description: "Positive amount credit",
-			Amount:      models.ParseAmount("200.00"),
-			Currency:    "CHF",
-			CreditDebit: models.TransactionTypeCredit,
-		},
-	}
-
-	err := WriteTransactionsToCSVWithLogger(txs, csvPath, nil)
-	require.NoError(t, err)
-}
-
-// ---------------------------------------------------------------------------
 // ProcessTransactionsWithCategorizationStats edge cases (79.5% -> higher)
 // ---------------------------------------------------------------------------
 
@@ -405,21 +319,6 @@ func TestWriteTransactionsToCSVWithFormatter_ReadOnlyDir(t *testing.T) {
 	}
 
 	err := WriteTransactionsToCSVWithFormatter(txs, filepath.Join(readOnlyDir, "out.csv"), nil, f, ',')
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "error creating CSV file")
-}
-
-func TestWriteTransactionsToCSVWithLogger_ReadOnlyDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	readOnlyDir := filepath.Join(tmpDir, "readonly")
-	require.NoError(t, os.MkdirAll(readOnlyDir, 0750))
-	require.NoError(t, os.Chmod(readOnlyDir, 0555)) // #nosec G302 -- restrictive for testing
-	t.Cleanup(func() {
-		_ = os.Chmod(readOnlyDir, 0750) // #nosec G302 -- restore for cleanup
-	})
-
-	txs := sampleTransactions()
-	err := WriteTransactionsToCSVWithLogger(txs, filepath.Join(readOnlyDir, "out.csv"), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error creating CSV file")
 }
