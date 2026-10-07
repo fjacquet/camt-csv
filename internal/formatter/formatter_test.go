@@ -499,3 +499,46 @@ func TestMapStatusToICompta(t *testing.T) {
 		})
 	}
 }
+
+func TestFormattersEscapeFormulasExceptICompta(t *testing.T) {
+	tx := createTestTransaction()
+	tx.Description = `=HYPERLINK("http://evil","x")`
+	tx.PartyName = "@SUM(A1)"
+	tx.Amount = decimal.NewFromFloat(-180)
+
+	std, err := NewStandardFormatter().Format([]models.Transaction{tx})
+	require.NoError(t, err)
+	assert.Equal(t, `'=HYPERLINK("http://evil","x")`, std[0][6])
+	assert.Equal(t, "'@SUM(A1)", std[0][4])
+	assert.Equal(t, "-180.00", std[0][8], "amounts are never escaped")
+
+	js, err := NewJumpsoftFormatter().Format([]models.Transaction{tx})
+	require.NoError(t, err)
+	assert.Equal(t, `'=HYPERLINK("http://evil","x")`, js[0][1])
+	assert.Equal(t, "-180.00", js[0][2])
+
+	ic, err := NewIComptaFormatter().Format([]models.Transaction{tx})
+	require.NoError(t, err)
+	assert.Equal(t, `=HYPERLINK("http://evil","x")`, ic[0][3], "iCompta output stays raw")
+}
+
+func TestFormattersEscapeEveryNonNumericColumn(t *testing.T) {
+	tx := createTestTransaction()
+	tx.AccountServicer = "=1+1"
+	tx.Currency = "@X"
+	tx.Payee = "@SUM(A1)" // debit: Name derives from Payee
+	tx.Amount = decimal.NewFromFloat(-180)
+
+	std, err := NewStandardFormatter().Format([]models.Transaction{tx})
+	require.NoError(t, err)
+	assert.Equal(t, "'=1+1", std[0][24])
+	assert.Equal(t, "'@X", std[0][10])
+	assert.Equal(t, "'@SUM(A1)", std[0][3])
+	assert.Equal(t, "-180.00", std[0][8])
+	assert.Equal(t, "15.02.2026", std[0][1])
+
+	js, err := NewJumpsoftFormatter().Format([]models.Transaction{tx})
+	require.NoError(t, err)
+	assert.Equal(t, "'@X", js[0][3])
+	assert.Equal(t, "-180.00", js[0][2])
+}

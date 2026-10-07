@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Accept an AI category only if it names a category from categories.yaml (when categories.yaml defines categories; otherwise a warning says answers are not validated).
+- Escape every text column (all but dates and amounts) that a spreadsheet would evaluate as formulas in the standard and jumpsoft CSV formats and in every text column of the recategorize report. iCompta output is unchanged.
 
 ## [4.1.0] - 2026-10-06
 

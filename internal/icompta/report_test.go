@@ -80,6 +80,7 @@ func TestReport_NeutralisesSpreadsheetFormulas(t *testing.T) {
 		{SplitID: "S2", Date: "2026-01-02", Name: "\t=1+1", Amount: "5", Decision: ActionKeep},
 		{SplitID: "S3", Date: "2026-01-02", Name: "'=already quoted", Amount: "5", Decision: ActionKeep},
 		{SplitID: "S4", Date: "2026-01-02", Name: "'plain apostrophe", Amount: "5", Decision: ActionKeep},
+		{SplitID: "@x", Date: "=1+1", Name: "n", Amount: "5", Decision: ActionKeep},
 	}}
 
 	var buf bytes.Buffer

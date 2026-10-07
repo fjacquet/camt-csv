@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"fjacquet/camt-csv/internal/csvsafe"
 	"fjacquet/camt-csv/internal/models"
 )
 
@@ -25,6 +26,19 @@ func (f *StandardFormatter) Header() []string {
 	}
 }
 
+// standardRawColumns are the columns that can never hold text: they are
+// formatted from time or decimal values, and escaping would corrupt them
+// (-180.00 must stay -180.00). Every other column (Status, Currency, Product,
+// InvestmentType, references, IBANs, servicer, names, descriptions...) is built
+// from statement content a spreadsheet could evaluate as a formula, so it is
+// escaped; columns added later are escaped by default.
+var standardRawColumns = map[int]bool{
+	1: true, 2: true, // Date, ValueDate
+	8: true, 12: true, 13: true, // Amount, AmountExclTax, TaxRate
+	19: true, 20: true, // NumberOfShares, Fees
+	27: true, 28: true, // OriginalAmount, ExchangeRate
+}
+
 // Format converts transactions to CSV rows using the existing MarshalCSV method.
 // This preserves backward compatibility with the current output format.
 func (f *StandardFormatter) Format(transactions []models.Transaction) ([][]string, error) {
@@ -34,6 +48,11 @@ func (f *StandardFormatter) Format(transactions []models.Transaction) ([][]strin
 		row, err := tx.MarshalCSV()
 		if err != nil {
 			return nil, err
+		}
+		for col := range row {
+			if !standardRawColumns[col] {
+				row[col] = csvsafe.Escape(row[col])
+			}
 		}
 		rows = append(rows, row)
 	}
