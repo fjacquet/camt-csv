@@ -134,7 +134,6 @@ func isFilesystemSafeChar(r rune) bool {
 // AccountKeyFromFilename answers which own-account a statement belongs to, or
 // none at all. An empty answer is meaningful — it is what routes a file to the
 // "unknown" output — so a whole-basename fallback would be actively wrong here.
-// would be actively wrong here.
 func TestAccountKeyFromFilename(t *testing.T) {
 	tests := []struct {
 		name     string

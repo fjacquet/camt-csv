@@ -11,6 +11,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestParseAmount(t *testing.T) {
+	testCases := []struct {
+		name     string
+		amount   string
+		expected string
+	}{
+		{"SimpleAmount", "123.45", "123.45"},
+		{"AmountWithComma", "123,45", "123.45"},
+		{"NegativeAmount", "-123.45", "-123.45"},
+		{"WithCurrencySymbol", "€123.45", "123.45"},
+		{"WithCurrencyCode", "EUR 123.45", "123.45"},
+		{"WithSpaces", " 123.45 ", "123.45"},
+		{"WithThousandSeparator", "1'234.56", "1234.56"},
+		{"InvalidAmount", "not-a-number", "0"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			expected, _ := decimal.NewFromString(tc.expected)
+			result := ParseAmount(tc.amount)
+			assert.True(t, expected.Equal(result), "ParseAmount(%q) should return %s, got %s", tc.amount, tc.expected, result.String())
+		})
+	}
+}
+
 func TestCreditDebitMethods(t *testing.T) {
 	t.Run("IsDebit", func(t *testing.T) {
 		debitTx := &Transaction{CreditDebit: TransactionTypeDebit}
