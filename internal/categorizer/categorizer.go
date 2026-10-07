@@ -329,16 +329,7 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 
 		if found {
 			if category.Source == "ai" {
-				canonical, ok := c.canonicalAICategory(category.Name)
-				if !ok {
-					c.logger.WithFields(
-						logging.Field{Key: "party", Value: transaction.PartyName},
-						logging.Field{Key: "answer", Value: category.Name},
-					).Warn("Rejected AI category not in categories.yaml")
-					category = models.Category{Name: models.CategoryUncategorized, Source: "ai"}
-				} else {
-					category.Name = canonical
-				}
+				category = c.aiResult(transaction.PartyName, category)
 			}
 			c.logger.WithFields(
 				logging.Field{Key: "strategy", Value: strategy.Name()},
@@ -346,9 +337,7 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 				logging.Field{Key: "category", Value: category.Name},
 			).Debug("Transaction categorized successfully")
 			// Store in batch cache for deduplication
-			c.batchCacheMu.Lock()
-			c.batchCache[key] = category
-			c.batchCacheMu.Unlock()
+			c.storeInCache(key, category)
 			return category, nil
 		}
 
@@ -367,9 +356,7 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		Name:        models.CategoryUncategorized,
 		Description: "No categorization strategy succeeded",
 	}
-	c.batchCacheMu.Lock()
-	c.batchCache[key] = uncategorized
-	c.batchCacheMu.Unlock()
+	c.storeInCache(key, uncategorized)
 	return uncategorized, nil
 }
 

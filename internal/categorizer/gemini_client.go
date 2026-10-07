@@ -31,6 +31,8 @@ type GeminiClient struct {
 	httpClient *http.Client
 }
 
+var _ BatchAIClient = (*GeminiClient)(nil)
+
 // GeminiRequest represents the request structure for Gemini API
 type GeminiRequest struct {
 	Contents []GeminiContent `json:"contents"`
@@ -235,4 +237,9 @@ func withoutURL(err error) error {
 		return fmt.Errorf("%s request failed: %w", urlErr.Op, urlErr.Err)
 	}
 	return err
+}
+
+// CategorizeBatch categorizes many transactions in one request.
+func (c *GeminiClient) CategorizeBatch(ctx context.Context, transactions []models.Transaction) (map[string]string, error) {
+	return c.categorizeBatch(ctx, transactions, c.complete)
 }
