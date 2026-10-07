@@ -430,10 +430,10 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 		defer func() { _ = file.Close() }()
 
 		transactions, err := adapter.Parse(context.Background(), file)
-		// Parser may handle missing fields gracefully by creating empty/zero-value transactions
-		// Verify it doesn't crash and returns a result
+		// The entry cannot be built (no amount or currency), so it is skipped
+		// rather than emitted as a zero-value row.
 		assert.NoError(t, err)
-		assert.NotNil(t, transactions)
+		assert.Empty(t, transactions)
 	})
 
 	t.Run("invalid_date_format_includes_context", func(t *testing.T) {
@@ -468,8 +468,8 @@ func TestCAMTParser_ErrorMessagesIncludeFilePath(t *testing.T) {
 			assert.Contains(t, err.Error(), "date",
 				"Error message should mention date field")
 		} else {
-			// If no error, should still return valid structure
-			assert.NotNil(t, transactions)
+			// The entry cannot be built (unparseable booking date), so it is skipped.
+			assert.Empty(t, transactions)
 		}
 	})
 }
@@ -531,4 +531,24 @@ func TestParse_CarriesStatementAccountOnEachTransaction(t *testing.T) {
 	// confused, or every row would be attributed to whoever it paid.
 	assert.Equal(t, "CH8109000000100165059", transactions[0].PartyIBAN,
 		"the statement account must not overwrite the counterparty's")
+}
+
+// An entry the builder rejects (here: no currency) used to come out as a
+// zero-valued row. It must be skipped, and the rest of the statement kept.
+func TestParse_SkipsEntryThatCannotBeBuilt(t *testing.T) {
+	const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02"><BkToCstmrStmt><Stmt>
+<Acct><Id><IBAN>CH1700767000K54293249</IBAN></Id></Acct>
+<Ntry><Amt>10.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-04-15</Dt></BookgDt><ValDt><Dt>2026-04-15</Dt></ValDt></Ntry>
+<Ntry><Amt Ccy="CHF">120.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-04-16</Dt></BookgDt><ValDt><Dt>2026-04-16</Dt></ValDt></Ntry>
+</Stmt></BkToCstmrStmt></Document>`
+
+	logger := logging.NewMockLogger()
+	adapter := NewAdapter(logger)
+	transactions, err := adapter.Parse(context.Background(), strings.NewReader(doc))
+	require.NoError(t, err)
+
+	require.Len(t, transactions, 1, "the unbuildable entry is skipped, the other kept")
+	assert.Equal(t, "120", transactions[0].Amount.Abs().String())
+	assert.True(t, logger.HasEntry("WARN", "Skipping CAMT entry that cannot be built"))
 }

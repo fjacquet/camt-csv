@@ -10,10 +10,9 @@ import (
 )
 
 // entryToTransaction maps one CAMT.053 statement entry onto a Transaction.
-//
-// If the builder rejects the assembled values, a minimal fallback transaction
-// is returned instead so that one malformed entry does not abort a statement.
-func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) models.Transaction {
+// It reports false when the builder rejects the entry; the caller skips it
+// rather than emitting a row with invented or zero values.
+func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) (models.Transaction, bool) {
 	bookingDate := parseCAMTDate(entry.BookingDate.Date)
 	valueDate := parseCAMTDate(entry.ValueDate.Date)
 
@@ -79,14 +78,10 @@ func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) m
 
 	transaction, err := builder.Build()
 	if err != nil {
-		a.GetLogger().WithError(err).Warn("Failed to build transaction, using fallback",
-			logging.Field{Key: "entry_reference", Value: reference})
-
-		transaction, _ = models.NewTransactionBuilder().
-			WithDatetime(bookingDate).
-			WithAmount(models.ParseAmount(entry.Amount.Value), entry.Amount.Currency).
-			WithDescription("Failed to parse transaction").
-			Build()
+		a.GetLogger().WithError(err).Warn("Skipping CAMT entry that cannot be built",
+			logging.Field{Key: "account_servicer_ref", Value: entry.AccountServicer.Ref},
+			logging.Field{Key: "reference", Value: reference})
+		return models.Transaction{}, false
 	}
 
 	// Name and Payee/Payer are set here so that UpdateNameFromParties does not
@@ -102,7 +97,7 @@ func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) m
 
 	transaction.UpdateDebitCreditAmounts()
 
-	return transaction
+	return transaction, true
 }
 
 // parseCAMTDate parses an ISO date, returning the zero time when the value is
