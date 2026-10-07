@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reuse staged AI suggestions as a categorization tier (after direct mappings and keywords), so a merchant the AI already classified is not sent to it again on later runs. Staged entries are matched case-insensitively and only kept if their category exists in categories.yaml.
+- Learn and stage only AI answers, and write mapping and staging files once per run instead of once per transaction.
+- Cache uncategorized results for the run, so an unknown merchant reaches the AI once. A failed AI call (for example a rate limit) also stays uncategorized for the rest of that run.
+
 ### Removed
 
 - Remove unused compliance scaffolding, the constitution config keys (CAMT_CONSTITUTION_FILE_PATHS), legacy batch aggregation and filename helpers, and test-only methods.
@@ -14,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Skip CAMT entries the transaction builder rejects instead of writing an empty row for them.
+
+### Security
+
+- Accept an AI category only if it names a category from categories.yaml.
 
 ## [4.1.0] - 2026-10-06
 
