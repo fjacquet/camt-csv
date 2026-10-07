@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cache uncategorized results for the run, so an unknown merchant reaches the AI once. A failed AI call (for example a rate limit) also stays uncategorized for the rest of that run.
 - All parsers share one categorization loop: the categorizer now gets ISO dates and the transaction description for debit, Revolut, Revolut crypto, Revolut investment and CAMT statements, and a transaction with no party is categorized from its description. For CAMT statements the bank's entry text is now that context, so keyword rules can match it and some previously uncategorized rows (for example TWINT or e-banking payments) become Virements.
 - Ask the AI about up to 25 merchants per request instead of one; a merchant missing from the answer is asked again on its own. One request counts once against ai.requests_per_minute; an unparseable answer falls back to single requests. With auto-learn on, a misleading transaction description can now influence the categories learned for the other merchants in the same request, so review learned mappings.
+- Run pdftotext once per PDF, start semantic embedding warm-up only when a command categorizes (the first semantic lookup waits for it), and share CSV header checks across parsers.
 
 ### Removed
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Skip CAMT entries the transaction builder rejects instead of writing an empty row for them.
+- Auto-learned mappings are keyed by the trimmed, lowercased party name, so padded names match.
 
 ### Security
 
