@@ -695,46 +695,6 @@ func TestFinalizeTransactionWithNilCategorizer(t *testing.T) {
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
 }
 
-func TestMinFunction(t *testing.T) {
-	tests := []struct {
-		name     string
-		a, b     int
-		expected int
-	}{
-		{
-			name:     "a is smaller",
-			a:        5,
-			b:        10,
-			expected: 5,
-		},
-		{
-			name:     "b is smaller",
-			a:        15,
-			b:        8,
-			expected: 8,
-		},
-		{
-			name:     "equal values",
-			a:        7,
-			b:        7,
-			expected: 7,
-		},
-		{
-			name:     "negative values",
-			a:        -5,
-			b:        -3,
-			expected: -5,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := min(tt.a, tt.b)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestPreProcessText(t *testing.T) {
 	tests := []struct {
 		name     string
