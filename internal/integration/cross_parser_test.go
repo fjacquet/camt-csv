@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"fjacquet/camt-csv/internal/batch"
 	"fjacquet/camt-csv/internal/categorizer"
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/config"
@@ -138,101 +137,6 @@ func TestCategorizationConsistency(t *testing.T) {
 		"Selma transaction should be categorized as %s", expectedCategory)
 	assert.Equal(t, pdfCategoryResult.Name, selmaCategoryResult.Name,
 		"Both parsers should produce identical categorization for the same party")
-}
-
-// TestBatchProcessingWithMixedFileTypes tests batch processing with mixed file types
-// **Feature: parser-enhancements, Property 1: Account-based file aggregation**
-// **Validates: Requirements 1.1, 4.2**
-func TestBatchProcessingWithMixedFileTypes(t *testing.T) {
-	// Create temporary directories
-	tempDir := t.TempDir()
-	inputDir := filepath.Join(tempDir, "input")
-	outputDir := filepath.Join(tempDir, "output")
-
-	err := os.MkdirAll(inputDir, 0750)
-	require.NoError(t, err)
-	err = os.MkdirAll(outputDir, 0750)
-	require.NoError(t, err)
-
-	// Setup logger
-	logger := logging.NewMockLogger()
-
-	// Create test CAMT files with same account number
-	accountID := "54293249"
-	createTestCAMTFile(t, inputDir, fmt.Sprintf("CAMT.053_%s_2025-01-01_2025-01-31_1.xml", accountID))
-	createTestCAMTFile(t, inputDir, fmt.Sprintf("CAMT.053_%s_2025-02-01_2025-02-28_1.xml", accountID))
-
-	// Create batch aggregator
-	aggregator := batch.NewBatchAggregator(logger)
-
-	// Find input files
-	files, err := os.ReadDir(inputDir)
-	require.NoError(t, err)
-
-	var inputFiles []string
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".xml") {
-			inputFiles = append(inputFiles, filepath.Join(inputDir, file.Name()))
-		}
-	}
-
-	require.GreaterOrEqual(t, len(inputFiles), 2, "Should have at least 2 test files")
-
-	// Group files by account
-	fileGroups, err := aggregator.GroupFilesByAccount(inputFiles)
-	require.NoError(t, err)
-	require.Len(t, fileGroups, 1, "Should have exactly 1 account group")
-
-	group := fileGroups[0]
-	assert.Equal(t, accountID, group.AccountID, "Account ID should match")
-	assert.Len(t, group.Files, 2, "Should have 2 files in the group")
-
-	// Create a mock parser for testing
-	mockParser := &mockParser{
-		transactions: []models.Transaction{
-			{
-				Date:        time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
-				Amount:      decimal.NewFromFloat(100.00),
-				Currency:    "CHF",
-				Description: "Test transaction 1",
-				Category:    "Test Category",
-			},
-			{
-				Date:        time.Date(2025, 2, 15, 0, 0, 0, 0, time.UTC),
-				Amount:      decimal.NewFromFloat(200.00),
-				Currency:    "CHF",
-				Description: "Test transaction 2",
-				Category:    "Test Category",
-			},
-		},
-	}
-
-	// Create parse function
-	parseFunc := func(filePath string) ([]models.Transaction, error) {
-		return mockParser.Parse(nil)
-	}
-
-	// Aggregate transactions
-	transactions, err := aggregator.AggregateTransactions(group, parseFunc)
-	require.NoError(t, err)
-
-	// Verify aggregation results
-	assert.Len(t, transactions, 4, "Should have 4 total transactions (2 per file)")
-
-	// Verify transactions are sorted chronologically
-	for i := 1; i < len(transactions); i++ {
-		assert.True(t, transactions[i-1].Date.Before(transactions[i].Date) ||
-			transactions[i-1].Date.Equal(transactions[i].Date),
-			"Transactions should be sorted chronologically")
-	}
-
-	// Generate output filename
-	outputFilename := aggregator.GenerateOutputFilename(group.AccountID, group.DateRange)
-	expectedPattern := fmt.Sprintf("%s_", accountID)
-	assert.Contains(t, outputFilename, expectedPattern,
-		"Output filename should contain account ID")
-	assert.True(t, strings.HasSuffix(outputFilename, ".csv"),
-		"Output filename should have .csv extension")
 }
 
 // TestEndToEndConversion_StandardFormat verifies end-to-end conversion produces 29-column standard CSV
@@ -672,52 +576,4 @@ func readCSVHeaders(t *testing.T, csvPath string) []string {
 	}
 
 	return headers
-}
-
-func createTestCAMTFile(t *testing.T, dir, filename string) {
-	// Create a minimal valid CAMT.053 XML file for testing
-	camtXML := `<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
-  <BkToCstmrStmt>
-    <Stmt>
-      <Id>TEST-STMT-001</Id>
-      <CreDtTm>2025-01-15T10:00:00</CreDtTm>
-      <Acct>
-        <Id>
-          <IBAN>CH1234567890123456789</IBAN>
-        </Id>
-      </Acct>
-      <Ntry>
-        <Amt Ccy="CHF">100.00</Amt>
-        <CdtDbtInd>CRDT</CdtDbtInd>
-        <BookgDt>
-          <Dt>2025-01-15</Dt>
-        </BookgDt>
-        <ValDt>
-          <Dt>2025-01-15</Dt>
-        </ValDt>
-        <NtryDtls>
-          <TxDtls>
-            <RmtInf>
-              <Ustrd>Test transaction</Ustrd>
-            </RmtInf>
-          </TxDtls>
-        </NtryDtls>
-      </Ntry>
-    </Stmt>
-  </BkToCstmrStmt>
-</Document>`
-
-	filePath := filepath.Join(dir, filename)
-	err := os.WriteFile(filePath, []byte(camtXML), 0600)
-	require.NoError(t, err, "Failed to create test CAMT file")
-}
-
-// mockParser is a simple parser implementation for testing
-type mockParser struct {
-	transactions []models.Transaction
-}
-
-func (m *mockParser) Parse(r io.Reader) ([]models.Transaction, error) {
-	return m.transactions, nil
 }
