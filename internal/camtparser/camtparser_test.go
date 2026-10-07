@@ -581,5 +581,6 @@ func TestParse_CategorizesWithCleanedPartyAndISODate(t *testing.T) {
 	require.Len(t, rec.parties, 1)
 	assert.NotContains(t, rec.parties[0], "PMT CARTE", "payment-method prefix is stripped before categorizing")
 	assert.Equal(t, "2026-04-15", rec.dates[0])
+	assert.Equal(t, "PMT CARTE Migros Lausanne", rec.infos[0], "the entry text is sent as context")
 	assert.Equal(t, "Courses", txs[0].Category)
 }

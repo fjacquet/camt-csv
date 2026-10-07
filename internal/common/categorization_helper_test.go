@@ -430,6 +430,10 @@ func TestDefaultPartyName_FallsBackToDescription(t *testing.T) {
 
 	tx.Payee = "RATP"
 	assert.Equal(t, "RATP", DefaultPartyName(tx), "a real party wins over the description")
+
+	blank := models.Transaction{Payee: "   ", Description: "X"}
+	assert.Equal(t, "X", DefaultPartyName(blank), "a blank party is skipped")
+	assert.Equal(t, "", DefaultPartyName(models.Transaction{Payee: "  ", Description: " "}))
 }
 
 func TestProcessTransactionsWithPartyName_UsesGivenFunction(t *testing.T) {
@@ -447,5 +451,21 @@ func TestProcessTransactionsWithPartyName_UsesGivenFunction(t *testing.T) {
 		func(models.Transaction) string { return "CLEANED" })
 	require.NoError(t, err)
 	assert.Equal(t, "Courses", out[0].Category)
+	m.AssertExpectations(t)
+}
+
+func TestProcessTransactions_DebitLikeTransactionSendsDescriptionAsPartyAndInfo(t *testing.T) {
+	m := new(MockCategorizer)
+	m.On("Categorize", mock.Anything, "PMT CARTE RATP", true, "5", "2025-04-15", "PMT CARTE RATP").
+		Return(models.Category{Name: "Transport"}, nil)
+	tx := models.Transaction{
+		Description: "PMT CARTE RATP",
+		CreditDebit: models.TransactionTypeDebit,
+		Amount:      decimal.NewFromInt(5),
+		Date:        time.Date(2025, 4, 15, 0, 0, 0, 0, time.UTC),
+	}
+	out, err := ProcessTransactionsWithCategorizationStats(context.Background(), []models.Transaction{tx}, nil, m, "Debit")
+	require.NoError(t, err)
+	assert.Equal(t, "Transport", out[0].Category)
 	m.AssertExpectations(t)
 }

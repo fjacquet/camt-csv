@@ -3,6 +3,7 @@ package common
 
 import (
 	"context"
+	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -13,7 +14,7 @@ import (
 // formats (Visa debit exports) carry.
 func DefaultPartyName(tx models.Transaction) string {
 	for _, name := range []string{tx.GetPartyName(), tx.PartyName, tx.Name, tx.Recipient, tx.Description} {
-		if name != "" {
+		if strings.TrimSpace(name) != "" {
 			return name
 		}
 	}

@@ -156,7 +156,7 @@ func TestParseWithCategorizer_Success(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	mockCategorizer := &MockCategorizer{}
-	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "2025-05-30", mock.Anything).Return(models.Category{Name: "Investment"}, nil)
+	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "2025-05-30", "Cash top-up to investment account").Return(models.Category{Name: "Investment"}, nil)
 
 	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestParseWithCategorizer_CategorizerError(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 
 	mockCategorizer := &MockCategorizer{}
-	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "2025-05-30", mock.Anything).Return(models.Category{}, assert.AnError)
+	mockCategorizer.On("Categorize", mock.Anything, "Revolut Investment", false, "454", "2025-05-30", "Cash top-up to investment account").Return(models.Category{}, assert.AnError)
 
 	transactions, err := ParseWithCategorizer(context.Background(), reader, logger, mockCategorizer)
 	require.NoError(t, err)
