@@ -42,7 +42,7 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	}
 
 	// Performance optimization: Use helper function to minimize allocations during party name normalization
-	partyNameLower := strings.ToLower(tx.PartyName)
+	partyNameLower := strings.ToLower(strings.TrimSpace(tx.PartyName))
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -106,7 +106,7 @@ func (s *DirectMappingStrategy) UpdateCreditorMapping(partyName, categoryName st
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.creditorMappings[strings.ToLower(partyName)] = categoryName
+	s.creditorMappings[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 }
 
 // UpdateDebtorMapping adds or updates a debtor mapping.
@@ -114,5 +114,5 @@ func (s *DirectMappingStrategy) UpdateDebtorMapping(partyName, categoryName stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	s.debtorMappings[strings.ToLower(partyName)] = categoryName
+	s.debtorMappings[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 }

@@ -156,15 +156,11 @@ type BaseParser struct {
 func (b *BaseParser) SetLogger(logger logging.Logger) {
     b.logger = logger
 }
-
-func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-    return common.WriteTransactionsToCSVWithFormatter(transactions, csvFile, b.logger, formatter.NewStandardFormatter(), ',')
-}
 ```
 
 **Benefits:**
 - Consistent behavior across parsers
-- Shared functionality (logging, CSV writing)
+- Shared functionality (logging)
 - Reduced code duplication
 - Easier maintenance
 

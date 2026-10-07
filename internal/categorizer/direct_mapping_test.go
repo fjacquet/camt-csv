@@ -226,3 +226,19 @@ func TestDirectMappingStrategy_UpdateMappings(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, models.CategorySalary, category.Name)
 }
+
+func TestDirectMappingStrategy_PaddedNamesMatchTrimmedLookup(t *testing.T) {
+	strategy := NewDirectMappingStrategy(map[string]string{}, map[string]string{}, nil, &logging.MockLogger{})
+	strategy.UpdateCreditorMapping(" Kiro ", models.CategoryShopping)
+	strategy.UpdateDebtorMapping("\tKiro  ", models.CategorySalary)
+
+	category, found, err := strategy.Categorize(context.Background(), Transaction{PartyName: "kiro"})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, models.CategoryShopping, category.Name)
+
+	category, found, err = strategy.Categorize(context.Background(), Transaction{PartyName: " KIRO ", IsDebtor: true})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, models.CategorySalary, category.Name)
+}

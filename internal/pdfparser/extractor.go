@@ -61,13 +61,19 @@ type cachingExtractor struct {
 	texts map[[sha256.Size]byte]string
 }
 
+// newCachingExtractor wraps inner so repeated extractions of identical PDF
+// content run the underlying extractor (pdftotext) only once.
 func newCachingExtractor(inner PDFExtractor) PDFExtractor {
 	return &cachingExtractor{inner: inner, texts: map[[sha256.Size]byte]string{}}
 }
 
+// ExtractText returns the cached text for the file's content, extracting and
+// caching it on first sight.
 func (c *cachingExtractor) ExtractText(pdfPath string) (string, error) {
 	data, err := os.ReadFile(pdfPath) // #nosec G304 -- CLI tool requires user-provided file paths
 	if err != nil {
+		// Unreadable here: skip the cache and let the inner extractor
+		// report the real error (or handle the path its own way).
 		return c.inner.ExtractText(pdfPath)
 	}
 	sum := sha256.Sum256(data)

@@ -127,7 +127,7 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 
 		// Performance optimization: Use helper function to minimize allocations when loading creditor mappings
 		for key, value := range creditorMappings {
-			c.creditorMappings[strings.ToLower(key)] = value
+			c.creditorMappings[strings.ToLower(strings.TrimSpace(key))] = value
 		}
 	}
 
@@ -148,7 +148,7 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 
 		// Performance optimization: Use helper function to minimize allocations when loading debtor mappings
 		for key, value := range debitorMappings {
-			c.debitorMappings[strings.ToLower(key)] = value
+			c.debitorMappings[strings.ToLower(strings.TrimSpace(key))] = value
 		}
 	}
 
@@ -397,7 +397,7 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	c.debitorMappings[strings.ToLower(partyName)] = categoryName
+	c.debitorMappings[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	c.isDirtyDebitors = true
 
 	// Update the DirectMappingStrategy as well
@@ -433,7 +433,7 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
 	// Performance optimization: Use helper function to minimize allocations during mapping updates
-	c.creditorMappings[strings.ToLower(partyName)] = categoryName
+	c.creditorMappings[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	c.isDirtyCreditors = true
 
 	// Update the DirectMappingStrategy as well
