@@ -711,8 +711,7 @@ func TestParseWithCategorizer_AccountKeyFromProductAndCurrency(t *testing.T) {
 		"Paiement par carte,Valeur actuelle,2026-07-17 10:29:19,2026-07-18 10:04:21,SDC Le Polygone,-0.50,0.00,EUR,TERMINÉ,0.15\n" +
 		"Virement,Épargne,2026-02-01 10:00:00,2026-02-01 10:00:00,To CHF Vacances,100.00,0.00,CHF,TERMINÉ,100.00\n"
 
-	data := normalizeCSVData([]byte(frenchCSV))
-	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(string(data)), logger, nil)
+	transactions, err := ParseWithCategorizer(context.Background(), strings.NewReader(frenchCSV), logger, nil)
 	require.NoError(t, err)
 	require.Len(t, transactions, 3)
 
