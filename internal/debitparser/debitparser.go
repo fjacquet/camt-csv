@@ -200,19 +200,10 @@ func ValidateFormatWithLogger(filePath string, logger logging.Logger) (bool, err
 	}
 
 	// Check if required columns exist
-	requiredColumns := []string{"Bénéficiaire", "Date", "Montant", "Monnaie"}
-	columnMap := make(map[string]bool)
-
-	for _, col := range header {
-		columnMap[col] = true
-	}
-
-	for _, required := range requiredColumns {
-		if !columnMap[required] {
-			logger.Info("Required column not found",
-				logging.Field{Key: "column", Value: required})
-			return false, nil
-		}
+	if missing := common.MissingColumn(header, "Bénéficiaire", "Date", "Montant", "Monnaie"); missing != "" {
+		logger.Info("Required column not found",
+			logging.Field{Key: "column", Value: missing})
+		return false, nil
 	}
 
 	// Read at least one record to validate format

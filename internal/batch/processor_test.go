@@ -14,6 +14,7 @@ import (
 	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/parser"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -1536,4 +1537,8 @@ func TestProcessDirectory_AccountKeySplitsWhenThereIsNoIBAN(t *testing.T) {
 	assert.FileExists(t, AccountOutputPathFor(outputFile, "revolut-chf"))
 	assert.FileExists(t, AccountOutputPathFor(outputFile, "revolut-eur"))
 	assert.NoFileExists(t, AccountOutputPathFor(outputFile, unknownAccount))
+}
+
+func TestErrNoParserIsTheSharedSentinel(t *testing.T) {
+	assert.ErrorIs(t, ErrNoParser, parser.ErrFormatNotRecognized)
 }

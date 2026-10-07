@@ -59,7 +59,7 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 	// Map header fields to struct fields
 	headerMap := make(map[int]string)
 	for i, h := range header {
-		headerMap[i] = h
+		headerMap[i] = common.NormalizeHeaderName(h)
 	}
 
 	var transactions []models.Transaction
@@ -271,17 +271,10 @@ func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
 	}
 
 	// Check if all required headers are present
-	headerMap := make(map[string]bool)
-	for _, h := range header {
-		headerMap[h] = true
-	}
-
-	for _, required := range requiredHeaders {
-		if !headerMap[required] {
-			return false, &parsererror.ValidationError{
-				FilePath: "(from reader)",
-				Reason:   fmt.Sprintf("missing required header: %s", required),
-			}
+	if missing := common.MissingColumn(header, requiredHeaders...); missing != "" {
+		return false, &parsererror.ValidationError{
+			FilePath: "(from reader)",
+			Reason:   fmt.Sprintf("missing required header: %s", missing),
 		}
 	}
 

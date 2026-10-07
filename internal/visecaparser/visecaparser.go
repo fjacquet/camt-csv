@@ -331,17 +331,10 @@ func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
 	}
 	stripBOM(header)
 
-	present := make(map[string]bool, len(header))
-	for _, name := range header {
-		present[strings.TrimSpace(name)] = true
-	}
-
-	for _, required := range requiredHeaders() {
-		if !present[required] {
-			logger.Debug("Not a Viseca CSV export",
-				logging.Field{Key: "missingColumn", Value: required})
-			return false, nil
-		}
+	if missing := common.MissingColumn(header, requiredHeaders()...); missing != "" {
+		logger.Debug("Not a Viseca CSV export",
+			logging.Field{Key: "missingColumn", Value: missing})
+		return false, nil
 	}
 
 	return true, nil

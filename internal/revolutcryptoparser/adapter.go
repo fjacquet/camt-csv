@@ -5,8 +5,8 @@ import (
 	"encoding/csv"
 	"io"
 	"os"
-	"strings"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -47,16 +47,5 @@ func (a *Adapter) ValidateFormat(file string) (bool, error) {
 		return false, nil
 	}
 	// Check for the three distinctive headers that differ from standard Revolut CSV
-	required := map[string]bool{"Symbol": false, "Type": false, "Date": false}
-	for _, h := range header {
-		if _, ok := required[strings.TrimSpace(h)]; ok {
-			required[strings.TrimSpace(h)] = true
-		}
-	}
-	for _, found := range required {
-		if !found {
-			return false, nil
-		}
-	}
-	return true, nil
+	return common.MissingColumn(header, "Symbol", "Type", "Date") == "", nil
 }

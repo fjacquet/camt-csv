@@ -2,7 +2,6 @@ package batch
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,7 +41,7 @@ type ParserResolver func(filePath string) (Resolution, error)
 
 // ErrNoParser reports that no parser accepts a file. Resolvers return it so a
 // batch records the file as a failure and moves on.
-var ErrNoParser = errors.New("no parser recognizes this file format")
+var ErrNoParser = parser.ErrFormatNotRecognized
 
 // PinnedResolver returns a ParserResolver that hands back p for every file.
 // This is what --from produces: an escape hatch for a batch the detector reads

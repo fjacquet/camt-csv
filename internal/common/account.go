@@ -81,12 +81,10 @@ var (
 // AccountKeyFromFilename returns the number of the account a statement file
 // belongs to, or "" when its name carries none.
 //
-// The name is the only source available: CAMT.053 carries the statement's own
-// account in <Stmt><Acct>, but camtparser's schema models only counterparty
-// accounts (internal/camtparser/camt053_schema.go), and parser.Parser.Parse
-// takes an io.Reader with no filename channel — so reading identity out of the
-// statement instead would mean changing that schema, models.Transaction, and
-// the Parser interface every format implements.
+// The name is the fallback source: camtparser already reads the statement's
+// own <Stmt><Acct> into Transaction.IBAN, which wins where present, but PDF
+// and Selma carry no account, and parser.Parser.Parse takes an io.Reader with
+// no filename channel, so those formats are attributed from the file name.
 //
 // It answers "" rather than falling back to the base name: a fallback would be
 // fine for labelling but wrong for grouping, where every unrecognized file

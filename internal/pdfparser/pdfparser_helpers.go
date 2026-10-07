@@ -4,20 +4,14 @@ package pdfparser
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strings"
-	"time"
-	"unicode"
 
 	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-
-	"github.com/shopspring/decimal"
 )
 
 // Pre-compiled regex patterns for performance
@@ -73,53 +67,6 @@ var (
 	}
 )
 
-// getDefaultLogger returns a default logger for backward compatibility
-func getDefaultLogger() logging.Logger {
-	return logging.NewLogrusAdapter("info", "text")
-}
-
-// extractTextFromPDF is a function variable to allow test mocking
-// Note: This is intentionally a package-level variable to support testing
-var extractTextFromPDF = extractTextFromPDFImpl
-
-func extractTextFromPDFImpl(pdfFile string) (string, error) {
-	// SECURITY: Create a temporary file with random unpredictable name to store the text output
-	// This prevents attacks that rely on predictable temp file names
-	tempFile, err := os.CreateTemp("", "pdftext-*.txt")
-	if err != nil {
-		return "", fmt.Errorf("error creating temporary file: %w", err)
-	}
-	tempFileName := tempFile.Name()
-
-	// Close the file immediately - pdftotext will open and write to it
-	if err := tempFile.Close(); err != nil {
-		return "", fmt.Errorf("error closing temporary file: %w", err)
-	}
-
-	// Ensure cleanup on return
-	defer func() {
-		if err := os.Remove(tempFileName); err != nil {
-			getDefaultLogger().WithError(err).Warn("Failed to remove temporary file")
-		}
-	}()
-
-	// Use pdftotext command-line tool to extract text
-	// Add the -raw option to preserve the original text layout
-	cmd := exec.Command("pdftotext", "-layout", "-raw", pdfFile, tempFileName) // #nosec G204,G702 -- Expected subprocess for PDF text extraction
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("error running pdftotext: %w", err)
-	}
-
-	// Read the extracted text
-	output, err := os.ReadFile(tempFileName) // #nosec G304,G703 -- reading from app-generated temp file
-	if err != nil {
-		return "", fmt.Errorf("error reading extracted text: %w", err)
-	}
-
-	return string(output), nil
-}
-
 // parseTransactionsWithCategorizer parses transaction data from PDF text content and applies categorization
 func parseTransactionsWithCategorizer(ctx context.Context, lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
 	// Pre-allocate slice with estimated capacity (typically 10-50 transactions per PDF)
@@ -140,7 +87,7 @@ func parseTransactionsWithCategorizer(ctx context.Context, lines []string, logge
 			strings.Contains(line, "Détails") && strings.Contains(line, "Monnaie") &&
 			strings.Contains(line, "Montant") {
 			isVisecaFormat = true
-			getDefaultLogger().Debug("Detected Viseca PDF format - header pattern matched")
+			logger.Debug("Detected Viseca PDF format - header pattern matched")
 			break
 		}
 
@@ -269,216 +216,6 @@ func parseTransactionsWithCategorizer(ctx context.Context, lines []string, logge
 	return processedTransactions, nil
 }
 
-// parseVisecaTransactionsWithCategorizer is a specialized parser for Viseca credit card statements with categorization
-func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string, logger logging.Logger, categorizer models.TransactionCategorizer) ([]models.Transaction, error) {
-	logger.Debug("Processing Viseca PDF with specialized parser",
-		logging.Field{Key: "lineCount", Value: len(lines)})
-
-	var transactions []models.Transaction
-	var currentCategory string
-
-	// For debugging, dump the first few lines
-	for i := 0; i < min(20, len(lines)); i++ {
-		logger.Debug("Sample line from PDF",
-			logging.Field{Key: "line", Value: lines[i]})
-	}
-
-	// Process lines
-	for i := 0; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			continue
-		}
-
-		// Skip Viseca header lines
-		if strings.Contains(line, "Date de") || (strings.Contains(line, "Date") && strings.Contains(line, "valeur") && strings.Contains(line, "Détails") && strings.Contains(line, "Montant")) {
-			logger.Debug("Skipping header line")
-			continue
-		}
-
-		// Skip footers and other non-transaction lines
-		if strings.Contains(line, "Page") ||
-			strings.Contains(line, "Total intermédiaire") ||
-			strings.Contains(line, "Recouvrement") ||
-			strings.Contains(line, "Limite de carte") ||
-			strings.Contains(line, "Report") {
-			continue
-		}
-
-		// Check if the line starts with a date (DD.MM.YY or DD.MM.YYYY format)
-		if !datePatternCapture.MatchString(line) {
-			// Not a transaction line, could be a category or additional info
-			// Store it to potentially attach to the previous transaction
-			if strings.TrimSpace(line) != "" && !strings.Contains(line, "XXXX") {
-				currentCategory = strings.TrimSpace(line)
-				logger.Debug("Found potential category line",
-					logging.Field{Key: "category", Value: currentCategory})
-			}
-			continue
-		}
-
-		// This looks like a transaction line - extract the components
-
-		// Extract transaction date and optional value date (DD.MM.YY(YY))
-		dateValueMatch := dateValuePattern.FindStringSubmatch(line)
-		if len(dateValueMatch) < 2 || dateValueMatch[1] == "" {
-			logger.Debug("Invalid transaction line format - missing date",
-				logging.Field{Key: "line", Value: line})
-			continue
-		}
-
-		txDate := dateValueMatch[1]
-		valueDate := txDate
-		if len(dateValueMatch) >= 3 && dateValueMatch[2] != "" {
-			valueDate = dateValueMatch[2]
-		}
-
-		// Now extract the amount which should be at the end of the line
-		// But first, get the remaining text after the dates
-		remainingLine := strings.TrimSpace(line[len(dateValueMatch[0]):])
-
-		// Check for "Montant total" or "Votre paiement" lines - these are summaries, not transactions
-		if strings.Contains(remainingLine, "Montant total") ||
-			strings.Contains(remainingLine, "Votre paiement") {
-			logger.Debug("Skipping summary line",
-				logging.Field{Key: "line", Value: line})
-			continue
-		}
-
-		// The amount is typically right-aligned at the end
-		// Look for a number pattern at the end, possibly followed by a minus sign
-		amountMatch := amountEndPattern.FindStringSubmatch(remainingLine)
-
-		if len(amountMatch) < 2 {
-			logger.Debug("Could not extract amount from transaction line",
-				logging.Field{Key: "line", Value: line})
-			continue
-		}
-
-		amount := amountMatch[1]
-		// Remove Swiss formatting (apostrophes as thousand separators)
-		amount = strings.ReplaceAll(amount, "'", "")
-
-		// Check if credit (minus sign after amount)
-		isCredit := len(amountMatch) > 2 && amountMatch[2] == "-"
-
-		// Extract description (everything between dates and amount)
-		descriptionEndPos := strings.LastIndex(remainingLine, amount)
-		if descriptionEndPos <= 0 {
-			logger.Debug("Could not determine description boundaries",
-				logging.Field{Key: "line", Value: line})
-			continue
-		}
-
-		description := strings.TrimSpace(remainingLine[:descriptionEndPos])
-
-		// Check for foreign currency indicators
-		var originalCurrency, originalAmount string
-		currencyMatch := foreignCurrencyPattern.FindStringSubmatch(description)
-		if len(currencyMatch) > 2 {
-			originalCurrency = currencyMatch[1]
-			originalAmount = strings.ReplaceAll(currencyMatch[2], "'", "")
-
-			// Clean up description
-			description = strings.Replace(description, currencyMatch[0], "", 1)
-			description = strings.TrimSpace(description)
-
-			logger.Debug("Found foreign currency transaction",
-				logging.Field{Key: "currency", Value: originalCurrency},
-				logging.Field{Key: "amount", Value: originalAmount})
-		}
-
-		// Create the transaction using TransactionBuilder
-		builder := models.NewTransactionBuilder().
-			WithDatetime(formatDate(txDate)).
-			WithValueDatetime(formatDate(valueDate)).
-			WithDescription(description).
-			WithAmountFromString(amount, "CHF").
-			WithOriginalAmount(models.ParseAmount(originalAmount), originalCurrency)
-
-		// Set transaction direction and parties
-		if isCredit {
-			builder = builder.AsCredit().WithPayer(description, "")
-		} else {
-			builder = builder.AsDebit().WithPayee(description, "")
-		}
-
-		// Build the transaction
-		tx, err := builder.Build()
-		if err != nil {
-			logger.WithError(err).Warn("Failed to build transaction, skipping",
-				logging.Field{Key: "description", Value: description})
-			continue
-		}
-
-		// Attach category if we have one
-		if currentCategory != "" {
-			tx.Description = tx.Description + " - " + currentCategory
-			logger.Debug("Added category to transaction",
-				logging.Field{Key: "category", Value: currentCategory})
-			currentCategory = "" // Reset for next transaction
-		}
-
-		// Look for additional information in following lines (exchange rate, processing fees)
-		var exchangeRateFound, processingFeeFound bool
-
-		for j := i + 1; j < min(i+3, len(lines)) && !exchangeRateFound && !processingFeeFound; j++ {
-			nextLine := strings.TrimSpace(lines[j])
-
-			// Skip empty lines
-			if nextLine == "" {
-				continue
-			}
-
-			// If the next line starts with a date, it's a new transaction - stop looking
-			if datePatternCapture.MatchString(nextLine) {
-				break
-			}
-
-			// Look for exchange rate information
-			if strings.Contains(nextLine, "Taux de conversion") {
-				exchangeRateMatch := exchangeRatePattern.FindStringSubmatch(nextLine)
-				if len(exchangeRateMatch) > 1 {
-					tx.ExchangeRate = models.ParseAmount(exchangeRateMatch[1])
-					exchangeRateFound = true
-					logger.Debug("Found exchange rate",
-						logging.Field{Key: "exchangeRate", Value: tx.ExchangeRate.String()})
-				}
-			}
-
-			// Look for processing fee information
-			if strings.Contains(nextLine, "Frais de traitement") {
-				feeMatch := processingFeePattern.FindStringSubmatch(nextLine)
-				if len(feeMatch) > 1 {
-					tx.Fees = models.ParseAmount(feeMatch[1])
-					processingFeeFound = true
-					logger.Debug("Found processing fees",
-						logging.Field{Key: "fees", Value: tx.Fees.String()})
-				}
-			}
-		}
-
-		// Add transaction to list
-		transactions = append(transactions, tx)
-		logger.Debug("Added transaction",
-			logging.Field{Key: "date", Value: tx.Date},
-			logging.Field{Key: "description", Value: tx.Description},
-			logging.Field{Key: "amount", Value: tx.Amount.String()})
-	}
-
-	// Log the number of transactions found
-	// Process transactions with categorization statistics
-	processedTransactions, err := common.ProcessTransactionsWithCategorizationStats(
-		ctx, transactions, logger, categorizer, "PDF-Viseca")
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Info("Extracted transactions from Viseca PDF",
-		logging.Field{Key: "count", Value: len(processedTransactions)})
-	return processedTransactions, nil
-}
-
 // finalizeTransactionWithCategorizer finalizes a transaction with categorization and adds it to the list of transactions
 func finalizeTransactionWithCategorizer(tx *models.Transaction, desc *strings.Builder, merchant string, seen map[string]bool, transactions *[]models.Transaction, categorizer models.TransactionCategorizer, logger logging.Logger) {
 	// Clean the description
@@ -544,178 +281,12 @@ func finalizeTransactionWithCategorizer(tx *models.Transaction, desc *strings.Bu
 	}
 }
 
-// extractAmount extracts the amount from a transaction line
-func extractAmount(text string) (string, decimal.Decimal, bool) {
-	// Match patterns like "123.45 USD" or "USD 123.45"
-	amountMatch := amountGenericPattern.FindString(text)
-
-	if amountMatch != "" {
-		amountStr := amountMatch
-		// Default to debit unless explicitly marked as credit or has a plus sign
-		isCredit := strings.Contains(strings.ToLower(text), "credit") ||
-			strings.Contains(strings.ToLower(text), "incoming") ||
-			strings.Contains(text, "+")
-		decimalAmount := models.ParseAmount(amountStr)
-		return amountStr, decimalAmount, isCredit
-	}
-
-	return "", decimal.Zero, false
-}
-
-// cleanDescription removes unwanted elements from the description
-func cleanDescription(description string) string {
-	// Replace multiple spaces with a single space
-	description = multipleSpacePattern.ReplaceAllString(description, " ")
-
-	// Remove leading/trailing whitespace
-	description = strings.TrimSpace(description)
-
-	// Remove common noise phrases using pre-compiled patterns
-	for _, pattern := range noisePhrasePatterns {
-		description = pattern.ReplaceAllString(description, "")
-	}
-
-	return description
-}
-
-// extractPayee extracts the payee/merchant from a description
-func extractPayee(description string) string {
-	// Try pre-compiled payee patterns
-	for _, re := range payeePatterns {
-		matches := re.FindStringSubmatch(description)
-		if len(matches) > 1 {
-			return strings.TrimSpace(matches[1])
-		}
-	}
-
-	// If no pattern matches, try to extract the most likely merchant name
-	words := strings.Fields(description)
-
-	// Skip transaction-related terms
-	skipWords := map[string]bool{
-		"transaction": true, "date": true, "amount": true, "credit": true,
-		"debit": true, "card": true, "payment": true, "transfer": true,
-		"fee": true, "charge": true, "balance": true, "available": true,
-		"withdrawal": true, "deposit": true, "reference": true,
-	}
-
-	// Find first sequence of capitalized words
-	var merchantWords []string
-	inMerchant := false
-
-	for _, word := range words {
-		word = strings.TrimFunc(word, func(r rune) bool {
-			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-		})
-
-		if word == "" || skipWords[strings.ToLower(word)] {
-			continue
-		}
-
-		// Check if word is mostly uppercase or a proper noun
-		isSignificant := strings.ToUpper(word) == word || (unicode.IsUpper(rune(word[0])) && strings.ToLower(word[1:]) == word[1:])
-
-		if isSignificant {
-			merchantWords = append(merchantWords, word)
-			inMerchant = true
-		} else if inMerchant {
-			// Stop collecting words once we hit non-significant words after starting collection
-			break
-		}
-	}
-
-	if len(merchantWords) > 0 {
-		return strings.Join(merchantWords, " ")
-	}
-
-	// If all else fails, return a shortened version of the description
-	if len(description) > 30 {
-		return description[:30] + "..."
-	}
-	return description
-}
-
-// extractMerchant extracts the merchant from a description
-func extractMerchant(description string) string {
-	// Try pre-compiled merchant patterns
-	for _, re := range merchantPatterns {
-		matches := re.FindStringSubmatch(description)
-		if len(matches) > 1 {
-			return strings.TrimSpace(matches[1])
-		}
-	}
-
-	// Check for common transaction patterns and extract merchant name
-	words := strings.Fields(description)
-	for i, word := range words {
-		if strings.HasPrefix(strings.ToLower(word), "card") && i+1 < len(words) {
-			// "Card purchase at MERCHANT"
-			if strings.ToLower(word) == "card" && i+2 < len(words) &&
-				(strings.ToLower(words[i+1]) == "purchase" || strings.ToLower(words[i+1]) == "payment") &&
-				strings.ToLower(words[i+2]) == "at" && i+3 < len(words) {
-				return strings.Join(words[i+3:min(i+6, len(words))], " ")
-			}
-		}
-	}
-
-	return ""
-}
-
 // sortTransactions sorts transactions by date
 func sortTransactions(transactions []models.Transaction) {
 	sort.Slice(transactions, func(i, j int) bool {
 		// Compare time.Time values directly
 		return transactions[i].Date.Before(transactions[j].Date)
 	})
-}
-
-// preProcessText performs initial cleanup and restructuring of PDF text
-func preProcessText(text string) string {
-	// Replace non-standard line breaks and ensure proper line splitting
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = strings.ReplaceAll(text, "\r", "\n")
-
-	// Replace multiple consecutive spaces with a single space
-	// But preserve alignment for amount values which are typically right-aligned
-	text = tripleSpacePattern.ReplaceAllString(text, "   ")
-
-	// Remove empty lines
-	var lines []string
-	for _, line := range strings.Split(text, "\n") {
-		if strings.TrimSpace(line) != "" {
-			lines = append(lines, line)
-		}
-	}
-
-	// Join the lines back together
-	return strings.Join(lines, "\n")
-}
-
-// containsMerchantIdentifier checks if a line contains common merchant identifiers
-func containsMerchantIdentifier(line string) bool {
-	identifiers := []string{
-		"merchant", "vendor", "shop", "store", "payee name",
-		"business", "company", "paid to", "payment to",
-	}
-
-	lowerLine := strings.ToLower(line)
-	for _, id := range identifiers {
-		if strings.Contains(lowerLine, id) {
-			return true
-		}
-	}
-
-	// Look for "Card purchase at" pattern
-	if cardPurchasePattern.MatchString(line) {
-		return true
-	}
-
-	return false
-}
-
-// containsAmount checks if a line contains a monetary amount
-func containsAmount(line string) bool {
-	return amountCurrencyPattern.MatchString(line)
 }
 
 // deduplicateTransactions removes duplicate transactions based on date, description, and amount
@@ -759,44 +330,4 @@ func determineCreditDebit(description string) string {
 
 	// Default to debit if we can't determine
 	return models.TransactionTypeDebit
-}
-
-// formatDate parses a date string and returns time.Time
-func formatDate(date string) time.Time {
-	// Remove any non-digit or dot characters
-	date = nonDigitDotPattern.ReplaceAllString(date, "")
-
-	// Try to identify the format
-	formats := []string{
-		dateutils.DateLayoutEuropean, // DD.MM.YYYY
-		"02.01.06",                   // DD.MM.YY
-		"2/1/2006",                   // M/D/YYYY
-		"1/2/2006",                   // D/M/YYYY
-		dateutils.DateLayoutISO,      // YYYY-MM-DD
-	}
-
-	var t time.Time
-	var err error
-
-	for _, format := range formats {
-		t, err = time.Parse(format, date)
-		if err == nil {
-			break
-		}
-	}
-
-	// If we failed to parse any format, return zero time
-	if err != nil {
-		return time.Time{}
-	}
-
-	return t
-}
-
-// min returns the smaller of x or y
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
 }

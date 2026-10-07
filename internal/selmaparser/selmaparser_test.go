@@ -347,3 +347,14 @@ func TestParse_KeepsTradeWithUnreadableShareCount(t *testing.T) {
 	assert.Equal(t, "0", txs[0].NumberOfShares.String())
 	assert.Equal(t, "55026832483", txs[0].BookkeepingNumber)
 }
+
+func TestParse_AcceptsBOMAndPaddedHeaderNames(t *testing.T) {
+	csv := "\ufeffDate, Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares\n" +
+		"2026-05-04,trade,55026832483,CH0368190739,-283.23,CHF,1\n"
+
+	txs, err := ParseWithCategorizer(
+		context.Background(), strings.NewReader(csv), logging.NewLogrusAdapter("error", "text"), nil)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	assert.Equal(t, "55026832483", txs[0].BookkeepingNumber)
+}

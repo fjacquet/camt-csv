@@ -86,13 +86,3 @@ func ParseWithExtractorAndCategorizer(ctx context.Context, r io.Reader, extracto
 
 	return transactions, nil
 }
-
-// validateFormat checks if a file is a valid PDF.
-// It verifies that the file exists and has the correct format headers.
-//
-// Parameters:
-//   - pdfFile: Path to the PDF file to validate
-//
-// Returns:
-//   - bool: True if the file is a valid PDF, False otherwise
-//   - error: Any error encountered during validation
