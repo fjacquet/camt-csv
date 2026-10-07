@@ -62,3 +62,43 @@ func TestCategorize_UncategorizedIsCachedForTheRun(t *testing.T) {
 	}
 	assert.Equal(t, 1, ai.callCount(), "an unknown party reaches the AI once per run")
 }
+
+// countingStore wraps MockCategoryStore and counts saves.
+type countingStore struct {
+	*store.MockCategoryStore
+	creditorSaves, debtorSaves int
+}
+
+func (s *countingStore) SaveCreditorMappings(m map[string]string) error {
+	s.creditorSaves++
+	return s.MockCategoryStore.SaveCreditorMappings(m)
+}
+
+func (s *countingStore) SaveDebtorMappings(m map[string]string) error {
+	s.debtorSaves++
+	return s.MockCategoryStore.SaveDebtorMappings(m)
+}
+
+func TestCategorize_AutoLearnOnlyFromAIAndNoSavePerTransaction(t *testing.T) {
+	ai := &countingAI{answers: map[string]string{"kiro": "Abonnements"}}
+	st := &countingStore{MockCategoryStore: &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Courses", Keywords: []string{"MIGROS"}}, {Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{"coop": "Courses"},
+	}}
+	c := NewCategorizer(ai, nil, st, testLogger(), true, 0.70)
+	t.Cleanup(c.Shutdown)
+	ctx := context.Background()
+
+	_, _ = c.Categorize(ctx, "Coop", true, "-5", "2026-01-01", "")            // direct
+	_, _ = c.Categorize(ctx, "MIGROS Lausanne", true, "-5", "2026-01-01", "") // keyword
+	_, _ = c.Categorize(ctx, "Kiro", true, "-19", "2026-01-01", "")           // ai
+
+	assert.Zero(t, st.debtorSaves, "nothing is written during the run")
+	require.NoError(t, c.SaveDebitorsToYAML())
+	assert.Equal(t, 1, st.debtorSaves, "one write at the end")
+
+	saved := st.MockCategoryStore.DebtorMappings
+	assert.Equal(t, "Abonnements", saved["kiro"], "AI answers are learned")
+	assert.NotContains(t, saved, "migros lausanne", "keyword hits are not learned")
+}

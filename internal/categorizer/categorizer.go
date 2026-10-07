@@ -244,53 +244,34 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 	}
 
 	category, err := c.categorizeTransaction(ctx, transaction)
-
-	// Auto-learn: if we successfully found a category AND auto-learning is enabled,
-	// save it to the database so we don't need to recategorize similar transactions in the future
-	if err == nil && c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		if isDebtor {
-			c.logger.WithFields(
-				logging.Field{Key: "party", Value: partyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning debitor mapping")
-			c.updateDebitorCategory(partyName, category.Name)
-			if saveErr := c.SaveDebitorsToYAML(); saveErr != nil {
-				c.logger.WithError(saveErr).Warn("Failed to save debitor mapping")
-			}
-		} else {
-			c.logger.WithFields(
-				logging.Field{Key: "party", Value: partyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning creditor mapping")
-			c.updateCreditorCategory(partyName, category.Name)
-			if saveErr := c.SaveCreditorsToYAML(); saveErr != nil {
-				c.logger.WithError(saveErr).Warn("Failed to save creditor mapping")
-			}
-		}
-	} else if err == nil && !c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		// Log that auto-learning is disabled but categorization succeeded
-		c.logger.WithFields(
-			logging.Field{Key: "party", Value: partyName},
-			logging.Field{Key: "category", Value: category.Name},
-			logging.Field{Key: "action", Value: "skip_auto_learn"},
-			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
-		).Debug("Categorization found but auto-learning disabled")
-		// Save to staging file instead of discarding
-		c.saveStagingSuggestion(partyName, isDebtor, category.Name)
-	} else {
-		// Log when categorization is skipped (uncategorized or empty)
-		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
-			c.logger.WithField("party", partyName).Debug("No categorization found, skipping auto-learn")
-		}
+	if err == nil {
+		c.recordLearning(partyName, isDebtor, category)
 	}
-
 	return category, err
+}
+
+// recordLearning keeps what the AI taught us. Only AI answers are worth
+// keeping: direct and keyword hits are already in the YAML files. With
+// auto-learn on, the mapping is updated in memory and saved once when the
+// command ends (cmd/root finalize); with it off, the answer is staged.
+func (c *Categorizer) recordLearning(partyName string, isDebtor bool, category models.Category) {
+	if category.Source != "ai" || category.Name == "" || category.Name == models.CategoryUncategorized {
+		return
+	}
+	if !c.isAutoLearnEnabled {
+		c.saveStagingSuggestion(partyName, isDebtor, category.Name)
+		return
+	}
+	c.logger.WithFields(
+		logging.Field{Key: "party", Value: partyName},
+		logging.Field{Key: "category", Value: category.Name},
+		logging.Field{Key: "debtor", Value: isDebtor},
+	).Info("Auto-learning mapping from AI")
+	if isDebtor {
+		c.updateDebitorCategory(partyName, category.Name)
+	} else {
+		c.updateCreditorCategory(partyName, category.Name)
+	}
 }
 
 // private method for the Categorizer struct
