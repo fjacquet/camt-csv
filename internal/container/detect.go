@@ -1,8 +1,6 @@
 package container
 
 import (
-	"fmt"
-
 	"fjacquet/camt-csv/internal/parser"
 )
 
@@ -27,7 +25,7 @@ func detectionOrder() []ParserType {
 }
 
 // ErrFormatNotRecognized is returned when no registered parser accepts a file.
-var ErrFormatNotRecognized = fmt.Errorf("no parser recognizes this file format")
+var ErrFormatNotRecognized = parser.ErrFormatNotRecognized
 
 // DetectParser identifies which parser can handle filePath by asking each one
 // to validate it, and returns that parser along with its type.

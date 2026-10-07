@@ -353,24 +353,11 @@ func validateFormatWithLogger(r io.Reader, logger logging.Logger) (bool, error) 
 	}
 
 	// Required columns for a valid Revolut CSV
-	requiredColumns := []string{
-		"Type", "Product", "Started Date", "Description",
-		"Amount", "Currency", "State",
-	}
-
-	// Map header columns to check if all required ones exist
-	headerMap := make(map[string]bool)
-	for _, col := range header {
-		headerMap[col] = true
-	}
-
-	// Check if all required columns exist
-	for _, requiredCol := range requiredColumns {
-		if !headerMap[requiredCol] {
-			logger.Info("Required column missing from Revolut CSV",
-				logging.Field{Key: "column", Value: requiredCol})
-			return false, nil
-		}
+	if missing := common.MissingColumn(header, "Type", "Product", "Started Date", "Description",
+		"Amount", "Currency", "State"); missing != "" {
+		logger.Info("Required column missing from Revolut CSV",
+			logging.Field{Key: "column", Value: missing})
+		return false, nil
 	}
 
 	// Check at least one data row is present

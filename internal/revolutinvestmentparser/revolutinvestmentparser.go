@@ -160,46 +160,29 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 		// Parse quantity
 		if row.Quantity != "" {
-			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				builder = builder.WithNumberOfShares(quantity)
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Quantity",
-					RawDataSnippet: row.Quantity,
-					Msg:            fmt.Sprintf("failed to parse quantity: %v", err),
-				}
+			quantity, err := parseDecimalField("Quantity", row.Quantity, row.Quantity, "quantity")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithNumberOfShares(quantity)
 		}
 
 		// Parse price per share for tax info
 		if row.PricePerShare != "" {
-			priceStr := cleanAmountString(row.PricePerShare)
-			if price, err := decimal.NewFromString(priceStr); err == nil {
-				builder = builder.WithTaxInfo(price, decimal.Zero, decimal.Zero)
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Price per share",
-					RawDataSnippet: row.PricePerShare,
-					Msg:            fmt.Sprintf("failed to parse price per share: %v", err),
-				}
+			price, err := parseDecimalField("Price per share", row.PricePerShare, cleanAmountString(row.PricePerShare), "price per share")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithTaxInfo(price, decimal.Zero, decimal.Zero)
 		}
 
 		// Parse total amount
 		if row.TotalAmount != "" {
-			amountStr := cleanAmountString(row.TotalAmount)
-			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				builder = builder.WithAmount(amount, row.Currency).AsDebit()
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Total Amount",
-					RawDataSnippet: row.TotalAmount,
-					Msg:            fmt.Sprintf("failed to parse total amount: %v", err),
-				}
+			amount, err := parseDecimalField("Total Amount", row.TotalAmount, cleanAmountString(row.TotalAmount), "total amount")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithAmount(amount, row.Currency).AsDebit()
 		}
 
 		builder = builder.WithDescription(fmt.Sprintf("Buy %s shares of %s", row.Quantity, row.Ticker)).
@@ -210,16 +193,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 		// Parse quantity
 		if row.Quantity != "" {
-			if quantity, err := decimal.NewFromString(row.Quantity); err == nil {
-				builder = builder.WithNumberOfShares(quantity)
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Quantity",
-					RawDataSnippet: row.Quantity,
-					Msg:            fmt.Sprintf("failed to parse quantity: %v", err),
-				}
+			quantity, err := parseDecimalField("Quantity", row.Quantity, row.Quantity, "quantity")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithNumberOfShares(quantity)
 		}
 
 		// Parse total amount
@@ -248,17 +226,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 		// Parse dividend amount
 		if row.TotalAmount != "" {
-			amountStr := cleanAmountString(row.TotalAmount)
-			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				builder = builder.WithAmount(amount, row.Currency).AsCredit()
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Total Amount",
-					RawDataSnippet: row.TotalAmount,
-					Msg:            fmt.Sprintf("failed to parse dividend amount: %v", err),
-				}
+			amount, err := parseDecimalField("Total Amount", row.TotalAmount, cleanAmountString(row.TotalAmount), "dividend amount")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithAmount(amount, row.Currency).AsCredit()
 		}
 
 		builder = builder.WithDescription(fmt.Sprintf("Dividend from %s", row.Ticker)).
@@ -269,17 +241,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 		// Parse cash top-up amount
 		if row.TotalAmount != "" {
-			amountStr := cleanAmountString(row.TotalAmount)
-			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				builder = builder.WithAmount(amount, row.Currency).AsCredit()
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Total Amount",
-					RawDataSnippet: row.TotalAmount,
-					Msg:            fmt.Sprintf("failed to parse cash top-up amount: %v", err),
-				}
+			amount, err := parseDecimalField("Total Amount", row.TotalAmount, cleanAmountString(row.TotalAmount), "cash top-up amount")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithAmount(amount, row.Currency).AsCredit()
 		}
 
 		builder = builder.WithDescription("Cash top-up to investment account").
@@ -290,17 +256,11 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 
 		// Handle other transaction types
 		if row.TotalAmount != "" {
-			amountStr := cleanAmountString(row.TotalAmount)
-			if amount, err := decimal.NewFromString(amountStr); err == nil {
-				builder = builder.WithAmount(amount, row.Currency).AsDebit()
-			} else {
-				return models.Transaction{}, &parsererror.DataExtractionError{
-					FilePath:       "(from reader)",
-					FieldName:      "Total Amount",
-					RawDataSnippet: row.TotalAmount,
-					Msg:            fmt.Sprintf("failed to parse amount: %v", err),
-				}
+			amount, err := parseDecimalField("Total Amount", row.TotalAmount, cleanAmountString(row.TotalAmount), "amount")
+			if err != nil {
+				return models.Transaction{}, err
 			}
+			builder = builder.WithAmount(amount, row.Currency).AsDebit()
 		}
 
 		builder = builder.WithDescription(fmt.Sprintf("%s transaction for %s", row.Type, row.Ticker)).
@@ -314,6 +274,21 @@ func convertRowToTransaction(row RevolutInvestmentCSVRow, logger logging.Logger)
 	}
 
 	return transaction, nil
+}
+
+// parseDecimalField parses one numeric column, or reports which one failed.
+// raw is kept in the error for diagnosis; cleaned is what gets parsed.
+func parseDecimalField(field, raw, cleaned, what string) (decimal.Decimal, error) {
+	value, err := decimal.NewFromString(cleaned)
+	if err != nil {
+		return decimal.Zero, &parsererror.DataExtractionError{
+			FilePath:       "(from reader)",
+			FieldName:      field,
+			RawDataSnippet: raw,
+			Msg:            fmt.Sprintf("failed to parse %s: %v", what, err),
+		}
+	}
+	return value, nil
 }
 
 // cleanAmountString removes currency symbols and codes from amount strings.
