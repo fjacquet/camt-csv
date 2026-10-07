@@ -10,19 +10,12 @@ import (
 	"fjacquet/camt-csv/internal/formatter"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
-
-	"github.com/gocarina/gocsv"
 )
 
 // Note: Removed global logger in favor of dependency injection
 
 // Delimiter is the CSV delimiter used for output (immutable, use config for customization)
 const Delimiter = models.DefaultCSVDelimiter
-
-func init() {
-	// Configure gocsv with the standard delimiter
-	gocsv.TagSeparator = string(Delimiter)
-}
 
 // WriteTransactionsToCSVWithFormatter writes transactions to a CSV file using a custom formatter.
 // This function enables format-specific output (standard CSV, iCompta, etc.) through the
