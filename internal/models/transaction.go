@@ -90,20 +90,6 @@ func (t *Transaction) GetCounterparty() string {
 	return t.Payer
 }
 
-// GetAmountAsDecimal returns the Amount as a decimal.Decimal for precise calculations
-// This is the recommended way to access the Amount field for financial calculations
-
-// GetAmountAsDecimal returns the Amount as a decimal.Decimal for precise calculations
-// This is the recommended way to access the Amount field for financial calculations
-func (t *Transaction) GetAmountAsDecimal() decimal.Decimal {
-	return t.Amount
-}
-
-// SetAmountFromDecimal sets the Amount field from a decimal.Decimal value
-func (t *Transaction) SetAmountFromDecimal(amount decimal.Decimal) {
-	t.Amount = amount
-}
-
 // GetOriginalAmountAsDecimal returns the OriginalAmount as a decimal.Decimal
 func (t *Transaction) GetOriginalAmountAsDecimal() decimal.Decimal {
 	return t.OriginalAmount
@@ -117,11 +103,6 @@ func (t *Transaction) GetExchangeRateAsDecimal() decimal.Decimal {
 // GetFeesAsDecimal returns the transaction fees as a decimal.Decimal
 func (t *Transaction) GetFeesAsDecimal() decimal.Decimal {
 	return t.Fees
-}
-
-// SetFeesFromDecimal sets the transaction fees from a decimal.Decimal value
-func (t *Transaction) SetFeesFromDecimal(fees decimal.Decimal) {
-	t.Fees = fees
 }
 
 // IsDebit returns true if the transaction is a debit (outgoing money)

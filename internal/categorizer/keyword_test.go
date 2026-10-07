@@ -228,65 +228,6 @@ func TestKeywordStrategy_Categorize(t *testing.T) {
 	}
 }
 
-func TestKeywordStrategy_ReloadCategories(t *testing.T) {
-	// Create mock store with initial categories
-	mockStore := &store.MockCategoryStore{
-		Categories: []models.CategoryConfig{
-			{
-				Name:     "Initial Category",
-				Keywords: []string{"INITIAL"},
-			},
-		},
-	}
-
-	// Create mock logger
-	mockLogger := &logging.MockLogger{}
-
-	// Create strategy
-	strategy := NewKeywordStrategy(mockStore.Categories, mockStore, mockLogger)
-
-	// Verify initial category works
-	ctx := context.Background()
-	transaction := Transaction{
-		PartyName: "INITIAL Store",
-		IsDebtor:  false,
-		Info:      "Purchase",
-	}
-
-	category, found, err := strategy.Categorize(ctx, transaction)
-	require.NoError(t, err)
-	assert.True(t, found)
-	assert.Equal(t, "Initial Category", category.Name)
-
-	// Update the mock store with new categories
-	mockStore.Categories = []models.CategoryConfig{
-		{
-			Name:     "Updated Category",
-			Keywords: []string{"UPDATED"},
-		},
-	}
-
-	// Reload categories
-	strategy.ReloadCategories()
-
-	// Verify old category no longer works
-	category, found, err = strategy.Categorize(ctx, transaction)
-	require.NoError(t, err)
-	assert.False(t, found) // Should not find with old keyword
-
-	// Verify new category works
-	transaction = Transaction{
-		PartyName: "UPDATED Store",
-		IsDebtor:  false,
-		Info:      "Purchase",
-	}
-
-	category, found, err = strategy.Categorize(ctx, transaction)
-	require.NoError(t, err)
-	assert.True(t, found)
-	assert.Equal(t, "Updated Category", category.Name)
-}
-
 // A keyword is a word, not a fragment: "ai" must not fire inside "SAINT", nor
 // "rc" inside "ARRCO", which filed supermarkets under Pension and Assurances.
 func TestKeywordStrategy_MatchesWholeWordsOnly(t *testing.T) {

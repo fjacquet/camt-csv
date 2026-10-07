@@ -649,8 +649,8 @@ func TestTransaction_BackwardCompatibilityMethods(t *testing.T) {
 	})
 
 	t.Run("Decimal accessor methods", func(t *testing.T) {
-		assert.True(t, decimal.NewFromFloat(-100.50).Equal(debitTx.GetAmountAsDecimal()), "debit amount should be negative")
-		assert.True(t, decimal.NewFromFloat(200.75).Equal(creditTx.GetAmountAsDecimal()))
+		assert.True(t, decimal.NewFromFloat(-100.50).Equal(debitTx.Amount), "debit amount should be negative")
+		assert.True(t, decimal.NewFromFloat(200.75).Equal(creditTx.Amount))
 	})
 }
 
@@ -750,7 +750,7 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 		}
 
 		// Verify precision is maintained
-		assert.True(t, preciseAmount.Equal(tx.GetAmountAsDecimal()))
+		assert.True(t, preciseAmount.Equal(tx.Amount))
 
 		// Verify decimal precision is maintained exactly
 		assert.True(t, preciseAmount.Equal(tx.Amount))
@@ -764,7 +764,7 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 			Currency: "CHF",
 		}
 
-		assert.True(t, largeAmount.Equal(tx.GetAmountAsDecimal()))
+		assert.True(t, largeAmount.Equal(tx.Amount))
 	})
 
 	t.Run("small number handling", func(t *testing.T) {
@@ -775,7 +775,7 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 			Currency: "CHF",
 		}
 
-		assert.True(t, smallAmount.Equal(tx.GetAmountAsDecimal()))
+		assert.True(t, smallAmount.Equal(tx.Amount))
 	})
 
 	t.Run("zero amount handling", func(t *testing.T) {
@@ -784,7 +784,7 @@ func TestTransaction_FinancialCalculationAccuracy(t *testing.T) {
 			Currency: "CHF",
 		}
 
-		assert.True(t, decimal.Zero.Equal(tx.GetAmountAsDecimal()))
+		assert.True(t, decimal.Zero.Equal(tx.Amount))
 	})
 }
 

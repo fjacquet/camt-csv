@@ -377,11 +377,7 @@ func categoryDescriptionFromName(name string) string {
 // rather than adding abstraction overhead for minimal code reuse benefit.
 // Each method is small (~10 lines) and self-contained.
 
-// UpdateDebitorCategory updates a debitor category mapping for this categorizer instance.
-func (c *Categorizer) UpdateDebitorCategory(partyName, categoryName string) {
-	c.updateDebitorCategory(partyName, categoryName)
-}
-
+// updateDebitorCategory updates a debitor category mapping for this categorizer instance.
 func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()
@@ -418,11 +414,7 @@ func (c *Categorizer) SaveDebitorsToYAML() error {
 	return nil
 }
 
-// UpdateCreditorCategory updates a creditor category mapping for this categorizer instance.
-func (c *Categorizer) UpdateCreditorCategory(partyName, categoryName string) {
-	c.updateCreditorCategory(partyName, categoryName)
-}
-
+// updateCreditorCategory updates a creditor category mapping for this categorizer instance.
 func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.configMutex.Lock()
 	defer c.configMutex.Unlock()

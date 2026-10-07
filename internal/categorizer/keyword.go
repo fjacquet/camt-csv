@@ -14,15 +14,13 @@ import (
 // from category configuration loaded from YAML files.
 type KeywordStrategy struct {
 	categories []models.CategoryConfig
-	store      CategoryStoreInterface
 	logger     logging.Logger
 }
 
 // NewKeywordStrategy creates a new KeywordStrategy instance.
-func NewKeywordStrategy(categories []models.CategoryConfig, store CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
+func NewKeywordStrategy(categories []models.CategoryConfig, _ CategoryStoreInterface, logger logging.Logger) *KeywordStrategy {
 	strategy := &KeywordStrategy{
 		categories: categories,
-		store:      store,
 		logger:     logger,
 	}
 
@@ -106,21 +104,4 @@ func containsWord(haystack, needle string) bool {
 // decoders return at either end of a string counts as a boundary.
 func isWordRune(r rune) bool {
 	return r != utf8.RuneError && (unicode.IsLetter(r) || unicode.IsDigit(r))
-}
-
-// loadCategories loads category configurations from the store.
-func (s *KeywordStrategy) loadCategories() {
-	categories, err := s.store.LoadCategories()
-	if err != nil {
-		s.logger.WithError(err).Warn("Failed to load categories for KeywordStrategy")
-	} else {
-		s.categories = categories
-		s.logger.WithField("count", len(categories)).Debug("Loaded categories for KeywordStrategy")
-	}
-}
-
-// ReloadCategories reloads the categories from the store.
-// This can be called when the underlying YAML files have been updated.
-func (s *KeywordStrategy) ReloadCategories() {
-	s.loadCategories()
 }

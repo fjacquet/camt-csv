@@ -34,37 +34,6 @@ func (m *MockAIClient) GetEmbedding(ctx context.Context, text string) ([]float32
 	return []float32{0.0, 0.0}, nil
 }
 
-func TestCategorizer_UpdateMethods(t *testing.T) {
-	// Create mock store and logger
-	testStore := &store.CategoryStore{
-		CategoriesFile: "testdata/categories.yaml",
-		CreditorsFile:  "testdata/creditors.yaml",
-		DebtorsFile:    "testdata/debtors.yaml",
-	}
-	testLogger := logging.NewLogrusAdapter("debug", "text")
-
-	// Create categorizer
-	cat := NewCategorizer(nil, nil, testStore, testLogger, true, 0.70)
-
-	// Test UpdateDebitorCategory
-	cat.UpdateDebitorCategory("TestDebitor", "TestCategory")
-
-	// Verify the mapping was added
-	transaction := Transaction{PartyName: "TestDebitor", IsDebtor: true}
-	category, err := cat.CategorizeTransaction(context.Background(), transaction)
-	require.NoError(t, err)
-	assert.Equal(t, "TestCategory", category.Name)
-
-	// Test UpdateCreditorCategory
-	cat.UpdateCreditorCategory("TestCreditor", "TestCategory2")
-
-	// Verify the mapping was added
-	transaction = Transaction{PartyName: "TestCreditor", IsDebtor: false}
-	category, err = cat.CategorizeTransaction(context.Background(), transaction)
-	require.NoError(t, err)
-	assert.Equal(t, "TestCategory2", category.Name)
-}
-
 func TestCategorizer_DependencyInjection(t *testing.T) {
 	// Create mock store and logger
 	testStore := &store.CategoryStore{

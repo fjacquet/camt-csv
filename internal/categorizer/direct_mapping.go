@@ -14,17 +14,15 @@ import (
 type DirectMappingStrategy struct {
 	creditorMappings map[string]string // Maps creditor names to categories
 	debtorMappings   map[string]string // Maps debtor names to categories
-	store            CategoryStoreInterface
 	logger           logging.Logger
 	mu               sync.RWMutex // Protects the mappings
 }
 
 // NewDirectMappingStrategy creates a new DirectMappingStrategy instance.
-func NewDirectMappingStrategy(creditorMappings, debtorMappings map[string]string, store CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
+func NewDirectMappingStrategy(creditorMappings, debtorMappings map[string]string, _ CategoryStoreInterface, logger logging.Logger) *DirectMappingStrategy {
 	strategy := &DirectMappingStrategy{
 		creditorMappings: creditorMappings,
 		debtorMappings:   debtorMappings,
-		store:            store,
 		logger:           logger,
 	}
 
@@ -101,47 +99,6 @@ func (s *DirectMappingStrategy) Categorize(ctx context.Context, tx Transaction) 
 	}
 
 	return category, true, nil
-}
-
-// ReloadMappings reloads the mappings from the store.
-// This can be called when the underlying YAML files have been updated.
-func (s *DirectMappingStrategy) ReloadMappings() {
-	// Load data from store FIRST (outside lock)
-	creditorMappings, creditorErr := s.store.LoadCreditorMappings()
-	if creditorErr != nil {
-		s.logger.WithError(creditorErr).Warn("Failed to load creditor mappings during reload")
-	}
-
-	debtorMappings, debtorErr := s.store.LoadDebtorMappings()
-	if debtorErr != nil {
-		s.logger.WithError(debtorErr).Warn("Failed to load debtor mappings during reload")
-	}
-
-	// Build new maps with normalized keys (outside lock)
-	newCreditorMappings := make(map[string]string, 100)
-	if creditorErr == nil {
-		for key, value := range creditorMappings {
-			newCreditorMappings[strings.ToLower(key)] = value
-		}
-	}
-
-	newDebtorMappings := make(map[string]string, 100)
-	if debtorErr == nil {
-		for key, value := range debtorMappings {
-			newDebtorMappings[strings.ToLower(key)] = value
-		}
-	}
-
-	// Atomic swap under lock (very brief critical section)
-	s.mu.Lock()
-	s.creditorMappings = newCreditorMappings
-	s.debtorMappings = newDebtorMappings
-	s.mu.Unlock()
-
-	s.logger.WithFields(
-		logging.Field{Key: "creditor_count", Value: len(newCreditorMappings)},
-		logging.Field{Key: "debtor_count", Value: len(newDebtorMappings)},
-	).Debug("Reloaded mappings for DirectMappingStrategy")
 }
 
 // UpdateCreditorMapping adds or updates a creditor mapping.
