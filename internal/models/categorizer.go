@@ -63,3 +63,19 @@ type DebtorsConfig struct {
 type PayeesConfig struct {
 	Payees map[string]string `yaml:"payees"`
 }
+
+// CategorizeRequest is one transaction's categorization inputs, the same
+// values Categorize takes as separate arguments.
+type CategorizeRequest struct {
+	PartyName string
+	IsDebtor  bool
+	Amount    string
+	Date      string
+	Info      string
+}
+
+// BatchCategorizer categorizes many transactions at once, so an AI tier can be
+// asked about many parties per request. Results are in request order.
+type BatchCategorizer interface {
+	CategorizeBatch(ctx context.Context, requests []CategorizeRequest) ([]Category, error)
+}

@@ -2,11 +2,13 @@ package categorizer
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"fjacquet/camt-csv/internal/models"
+	"fjacquet/camt-csv/internal/store"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -48,4 +50,117 @@ func TestBuildCategorizationPrompt_UnchangedByPreambleSplit(t *testing.T) {
 	require.NoError(t, err)
 	tx := models.Transaction{PartyName: "Migros", Description: "Achat 100%", Amount: decimal.RequireFromString("-12.50")}
 	assert.Equal(t, string(golden), buildCategorizationPrompt(tx))
+}
+
+// batchingAI implements AIClient and BatchAIClient; it can drop parties or
+// return garbage to exercise the fallbacks.
+type batchingAI struct {
+	countingAI
+	batchCalls int
+	drop       map[string]bool
+	garbage    bool
+}
+
+func (b *batchingAI) CategorizeBatch(_ context.Context, txs []models.Transaction) (map[string]string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.batchCalls++
+	if b.garbage {
+		return nil, fmt.Errorf("invalid JSON in batch answer")
+	}
+	out := map[string]string{}
+	for _, tx := range txs {
+		key := strings.ToLower(strings.TrimSpace(tx.PartyName))
+		if !b.drop[key] {
+			out[key] = b.answers[key]
+		}
+	}
+	return out, nil
+}
+
+func batchRequests(parties ...string) []models.CategorizeRequest {
+	reqs := make([]models.CategorizeRequest, 0, len(parties))
+	for _, p := range parties {
+		reqs = append(reqs, models.CategorizeRequest{PartyName: p, IsDebtor: true, Amount: "-1", Date: "2026-01-01"})
+	}
+	return reqs
+}
+
+func newBatchCategorizer(t *testing.T, ai *batchingAI) *Categorizer {
+	t.Helper()
+	st := &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Courses", Keywords: []string{"MIGROS"}}, {Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}
+	c := NewCategorizer(ai, nil, st, testLogger(), false, 0.70)
+	t.Cleanup(c.Shutdown)
+	return c
+}
+
+func TestCategorizeBatch_SixtyPartiesThreeCalls(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{}}}
+	parties := make([]string, 60)
+	for i := range parties {
+		parties[i] = fmt.Sprintf("Shop %02d", i)
+		ai.answers[strings.ToLower(parties[i])] = "Abonnements"
+	}
+	c := newBatchCategorizer(t, ai)
+
+	got, err := c.CategorizeBatch(context.Background(), batchRequests(parties...))
+	require.NoError(t, err)
+	require.Len(t, got, 60)
+	assert.Equal(t, 3, ai.batchCalls)
+	assert.Zero(t, ai.callCount(), "no single calls when every party is answered")
+	assert.Equal(t, "Abonnements", got[59].Name)
+}
+
+func TestCategorizeBatch_LocalTiersAndCacheBeforeAI(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"kiro": "Abonnements"}}}
+	c := newBatchCategorizer(t, ai)
+
+	got, err := c.CategorizeBatch(context.Background(), batchRequests("MIGROS Lausanne", "Kiro", "kiro ", "   "))
+	require.NoError(t, err)
+	assert.Equal(t, "Courses", got[0].Name, "keyword tier")
+	assert.Equal(t, "Abonnements", got[1].Name)
+	assert.Equal(t, "Abonnements", got[2].Name, "same party, one AI question")
+	assert.Equal(t, models.CategoryUncategorized, got[3].Name, "blank party never reaches the AI")
+	assert.Equal(t, 1, ai.batchCalls)
+}
+
+func TestCategorizeBatch_SamePartyBothDirectionsAreSeparate(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"twint": "Abonnements"}}}
+	c := newBatchCategorizer(t, ai)
+	reqs := []models.CategorizeRequest{
+		{PartyName: "Twint", IsDebtor: true},
+		{PartyName: "Twint", IsDebtor: false},
+	}
+
+	got, err := c.CategorizeBatch(context.Background(), reqs)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, 2, ai.batchCalls, "debtor and creditor are asked separately")
+}
+
+func TestCategorizeBatch_MissingPartyFallsBackToSingleCall(t *testing.T) {
+	ai := &batchingAI{
+		countingAI: countingAI{answers: map[string]string{"kiro": "Abonnements", "ifolor": "Abonnements"}},
+		drop:       map[string]bool{"ifolor": true},
+	}
+	c := newBatchCategorizer(t, ai)
+
+	got, err := c.CategorizeBatch(context.Background(), batchRequests("Kiro", "Ifolor"))
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got[1].Name)
+	assert.Equal(t, 1, ai.callCount(), "only the missing party gets a single call")
+}
+
+func TestCategorizeBatch_GarbageFallsBackForWholeChunk(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"kiro": "Abonnements", "ifolor": "Abonnements"}}, garbage: true}
+	c := newBatchCategorizer(t, ai)
+
+	got, err := c.CategorizeBatch(context.Background(), batchRequests("Kiro", "Ifolor"))
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got[0].Name)
+	assert.Equal(t, 2, ai.callCount())
 }
