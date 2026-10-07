@@ -423,3 +423,29 @@ func TestProcessTransactionsWithCategorizationStats_PropagatesContext(t *testing
 	assert.Equal(t, "Groceries", result[0].Category)
 	mockCat.AssertExpectations(t)
 }
+
+func TestDefaultPartyName_FallsBackToDescription(t *testing.T) {
+	tx := models.Transaction{Description: "PMT CARTE RATP", CreditDebit: models.TransactionTypeDebit}
+	assert.Equal(t, "PMT CARTE RATP", DefaultPartyName(tx))
+
+	tx.Payee = "RATP"
+	assert.Equal(t, "RATP", DefaultPartyName(tx), "a real party wins over the description")
+}
+
+func TestProcessTransactionsWithPartyName_UsesGivenFunction(t *testing.T) {
+	m := new(MockCategorizer)
+	m.On("Categorize", mock.Anything, "CLEANED", false, "10", "2026-04-15", "desc").
+		Return(models.Category{Name: "Courses"}, nil)
+	tx := models.Transaction{
+		PartyName:   "RAW",
+		Description: "desc",
+		Amount:      decimal.NewFromInt(10),
+		Date:        time.Date(2026, 4, 15, 0, 0, 0, 0, time.UTC),
+	}
+
+	out, err := ProcessTransactionsWithPartyName(context.Background(), []models.Transaction{tx}, nil, m, "Test",
+		func(models.Transaction) string { return "CLEANED" })
+	require.NoError(t, err)
+	assert.Equal(t, "Courses", out[0].Category)
+	m.AssertExpectations(t)
+}

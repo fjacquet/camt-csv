@@ -287,11 +287,10 @@ func TestProcessTransactionsWithCategorizationStats_EmptyPartyNameWithCategorize
 	txs := []models.Transaction{
 		{
 			Date:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-			Description: "No party at all",
 			Amount:      decimal.NewFromFloat(42.00),
 			Currency:    "CHF",
 			CreditDebit: models.TransactionTypeCredit,
-			// All party name fields empty: Payee, Payer, PartyName, Name, Recipient
+			// All party name fields and the description empty (the description is the last fallback)
 		},
 	}
 
