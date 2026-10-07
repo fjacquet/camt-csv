@@ -51,11 +51,16 @@ type Categorizer struct {
 	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
 
 	// Staging store for AI suggestions when auto-learn is disabled (nil = no staging)
-	stagingStore StagingStoreInterface
+	stagingStore           StagingStoreInterface
+	pendingStagedCreditors map[string]string
+	pendingStagedDebtors   map[string]string
+	stagingMu              sync.Mutex
 
 	// In-batch deduplication cache: avoids re-categorizing the same party name within a single run
 	batchCache   map[string]models.Category
 	batchCacheMu sync.RWMutex
+
+	knownCategories map[string]string // lowercased name -> canonical name from categories.yaml
 }
 
 // Note: log variable removed as part of dependency injection refactoring
@@ -75,17 +80,19 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 	}
 
 	c := &Categorizer{
-		categories:         make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
-		creditorMappings:   make(map[string]string, 100),         // Pre-allocate with size hint
-		debitorMappings:    make(map[string]string, 100),         // Pre-allocate with size hint
-		configMutex:        sync.RWMutex{},
-		isDirtyCreditors:   false,
-		isDirtyDebitors:    false,
-		store:              store,
-		logger:             logger,
-		aiClient:           chatClient,
-		isAutoLearnEnabled: autoLearnEnabled,
-		batchCache:         make(map[string]models.Category, 256),
+		categories:             make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		creditorMappings:       make(map[string]string, 100),         // Pre-allocate with size hint
+		debitorMappings:        make(map[string]string, 100),         // Pre-allocate with size hint
+		configMutex:            sync.RWMutex{},
+		isDirtyCreditors:       false,
+		isDirtyDebitors:        false,
+		store:                  store,
+		logger:                 logger,
+		aiClient:               chatClient,
+		isAutoLearnEnabled:     autoLearnEnabled,
+		batchCache:             make(map[string]models.Category, 256),
+		pendingStagedCreditors: make(map[string]string),
+		pendingStagedDebtors:   make(map[string]string),
 	}
 
 	// Load categories from YAML
@@ -94,6 +101,13 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 		c.logger.WithError(err).Warn("Failed to load categories")
 	} else {
 		c.categories = categories
+	}
+	c.knownCategories = make(map[string]string, len(c.categories))
+	for _, cat := range c.categories {
+		c.knownCategories[strings.ToLower(strings.TrimSpace(cat.Name))] = cat.Name
+	}
+	if len(c.knownCategories) == 0 && chatClient != nil {
+		c.logger.Warn("No categories loaded from categories.yaml; AI answers will not be validated")
 	}
 
 	// Load creditor mappings
@@ -244,53 +258,34 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 	}
 
 	category, err := c.categorizeTransaction(ctx, transaction)
-
-	// Auto-learn: if we successfully found a category AND auto-learning is enabled,
-	// save it to the database so we don't need to recategorize similar transactions in the future
-	if err == nil && c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		if isDebtor {
-			c.logger.WithFields(
-				logging.Field{Key: "party", Value: partyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning debitor mapping")
-			c.updateDebitorCategory(partyName, category.Name)
-			if saveErr := c.SaveDebitorsToYAML(); saveErr != nil {
-				c.logger.WithError(saveErr).Warn("Failed to save debitor mapping")
-			}
-		} else {
-			c.logger.WithFields(
-				logging.Field{Key: "party", Value: partyName},
-				logging.Field{Key: "category", Value: category.Name},
-				logging.Field{Key: "confidence", Value: category.Confidence},
-				logging.Field{Key: "source", Value: category.Source},
-				logging.Field{Key: "action", Value: "auto_learn_pending"},
-			).Info("Auto-learning creditor mapping")
-			c.updateCreditorCategory(partyName, category.Name)
-			if saveErr := c.SaveCreditorsToYAML(); saveErr != nil {
-				c.logger.WithError(saveErr).Warn("Failed to save creditor mapping")
-			}
-		}
-	} else if err == nil && !c.isAutoLearnEnabled && category.Name != "" && category.Name != models.CategoryUncategorized {
-		// Log that auto-learning is disabled but categorization succeeded
-		c.logger.WithFields(
-			logging.Field{Key: "party", Value: partyName},
-			logging.Field{Key: "category", Value: category.Name},
-			logging.Field{Key: "action", Value: "skip_auto_learn"},
-			logging.Field{Key: "reason", Value: "auto_learn_disabled"},
-		).Debug("Categorization found but auto-learning disabled")
-		// Save to staging file instead of discarding
-		c.saveStagingSuggestion(partyName, isDebtor, category.Name)
-	} else {
-		// Log when categorization is skipped (uncategorized or empty)
-		if err == nil && (category.Name == "" || category.Name == models.CategoryUncategorized) {
-			c.logger.WithField("party", partyName).Debug("No categorization found, skipping auto-learn")
-		}
+	if err == nil {
+		c.recordLearning(partyName, isDebtor, category)
 	}
-
 	return category, err
+}
+
+// recordLearning keeps what the AI taught us. Only AI answers are worth
+// keeping: direct and keyword hits are already in the YAML files. With
+// auto-learn on, the mapping is updated in memory and saved once when the
+// command ends (cmd/root finalize); with it off, the answer is staged.
+func (c *Categorizer) recordLearning(partyName string, isDebtor bool, category models.Category) {
+	if category.Source != "ai" || category.Name == "" || category.Name == models.CategoryUncategorized {
+		return
+	}
+	if !c.isAutoLearnEnabled {
+		c.saveStagingSuggestion(partyName, isDebtor, category.Name)
+		return
+	}
+	c.logger.WithFields(
+		logging.Field{Key: "party", Value: partyName},
+		logging.Field{Key: "category", Value: category.Name},
+		logging.Field{Key: "debtor", Value: isDebtor},
+	).Info("Auto-learning mapping from AI")
+	if isDebtor {
+		c.updateDebitorCategory(partyName, category.Name)
+	} else {
+		c.updateCreditorCategory(partyName, category.Name)
+	}
 }
 
 // private method for the Categorizer struct
@@ -304,9 +299,9 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 	}
 
 	// Check in-batch deduplication cache
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(strings.TrimSpace(transaction.PartyName)), transaction.IsDebtor)
+	key := cacheKey(transaction.PartyName, transaction.IsDebtor)
 	c.batchCacheMu.RLock()
-	if cached, ok := c.batchCache[cacheKey]; ok {
+	if cached, ok := c.batchCache[key]; ok {
 		c.batchCacheMu.RUnlock()
 		c.logger.WithFields(
 			logging.Field{Key: "party", Value: transaction.PartyName},
@@ -333,17 +328,27 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		}
 
 		if found {
+			if category.Source == "ai" {
+				canonical, ok := c.canonicalAICategory(category.Name)
+				if !ok {
+					c.logger.WithFields(
+						logging.Field{Key: "party", Value: transaction.PartyName},
+						logging.Field{Key: "answer", Value: category.Name},
+					).Warn("Rejected AI category not in categories.yaml")
+					category = models.Category{Name: models.CategoryUncategorized, Source: "ai"}
+				} else {
+					category.Name = canonical
+				}
+			}
 			c.logger.WithFields(
 				logging.Field{Key: "strategy", Value: strategy.Name()},
 				logging.Field{Key: "party", Value: transaction.PartyName},
 				logging.Field{Key: "category", Value: category.Name},
 			).Debug("Transaction categorized successfully")
-			// Store in batch cache for deduplication (skip uncategorized results)
-			if category.Name != "" && category.Name != models.CategoryUncategorized {
-				c.batchCacheMu.Lock()
-				c.batchCache[cacheKey] = category
-				c.batchCacheMu.Unlock()
-			}
+			// Store in batch cache for deduplication
+			c.batchCacheMu.Lock()
+			c.batchCache[key] = category
+			c.batchCacheMu.Unlock()
 			return category, nil
 		}
 
@@ -358,10 +363,33 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		logging.Field{Key: "party", Value: transaction.PartyName},
 	).Debug("No strategy could categorize transaction, returning uncategorized")
 
-	return models.Category{
+	uncategorized := models.Category{
 		Name:        models.CategoryUncategorized,
 		Description: "No categorization strategy succeeded",
-	}, nil
+	}
+	c.batchCacheMu.Lock()
+	c.batchCache[key] = uncategorized
+	c.batchCacheMu.Unlock()
+	return uncategorized, nil
+}
+
+// canonicalAICategory accepts an AI answer only if it names a category from
+// categories.yaml, returning that category's own spelling. A model can be
+// steered by transaction text into answering anything, and an accepted answer
+// is written to the CSV and possibly learned for good. With no categories
+// loaded there is nothing to check against, so the answer is kept.
+func (c *Categorizer) canonicalAICategory(name string) (string, bool) {
+	if len(c.knownCategories) == 0 {
+		return name, true
+	}
+	canonical, ok := c.knownCategories[strings.ToLower(strings.TrimSpace(name))]
+	return canonical, ok
+}
+
+// cacheKey is the one normalization used for the in-run cache, so lookups,
+// stores and invalidations always agree.
+func cacheKey(partyName string, isDebtor bool) string {
+	return fmt.Sprintf("%s|%v", strings.ToLower(strings.TrimSpace(partyName)), isDebtor)
 }
 
 func categoryDescriptionFromName(name string) string {
@@ -394,9 +422,8 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	}
 
 	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), true)
 	c.batchCacheMu.Lock()
-	delete(c.batchCache, cacheKey)
+	delete(c.batchCache, cacheKey(partyName, true))
 	c.batchCacheMu.Unlock()
 }
 
@@ -431,46 +458,92 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	}
 
 	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), false)
 	c.batchCacheMu.Lock()
-	delete(c.batchCache, cacheKey)
+	delete(c.batchCache, cacheKey(partyName, false))
 	c.batchCacheMu.Unlock()
 }
 
-// SetStagingStore configures the staging store for accumulating AI categorization
-// suggestions when auto-learn is disabled. Pass nil to disable staging.
+// SetStagingStore wires the staging files: their suggestions become the
+// staged tier (after direct and keyword), and new AI answers are buffered
+// for FlushStaging.
 func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 	c.stagingStore = staging
+	creditors, debtors, err := staging.LoadSuggestions()
+	if err != nil {
+		c.logger.WithError(err).Warn("Failed to load staged suggestions")
+		return
+	}
+	staged := NewStagedStrategy(c.validStaged(creditors), c.validStaged(debtors), c.logger)
+	for i, strategy := range c.strategies {
+		if _, ok := strategy.(*KeywordStrategy); ok {
+			c.strategies = append(c.strategies[:i+1], append([]CategorizationStrategy{staged}, c.strategies[i+1:]...)...)
+			return
+		}
+	}
+	c.strategies = append([]CategorizationStrategy{staged}, c.strategies...)
 }
 
-// saveStagingSuggestion writes an AI categorization to the staging store if configured.
-// Errors are logged but never propagated — staging must not break categorization.
+// validStaged normalizes keys (lowercase, trimmed) and keeps only entries whose
+// category passes the same check as AI answers, storing the canonical spelling.
+func (c *Categorizer) validStaged(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for party, category := range in {
+		canonical, ok := c.canonicalAICategory(category)
+		if !ok {
+			c.logger.WithFields(
+				logging.Field{Key: "party", Value: party},
+				logging.Field{Key: "category", Value: category},
+			).Warn("Dropped staged suggestion not in categories.yaml")
+			continue
+		}
+		out[strings.ToLower(strings.TrimSpace(party))] = canonical
+	}
+	return out
+}
+
 func (c *Categorizer) saveStagingSuggestion(partyName string, isDebtor bool, categoryName string) {
 	if c.stagingStore == nil {
 		return
 	}
-
-	var err error
+	c.stagingMu.Lock()
+	defer c.stagingMu.Unlock()
 	if isDebtor {
-		err = c.stagingStore.AppendDebtorSuggestion(partyName, categoryName)
+		c.pendingStagedDebtors[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	} else {
-		err = c.stagingStore.AppendCreditorSuggestion(partyName, categoryName)
+		c.pendingStagedCreditors[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	}
+}
 
-	if err != nil {
-		c.logger.WithFields(
-			logging.Field{Key: "party", Value: partyName},
-			logging.Field{Key: "category", Value: categoryName},
-			logging.Field{Key: "error", Value: err.Error()},
-		).Warn("Failed to save staging suggestion")
-		return
+// FlushStaging writes the run's AI suggestions to the staging files in one
+// merge. It is safe to call more than once.
+func (c *Categorizer) FlushStaging() error {
+	if c.stagingStore == nil {
+		return nil
 	}
-
-	c.logger.WithFields(
-		logging.Field{Key: "party", Value: partyName},
-		logging.Field{Key: "category", Value: categoryName},
-		logging.Field{Key: "action", Value: "staging_save"},
-	).Debug("Saved suggestion to staging")
+	c.stagingMu.Lock()
+	creditors, debtors := c.pendingStagedCreditors, c.pendingStagedDebtors
+	c.pendingStagedCreditors, c.pendingStagedDebtors = map[string]string{}, map[string]string{}
+	c.stagingMu.Unlock()
+	if len(creditors) == 0 && len(debtors) == 0 {
+		return nil
+	}
+	if err := c.stagingStore.MergeSuggestions(creditors, debtors); err != nil {
+		// Put the batch back so a later flush retries it; newer entries win.
+		c.stagingMu.Lock()
+		for k, v := range creditors {
+			if _, newer := c.pendingStagedCreditors[k]; !newer {
+				c.pendingStagedCreditors[k] = v
+			}
+		}
+		for k, v := range debtors {
+			if _, newer := c.pendingStagedDebtors[k]; !newer {
+				c.pendingStagedDebtors[k] = v
+			}
+		}
+		c.stagingMu.Unlock()
+		return err
+	}
+	return nil
 }
 
 // SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.

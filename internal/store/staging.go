@@ -37,48 +37,56 @@ func NewStagingStore(creditorsFile, debtorsFile string) *StagingStore {
 	}
 }
 
-// AppendCreditorSuggestion adds or updates a creditor suggestion in the staging file.
-func (s *StagingStore) AppendCreditorSuggestion(partyName, categoryName string) error {
+// LoadSuggestions reads both staging files. A missing or corrupt file reads
+// as empty: staging is a convenience, never a reason to stop a run.
+func (s *StagingStore) LoadSuggestions() (map[string]string, map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.appendSuggestion(s.creditorsFile, partyName, categoryName)
+	return s.read(s.creditorsFile), s.read(s.debtorsFile), nil
 }
 
-// AppendDebtorSuggestion adds or updates a debtor suggestion in the staging file.
-func (s *StagingStore) AppendDebtorSuggestion(partyName, categoryName string) error {
+// MergeSuggestions adds suggestions to the staging files, keeping what is
+// already there, with one read and one write per file.
+func (s *StagingStore) MergeSuggestions(creditors, debtors map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.appendSuggestion(s.debtorsFile, partyName, categoryName)
-}
-
-// appendSuggestion reads the existing staging file, updates the map, and writes it back.
-func (s *StagingStore) appendSuggestion(filePath, partyName, categoryName string) error {
-	resolvedPath := s.resolvePath(filePath)
-
-	mappings := make(map[string]string)
-	if data, err := os.ReadFile(resolvedPath); err == nil { // #nosec G304 -- path constructed internally
-		if yamlErr := yaml.Unmarshal(data, &mappings); yamlErr != nil {
-			// Corrupt file — start fresh rather than failing
-			mappings = make(map[string]string)
-		}
+	if err := s.merge(s.creditorsFile, creditors); err != nil {
+		return err
 	}
+	return s.merge(s.debtorsFile, debtors)
+}
 
-	mappings[strings.ToLower(partyName)] = categoryName
+func (s *StagingStore) read(filePath string) map[string]string {
+	mappings := make(map[string]string)
+	data, err := os.ReadFile(s.resolvePath(filePath)) // #nosec G304 -- path constructed internally
+	if err != nil {
+		return mappings
+	}
+	if yaml.Unmarshal(data, &mappings) != nil {
+		return make(map[string]string)
+	}
+	return mappings
+}
 
-	dir := filepath.Dir(resolvedPath)
-	if err := os.MkdirAll(dir, models.PermissionDirectory); err != nil {
+func (s *StagingStore) merge(filePath string, suggestions map[string]string) error {
+	if len(suggestions) == 0 {
+		return nil
+	}
+	mappings := s.read(filePath)
+	for party, category := range suggestions {
+		mappings[strings.ToLower(strings.TrimSpace(party))] = category
+	}
+	resolvedPath := s.resolvePath(filePath)
+	if err := os.MkdirAll(filepath.Dir(resolvedPath), models.PermissionDirectory); err != nil {
 		return fmt.Errorf("error creating staging directory: %w", err)
 	}
-
 	data, err := yaml.Marshal(mappings)
 	if err != nil {
 		return fmt.Errorf("error marshaling staging suggestions: %w", err)
 	}
-
 	if err := os.WriteFile(resolvedPath, data, models.PermissionNonSecretFile); err != nil {
 		return fmt.Errorf("error writing staging file %s: %w", resolvedPath, err)
 	}
-
 	return nil
 }
 

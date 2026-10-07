@@ -32,7 +32,7 @@ func TestStagingStore_AppendCreditorSuggestion(t *testing.T) {
 	s := NewStagingStore(credFile, debFile)
 
 	t.Run("creates file and adds entry", func(t *testing.T) {
-		err := s.AppendCreditorSuggestion("Starbucks", "Restaurants")
+		err := s.MergeSuggestions(map[string]string{"Starbucks": "Restaurants"}, nil)
 		require.NoError(t, err)
 
 		mappings := readYAMLMap(t, credFile)
@@ -40,7 +40,7 @@ func TestStagingStore_AppendCreditorSuggestion(t *testing.T) {
 	})
 
 	t.Run("appends to existing file", func(t *testing.T) {
-		err := s.AppendCreditorSuggestion("Amazon", "Shopping")
+		err := s.MergeSuggestions(map[string]string{"Amazon": "Shopping"}, nil)
 		require.NoError(t, err)
 
 		mappings := readYAMLMap(t, credFile)
@@ -49,7 +49,7 @@ func TestStagingStore_AppendCreditorSuggestion(t *testing.T) {
 	})
 
 	t.Run("overwrites existing entry", func(t *testing.T) {
-		err := s.AppendCreditorSuggestion("Amazon", "Electronics")
+		err := s.MergeSuggestions(map[string]string{"Amazon": "Electronics"}, nil)
 		require.NoError(t, err)
 
 		mappings := readYAMLMap(t, credFile)
@@ -57,7 +57,7 @@ func TestStagingStore_AppendCreditorSuggestion(t *testing.T) {
 	})
 
 	t.Run("normalizes key to lowercase", func(t *testing.T) {
-		err := s.AppendCreditorSuggestion("MIGROS", "Groceries")
+		err := s.MergeSuggestions(map[string]string{"MIGROS": "Groceries"}, nil)
 		require.NoError(t, err)
 
 		mappings := readYAMLMap(t, credFile)
@@ -71,7 +71,7 @@ func TestStagingStore_AppendDebtorSuggestion(t *testing.T) {
 	debFile := filepath.Join(tmpDir, "staging_debtors.yaml")
 	s := NewStagingStore(credFile, debFile)
 
-	err := s.AppendDebtorSuggestion("Employer SA", "Salary")
+	err := s.MergeSuggestions(nil, map[string]string{"Employer SA": "Salary"})
 	require.NoError(t, err)
 
 	mappings := readYAMLMap(t, debFile)
@@ -88,7 +88,7 @@ func TestStagingStore_CorruptFile(t *testing.T) {
 	require.NoError(t, err)
 
 	s := NewStagingStore(credFile, debFile)
-	err = s.AppendCreditorSuggestion("Test", "TestCat")
+	err = s.MergeSuggestions(map[string]string{"Test": "TestCat"}, nil)
 	require.NoError(t, err)
 
 	mappings := readYAMLMap(t, credFile)
@@ -107,7 +107,7 @@ func TestStagingStore_ConcurrentAccess(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			party := "party" + string(rune('a'+idx%26))
-			_ = s.AppendCreditorSuggestion(party, "Category")
+			_ = s.MergeSuggestions(map[string]string{party: "Category"}, nil)
 		}(i)
 	}
 	wg.Wait()
@@ -140,4 +140,29 @@ func readYAMLMap(t *testing.T, path string) map[string]string {
 	var mappings map[string]string
 	require.NoError(t, yaml.Unmarshal(data, &mappings))
 	return mappings
+}
+
+func TestStagingStore_MergeKeepsExistingAndLoadReadsBoth(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStagingStore(filepath.Join(dir, "sc.yaml"), filepath.Join(dir, "sd.yaml"))
+
+	require.NoError(t, s.MergeSuggestions(map[string]string{"employer": "Salaire"}, map[string]string{"kiro": "Abonnements"}))
+	require.NoError(t, s.MergeSuggestions(nil, map[string]string{"Ifolor": "Loisirs"}))
+
+	creditors, debtors, err := s.LoadSuggestions()
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"employer": "Salaire"}, creditors)
+	assert.Equal(t, map[string]string{"kiro": "Abonnements", "ifolor": "Loisirs"}, debtors)
+}
+
+func TestStagingStore_LoadMissingOrCorruptIsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	corrupt := filepath.Join(dir, "sd.yaml")
+	require.NoError(t, os.WriteFile(corrupt, []byte(":\n- not a map"), 0o600))
+	s := NewStagingStore(filepath.Join(dir, "missing.yaml"), corrupt)
+
+	creditors, debtors, err := s.LoadSuggestions()
+	require.NoError(t, err)
+	assert.Empty(t, creditors)
+	assert.Empty(t, debtors)
 }
