@@ -86,6 +86,9 @@ func (s *SemanticStrategy) startWarmup() {
 // It is safe to call on a strategy that never started one, and safe to call
 // more than once.
 func (s *SemanticStrategy) Shutdown() {
+	// Burn the Once so a lookup after Shutdown cannot start a warm-up nobody
+	// would cancel.
+	s.warmupOnce.Do(func() {})
 	s.mu.RLock()
 	cancel, done := s.cancelWarmup, s.warmupDone
 	s.mu.RUnlock()
@@ -111,10 +114,12 @@ func (s *SemanticStrategy) Categorize(ctx context.Context, tx Transaction) (mode
 	s.mu.RLock()
 	done := s.warmupDone
 	s.mu.RUnlock()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		return models.Category{}, false, ctx.Err()
+	if done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return models.Category{}, false, ctx.Err()
+		}
 	}
 
 	s.mu.RLock()

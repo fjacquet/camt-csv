@@ -261,7 +261,7 @@ func TestSemanticStrategy_PartialCacheOnlyEmbedsMissing(t *testing.T) {
 	<-lookupAsync(s)
 
 	// Three missing categories, plus the one embedding of the lookup's own text.
-	assert.Equal(t, 4, embedder.callCount(), "only the three missing categories may be embedded")
+	assert.Equal(t, 4, embedder.callCount(), "the three missing categories plus the lookup's own text")
 	assert.Len(t, s.categoryEmbeddings, 5)
 	assert.True(t, s.initialized)
 }
@@ -285,13 +285,35 @@ func TestCategorizer_ShutdownIsIdempotent(t *testing.T) {
 // tier 3 (everything matched earlier) should cost nothing. The first lookup
 // starts the warm-up and waits for it.
 func TestSemanticStrategy_WarmupIsLazy(t *testing.T) {
-	emb := &countingEmbedder{}
-	s := NewSemanticStrategyWithCache(emb, testLogger(), []models.CategoryConfig{{Name: "Courses"}}, 0.7, nil)
-	t.Cleanup(s.Shutdown)
-	assert.Zero(t, emb.callCount(), "building the strategy embeds nothing")
+	cats := []models.CategoryConfig{{Name: "Courses"}}
 
+	// Eager code would start embedding at construction; a blocked embedder
+	// makes any such call visible instead of racing with the assertion.
+	blocked := &countingEmbedder{release: make(chan struct{})}
+	eager := NewSemanticStrategyWithCache(blocked, testLogger(), cats, 0.7, nil)
+	t.Cleanup(eager.Shutdown)
+	assert.Nil(t, eager.warmupDone, "constructor must not start the warm-up")
+	assert.Never(t, func() bool { return blocked.callCount() > 0 },
+		50*time.Millisecond, 5*time.Millisecond, "building the strategy embeds nothing")
+
+	emb := &countingEmbedder{}
+	s := NewSemanticStrategyWithCache(emb, testLogger(), cats, 0.7, nil)
+	t.Cleanup(s.Shutdown)
 	_, _, _ = s.Categorize(context.Background(), Transaction{PartyName: "Migros"})
 	assert.NotZero(t, emb.callCount(), "the first lookup warms up and waits for it")
+}
+
+// After Shutdown no lookup may start a warm-up nobody will cancel.
+func TestSemanticStrategy_NoWarmupAfterShutdown(t *testing.T) {
+	emb := &countingEmbedder{}
+	s := NewSemanticStrategyWithCache(emb, testLogger(), manyCategories(2), 0.70, nil)
+	s.Shutdown()
+
+	_, found, err := s.Categorize(context.Background(), Transaction{PartyName: "Migros"})
+
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Zero(t, emb.callCount())
 }
 
 // A lookup blocked on the warm-up must give up when its context is cancelled.
