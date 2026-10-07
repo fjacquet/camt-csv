@@ -51,7 +51,10 @@ type Categorizer struct {
 	isAutoLearnEnabled bool // Controls whether AI categorizations are saved to YAML
 
 	// Staging store for AI suggestions when auto-learn is disabled (nil = no staging)
-	stagingStore StagingStoreInterface
+	stagingStore           StagingStoreInterface
+	pendingStagedCreditors map[string]string
+	pendingStagedDebtors   map[string]string
+	stagingMu              sync.Mutex
 
 	// In-batch deduplication cache: avoids re-categorizing the same party name within a single run
 	batchCache   map[string]models.Category
@@ -77,17 +80,19 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 	}
 
 	c := &Categorizer{
-		categories:         make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
-		creditorMappings:   make(map[string]string, 100),         // Pre-allocate with size hint
-		debitorMappings:    make(map[string]string, 100),         // Pre-allocate with size hint
-		configMutex:        sync.RWMutex{},
-		isDirtyCreditors:   false,
-		isDirtyDebitors:    false,
-		store:              store,
-		logger:             logger,
-		aiClient:           chatClient,
-		isAutoLearnEnabled: autoLearnEnabled,
-		batchCache:         make(map[string]models.Category, 256),
+		categories:             make([]models.CategoryConfig, 0, 50), // Pre-allocate with reasonable capacity
+		creditorMappings:       make(map[string]string, 100),         // Pre-allocate with size hint
+		debitorMappings:        make(map[string]string, 100),         // Pre-allocate with size hint
+		configMutex:            sync.RWMutex{},
+		isDirtyCreditors:       false,
+		isDirtyDebitors:        false,
+		store:                  store,
+		logger:                 logger,
+		aiClient:               chatClient,
+		isAutoLearnEnabled:     autoLearnEnabled,
+		batchCache:             make(map[string]models.Category, 256),
+		pendingStagedCreditors: make(map[string]string),
+		pendingStagedDebtors:   make(map[string]string),
 	}
 
 	// Load categories from YAML
@@ -455,40 +460,53 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	c.batchCacheMu.Unlock()
 }
 
-// SetStagingStore configures the staging store for accumulating AI categorization
-// suggestions when auto-learn is disabled. Pass nil to disable staging.
+// SetStagingStore wires the staging files: their suggestions become the
+// staged tier (after direct and keyword), and new AI answers are buffered
+// for FlushStaging.
 func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 	c.stagingStore = staging
+	creditors, debtors, err := staging.LoadSuggestions()
+	if err != nil {
+		c.logger.WithError(err).Warn("Failed to load staged suggestions")
+		return
+	}
+	staged := NewStagedStrategy(creditors, debtors, c.logger)
+	for i, strategy := range c.strategies {
+		if _, ok := strategy.(*KeywordStrategy); ok {
+			c.strategies = append(c.strategies[:i+1], append([]CategorizationStrategy{staged}, c.strategies[i+1:]...)...)
+			return
+		}
+	}
+	c.strategies = append([]CategorizationStrategy{staged}, c.strategies...)
 }
 
-// saveStagingSuggestion writes an AI categorization to the staging store if configured.
-// Errors are logged but never propagated — staging must not break categorization.
 func (c *Categorizer) saveStagingSuggestion(partyName string, isDebtor bool, categoryName string) {
 	if c.stagingStore == nil {
 		return
 	}
-
-	var err error
+	c.stagingMu.Lock()
+	defer c.stagingMu.Unlock()
 	if isDebtor {
-		err = c.stagingStore.AppendDebtorSuggestion(partyName, categoryName)
+		c.pendingStagedDebtors[strings.ToLower(partyName)] = categoryName
 	} else {
-		err = c.stagingStore.AppendCreditorSuggestion(partyName, categoryName)
+		c.pendingStagedCreditors[strings.ToLower(partyName)] = categoryName
 	}
+}
 
-	if err != nil {
-		c.logger.WithFields(
-			logging.Field{Key: "party", Value: partyName},
-			logging.Field{Key: "category", Value: categoryName},
-			logging.Field{Key: "error", Value: err.Error()},
-		).Warn("Failed to save staging suggestion")
-		return
+// FlushStaging writes the run's AI suggestions to the staging files in one
+// merge. It is safe to call more than once.
+func (c *Categorizer) FlushStaging() error {
+	if c.stagingStore == nil {
+		return nil
 	}
-
-	c.logger.WithFields(
-		logging.Field{Key: "party", Value: partyName},
-		logging.Field{Key: "category", Value: categoryName},
-		logging.Field{Key: "action", Value: "staging_save"},
-	).Debug("Saved suggestion to staging")
+	c.stagingMu.Lock()
+	creditors, debtors := c.pendingStagedCreditors, c.pendingStagedDebtors
+	c.pendingStagedCreditors, c.pendingStagedDebtors = map[string]string{}, map[string]string{}
+	c.stagingMu.Unlock()
+	if len(creditors) == 0 && len(debtors) == 0 {
+		return nil
+	}
+	return c.stagingStore.MergeSuggestions(creditors, debtors)
 }
 
 // SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.

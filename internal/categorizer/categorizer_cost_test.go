@@ -2,6 +2,7 @@ package categorizer
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -129,4 +130,100 @@ func TestCategorize_NoCategoriesLoadedSkipsValidation(t *testing.T) {
 	got, err := c.Categorize(context.Background(), "Kiro", true, "-1", "2026-01-01", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Abonnements", got.Name, "an empty categories.yaml must not reject every answer")
+}
+
+// memStaging is an in-memory StagingStoreInterface that counts merges.
+type memStaging struct {
+	creditors, debtors map[string]string
+	merges             int
+}
+
+func (m *memStaging) LoadSuggestions() (map[string]string, map[string]string, error) {
+	return m.creditors, m.debtors, nil
+}
+
+func (m *memStaging) MergeSuggestions(cr, db map[string]string) error {
+	m.merges++
+	for k, v := range cr {
+		m.creditors[strings.ToLower(k)] = v
+	}
+	for k, v := range db {
+		m.debtors[strings.ToLower(k)] = v
+	}
+	return nil
+}
+
+func TestCategorize_StagedSuggestionsAnswerTheNextRun(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{}}
+	ctx := context.Background()
+
+	// Run 1: the AI answers; the suggestion is staged once, at the end.
+	ai1 := &countingAI{answers: map[string]string{"kiro": "Abonnements"}}
+	c1, _ := newCostCategorizer(t, ai1, false)
+	c1.SetStagingStore(staging)
+	_, _ = c1.Categorize(ctx, "Kiro", true, "-19", "2026-01-01", "")
+	_, _ = c1.Categorize(ctx, "MIGROS Lausanne", true, "-5", "2026-01-01", "")
+	assert.Zero(t, staging.merges, "nothing written during the run")
+	require.NoError(t, c1.FlushStaging())
+	assert.Equal(t, 1, staging.merges)
+	assert.Equal(t, map[string]string{"kiro": "Abonnements"}, staging.debtors, "only AI answers are staged")
+
+	// Run 2: a fresh categorizer finds Kiro in staging and never calls the AI.
+	ai2 := &countingAI{answers: map[string]string{}}
+	c2, _ := newCostCategorizer(t, ai2, false)
+	c2.SetStagingStore(staging)
+	got, err := c2.Categorize(ctx, "KIRO", true, "-19", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name)
+	assert.Equal(t, "staged", got.Source)
+	assert.Zero(t, ai2.callCount())
+}
+
+type failingAI struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (f *failingAI) Categorize(context.Context, models.Transaction) (models.Transaction, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	return models.Transaction{}, fmt.Errorf("status 429")
+}
+
+func (f *failingAI) GetEmbedding(context.Context, string) ([]float32, error) { return nil, nil }
+
+func TestCategorize_AIErrorIsCachedForTheRun(t *testing.T) {
+	ai := &failingAI{}
+	c := NewCategorizer(ai, nil, &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Courses"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}, testLogger(), false, 0.70)
+	t.Cleanup(c.Shutdown)
+
+	for i := 0; i < 3; i++ {
+		got, err := c.Categorize(context.Background(), "Flaky Shop", true, "-10", "2026-01-01", "")
+		require.NoError(t, err)
+		assert.Equal(t, models.CategoryUncategorized, got.Name)
+	}
+	assert.Equal(t, 1, ai.calls, "a failing AI is not retried for the same party")
+}
+
+func TestCategorize_RejectedAnswerIsCachedAndNeverStaged(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{}}
+	ai := &countingAI{answers: map[string]string{"evil": `=HYPERLINK("http://x")`}}
+	c, _ := newCostCategorizer(t, ai, false)
+	c.SetStagingStore(staging)
+
+	for _, name := range []string{"evil", "Evil"} {
+		got, err := c.Categorize(context.Background(), name, true, "-10", "2026-01-01", "")
+		require.NoError(t, err)
+		assert.Equal(t, models.CategoryUncategorized, got.Name)
+	}
+	assert.Equal(t, 1, ai.callCount())
+	require.NoError(t, c.FlushStaging())
+	assert.Zero(t, staging.merges)
+	assert.Empty(t, staging.debtors)
+	assert.Empty(t, staging.creditors)
 }

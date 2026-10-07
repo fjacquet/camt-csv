@@ -155,6 +155,10 @@ func finalize() {
 		Log.WithError(err).Warn("Failed to save debitor mappings")
 	}
 
+	if err := categorizerInstance.FlushStaging(); err != nil {
+		Log.WithError(err).Warn("Failed to save staged AI suggestions")
+	}
+
 	// Stop any embedding warm-up still running so it does not keep
 	// issuing API calls while the command is shutting down.
 	AppContainer.Close()
