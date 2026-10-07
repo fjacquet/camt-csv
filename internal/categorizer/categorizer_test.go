@@ -136,7 +136,7 @@ func TestCategorizer_CategorizeTransaction(t *testing.T) {
 				Info:        "Random expense",
 				Description: "Random expense",
 			},
-			expectedCategory: "Uncategorized (AI)", // From mock AI
+			expectedCategory: models.CategoryUncategorized, // mock AI answer is not a known category
 			expectError:      false,
 		},
 		{
@@ -180,7 +180,8 @@ func TestCategorizer_StrategyPatternIntegration(t *testing.T) {
   - name: "Transport"
     keywords: ["bus", "train", "taxi", "transport"]
   - name: "Shopping"
-    keywords: ["shop", "store", "mall"]`
+    keywords: ["shop", "store", "mall"]
+  - name: "AI_Category"`
 
 	categoriesFile := filepath.Join(tempDir, "categories.yaml")
 	err := os.WriteFile(categoriesFile, []byte(categoriesContent), 0600)

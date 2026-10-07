@@ -56,6 +56,8 @@ type Categorizer struct {
 	// In-batch deduplication cache: avoids re-categorizing the same party name within a single run
 	batchCache   map[string]models.Category
 	batchCacheMu sync.RWMutex
+
+	knownCategories map[string]string // lowercased name -> canonical name from categories.yaml
 }
 
 // Note: log variable removed as part of dependency injection refactoring
@@ -94,6 +96,10 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 		c.logger.WithError(err).Warn("Failed to load categories")
 	} else {
 		c.categories = categories
+	}
+	c.knownCategories = make(map[string]string, len(c.categories))
+	for _, cat := range c.categories {
+		c.knownCategories[strings.ToLower(strings.TrimSpace(cat.Name))] = cat.Name
 	}
 
 	// Load creditor mappings
@@ -314,6 +320,18 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		}
 
 		if found {
+			if category.Source == "ai" {
+				canonical, ok := c.canonicalAICategory(category.Name)
+				if !ok {
+					c.logger.WithFields(
+						logging.Field{Key: "party", Value: transaction.PartyName},
+						logging.Field{Key: "answer", Value: category.Name},
+					).Warn("Rejected AI category not in categories.yaml")
+					category = models.Category{Name: models.CategoryUncategorized, Source: "ai"}
+				} else {
+					category.Name = canonical
+				}
+			}
 			c.logger.WithFields(
 				logging.Field{Key: "strategy", Value: strategy.Name()},
 				logging.Field{Key: "party", Value: transaction.PartyName},
@@ -345,6 +363,19 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 	c.batchCache[key] = uncategorized
 	c.batchCacheMu.Unlock()
 	return uncategorized, nil
+}
+
+// canonicalAICategory accepts an AI answer only if it names a category from
+// categories.yaml, returning that category's own spelling. A model can be
+// steered by transaction text into answering anything, and an accepted answer
+// is written to the CSV and possibly learned for good. With no categories
+// loaded there is nothing to check against, so the answer is kept.
+func (c *Categorizer) canonicalAICategory(name string) (string, bool) {
+	if len(c.knownCategories) == 0 {
+		return name, true
+	}
+	canonical, ok := c.knownCategories[strings.ToLower(strings.TrimSpace(name))]
+	return canonical, ok
 }
 
 // cacheKey is the one normalization used for the in-run cache, so lookups,

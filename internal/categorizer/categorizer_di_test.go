@@ -22,8 +22,8 @@ func (m *MockAIClient) Categorize(ctx context.Context, transaction models.Transa
 	if m.CategorizeFunc != nil {
 		return m.CategorizeFunc(ctx, transaction)
 	}
-	// Default behavior: return transaction with a mock category
-	transaction.Category = "MockCategory"
+	// Default behavior: return a category that exists in testdata/categories.yaml
+	transaction.Category = "Food"
 	return transaction, nil
 }
 
@@ -65,5 +65,5 @@ func TestCategorizer_DependencyInjection(t *testing.T) {
 	// Second categorizer should use AI
 	category2, err := cat2.CategorizeTransaction(context.Background(), transaction)
 	require.NoError(t, err)
-	assert.Equal(t, "MockCategory", category2.Name)
+	assert.Equal(t, "Food", category2.Name)
 }

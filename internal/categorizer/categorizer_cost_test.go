@@ -102,3 +102,31 @@ func TestCategorize_AutoLearnOnlyFromAIAndNoSavePerTransaction(t *testing.T) {
 	assert.Equal(t, "Abonnements", saved["kiro"], "AI answers are learned")
 	assert.NotContains(t, saved, "migros lausanne", "keyword hits are not learned")
 }
+
+func TestCategorize_AIAnswerMustBeAKnownCategory(t *testing.T) {
+	ai := &countingAI{answers: map[string]string{
+		"evil":  `=HYPERLINK("http://x")`,
+		"lunch": "restaurants", // wrong case, still known
+	}}
+	c, _ := newCostCategorizer(t, ai, false)
+	ctx := context.Background()
+
+	got, err := c.Categorize(ctx, "Evil", true, "-1", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, models.CategoryUncategorized, got.Name)
+
+	got, err = c.Categorize(ctx, "Lunch", true, "-1", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Restaurants", got.Name, "canonical spelling from categories.yaml")
+}
+
+func TestCategorize_NoCategoriesLoadedSkipsValidation(t *testing.T) {
+	ai := &countingAI{answers: map[string]string{"kiro": "Abonnements"}}
+	st := &store.MockCategoryStore{CreditorMappings: map[string]string{}, DebtorMappings: map[string]string{}}
+	c := NewCategorizer(ai, nil, st, testLogger(), false, 0.70)
+	t.Cleanup(c.Shutdown)
+
+	got, err := c.Categorize(context.Background(), "Kiro", true, "-1", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name, "an empty categories.yaml must not reject every answer")
+}
