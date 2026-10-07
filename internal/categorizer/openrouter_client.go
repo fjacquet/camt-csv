@@ -21,14 +21,14 @@ import (
 //
 // Everything except the HTTP call itself lives in baseAIClient; see the
 // security notes there, which apply to this client too.
-var _ BatchAIClient = (*OpenRouterClient)(nil)
-
 type OpenRouterClient struct {
 	baseAIClient
 	model      string
 	baseURL    string
 	httpClient *http.Client
 }
+
+var _ BatchAIClient = (*OpenRouterClient)(nil)
 
 // OpenRouterRequest represents the request structure for OpenRouter (OpenAI-compatible) API
 type OpenRouterRequest struct {

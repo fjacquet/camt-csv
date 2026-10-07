@@ -24,14 +24,14 @@ import (
 // notes there. One extra rule applies here: Gemini takes its credential as a
 // URL query parameter, so Gemini URLs contain the API key and MUST NOT be
 // logged or embedded in error messages.
-var _ BatchAIClient = (*GeminiClient)(nil)
-
 type GeminiClient struct {
 	baseAIClient
 	model      string
 	baseURL    string
 	httpClient *http.Client
 }
+
+var _ BatchAIClient = (*GeminiClient)(nil)
 
 // GeminiRequest represents the request structure for Gemini API
 type GeminiRequest struct {
