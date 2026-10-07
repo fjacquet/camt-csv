@@ -34,6 +34,9 @@ type SemanticStrategy struct {
 
 	// Warm-up lifecycle. cancelWarmup stops the background embedding warm-up;
 	// warmupDone closes once it has returned. Both are nil when no warm-up ran.
+	// The warm-up starts on the first Categorize call, so a run that never
+	// reaches tier 3 spends no embedding calls.
+	warmupOnce   sync.Once
 	cancelWarmup context.CancelFunc
 	warmupDone   chan struct{}
 }
@@ -57,33 +60,40 @@ func NewSemanticStrategyWithCache(client AIClient, logger logging.Logger, catego
 		categories:         categories,
 	}
 
-	// Warm the category embeddings in the background so startup is not blocked.
-	// The context is owned by this strategy rather than being Background(), so
-	// Shutdown can stop an in-flight warm-up instead of leaving it hammering
-	// the embedding API while the process is trying to exit.
-	if client != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		s.cancelWarmup = cancel
-		s.warmupDone = make(chan struct{})
-
-		go func() {
-			defer close(s.warmupDone)
-			s.initializeEmbeddings(ctx, categories)
-		}()
-	}
-
 	return s
+}
+
+// startWarmup embeds the categories in the background, once. The context is
+// owned by this strategy rather than being Background(), so Shutdown can stop
+// an in-flight warm-up instead of leaving it hammering the embedding API while
+// the process is trying to exit.
+func (s *SemanticStrategy) startWarmup() {
+	s.warmupOnce.Do(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		s.mu.Lock()
+		s.cancelWarmup = cancel
+		s.warmupDone = done
+		s.mu.Unlock()
+		go func() {
+			defer close(done)
+			s.initializeEmbeddings(ctx, s.categories)
+		}()
+	})
 }
 
 // Shutdown cancels any in-flight embedding warm-up and waits for it to stop.
 // It is safe to call on a strategy that never started one, and safe to call
 // more than once.
 func (s *SemanticStrategy) Shutdown() {
-	if s.cancelWarmup == nil {
+	s.mu.RLock()
+	cancel, done := s.cancelWarmup, s.warmupDone
+	s.mu.RUnlock()
+	if cancel == nil {
 		return
 	}
-	s.cancelWarmup()
-	<-s.warmupDone
+	cancel()
+	<-done
 }
 
 // Name returns the name of the strategy.
@@ -95,6 +105,16 @@ func (s *SemanticStrategy) Name() string {
 func (s *SemanticStrategy) Categorize(ctx context.Context, tx Transaction) (models.Category, bool, error) {
 	if s.client == nil {
 		return models.Category{}, false, nil
+	}
+
+	s.startWarmup()
+	s.mu.RLock()
+	done := s.warmupDone
+	s.mu.RUnlock()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return models.Category{}, false, ctx.Err()
 	}
 
 	s.mu.RLock()

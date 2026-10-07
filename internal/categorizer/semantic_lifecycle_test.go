@@ -49,6 +49,18 @@ func (c *countingEmbedder) callCount() int {
 	return c.calls
 }
 
+// lookupAsync issues the first semantic lookup, which starts the warm-up and
+// waits for it, in the background so a test can observe the warm-up in flight.
+// The returned channel closes when the lookup has returned.
+func lookupAsync(s *SemanticStrategy) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _, _ = s.Categorize(context.Background(), Transaction{PartyName: "Coop"})
+	}()
+	return done
+}
+
 // newLifecycleStore returns a store with a few categories so the warm-up has
 // something to do.
 func newLifecycleStore() *store.MockCategoryStore {
@@ -107,6 +119,15 @@ func TestNewCategorizer_UsesDistinctChatAndEmbeddingClients(t *testing.T) {
 	c := NewCategorizer(chat, embedder, newLifecycleStore(), testLogger(), false, 0.70)
 	t.Cleanup(c.Shutdown)
 
+	var semantic *SemanticStrategy
+	for _, st := range c.strategies {
+		if sem, ok := st.(*SemanticStrategy); ok {
+			semantic = sem
+		}
+	}
+	require.NotNil(t, semantic)
+	lookupAsync(semantic) // warm-up starts on first use
+
 	require.Eventually(t, func() bool { return embedder.callCount() > 0 },
 		2*time.Second, 5*time.Millisecond,
 		"the embedding client must warm the semantic tier")
@@ -120,6 +141,7 @@ func TestSemanticStrategy_ShutdownCancelsWarmup(t *testing.T) {
 	embedder := &countingEmbedder{release: make(chan struct{})}
 
 	s := NewSemanticStrategyWithCache(embedder, testLogger(), manyCategories(500), 0.70, nil)
+	lookup := lookupAsync(s)
 
 	// Let the warm-up reach its first blocking call.
 	require.Eventually(t, func() bool { return embedder.callCount() > 0 },
@@ -137,6 +159,11 @@ func TestSemanticStrategy_ShutdownCancelsWarmup(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Shutdown did not return: the warm-up is not cancellable")
 	}
+	select {
+	case <-lookup:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the lookup waiting on the warm-up did not return after Shutdown")
+	}
 
 	assert.Less(t, embedder.callCount(), 500, "warm-up must stop early, not embed every category")
 }
@@ -148,6 +175,7 @@ func TestSemanticStrategy_ShutdownDuringWarmupDoesNotWarn(t *testing.T) {
 	logger := logging.NewMockLogger()
 
 	s := NewSemanticStrategyWithCache(embedder, logger, manyCategories(5), 0.70, nil)
+	lookupAsync(s)
 	require.Eventually(t, func() bool { return embedder.callCount() > 0 },
 		2*time.Second, 5*time.Millisecond, "warm-up should be blocked in a call")
 
@@ -168,7 +196,7 @@ func TestSemanticStrategy_WarmupProviderFailureStillWarns(t *testing.T) {
 	logger := logging.NewMockLogger()
 
 	s := NewSemanticStrategyWithCache(&failingEmbedder{}, logger, manyCategories(2), 0.70, nil)
-	<-s.warmupDone
+	<-lookupAsync(s)
 
 	assert.True(t, logger.HasEntry("WARN", "Failed to generate embedding for category"))
 }
@@ -209,6 +237,7 @@ func TestSemanticStrategy_ShutdownSavesPartialCache(t *testing.T) {
 	embedder := &gatedEmbedder{allow: 2}
 
 	s := NewSemanticStrategyWithCache(embedder, testLogger(), cats, 0.70, cache)
+	lookupAsync(s)
 	require.Eventually(t, func() bool { return embedder.callCount() > 2 },
 		2*time.Second, 5*time.Millisecond, "warm-up should be blocked on the third category")
 	s.Shutdown()
@@ -229,9 +258,10 @@ func TestSemanticStrategy_PartialCacheOnlyEmbedsMissing(t *testing.T) {
 	embedder := &countingEmbedder{}
 
 	s := NewSemanticStrategyWithCache(embedder, testLogger(), cats, 0.70, cache)
-	<-s.warmupDone
+	<-lookupAsync(s)
 
-	assert.Equal(t, 3, embedder.callCount(), "only the three missing categories may be embedded")
+	// Three missing categories, plus the one embedding of the lookup's own text.
+	assert.Equal(t, 4, embedder.callCount(), "only the three missing categories may be embedded")
 	assert.Len(t, s.categoryEmbeddings, 5)
 	assert.True(t, s.initialized)
 }
@@ -249,4 +279,31 @@ func TestCategorizer_ShutdownIsIdempotent(t *testing.T) {
 
 	assert.NotPanics(t, c.Shutdown)
 	assert.NotPanics(t, c.Shutdown)
+}
+
+// Building the strategy must not spend embedding calls: a run that never reaches
+// tier 3 (everything matched earlier) should cost nothing. The first lookup
+// starts the warm-up and waits for it.
+func TestSemanticStrategy_WarmupIsLazy(t *testing.T) {
+	emb := &countingEmbedder{}
+	s := NewSemanticStrategyWithCache(emb, testLogger(), []models.CategoryConfig{{Name: "Courses"}}, 0.7, nil)
+	t.Cleanup(s.Shutdown)
+	assert.Zero(t, emb.callCount(), "building the strategy embeds nothing")
+
+	_, _, _ = s.Categorize(context.Background(), Transaction{PartyName: "Migros"})
+	assert.NotZero(t, emb.callCount(), "the first lookup warms up and waits for it")
+}
+
+// A lookup blocked on the warm-up must give up when its context is cancelled.
+func TestSemanticStrategy_CategorizeWaitHonorsContext(t *testing.T) {
+	emb := &countingEmbedder{release: make(chan struct{})} // never released
+	s := NewSemanticStrategyWithCache(emb, testLogger(), manyCategories(2), 0.70, nil)
+	t.Cleanup(s.Shutdown)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, found, err := s.Categorize(ctx, Transaction{PartyName: "Migros"})
+
+	assert.False(t, found)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
