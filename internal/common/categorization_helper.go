@@ -138,6 +138,12 @@ func ProcessTransactionsWithPartyName(
 		}
 	}
 
+	// The categorizer may swallow a cancelled AI call and return a result, so
+	// a cancellation landing on the last transaction is only visible here.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// Log summary statistics
 	stats.LogSummary(logger, parserType)
 

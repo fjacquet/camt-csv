@@ -469,3 +469,20 @@ func TestProcessTransactions_DebitLikeTransactionSendsDescriptionAsPartyAndInfo(
 	assert.Equal(t, "Transport", out[0].Category)
 	m.AssertExpectations(t)
 }
+
+type cancellingCategorizer struct{ cancel context.CancelFunc }
+
+func (c *cancellingCategorizer) Categorize(_ context.Context, _ string, _ bool, _, _, _ string) (models.Category, error) {
+	c.cancel()
+	return models.Category{Name: models.CategoryUncategorized}, nil
+}
+
+func TestProcessTransactions_CancellationOnLastTransactionIsReported(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tx := models.Transaction{PartyName: "Shop", Amount: decimal.NewFromInt(1), Date: time.Now()}
+
+	out, err := ProcessTransactionsWithCategorizationStats(ctx, []models.Transaction{tx}, nil, &cancellingCategorizer{cancel: cancel}, "Test")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, out)
+}
