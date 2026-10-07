@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
@@ -175,32 +176,12 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 			continue
 		}
 
-		if categorizer != nil {
-			isDebtor := tx.CreditDebit == models.TransactionTypeDebit
-			catDate := ""
-			if !tx.Date.IsZero() {
-				catDate = tx.Date.Format("02.01.2006")
-			}
-			category, catErr := categorizer.Categorize(ctx, tx.PartyName, isDebtor, tx.Amount.String(), catDate, "")
-			if catErr != nil {
-				if ctxErr := ctx.Err(); ctxErr != nil {
-					// The categorizer failed because the run was cancelled, not because
-					// this transaction could not be classified. Surface the cancellation
-					// instead of quietly filing the rest as Uncategorized.
-					return nil, ctxErr
-				}
-
-				logger.WithError(catErr).Warn("Failed to categorize transaction",
-					logging.Field{Key: "party", Value: tx.PartyName})
-				tx.Category = models.CategoryUncategorized
-			} else {
-				tx.Category = category.Name
-			}
-		} else {
-			tx.Category = models.CategoryUncategorized
-		}
-
 		transactions = append(transactions, tx)
+	}
+
+	transactions, err = common.ProcessTransactionsWithCategorizationStats(ctx, transactions, logger, categorizer, "RevolutCrypto")
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Info("Successfully parsed transactions from Revolut Crypto CSV",

@@ -552,3 +552,35 @@ func TestParse_SkipsEntryThatCannotBeBuilt(t *testing.T) {
 	assert.Equal(t, "120", transactions[0].Amount.Abs().String())
 	assert.True(t, logger.HasEntry("WARN", "Skipping CAMT entry that cannot be built"))
 }
+
+type recordingCategorizer struct {
+	parties, dates, infos []string
+}
+
+func (r *recordingCategorizer) Categorize(_ context.Context, party string, _ bool, _, date, info string) (models.Category, error) {
+	r.parties = append(r.parties, party)
+	r.dates = append(r.dates, date)
+	r.infos = append(r.infos, info)
+	return models.Category{Name: "Courses"}, nil
+}
+
+func TestParse_CategorizesWithCleanedPartyAndISODate(t *testing.T) {
+	const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02"><BkToCstmrStmt><Stmt>
+<Acct><Id><IBAN>CH1700767000K54293249</IBAN></Id></Acct>
+<Ntry><Amt Ccy="CHF">12.50</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-04-15</Dt></BookgDt><ValDt><Dt>2026-04-15</Dt></ValDt>
+<AddtlNtryInf>PMT CARTE Migros Lausanne</AddtlNtryInf></Ntry>
+</Stmt></BkToCstmrStmt></Document>`
+
+	rec := &recordingCategorizer{}
+	adapter := NewAdapter(logging.NewMockLogger())
+	adapter.SetCategorizer(rec)
+	txs, err := adapter.Parse(context.Background(), strings.NewReader(doc))
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	require.Len(t, rec.parties, 1)
+	assert.NotContains(t, rec.parties[0], "PMT CARTE", "payment-method prefix is stripped before categorizing")
+	assert.Equal(t, "2026-04-15", rec.dates[0])
+	assert.Equal(t, "PMT CARTE Migros Lausanne", rec.infos[0], "the entry text is sent as context")
+	assert.Equal(t, "Courses", txs[0].Category)
+}

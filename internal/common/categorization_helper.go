@@ -3,24 +3,49 @@ package common
 
 import (
 	"context"
+	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 )
 
-// ProcessTransactionsWithCategorizationStats processes transactions with categorization
-// and tracks statistics, providing fallback behavior for failed categorization.
-//
-// Categorization can reach a remote AI provider, so ctx governs the whole run:
-// it is passed to every Categorize call and checked between transactions. If ctx
-// is cancelled the function stops and returns ctx.Err() rather than silently
-// returning a partially categorized slice.
+// DefaultPartyName picks who a transaction is with: the payee or payer, then
+// the other party fields, and finally the description, which is all some
+// formats (Visa debit exports) carry.
+func DefaultPartyName(tx models.Transaction) string {
+	for _, name := range []string{tx.GetPartyName(), tx.PartyName, tx.Name, tx.Recipient, tx.Description} {
+		if strings.TrimSpace(name) != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+// ProcessTransactionsWithCategorizationStats categorizes with DefaultPartyName.
 func ProcessTransactionsWithCategorizationStats(
 	ctx context.Context,
 	transactions []models.Transaction,
 	logger logging.Logger,
 	categorizer models.TransactionCategorizer,
 	parserType string,
+) ([]models.Transaction, error) {
+	return ProcessTransactionsWithPartyName(ctx, transactions, logger, categorizer, parserType, DefaultPartyName)
+}
+
+// ProcessTransactionsWithPartyName processes transactions with categorization
+// and tracks statistics, providing fallback behavior for failed categorization.
+//
+// Categorization can reach a remote AI provider, so ctx governs the whole run:
+// it is passed to every Categorize call and checked between transactions. If ctx
+// is cancelled the function stops and returns ctx.Err() rather than silently
+// returning a partially categorized slice.
+func ProcessTransactionsWithPartyName(
+	ctx context.Context,
+	transactions []models.Transaction,
+	logger logging.Logger,
+	categorizer models.TransactionCategorizer,
+	parserType string,
+	partyName func(models.Transaction) string,
 ) ([]models.Transaction, error) {
 	if logger == nil {
 		logger = logging.NewLogrusAdapter("info", "text")
@@ -64,30 +89,20 @@ func ProcessTransactionsWithCategorizationStats(
 		}
 
 		// Attempt categorization
-		partyName := tx.GetPartyName()
-		if partyName == "" {
-			// Fallback to other party name fields
-			if tx.PartyName != "" {
-				partyName = tx.PartyName
-			} else if tx.Name != "" {
-				partyName = tx.Name
-			} else if tx.Recipient != "" {
-				partyName = tx.Recipient
-			}
-		}
+		party := partyName(tx)
 
-		if partyName == "" {
+		if party == "" {
 			logger.Debug("No party name available for categorization",
 				logging.Field{Key: "parser_type", Value: parserType},
 				logging.Field{Key: "transaction_description", Value: tx.Description})
 			stats.IncrementUncategorized()
-			processedTransactions[i].Category = "Uncategorized"
+			processedTransactions[i].Category = models.CategoryUncategorized
 			continue
 		}
 
 		category, err := categorizer.Categorize(
 			ctx,
-			partyName,
+			party,
 			tx.IsDebit(),
 			tx.Amount.String(),
 			tx.Date.Format("2006-01-02"),
@@ -103,24 +118,30 @@ func ProcessTransactionsWithCategorizationStats(
 
 			logger.WithError(err).Warn("Categorization failed",
 				logging.Field{Key: "parser_type", Value: parserType},
-				logging.Field{Key: "party_name", Value: partyName},
+				logging.Field{Key: "party_name", Value: party},
 				logging.Field{Key: "amount", Value: tx.Amount.String()})
 			stats.IncrementFailed()
-			processedTransactions[i].Category = "Uncategorized"
-		} else if category.Name == "" || category.Name == "Uncategorized" {
+			processedTransactions[i].Category = models.CategoryUncategorized
+		} else if category.Name == "" || category.Name == models.CategoryUncategorized {
 			logger.Debug("Transaction categorized as uncategorized",
 				logging.Field{Key: "parser_type", Value: parserType},
-				logging.Field{Key: "party_name", Value: partyName})
+				logging.Field{Key: "party_name", Value: party})
 			stats.IncrementUncategorized()
-			processedTransactions[i].Category = "Uncategorized"
+			processedTransactions[i].Category = models.CategoryUncategorized
 		} else {
 			logger.Debug("Transaction categorized successfully",
 				logging.Field{Key: "parser_type", Value: parserType},
-				logging.Field{Key: "party_name", Value: partyName},
+				logging.Field{Key: "party_name", Value: party},
 				logging.Field{Key: "category", Value: category.Name})
 			stats.IncrementSuccessful()
 			processedTransactions[i].Category = category.Name
 		}
+	}
+
+	// The categorizer may swallow a cancelled AI call and return a result, so
+	// a cancellation landing on the last transaction is only visible here.
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	// Log summary statistics

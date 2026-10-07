@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"fjacquet/camt-csv/internal/dateutils"
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parser"
@@ -66,66 +66,24 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 			if !ok {
 				continue
 			}
-			transaction = a.categorizeTransaction(ctx, transaction)
-
-			// categorizeTransaction swallows categorizer errors by design, so a
-			// cancellation surfaces here rather than as a failed transaction.
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-
 			transactions = append(transactions, transaction)
 		}
 	}
 
-	return transactions, nil
+	return common.ProcessTransactionsWithPartyName(ctx, transactions, a.GetLogger(), a.GetCategorizer(), "CAMT", camtPartyName)
 }
 
-// categorizeTransaction assigns a category to a transaction using the injected
-// categorizer, falling back to Uncategorized when none is configured or the
-// lookup fails. Categorization failure is never fatal to a run.
-func (a *Adapter) categorizeTransaction(ctx context.Context, transaction models.Transaction) models.Transaction {
-	cat := a.GetCategorizer()
-	if cat == nil {
-		transaction.Category = models.CategoryUncategorized
-		return transaction
+// camtPartyName is who a CAMT entry is with: the resolved party, else the
+// entry text, without the card/transfer prefix the bank puts in front.
+func camtPartyName(tx models.Transaction) string {
+	party := tx.PartyName
+	if party == "" {
+		party = tx.Description
 	}
-
-	// Fall back through the fields most likely to name the counterparty.
-	partyName := transaction.PartyName
-	if partyName == "" {
-		if transaction.Description != "" {
-			partyName = transaction.Description
-		} else {
-			partyName = transaction.RemittanceInfo
-		}
+	if party == "" {
+		party = tx.RemittanceInfo
 	}
-	// Strip the payment channel so the categorizer sees the merchant.
-	partyName = cleanPaymentMethodPrefixes(partyName)
-
-	category, err := cat.Categorize(
-		ctx,
-		partyName,
-		transaction.CreditDebit == models.TransactionTypeDebit,
-		transaction.Amount.String(),
-		transaction.Date.Format(dateutils.DateLayoutEuropean),
-		transaction.RemittanceInfo,
-	)
-	if err != nil {
-		a.GetLogger().WithError(err).WithFields(
-			logging.Field{Key: "party", Value: partyName},
-		).Warn("Failed to categorize transaction")
-		transaction.Category = models.CategoryUncategorized
-		return transaction
-	}
-
-	transaction.Category = category.Name
-	a.GetLogger().WithFields(
-		logging.Field{Key: "party", Value: partyName},
-		logging.Field{Key: "category", Value: category.Name},
-	).Debug("Transaction categorized successfully")
-
-	return transaction
+	return cleanPaymentMethodPrefixes(party)
 }
 
 // ValidateFormat checks if a file is a valid CAMT.053 XML file.

@@ -423,3 +423,66 @@ func TestProcessTransactionsWithCategorizationStats_PropagatesContext(t *testing
 	assert.Equal(t, "Groceries", result[0].Category)
 	mockCat.AssertExpectations(t)
 }
+
+func TestDefaultPartyName_FallsBackToDescription(t *testing.T) {
+	tx := models.Transaction{Description: "PMT CARTE RATP", CreditDebit: models.TransactionTypeDebit}
+	assert.Equal(t, "PMT CARTE RATP", DefaultPartyName(tx))
+
+	tx.Payee = "RATP"
+	assert.Equal(t, "RATP", DefaultPartyName(tx), "a real party wins over the description")
+
+	blank := models.Transaction{Payee: "   ", Description: "X"}
+	assert.Equal(t, "X", DefaultPartyName(blank), "a blank party is skipped")
+	assert.Equal(t, "", DefaultPartyName(models.Transaction{Payee: "  ", Description: " "}))
+}
+
+func TestProcessTransactionsWithPartyName_UsesGivenFunction(t *testing.T) {
+	m := new(MockCategorizer)
+	m.On("Categorize", mock.Anything, "CLEANED", false, "10", "2026-04-15", "desc").
+		Return(models.Category{Name: "Courses"}, nil)
+	tx := models.Transaction{
+		PartyName:   "RAW",
+		Description: "desc",
+		Amount:      decimal.NewFromInt(10),
+		Date:        time.Date(2026, 4, 15, 0, 0, 0, 0, time.UTC),
+	}
+
+	out, err := ProcessTransactionsWithPartyName(context.Background(), []models.Transaction{tx}, nil, m, "Test",
+		func(models.Transaction) string { return "CLEANED" })
+	require.NoError(t, err)
+	assert.Equal(t, "Courses", out[0].Category)
+	m.AssertExpectations(t)
+}
+
+func TestProcessTransactions_DebitLikeTransactionSendsDescriptionAsPartyAndInfo(t *testing.T) {
+	m := new(MockCategorizer)
+	m.On("Categorize", mock.Anything, "PMT CARTE RATP", true, "5", "2025-04-15", "PMT CARTE RATP").
+		Return(models.Category{Name: "Transport"}, nil)
+	tx := models.Transaction{
+		Description: "PMT CARTE RATP",
+		CreditDebit: models.TransactionTypeDebit,
+		Amount:      decimal.NewFromInt(5),
+		Date:        time.Date(2025, 4, 15, 0, 0, 0, 0, time.UTC),
+	}
+	out, err := ProcessTransactionsWithCategorizationStats(context.Background(), []models.Transaction{tx}, nil, m, "Debit")
+	require.NoError(t, err)
+	assert.Equal(t, "Transport", out[0].Category)
+	m.AssertExpectations(t)
+}
+
+type cancellingCategorizer struct{ cancel context.CancelFunc }
+
+func (c *cancellingCategorizer) Categorize(_ context.Context, _ string, _ bool, _, _, _ string) (models.Category, error) {
+	c.cancel()
+	return models.Category{Name: models.CategoryUncategorized}, nil
+}
+
+func TestProcessTransactions_CancellationOnLastTransactionIsReported(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tx := models.Transaction{PartyName: "Shop", Amount: decimal.NewFromInt(1), Date: time.Now()}
+
+	out, err := ProcessTransactionsWithCategorizationStats(ctx, []models.Transaction{tx}, nil, &cancellingCategorizer{cancel: cancel}, "Test")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, out)
+}
