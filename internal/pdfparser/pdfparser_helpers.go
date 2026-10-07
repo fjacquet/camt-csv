@@ -78,10 +78,6 @@ func getDefaultLogger() logging.Logger {
 	return logging.NewLogrusAdapter("info", "text")
 }
 
-// extractTextFromPDF is a function variable to allow test mocking
-// Note: This is intentionally a package-level variable to support testing
-var extractTextFromPDF = extractTextFromPDFImpl
-
 func extractTextFromPDFImpl(pdfFile string) (string, error) {
 	// SECURITY: Create a temporary file with random unpredictable name to store the text output
 	// This prevents attacks that rely on predictable temp file names
@@ -140,7 +136,7 @@ func parseTransactionsWithCategorizer(ctx context.Context, lines []string, logge
 			strings.Contains(line, "Détails") && strings.Contains(line, "Monnaie") &&
 			strings.Contains(line, "Montant") {
 			isVisecaFormat = true
-			getDefaultLogger().Debug("Detected Viseca PDF format - header pattern matched")
+			logger.Debug("Detected Viseca PDF format - header pattern matched")
 			break
 		}
 

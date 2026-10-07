@@ -16,8 +16,10 @@ func TestNewAdapter_NilExtractor(t *testing.T) {
 	logger := logging.NewLogrusAdapter("info", "text")
 	adapter := NewAdapter(logger, nil)
 	require.NotNil(t, adapter)
-	// Should have created a RealPDFExtractor
-	_, ok := adapter.extractor.(*RealPDFExtractor)
+	// Should have wrapped a RealPDFExtractor in the caching extractor
+	caching, ok := adapter.extractor.(*cachingExtractor)
+	require.True(t, ok)
+	_, ok = caching.inner.(*RealPDFExtractor)
 	assert.True(t, ok)
 }
 

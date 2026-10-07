@@ -1,5 +1,11 @@
 package pdfparser
 
+import (
+	"crypto/sha256"
+	"os"
+	"sync"
+)
+
 // PDFExtractor defines the interface for extracting text from PDF files.
 // This interface allows for dependency injection and makes the PDF parser testable
 // by providing different implementations for production and testing.
@@ -20,7 +26,7 @@ func NewRealPDFExtractor() *RealPDFExtractor {
 
 // ExtractText extracts text from a PDF file using the pdftotext command.
 func (e *RealPDFExtractor) ExtractText(pdfPath string) (string, error) {
-	return extractTextFromPDF(pdfPath)
+	return extractTextFromPDFImpl(pdfPath)
 }
 
 // MockPDFExtractor implements PDFExtractor for testing purposes.
@@ -44,4 +50,39 @@ func (e *MockPDFExtractor) ExtractText(pdfPath string) (string, error) {
 		return "", e.MockErr
 	}
 	return e.MockText, nil
+}
+
+// cachingExtractor runs the inner extractor once per distinct PDF content.
+// Format detection extracts the original file, then Parse extracts a temp
+// copy of the same bytes; keying by content hash makes the second a hit.
+type cachingExtractor struct {
+	inner PDFExtractor
+	mu    sync.Mutex
+	texts map[[sha256.Size]byte]string
+}
+
+func newCachingExtractor(inner PDFExtractor) PDFExtractor {
+	return &cachingExtractor{inner: inner, texts: map[[sha256.Size]byte]string{}}
+}
+
+func (c *cachingExtractor) ExtractText(pdfPath string) (string, error) {
+	data, err := os.ReadFile(pdfPath) // #nosec G304 -- CLI tool requires user-provided file paths
+	if err != nil {
+		return c.inner.ExtractText(pdfPath)
+	}
+	sum := sha256.Sum256(data)
+	c.mu.Lock()
+	text, ok := c.texts[sum]
+	c.mu.Unlock()
+	if ok {
+		return text, nil
+	}
+	text, err = c.inner.ExtractText(pdfPath)
+	if err != nil {
+		return "", err
+	}
+	c.mu.Lock()
+	c.texts[sum] = text
+	c.mu.Unlock()
+	return text, nil
 }

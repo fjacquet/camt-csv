@@ -1062,3 +1062,32 @@ INVALID_DATE INVALID_AMOUNT Some description`
 		assert.NotNil(t, transactions)
 	})
 }
+
+// countingExtractor counts ExtractText calls and returns fixed text.
+type countingExtractor struct {
+	text  string
+	calls int
+}
+
+func (c *countingExtractor) ExtractText(string) (string, error) {
+	c.calls++
+	return c.text, nil
+}
+
+func TestCachingExtractor_SameBytesExtractedOnce(t *testing.T) {
+	dir := t.TempDir()
+	a, b := filepath.Join(dir, "a.pdf"), filepath.Join(dir, "copy.pdf")
+	require.NoError(t, os.WriteFile(a, []byte("%PDF-1.4 same"), 0o600))
+	require.NoError(t, os.WriteFile(b, []byte("%PDF-1.4 same"), 0o600))
+
+	inner := &countingExtractor{text: "hello"}
+	ex := newCachingExtractor(inner)
+
+	t1, err := ex.ExtractText(a)
+	require.NoError(t, err)
+	t2, err := ex.ExtractText(b)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", t1)
+	assert.Equal(t, t1, t2)
+	assert.Equal(t, 1, inner.calls, "a temp copy of the same PDF is not extracted twice")
+}

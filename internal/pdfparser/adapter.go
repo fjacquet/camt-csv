@@ -21,6 +21,7 @@ func NewAdapter(logger logging.Logger, extractor PDFExtractor) *Adapter {
 	if extractor == nil {
 		extractor = NewRealPDFExtractor()
 	}
+	extractor = newCachingExtractor(extractor)
 	return &Adapter{
 		BaseParser: parser.NewBaseParser(logger),
 		extractor:  extractor,
