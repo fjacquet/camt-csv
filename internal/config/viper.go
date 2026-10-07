@@ -87,10 +87,6 @@ type Config struct {
 		DebtorsFile   string `mapstructure:"debtors_file" yaml:"debtors_file"`
 	} `mapstructure:"categories" yaml:"categories"`
 
-	Constitution struct {
-		FilePaths []string `mapstructure:"file_paths" yaml:"file_paths"`
-	} `mapstructure:"constitution" yaml:"constitution"`
-
 	Output struct {
 		Format string `mapstructure:"format" yaml:"format"`
 	} `mapstructure:"output" yaml:"output"`
@@ -144,11 +140,6 @@ func InitializeConfig() (*Config, error) {
 		if err := v.BindEnv("ai.api_key", "GEMINI_API_KEY"); err != nil {
 			fmt.Printf("Warning: failed to bind GEMINI_API_KEY environment variable: %v\n", err)
 		}
-	}
-
-	// Bind constitution file paths from environment variable
-	if err := v.BindEnv("constitution.file_paths", "CAMT_CONSTITUTION_FILE_PATHS"); err != nil {
-		fmt.Printf("Warning: failed to bind CAMT_CONSTITUTION_FILE_PATHS environment variable: %v\n", err)
 	}
 
 	var config Config
@@ -216,9 +207,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("categories.file", "categories.yaml")
 	v.SetDefault("categories.creditors_file", "creditors.yaml")
 	v.SetDefault("categories.debtors_file", "debtors.yaml")
-
-	// Constitution defaults
-	v.SetDefault("constitution.file_paths", []string{})
 
 	// Output defaults
 	v.SetDefault("output.format", "icompta")
