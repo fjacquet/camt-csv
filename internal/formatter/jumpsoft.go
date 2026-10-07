@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"fjacquet/camt-csv/internal/csvsafe"
 	"fjacquet/camt-csv/internal/models"
 )
 
@@ -66,7 +67,7 @@ func (f *JumpsoftFormatter) Format(transactions []models.Transaction) ([][]strin
 			notes = tx.Description
 		}
 
-		rows = append(rows, []string{dateStr, description, amountStr, currency, category, txType, notes})
+		rows = append(rows, []string{dateStr, csvsafe.Escape(description), amountStr, currency, csvsafe.Escape(category), csvsafe.Escape(txType), csvsafe.Escape(notes)})
 	}
 
 	return rows, nil

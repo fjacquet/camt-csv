@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"fjacquet/camt-csv/internal/csvsafe"
 	"fjacquet/camt-csv/internal/models"
 )
 
@@ -25,6 +26,10 @@ func (f *StandardFormatter) Header() []string {
 	}
 }
 
+// standardTextColumns are the free-text columns of the standard layout, which
+// carry bank or merchant text a spreadsheet could evaluate as a formula.
+var standardTextColumns = []int{3, 4, 6, 7, 16, 17, 18} // Name, PartyName, Description, RemittanceInfo, Category, Type, Fund
+
 // Format converts transactions to CSV rows using the existing MarshalCSV method.
 // This preserves backward compatibility with the current output format.
 func (f *StandardFormatter) Format(transactions []models.Transaction) ([][]string, error) {
@@ -34,6 +39,9 @@ func (f *StandardFormatter) Format(transactions []models.Transaction) ([][]strin
 		row, err := tx.MarshalCSV()
 		if err != nil {
 			return nil, err
+		}
+		for _, col := range standardTextColumns {
+			row[col] = csvsafe.Escape(row[col])
 		}
 		rows = append(rows, row)
 	}
