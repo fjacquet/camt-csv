@@ -304,9 +304,9 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 	}
 
 	// Check in-batch deduplication cache
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(strings.TrimSpace(transaction.PartyName)), transaction.IsDebtor)
+	key := cacheKey(transaction.PartyName, transaction.IsDebtor)
 	c.batchCacheMu.RLock()
-	if cached, ok := c.batchCache[cacheKey]; ok {
+	if cached, ok := c.batchCache[key]; ok {
 		c.batchCacheMu.RUnlock()
 		c.logger.WithFields(
 			logging.Field{Key: "party", Value: transaction.PartyName},
@@ -338,12 +338,10 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 				logging.Field{Key: "party", Value: transaction.PartyName},
 				logging.Field{Key: "category", Value: category.Name},
 			).Debug("Transaction categorized successfully")
-			// Store in batch cache for deduplication (skip uncategorized results)
-			if category.Name != "" && category.Name != models.CategoryUncategorized {
-				c.batchCacheMu.Lock()
-				c.batchCache[cacheKey] = category
-				c.batchCacheMu.Unlock()
-			}
+			// Store in batch cache for deduplication
+			c.batchCacheMu.Lock()
+			c.batchCache[key] = category
+			c.batchCacheMu.Unlock()
 			return category, nil
 		}
 
@@ -358,10 +356,20 @@ func (c *Categorizer) categorizeTransaction(ctx context.Context, transaction Tra
 		logging.Field{Key: "party", Value: transaction.PartyName},
 	).Debug("No strategy could categorize transaction, returning uncategorized")
 
-	return models.Category{
+	uncategorized := models.Category{
 		Name:        models.CategoryUncategorized,
 		Description: "No categorization strategy succeeded",
-	}, nil
+	}
+	c.batchCacheMu.Lock()
+	c.batchCache[key] = uncategorized
+	c.batchCacheMu.Unlock()
+	return uncategorized, nil
+}
+
+// cacheKey is the one normalization used for the in-run cache, so lookups,
+// stores and invalidations always agree.
+func cacheKey(partyName string, isDebtor bool) string {
+	return fmt.Sprintf("%s|%v", strings.ToLower(strings.TrimSpace(partyName)), isDebtor)
 }
 
 func categoryDescriptionFromName(name string) string {
@@ -394,9 +402,8 @@ func (c *Categorizer) updateDebitorCategory(partyName, categoryName string) {
 	}
 
 	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), true)
 	c.batchCacheMu.Lock()
-	delete(c.batchCache, cacheKey)
+	delete(c.batchCache, cacheKey(partyName, true))
 	c.batchCacheMu.Unlock()
 }
 
@@ -431,9 +438,8 @@ func (c *Categorizer) updateCreditorCategory(partyName, categoryName string) {
 	}
 
 	// Invalidate batch cache so next occurrence hits the faster DirectMapping strategy
-	cacheKey := fmt.Sprintf("%s|%v", strings.ToLower(partyName), false)
 	c.batchCacheMu.Lock()
-	delete(c.batchCache, cacheKey)
+	delete(c.batchCache, cacheKey(partyName, false))
 	c.batchCacheMu.Unlock()
 }
 
