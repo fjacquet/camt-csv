@@ -8,40 +8,6 @@ import (
 	"time"
 )
 
-// AccountIdentifier represents an extracted account identifier with its source
-type AccountIdentifier struct {
-	ID     string // The account identifier (e.g., "54293249")
-	Source string // Source of identification: "filename", "content", "default"
-}
-
-// CAMT filename pattern: CAMT.053_{account}_{start_date}_{end_date}_{sequence}.{ext}
-// Example: CAMT.053_54293249_2025-04-01_2025-04-30_1.xml
-var camtFilenamePattern = regexp.MustCompile(`^CAMT\.053_([0-9]+)_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}_\d+\.(xml|csv)$`)
-
-// ExtractAccountFromCAMTFilename extracts the account number from CAMT filename patterns
-// Supports patterns like: CAMT.053_54293249_2025-04-01_2025-04-30_1.xml
-// Returns AccountIdentifier with the extracted account number or fallback to base filename
-func ExtractAccountFromCAMTFilename(filename string) AccountIdentifier {
-	// Get just the filename without path
-	baseName := filepath.Base(filename)
-
-	// Try to match the CAMT pattern
-	matches := camtFilenamePattern.FindStringSubmatch(baseName)
-	if len(matches) >= 2 {
-		return AccountIdentifier{
-			ID:     matches[1], // The account number from the first capture group
-			Source: "filename",
-		}
-	}
-
-	// Fallback: use the base filename without extension as account ID
-	baseWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
-	return AccountIdentifier{
-		ID:     SanitizeAccountID(baseWithoutExt),
-		Source: "default",
-	}
-}
-
 // SanitizeAccountID sanitizes an account identifier to be filesystem-safe
 // Removes or replaces characters that are not safe for filenames
 // Also removes path traversal sequences like ".." for security
@@ -91,25 +57,6 @@ func SanitizeAccountID(accountID string) string {
 	return sanitized
 }
 
-// ExtractAccountFromFilename is a generic function that tries to extract account information
-// from various filename patterns. It delegates to specific extraction functions based on
-// the filename pattern detected.
-func ExtractAccountFromFilename(filename string) AccountIdentifier {
-	baseName := filepath.Base(filename)
-
-	// Check if it's a CAMT file
-	if strings.HasPrefix(strings.ToUpper(baseName), "CAMT.053_") {
-		return ExtractAccountFromCAMTFilename(filename)
-	}
-
-	// For other file types, use the base filename as fallback
-	baseWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
-	return AccountIdentifier{
-		ID:     SanitizeAccountID(baseWithoutExt),
-		Source: "default",
-	}
-}
-
 // Account numbers in this bank's exports appear in one of two places: after
 // the CAMT.053_ prefix of an ISO 20022 statement, or at the very start of a
 // PDF statement's name. Both are matched against the base name only.
@@ -117,12 +64,10 @@ func ExtractAccountFromFilename(filename string) AccountIdentifier {
 // The length floors reject the two numbers that sit near an account number
 // without being one: the 053 of the format prefix, and a single-digit
 // sequence number leading a file name.
-// camtAccountKeyPattern is deliberately looser than camtFilenamePattern above,
-// which additionally requires the date range, sequence number, and a known
-// extension: a CAMT export that names those parts differently still belongs to
-// an account, and grouping it as "unknown" would be worse than reading the
-// number it plainly carries. Both encode the same CAMT.053_<account>_ prefix,
-// so a change to that convention has to be made in both.
+// camtAccountKeyPattern deliberately asks only for the CAMT.053_<account>_
+// prefix, not the date range, sequence number or extension: a CAMT export that
+// names those parts differently still belongs to an account, and grouping it
+// as "unknown" would be worse than reading the number it plainly carries.
 // minAccountKeyDigits is the shortest digit run treated as an account number
 // rather than a sequence number or a fragment of something else. It is the
 // same floor the file-name patterns use, so both sources agree on what counts.
@@ -143,11 +88,10 @@ var (
 // statement instead would mean changing that schema, models.Transaction, and
 // the Parser interface every format implements.
 //
-// This is deliberately not ExtractAccountFromFilename: that helper always
-// answers with something, falling back to the whole base name, which is the
-// right behaviour for labelling but the wrong one for grouping — every
-// unrecognized file would become its own account. Callers grouping by account
-// need to be able to tell "account 54293249" from "no account here".
+// It answers "" rather than falling back to the base name: a fallback would be
+// fine for labelling but wrong for grouping, where every unrecognized file
+// would become its own account. Callers grouping by account need to be able to
+// tell "account 54293249" from "no account here".
 func AccountKeyFromFilename(path string) string {
 	baseName := filepath.Base(path)
 

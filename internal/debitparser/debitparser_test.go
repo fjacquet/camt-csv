@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -63,40 +62,6 @@ Value1;Value2`
 	}
 }
 
-func TestParseFile(t *testing.T) {
-	// Create a temporary valid debit CSV file
-	validContent := `Bénéficiaire;Date;Montant;Monnaie
-PMT CARTE RATP;15.04.2025;-4,21;CHF
-PMT CARTE Parking-Relais Lausa;02.04.2025;-4,00;CHF
-RETRAIT BCV MONTREUX FORUM;28.03.2025;-260,00;CHF`
-
-	tempDir := t.TempDir()
-	validFile := filepath.Join(tempDir, "valid.csv")
-	if err := os.WriteFile(validFile, []byte(validContent), 0600); err != nil {
-		t.Fatalf("Failed to write valid file: %v", err)
-	}
-
-	// Parse the file
-	transactions, err := ParseFile(validFile)
-	if err != nil {
-		t.Fatalf("ParseFile returned an error: %v", err)
-	}
-
-	// Check the number of transactions
-	if len(transactions) != 3 {
-		t.Errorf("Expected 3 transactions, got %d", len(transactions))
-	}
-
-	// Check the first transaction
-	assert.Equal(t, 2025, transactions[0].Date.Year())
-	assert.Equal(t, time.April, transactions[0].Date.Month())
-	assert.Equal(t, 15, transactions[0].Date.Day())
-	assert.Equal(t, "RATP", transactions[0].Description)
-	assert.Equal(t, models.ParseAmount("-4.21"), transactions[0].Amount)
-	assert.Equal(t, "CHF", transactions[0].Currency)
-	assert.Equal(t, models.TransactionTypeDebit, transactions[0].CreditDebit)
-}
-
 func TestParseWithCategorizer(t *testing.T) {
 	validContent := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
 PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
@@ -129,26 +94,6 @@ PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
 	assert.NoError(t, err)
 	assert.Len(t, transactions, 1)
 	assert.Equal(t, models.CategoryUncategorized, transactions[0].Category)
-}
-
-func TestParseFileWithLogger(t *testing.T) {
-	validContent := `Bénéficiaire;Date;Montant;Monnaie;Buchungs-Nr.;Referenznummer;Status Kontoführung
-PMT CARTE RATP;15.04.2025;-4,21;CHF;12345;REF123;COMPLETED`
-
-	tempDir := t.TempDir()
-	validFile := filepath.Join(tempDir, "valid.csv")
-	err := os.WriteFile(validFile, []byte(validContent), 0600)
-	require.NoError(t, err)
-
-	logger := logging.NewLogrusAdapter("info", "text")
-	transactions, err := ParseFileWithLogger(validFile, logger)
-	assert.NoError(t, err)
-	assert.Len(t, transactions, 1)
-}
-
-func TestParseFileWithInvalidFile(t *testing.T) {
-	_, err := ParseFile("/nonexistent/file.csv")
-	assert.Error(t, err)
 }
 
 func TestConvertDebitRowToTransaction(t *testing.T) {

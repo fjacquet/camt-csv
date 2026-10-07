@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/dateutils"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -110,72 +109,6 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 			}
 		} else {
 			tx.Category = models.CategoryUncategorized
-		}
-
-		transactions = append(transactions, tx)
-	}
-
-	logger.Info("Successfully parsed Visa Debit CSV file",
-		logging.Field{Key: "count", Value: len(transactions)})
-	return transactions, nil
-}
-
-// ParseFile parses a Visa Debit CSV file and returns a slice of Transaction objects.
-// This is the main entry point for parsing Visa Debit CSV files.
-func ParseFile(filePath string) ([]models.Transaction, error) {
-	return ParseFileWithLogger(filePath, nil)
-}
-
-func ParseFileWithLogger(filePath string, logger logging.Logger) ([]models.Transaction, error) {
-	if logger == nil {
-		logger = logging.NewLogrusAdapter("info", "text")
-	}
-	logger.WithField("file", filePath).Info("Parsing Visa Debit CSV file")
-
-	// Check if the file format is valid
-	valid, err := ValidateFormatWithLogger(filePath, logger)
-	if err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
-	}
-	if !valid {
-		return nil, fmt.Errorf("invalid Visa Debit CSV format")
-	}
-
-	// Configure gocsv for semicolon delimiter
-	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
-		r := csv.NewReader(in)
-		r.Comma = ';' // CSV uses semicolon as delimiter
-		return r
-	})
-
-	// Use common.ReadCSVFile to read the CSV with the semicolon delimiter
-	debitRows, err := common.ReadCSVFile[DebitCSVRow](filePath, logger)
-	if err != nil {
-		logger.WithError(err).Error("Failed to read Visa Debit CSV file")
-		return nil, fmt.Errorf("error reading Visa Debit CSV: %w", err)
-	}
-
-	// Reset the CSV reader to default for other parsers
-	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
-		return csv.NewReader(in)
-	})
-
-	logger.Info("Successfully read rows from CSV file",
-		logging.Field{Key: "count", Value: len(debitRows)})
-
-	// Convert DebitCSVRow objects to Transaction objects
-	var transactions []models.Transaction
-	for _, row := range debitRows {
-		// Skip empty rows
-		if row.Datum == "" {
-			continue
-		}
-
-		// Convert Debit row to Transaction
-		tx, err := convertDebitRowToTransaction(row)
-		if err != nil {
-			logger.WithError(err).Warn("Failed to convert row to transaction, skipping")
-			continue
 		}
 
 		transactions = append(transactions, tx)

@@ -158,7 +158,7 @@ func (b *BaseParser) SetLogger(logger logging.Logger) {
 }
 
 func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile string) error {
-    return common.WriteTransactionsToCSV(transactions, csvFile)
+    return common.WriteTransactionsToCSVWithFormatter(transactions, csvFile, b.logger, formatter.NewStandardFormatter(), ',')
 }
 ```
 
@@ -177,8 +177,7 @@ func (b *BaseParser) WriteToCSV(transactions []models.Transaction, csvFile strin
 internal/
 ├── parser/
 │   ├── parser.go          # Interface definitions
-│   ├── base.go           # BaseParser implementation
-│   └── constitution.go   # Constitution loading
+│   └── base.go           # BaseParser implementation
 ├── camtparser/           # CAMT.053 XML parser
 ├── pdfparser/           # PDF statement parser
 ├── revolutparser/       # Revolut CSV parser (English + French locales)

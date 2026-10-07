@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAmountAsDecimal(t *testing.T) {
+func TestParseAmount(t *testing.T) {
 	testCases := []struct {
 		name     string
 		amount   string
@@ -30,9 +30,8 @@ func TestGetAmountAsDecimal(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			expected, _ := decimal.NewFromString(tc.expected)
-			tx := &Transaction{Amount: ParseAmount(tc.amount)}
-			result := tx.GetAmountAsDecimal()
-			assert.True(t, expected.Equal(result), "GetAmountAsDecimal() with Amount=%s should return %s, got %s", tc.amount, tc.expected, result.String())
+			result := ParseAmount(tc.amount)
+			assert.True(t, expected.Equal(result), "ParseAmount(%q) should return %s, got %s", tc.amount, tc.expected, result.String())
 		})
 	}
 }
@@ -135,15 +134,6 @@ func TestUpdateInvestmentTypeFromLegacyField(t *testing.T) {
 
 // Test uncovered transaction methods
 func TestTransaction_UncoveredMethods(t *testing.T) {
-	t.Run("SetAmountFromDecimal", func(t *testing.T) {
-		tx := Transaction{}
-		amount := decimal.NewFromFloat(123.45)
-
-		tx.SetAmountFromDecimal(amount)
-
-		assert.True(t, amount.Equal(tx.Amount))
-	})
-
 	t.Run("GetOriginalAmountAsDecimal", func(t *testing.T) {
 		originalAmount := decimal.NewFromFloat(100.50)
 		tx := Transaction{OriginalAmount: originalAmount}
@@ -178,15 +168,6 @@ func TestTransaction_UncoveredMethods(t *testing.T) {
 		// Test zero fees
 		txZero := Transaction{Fees: decimal.Zero}
 		assert.True(t, decimal.Zero.Equal(txZero.GetFeesAsDecimal()))
-	})
-
-	t.Run("SetFeesFromDecimal", func(t *testing.T) {
-		tx := Transaction{}
-		fees := decimal.NewFromFloat(7.75)
-
-		tx.SetFeesFromDecimal(fees)
-
-		assert.True(t, fees.Equal(tx.Fees))
 	})
 }
 

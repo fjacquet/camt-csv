@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove unused compliance scaffolding, the constitution config keys (CAMT_CONSTITUTION_FILE_PATHS), legacy batch aggregation and filename helpers, and test-only methods.
+
+### Fixed
+
+- Skip CAMT entries the transaction builder rejects instead of writing an empty row for them.
+
 ## [4.1.0] - 2026-10-06
 
 ### Added

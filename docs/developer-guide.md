@@ -265,7 +265,7 @@ counterparty := tx.GetCounterparty()
 
 For direct field access when you know the direction: `tx.Payer` and `tx.Payee`.
 
-> **v2.0.0 Breaking Change**: `GetPayee()`, `GetPayer()`, `GetAmountAsFloat()`, `SetPayerInfo()`, `SetPayeeInfo()`, `SetAmountFromFloat()`, and `ToBuilder()` were removed. Use `GetCounterparty()`, `GetAmountAsDecimal()`, and the `TransactionBuilder` pattern instead.
+> **v2.0.0 Breaking Change**: `GetPayee()`, `GetPayer()`, `GetAmountAsFloat()`, `SetPayerInfo()`, `SetPayeeInfo()`, `SetAmountFromFloat()`, and `ToBuilder()` were removed. Use `GetCounterparty()`, the `Amount` field, and the `TransactionBuilder` pattern instead.
 
 ### TransactionBuilder Pattern
 
@@ -302,7 +302,7 @@ amount := tx.GetAmountAsFloat() // Deprecated but functional
 // Direct field access for clarity
 payee := tx.Payee
 payer := tx.Payer
-amount := tx.GetAmountAsDecimal() // Precise decimal arithmetic
+amount := tx.Amount // Precise decimal arithmetic
 
 // Or use counterparty for "other party" logic
 counterparty := tx.GetCounterparty()
@@ -1106,14 +1106,14 @@ v2.0.0 removes all deprecated APIs that were flagged for removal:
 |---------|-------------|
 | `GetPayee()` | `GetCounterparty()` or `tx.Payee` directly |
 | `GetPayer()` | `GetCounterparty()` or `tx.Payer` directly |
-| `GetAmountAsFloat()` | `GetAmountAsDecimal()` |
+| `GetAmountAsFloat()` | `Amount` field |
 | `GetDebitAsFloat()` | `tx.Debit` (decimal.Decimal) |
 | `GetCreditAsFloat()` | `tx.Credit` (decimal.Decimal) |
 | `GetFeesAsFloat()` | `GetFeesAsDecimal()` |
 | `ToBuilder()` | Create new `NewTransactionBuilder()` and copy fields |
 | `SetPayerInfo()` | `TransactionBuilder.WithPayer()` |
 | `SetPayeeInfo()` | `TransactionBuilder.WithPayee()` |
-| `SetAmountFromFloat()` | `TransactionBuilder.WithAmountFromFloat()` or `SetAmountFromDecimal()` |
+| `SetAmountFromFloat()` | `TransactionBuilder.WithAmountFromFloat()` |
 
 #### Removed Functions
 

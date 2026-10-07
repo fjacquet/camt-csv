@@ -62,7 +62,11 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 				return nil, err
 			}
 
-			transaction := a.categorizeTransaction(ctx, a.entryToTransaction(entry, statementAccount))
+			transaction, ok := a.entryToTransaction(entry, statementAccount)
+			if !ok {
+				continue
+			}
+			transaction = a.categorizeTransaction(ctx, transaction)
 
 			// categorizeTransaction swallows categorizer errors by design, so a
 			// cancellation surfaces here rather than as a failed transaction.
