@@ -470,7 +470,7 @@ func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 		c.logger.WithError(err).Warn("Failed to load staged suggestions")
 		return
 	}
-	staged := NewStagedStrategy(creditors, debtors, c.logger)
+	staged := NewStagedStrategy(c.validStaged(creditors), c.validStaged(debtors), c.logger)
 	for i, strategy := range c.strategies {
 		if _, ok := strategy.(*KeywordStrategy); ok {
 			c.strategies = append(c.strategies[:i+1], append([]CategorizationStrategy{staged}, c.strategies[i+1:]...)...)
@@ -480,6 +480,24 @@ func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 	c.strategies = append([]CategorizationStrategy{staged}, c.strategies...)
 }
 
+// validStaged normalizes keys (lowercase, trimmed) and keeps only entries whose
+// category passes the same check as AI answers, storing the canonical spelling.
+func (c *Categorizer) validStaged(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for party, category := range in {
+		canonical, ok := c.canonicalAICategory(category)
+		if !ok {
+			c.logger.WithFields(
+				logging.Field{Key: "party", Value: party},
+				logging.Field{Key: "category", Value: category},
+			).Warn("Dropped staged suggestion not in categories.yaml")
+			continue
+		}
+		out[strings.ToLower(strings.TrimSpace(party))] = canonical
+	}
+	return out
+}
+
 func (c *Categorizer) saveStagingSuggestion(partyName string, isDebtor bool, categoryName string) {
 	if c.stagingStore == nil {
 		return
@@ -487,9 +505,9 @@ func (c *Categorizer) saveStagingSuggestion(partyName string, isDebtor bool, cat
 	c.stagingMu.Lock()
 	defer c.stagingMu.Unlock()
 	if isDebtor {
-		c.pendingStagedDebtors[strings.ToLower(partyName)] = categoryName
+		c.pendingStagedDebtors[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	} else {
-		c.pendingStagedCreditors[strings.ToLower(partyName)] = categoryName
+		c.pendingStagedCreditors[strings.ToLower(strings.TrimSpace(partyName))] = categoryName
 	}
 }
 

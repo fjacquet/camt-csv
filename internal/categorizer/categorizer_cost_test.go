@@ -227,3 +227,67 @@ func TestCategorize_RejectedAnswerIsCachedAndNeverStaged(t *testing.T) {
 	assert.Empty(t, staging.debtors)
 	assert.Empty(t, staging.creditors)
 }
+
+func TestStaged_PaddedNameRoundTrips(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{}}
+	ctx := context.Background()
+	c1, _ := newCostCategorizer(t, &countingAI{answers: map[string]string{"kiro": "Abonnements"}}, false)
+	c1.SetStagingStore(staging)
+	_, _ = c1.Categorize(ctx, " Kiro ", true, "-19", "2026-01-01", "")
+	require.NoError(t, c1.FlushStaging())
+	assert.Equal(t, map[string]string{"kiro": "Abonnements"}, staging.debtors)
+
+	ai2 := &countingAI{answers: map[string]string{}}
+	c2, _ := newCostCategorizer(t, ai2, false)
+	c2.SetStagingStore(staging)
+	got, err := c2.Categorize(ctx, "kiro", true, "-19", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "staged", got.Source)
+	assert.Zero(t, ai2.callCount())
+}
+
+func TestStaged_LoadedKeysAreNormalized(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{" KIRO ": "abonnements"}}
+	ai := &countingAI{answers: map[string]string{}}
+	c, _ := newCostCategorizer(t, ai, false)
+	c.SetStagingStore(staging)
+	got, err := c.Categorize(context.Background(), "Kiro", true, "-19", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name, "canonical spelling")
+	assert.Equal(t, "staged", got.Source)
+	assert.Zero(t, ai.callCount())
+}
+
+func TestStaged_UnknownCategoryIsDropped(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{"kiro": "=x"}}
+	ai := &countingAI{answers: map[string]string{"kiro": "Abonnements"}}
+	c, _ := newCostCategorizer(t, ai, false)
+	c.SetStagingStore(staging)
+	got, err := c.Categorize(context.Background(), "Kiro", true, "-19", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name)
+	assert.Equal(t, 1, ai.callCount())
+}
+
+func TestStaged_TierOrderAndDirection(t *testing.T) {
+	ctx := context.Background()
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{"migros lausanne": "Abonnements", "kiro": "Abonnements"}}
+	ai := &countingAI{answers: map[string]string{}}
+	c, _ := newCostCategorizer(t, ai, false)
+	c.SetStagingStore(staging)
+
+	got, err := c.Categorize(ctx, "MIGROS Lausanne", true, "-5", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Courses", got.Name)
+	assert.Equal(t, "keyword", got.Source, "keyword outranks staged")
+
+	got, err = c.Categorize(ctx, "Kiro", false, "-5", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.NotEqual(t, "staged", got.Source, "debtor-only entry does not answer a creditor")
+
+	ai.calls = 0
+	got, err = c.Categorize(ctx, "Kiro", true, "-5", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "staged", got.Source)
+	assert.Zero(t, ai.callCount(), "staged beats the AI")
+}

@@ -74,7 +74,7 @@ func (s *StagingStore) merge(filePath string, suggestions map[string]string) err
 	}
 	mappings := s.read(filePath)
 	for party, category := range suggestions {
-		mappings[strings.ToLower(party)] = category
+		mappings[strings.ToLower(strings.TrimSpace(party))] = category
 	}
 	resolvedPath := s.resolvePath(filePath)
 	if err := os.MkdirAll(filepath.Dir(resolvedPath), models.PermissionDirectory); err != nil {
