@@ -26,9 +26,18 @@ func (f *StandardFormatter) Header() []string {
 	}
 }
 
-// standardTextColumns are the free-text columns of the standard layout, which
-// carry bank or merchant text a spreadsheet could evaluate as a formula.
-var standardTextColumns = []int{3, 4, 6, 7, 16, 17, 18} // Name, PartyName, Description, RemittanceInfo, Category, Type, Fund
+// standardRawColumns are the columns that can never hold text: they are
+// formatted from time or decimal values, and escaping would corrupt them
+// (-180.00 must stay -180.00). Every other column (Status, Currency, Product,
+// InvestmentType, references, IBANs, servicer, names, descriptions...) is built
+// from statement content a spreadsheet could evaluate as a formula, so it is
+// escaped; columns added later are escaped by default.
+var standardRawColumns = map[int]bool{
+	1: true, 2: true, // Date, ValueDate
+	8: true, 12: true, 13: true, // Amount, AmountExclTax, TaxRate
+	19: true, 20: true, // NumberOfShares, Fees
+	27: true, 28: true, // OriginalAmount, ExchangeRate
+}
 
 // Format converts transactions to CSV rows using the existing MarshalCSV method.
 // This preserves backward compatibility with the current output format.
@@ -40,8 +49,10 @@ func (f *StandardFormatter) Format(transactions []models.Transaction) ([][]strin
 		if err != nil {
 			return nil, err
 		}
-		for _, col := range standardTextColumns {
-			row[col] = csvsafe.Escape(row[col])
+		for col := range row {
+			if !standardRawColumns[col] {
+				row[col] = csvsafe.Escape(row[col])
+			}
 		}
 		rows = append(rows, row)
 	}
