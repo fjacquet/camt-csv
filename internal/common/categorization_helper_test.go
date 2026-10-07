@@ -486,3 +486,70 @@ func TestProcessTransactions_CancellationOnLastTransactionIsReported(t *testing.
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, out)
 }
+
+type fakeBatchCategorizer struct {
+	batchCalls, singleCalls int
+	batchErr                error
+}
+
+func (f *fakeBatchCategorizer) Categorize(context.Context, string, bool, string, string, string) (models.Category, error) {
+	f.singleCalls++
+	return models.Category{Name: "Courses"}, nil
+}
+
+func (f *fakeBatchCategorizer) CategorizeBatch(_ context.Context, reqs []models.CategorizeRequest) ([]models.Category, error) {
+	f.batchCalls++
+	if f.batchErr != nil {
+		return nil, f.batchErr
+	}
+	out := make([]models.Category, len(reqs))
+	for i := range reqs {
+		out[i] = models.Category{Name: "Courses"}
+	}
+	return out, nil
+}
+
+func TestProcessTransactions_UsesBatchCategorizer(t *testing.T) {
+	f := &fakeBatchCategorizer{}
+	txs := []models.Transaction{
+		{PartyName: "A", Amount: decimal.NewFromInt(-1)},
+		{PartyName: "B", Amount: decimal.NewFromInt(-2)},
+		{PartyName: "C", Category: "Investissements"}, // parser-set, untouched
+		{}, // no party
+	}
+	out, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, f, "Test")
+	require.NoError(t, err)
+	assert.Equal(t, 1, f.batchCalls)
+	assert.Zero(t, f.singleCalls)
+	assert.Equal(t, []string{"Courses", "Courses", "Investissements", models.CategoryUncategorized},
+		[]string{out[0].Category, out[1].Category, out[2].Category, out[3].Category})
+}
+
+func TestProcessTransactions_BatchErrorWithCancelledContextReturnsCtxErr(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	f := &fakeBatchCategorizer{batchErr: errors.New("boom")}
+	// Cancel once the batch call is reached: the loop itself must not trip first.
+	txs := []models.Transaction{{PartyName: "A", Amount: decimal.NewFromInt(-1)}}
+	cancelling := &cancelOnBatch{fakeBatchCategorizer: f, cancel: cancel}
+	out, err := ProcessTransactionsWithCategorizationStats(ctx, txs, nil, cancelling, "Test")
+	assert.Nil(t, out)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+type cancelOnBatch struct {
+	*fakeBatchCategorizer
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnBatch) CategorizeBatch(ctx context.Context, reqs []models.CategorizeRequest) ([]models.Category, error) {
+	c.cancel()
+	return c.fakeBatchCategorizer.CategorizeBatch(ctx, reqs)
+}
+
+func TestProcessTransactions_BatchErrorMarksUncategorized(t *testing.T) {
+	f := &fakeBatchCategorizer{batchErr: errors.New("boom")}
+	txs := []models.Transaction{{PartyName: "A", Amount: decimal.NewFromInt(-1)}}
+	out, err := ProcessTransactionsWithCategorizationStats(context.Background(), txs, nil, f, "Test")
+	require.NoError(t, err)
+	assert.Equal(t, models.CategoryUncategorized, out[0].Category)
+}

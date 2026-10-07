@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Learn and stage only AI answers, and write mapping and staging files once per run instead of once per transaction. Semantic matches are no longer learned or staged.
 - Cache uncategorized results for the run, so an unknown merchant reaches the AI once. A failed AI call (for example a rate limit) also stays uncategorized for the rest of that run.
 - All parsers share one categorization loop: the categorizer now gets ISO dates and the transaction description for debit, Revolut, Revolut crypto, Revolut investment and CAMT statements, and a transaction with no party is categorized from its description. For CAMT statements the bank's entry text is now that context, so keyword rules can match it and some previously uncategorized rows (for example TWINT or e-banking payments) become Virements.
+- Ask the AI about up to 25 merchants per request instead of one; a merchant missing from the answer is asked again on its own.
 
 ### Removed
 

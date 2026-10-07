@@ -54,6 +54,12 @@ func ProcessTransactionsWithPartyName(
 	stats := models.NewCategorizationStats()
 	processedTransactions := make([]models.Transaction, len(transactions))
 
+	// A categorizer that can answer many transactions at once is asked once,
+	// after the loop, instead of once per transaction.
+	batcher, canBatch := categorizer.(models.BatchCategorizer)
+	var batchReqs []models.CategorizeRequest
+	var batchIdx []int
+
 	for i, tx := range transactions {
 		if err := ctx.Err(); err != nil {
 			logger.Warn("Categorization cancelled",
@@ -100,6 +106,15 @@ func ProcessTransactionsWithPartyName(
 			continue
 		}
 
+		if canBatch {
+			batchReqs = append(batchReqs, models.CategorizeRequest{
+				PartyName: party, IsDebtor: tx.IsDebit(), Amount: tx.Amount.String(),
+				Date: tx.Date.Format("2006-01-02"), Info: tx.Description,
+			})
+			batchIdx = append(batchIdx, i)
+			continue
+		}
+
 		category, err := categorizer.Categorize(
 			ctx,
 			party,
@@ -135,6 +150,32 @@ func ProcessTransactionsWithPartyName(
 				logging.Field{Key: "category", Value: category.Name})
 			stats.IncrementSuccessful()
 			processedTransactions[i].Category = category.Name
+		}
+	}
+
+	if len(batchIdx) > 0 {
+		categories, err := batcher.CategorizeBatch(ctx, batchReqs)
+		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
+			logger.WithError(err).Warn("Batch categorization failed",
+				logging.Field{Key: "parser_type", Value: parserType})
+			for _, i := range batchIdx {
+				processedTransactions[i].Category = models.CategoryUncategorized
+				stats.IncrementFailed()
+			}
+		} else {
+			for n, i := range batchIdx {
+				name := categories[n].Name
+				if name == "" || name == models.CategoryUncategorized {
+					processedTransactions[i].Category = models.CategoryUncategorized
+					stats.IncrementUncategorized()
+				} else {
+					processedTransactions[i].Category = name
+					stats.IncrementSuccessful()
+				}
+			}
 		}
 	}
 
