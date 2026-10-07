@@ -45,20 +45,12 @@ func (c *Categorizer) CategorizeBatch(ctx context.Context, requests []models.Cat
 		}
 		for start := 0; start < len(keys); start += aiBatchSize {
 			chunk := keys[start:min(start+aiBatchSize, len(keys))]
-			if err := c.answerChunk(ctx, batcher, canBatch, requests, pending, chunk); err != nil {
+			if err := c.answerChunk(ctx, batcher, canBatch, requests, pending, chunk, results); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	for key, idxs := range pending {
-		c.batchCacheMu.RLock()
-		category := c.batchCache[key]
-		c.batchCacheMu.RUnlock()
-		for _, i := range idxs {
-			results[i] = category
-		}
-	}
 	return results, nil
 }
 
@@ -95,7 +87,7 @@ func (c *Categorizer) categorizeWithoutAI(ctx context.Context, tx Transaction) (
 
 // answerChunk asks the AI about one chunk of same-direction parties, then
 // falls back to single requests for any party the answer left out.
-func (c *Categorizer) answerChunk(ctx context.Context, batcher BatchAIClient, canBatch bool, requests []models.CategorizeRequest, pending map[string][]int, chunk []string) error {
+func (c *Categorizer) answerChunk(ctx context.Context, batcher BatchAIClient, canBatch bool, requests []models.CategorizeRequest, pending map[string][]int, chunk []string, results []models.Category) error {
 	answers := map[string]string{}
 	if canBatch {
 		txs := make([]models.Transaction, 0, len(chunk))
@@ -118,13 +110,17 @@ func (c *Categorizer) answerChunk(ctx context.Context, batcher BatchAIClient, ca
 	for _, key := range chunk {
 		req := requests[pending[key][0]]
 		var category models.Category
-		if answer, ok := answers[strings.ToLower(strings.TrimSpace(req.PartyName))]; ok {
+		if answer, ok := answers[strings.ToLower(strings.TrimSpace(oneLine(req.PartyName)))]; ok {
 			category = c.aiResult(req.PartyName, models.Category{Name: answer, Confidence: 0.8})
 		} else {
 			category = c.singleAI(ctx, toTransaction(req))
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return ctxErr
 			}
+		}
+		// Write results directly: recordLearning may invalidate the cache entry.
+		for _, i := range pending[key] {
+			results[i] = category
 		}
 		c.storeInCache(key, category)
 		c.recordLearning(req.PartyName, req.IsDebtor, category)

@@ -70,9 +70,10 @@ func (b *batchingAI) CategorizeBatch(_ context.Context, txs []models.Transaction
 	}
 	out := map[string]string{}
 	for _, tx := range txs {
-		key := strings.ToLower(strings.TrimSpace(tx.PartyName))
+		raw := strings.ToLower(strings.TrimSpace(tx.PartyName))
+		key := strings.ToLower(strings.TrimSpace(oneLine(tx.PartyName)))
 		if !b.drop[key] {
-			out[key] = b.answers[key]
+			out[key] = b.answers[raw]
 		}
 	}
 	return out, nil
@@ -184,4 +185,45 @@ func TestParseBatchAnswer_CollidingKeysAreDeterministic(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "B", got["kiro"], "last key in sorted order wins")
 	}
+}
+
+func TestCategorizeBatch_AutoLearnKeepsResultsAndLearns(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"kiro": "Abonnements"}}}
+	st := &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}
+	c := NewCategorizer(ai, nil, st, testLogger(), true, 0.70)
+	t.Cleanup(c.Shutdown)
+
+	got, err := c.CategorizeBatch(context.Background(), batchRequests("Kiro"))
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got[0].Name)
+	require.NoError(t, c.SaveDebitorsToYAML())
+	assert.Equal(t, "Abonnements", st.DebtorMappings["kiro"])
+}
+
+func TestCategorizeBatch_StagesOnlyAIAnswers(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"kiro": "Abonnements"}}}
+	c := newBatchCategorizer(t, ai)
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{}}
+	c.SetStagingStore(staging)
+
+	_, err := c.CategorizeBatch(context.Background(), batchRequests("Kiro", "MIGROS Lausanne"))
+	require.NoError(t, err)
+	require.NoError(t, c.FlushStaging())
+	assert.Equal(t, 1, staging.merges)
+	assert.Equal(t, map[string]string{"kiro": "Abonnements"}, staging.debtors)
+}
+
+func TestCategorizeBatch_PartyWithNewlineIsFoundInAnswer(t *testing.T) {
+	ai := &batchingAI{countingAI: countingAI{answers: map[string]string{"foo bar": "Abonnements"}}}
+	c := newBatchCategorizer(t, ai)
+	// the fake keys its answer like the prompt does: newline flattened
+	ai.answers["foo\nbar"] = "Abonnements"
+	got, err := c.CategorizeBatch(context.Background(), batchRequests("Foo\nBar"))
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got[0].Name)
+	assert.Zero(t, ai.callCount())
 }
