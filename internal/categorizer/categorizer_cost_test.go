@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/store"
 
@@ -290,4 +291,49 @@ func TestStaged_TierOrderAndDirection(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "staged", got.Source)
 	assert.Zero(t, ai.callCount(), "staged beats the AI")
+}
+
+const noCategoriesWarning = "No categories loaded from categories.yaml; AI answers will not be validated"
+
+func TestNewCategorizer_WarnsWhenAnswersCannotBeValidated(t *testing.T) {
+	ai := &countingAI{answers: map[string]string{}}
+
+	empty := logging.NewMockLogger()
+	c := NewCategorizer(ai, nil, &store.MockCategoryStore{CreditorMappings: map[string]string{}, DebtorMappings: map[string]string{}}, empty, false, 0.70)
+	t.Cleanup(c.Shutdown)
+	assert.True(t, empty.HasEntry("WARN", noCategoriesWarning))
+
+	full := logging.NewMockLogger()
+	c2 := NewCategorizer(ai, nil, &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Courses"}},
+		CreditorMappings: map[string]string{}, DebtorMappings: map[string]string{},
+	}, full, false, 0.70)
+	t.Cleanup(c2.Shutdown)
+	assert.False(t, full.HasEntry("WARN", noCategoriesWarning))
+}
+
+// flakyStaging fails its first MergeSuggestions call.
+type flakyStaging struct {
+	memStaging
+	failures int
+}
+
+func (f *flakyStaging) MergeSuggestions(cr, db map[string]string) error {
+	if f.failures > 0 {
+		f.failures--
+		return fmt.Errorf("disk full")
+	}
+	return f.memStaging.MergeSuggestions(cr, db)
+}
+
+func TestFlushStaging_KeepsBatchOnWriteError(t *testing.T) {
+	staging := &flakyStaging{memStaging: memStaging{creditors: map[string]string{}, debtors: map[string]string{}}, failures: 1}
+	ai := &countingAI{answers: map[string]string{"kiro": "Abonnements"}}
+	c, _ := newCostCategorizer(t, ai, false)
+	c.SetStagingStore(staging)
+	_, _ = c.Categorize(context.Background(), "Kiro", true, "-19", "2026-01-01", "")
+
+	require.Error(t, c.FlushStaging())
+	require.NoError(t, c.FlushStaging())
+	assert.Equal(t, map[string]string{"kiro": "Abonnements"}, staging.debtors)
 }

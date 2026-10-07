@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Reuse staged AI suggestions as a categorization tier (after direct mappings and keywords), so a merchant the AI already classified is not sent to it again on later runs. Staged entries are matched case-insensitively and only kept if their category exists in categories.yaml.
-- Learn and stage only AI answers, and write mapping and staging files once per run instead of once per transaction.
+- Reuse staged AI suggestions as a categorization tier (after direct mappings and keywords), so a merchant the AI already classified is not sent to it again on later runs. Staged entries are matched case-insensitively and only kept if their category exists in categories.yaml. The tier is active when AI is enabled and auto-learn is off (staging mode).
+- Learn and stage only AI answers, and write mapping and staging files once per run instead of once per transaction. Semantic matches are no longer learned or staged.
 - Cache uncategorized results for the run, so an unknown merchant reaches the AI once. A failed AI call (for example a rate limit) also stays uncategorized for the rest of that run.
 
 ### Removed
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Accept an AI category only if it names a category from categories.yaml.
+- Accept an AI category only if it names a category from categories.yaml (when categories.yaml defines categories; otherwise a warning says answers are not validated).
 
 ## [4.1.0] - 2026-10-06
 

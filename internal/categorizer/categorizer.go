@@ -106,6 +106,9 @@ func NewCategorizer(chatClient, embeddingClient AIClient, store CategoryStoreInt
 	for _, cat := range c.categories {
 		c.knownCategories[strings.ToLower(strings.TrimSpace(cat.Name))] = cat.Name
 	}
+	if len(c.knownCategories) == 0 && chatClient != nil {
+		c.logger.Warn("No categories loaded from categories.yaml; AI answers will not be validated")
+	}
 
 	// Load creditor mappings
 	creditorMappings, err := c.store.LoadCreditorMappings()
@@ -524,7 +527,23 @@ func (c *Categorizer) FlushStaging() error {
 	if len(creditors) == 0 && len(debtors) == 0 {
 		return nil
 	}
-	return c.stagingStore.MergeSuggestions(creditors, debtors)
+	if err := c.stagingStore.MergeSuggestions(creditors, debtors); err != nil {
+		// Put the batch back so a later flush retries it; newer entries win.
+		c.stagingMu.Lock()
+		for k, v := range creditors {
+			if _, newer := c.pendingStagedCreditors[k]; !newer {
+				c.pendingStagedCreditors[k] = v
+			}
+		}
+		for k, v := range debtors {
+			if _, newer := c.pendingStagedDebtors[k]; !newer {
+				c.pendingStagedDebtors[k] = v
+			}
+		}
+		c.stagingMu.Unlock()
+		return err
+	}
+	return nil
 }
 
 // SaveCreditorsToYAML saves creditor mappings to YAML file if they have been modified.
