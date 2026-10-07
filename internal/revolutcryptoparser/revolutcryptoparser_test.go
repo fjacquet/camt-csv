@@ -274,3 +274,10 @@ func TestAdapter_Parse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, transactions, 2)
 }
+
+func TestParseWithCategorizer_AcceptsBOMHeader(t *testing.T) {
+	transactions, err := ParseWithCategorizer(context.Background(),
+		strings.NewReader("\ufeff"+validCryptoCSV()), newTestLogger(), nil)
+	require.NoError(t, err)
+	assert.Len(t, transactions, 2)
+}

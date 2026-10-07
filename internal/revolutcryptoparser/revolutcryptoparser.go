@@ -137,11 +137,11 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 		}
 	}
 	for i, h := range expected {
-		if strings.TrimSpace(records[0][i]) != h {
+		if common.NormalizeHeaderName(records[0][i]) != h {
 			return nil, &parsererror.InvalidFormatError{
 				FilePath:       "(from reader)",
 				ExpectedFormat: "Revolut Crypto CSV",
-				Msg:            fmt.Sprintf("unexpected header at position %d: expected %q, got %q", i, h, strings.TrimSpace(records[0][i])),
+				Msg:            fmt.Sprintf("unexpected header at position %d: expected %q, got %q", i, h, common.NormalizeHeaderName(records[0][i])),
 			}
 		}
 	}

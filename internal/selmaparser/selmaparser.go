@@ -59,7 +59,7 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 	// Map header fields to struct fields
 	headerMap := make(map[int]string)
 	for i, h := range header {
-		headerMap[i] = h
+		headerMap[i] = common.NormalizeHeaderName(h)
 	}
 
 	var transactions []models.Transaction
