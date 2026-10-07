@@ -36,7 +36,10 @@ Delete (each confirmed by a repo-wide grep showing no non-test reference):
   `GenerateOutputFilename`, `GenerateSourceFileHeader`,
   `CalculateDateRangeFromTransactions`, and types only they use).
 - `common.ExtractAccountFromFilename`, `common.ExtractAccountFromCAMTFilename`.
-- `common.ReadCSVFile`, `common.WriteTransactionsToCSV`.
+- `common.ReadCSVFile`, `common.WriteTransactionsToCSV`, and
+  `common.WriteTransactionsToCSVWithLogger` (its only production caller is
+  `WriteTransactionsToCSV`).
+- The unused `constitution.*` config keys in `internal/config/viper.go`.
 - `debitparser.ParseFile`, `debitparser.ParseFileWithLogger`.
 - Test-only methods: `Transaction.SetAmountFromDecimal`, `SetFeesFromDecimal`,
   `GetAmountAsDecimal`; `Categorizer.UpdateCreditorCategory`,
@@ -48,8 +51,9 @@ A symbol is kept if the grep finds any production reference; the PR lists each k
 candidate and why.
 
 `internal/camtparser/entry_mapping.go`: when `builder.Build()` fails, skip the entry,
-log a Warn with its entry reference, and do not emit the "Failed to parse
-transaction" fallback row. Test: an entry that cannot build produces no row and the
+log a Warn with its entry reference, and do not emit the fallback row. (The fallback
+reuses the same date, amount and currency, so it almost always fails too and today
+emits a zero-valued `Transaction{}`.) Test: an entry that cannot build produces no row and the
 rest of the statement converts.
 
 ### PR B — AI cost and AI answer validation
@@ -83,9 +87,14 @@ Tests (counting mock `AIClient`):
 ### PR C — one categorization loop
 
 `debitparser`, `revolutparser`, `revolutcryptoparser`, `revolutinvestmentparser` and
-`camtparser` drop their inline categorize loops and call
-`common.ProcessTransactionsWithCategorizationStats` after building transactions.
-CAMT's party-name prefix cleanup runs before the call. The helper uses
+`camtparser` drop their inline categorize loops and call the shared helper after
+building transactions. The helper takes a party-name function:
+`ProcessTransactionsWithCategorizationStats` keeps its signature and uses
+`DefaultPartyName` (`GetPartyName` → `PartyName` → `Name` → `Recipient` →
+`Description`; the `Description` step is new and is what the debit parser needs);
+`ProcessTransactionsWithPartyName` takes an explicit function. CAMT passes its own
+(`PartyName` → `Description` → `RemittanceInfo`, then `cleanPaymentMethodPrefixes`), so
+its output names are unchanged. The helper uses
 `models.CategoryUncategorized` instead of the `"Uncategorized"` literal.
 
 Accepted behavior change: those five parsers now send the date as `2006-01-02` and
@@ -120,7 +129,8 @@ fenced ```json block.
 ### PR E — formula injection
 
 - Move `escapeCell`/`needsEscape`/`unescapeCell` from `internal/icompta/report.go`
-  to `internal/common` (exported), keep `icompta` using them.
+  to a new leaf package `internal/csvsafe` (`Escape`, `Unescape`, `NeedsEscape`);
+  `internal/common` cannot host them because it imports `formatter`.
 - `standard` and `jumpsoft` formatters escape free-text columns (name, party name,
   description, remittance info, recipient, category, type, fund). Numeric and date
   columns are never escaped.
@@ -137,17 +147,19 @@ text columns and round-trips through `unescapeCell`.
   struct tag relies on it (verify by tests); otherwise document why it stays.
 - Drop the package var `extractTextFromPDF`; use the injected `PDFExtractor`.
   Use the in-scope logger instead of `getDefaultLogger()` (pdfparser_helpers.go).
-- PDF adapter caches extracted text by path so `ValidateFormat` + `Parse` run
-  `pdftotext` once.
-- Semantic warm-up starts only for commands that categorize, and the semantic tier
-  waits for warm-up (bounded by ctx) instead of skipping to AI.
+- PDF: wrap the extractor in a cache keyed by the SHA-256 of the PDF bytes, so
+  `ValidateFormat` (original path) and `Parse` (temp copy) run `pdftotext` once.
+- Semantic warm-up starts lazily on the first semantic lookup (so commands that never
+  categorize never warm up), and that lookup waits for it, bounded by ctx, instead of
+  skipping to AI.
 - `revolutinvestmentparser`: local `parseDecimalField(name, raw)` replaces the 7
   repeated blocks.
-- `common.HasCSVColumns(r io.Reader, comma rune, required ...string) (bool, error)`
-  replaces the repeated header checks in debit, revolut, selma, viseca,
-  revolut-crypto and revolut-investment validators.
-- Keep one "format not recognized" sentinel (`container.ErrFormatNotRecognized`);
-  `batch.ErrNoParser` wraps or aliases it.
+- `common.MissingColumn(header []string, required ...string) string` (first missing
+  name, or ""; header names trimmed and BOM-stripped) replaces the set checks in the
+  debit, revolut, selma, viseca and revolut-crypto validators. revolut-investment
+  checks headers by position and keeps its own check.
+- One "format not recognized" sentinel, `parser.ErrFormatNotRecognized`;
+  `container.ErrFormatNotRecognized` and `batch.ErrNoParser` become aliases of it.
 - Split `internal/pdfparser/pdfparser_helpers.go` into `extract.go` (pdftotext I/O),
   `viseca_pdf.go`, `text.go`; rename the local `min` shadowing the builtin.
 
