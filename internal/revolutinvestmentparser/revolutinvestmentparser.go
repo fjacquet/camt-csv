@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"fjacquet/camt-csv/internal/common"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 	"fjacquet/camt-csv/internal/parsererror"
@@ -100,40 +101,12 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 			continue
 		}
 
-		// Categorize the transaction using the injected categorizer
-		if categorizer != nil {
-			isDebtor := transaction.CreditDebit == models.TransactionTypeDebit
-			catAmount := transaction.Amount.String()
-			catDate := ""
-			if !transaction.Date.IsZero() {
-				catDate = transaction.Date.Format("02.01.2006")
-			}
-
-			category, catErr := categorizer.Categorize(ctx, transaction.PartyName, isDebtor, catAmount, catDate, "")
-			if catErr != nil {
-				if ctxErr := ctx.Err(); ctxErr != nil {
-					// The categorizer failed because the run was cancelled, not because
-					// this transaction could not be classified. Surface the cancellation
-					// instead of quietly filing the rest as Uncategorized.
-					return nil, ctxErr
-				}
-
-				logger.WithError(catErr).WithFields(
-					logging.Field{Key: "party", Value: transaction.PartyName},
-				).Warn("Failed to categorize transaction")
-				transaction.Category = models.CategoryUncategorized
-			} else {
-				transaction.Category = category.Name
-				logger.WithFields(
-					logging.Field{Key: "party", Value: transaction.PartyName},
-					logging.Field{Key: "category", Value: category.Name},
-				).Debug("Transaction categorized successfully")
-			}
-		} else {
-			transaction.Category = models.CategoryUncategorized
-		}
-
 		transactions = append(transactions, transaction)
+	}
+
+	transactions, err = common.ProcessTransactionsWithCategorizationStats(ctx, transactions, logger, categorizer, "RevolutInvestment")
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Info("Successfully parsed transactions from Revolut investment CSV",
