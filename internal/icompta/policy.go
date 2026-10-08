@@ -4,17 +4,9 @@ import (
 	"strings"
 
 	"golang.org/x/text/unicode/norm"
-)
 
-// unknownCategories are the categories that mean "nobody decided". A split in
-// one of these may be replaced by any tier.
-var unknownCategories = map[string]bool{
-	"Divers":             true,
-	"Non Classé":         true,
-	"Autre":              true,
-	"Uncategorized":      true,
-	"Uncategorized (AI)": true,
-}
+	"fjacquet/camt-csv/internal/models"
+)
 
 // normalize makes category names comparable: macOS can return decomposed
 // accents, so compare NFC.
@@ -24,8 +16,7 @@ func normalize(s string) string {
 
 // IsUnknownCategory reports whether a category name carries no decision.
 func IsUnknownCategory(name string) bool {
-	n := normalize(name)
-	return n == "" || unknownCategories[n]
+	return models.IsUnknownCategory(name)
 }
 
 // SameCategory compares two category names after normalisation.

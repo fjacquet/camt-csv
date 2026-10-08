@@ -1,5 +1,11 @@
 package models
 
+import (
+	"strings"
+
+	"golang.org/x/text/unicode/norm"
+)
+
 // Transaction types
 const (
 	TransactionTypeDebit  = "DBIT"
@@ -25,6 +31,22 @@ const (
 	CategoryWithdrawals   = "Withdrawals"
 	CategoryTransfers     = "Transfers"
 )
+
+// unknownCategories are the categories that mean "nobody decided".
+var unknownCategories = map[string]bool{
+	"Divers":              true,
+	"Non Classé":          true,
+	"Autre":               true,
+	CategoryUncategorized: true,
+	"Uncategorized (AI)":  true,
+}
+
+// IsUnknownCategory reports whether a category name carries no decision.
+// Names are compared in NFC: macOS can return decomposed accents.
+func IsUnknownCategory(name string) bool {
+	n := norm.NFC.String(strings.TrimSpace(name))
+	return n == "" || unknownCategories[n]
+}
 
 // File permissions
 // SECURITY: These constants enforce appropriate permissions based on content type

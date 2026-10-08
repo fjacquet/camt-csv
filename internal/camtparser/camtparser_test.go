@@ -533,6 +533,41 @@ func TestParse_CarriesStatementAccountOnEachTransaction(t *testing.T) {
 		"the statement account must not overwrite the counterparty's")
 }
 
+// Older BCV statements carry card payments with no related party at all: the
+// merchant is only in AddtlNtryInf. Without a name, iCompta imports the row as
+// "Nouvelle opération", so the bank's text must become the name.
+func TestParse_NameFallsBackToDescriptionWithoutParty(t *testing.T) {
+	const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.04">
+	<BkToCstmrStmt>
+		<Stmt>
+			<Acct><Id><IBAN>CH1700767000K54293249</IBAN></Id><Ccy>CHF</Ccy></Acct>
+			<Ntry>
+				<Amt Ccy="CHF">70.70</Amt>
+				<CdtDbtInd>DBIT</CdtDbtInd>
+				<Sts>BOOK</Sts>
+				<BookgDt><Dt>2022-02-07</Dt></BookgDt>
+				<ValDt><Dt>2022-02-04</Dt></ValDt>
+				<AcctSvcrRef>632074579022036/2</AcctSvcrRef>
+				<NtryDtls><TxDtls>
+					<Refs><EndToEndId>MAESTRO 51180443 0 04.02 00000</EndToEndId></Refs>
+				</TxDtls></NtryDtls>
+				<AddtlNtryInf>Coop-4225 Montreux</AddtlNtryInf>
+			</Ntry>
+		</Stmt>
+	</BkToCstmrStmt>
+</Document>`
+
+	adapter := NewAdapter(logging.NewMockLogger())
+
+	transactions, err := adapter.Parse(context.Background(), strings.NewReader(doc))
+	require.NoError(t, err)
+	require.Len(t, transactions, 1)
+
+	assert.Equal(t, "Coop-4225 Montreux", transactions[0].Name)
+	assert.Empty(t, transactions[0].PartyName, "the party stays unknown; only the display name falls back")
+}
+
 // An entry the builder rejects (here: no currency) used to come out as a
 // zero-valued row. It must be skipped, and the rest of the statement kept.
 func TestParse_SkipsEntryThatCannotBeBuilt(t *testing.T) {

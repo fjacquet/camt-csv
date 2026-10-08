@@ -361,3 +361,20 @@ func (m *MockLogger) Fatalf(format string, args ...any)                 {}
 func (m *MockLogger) WithError(err error) logging.Logger                { return m }
 func (m *MockLogger) WithField(key string, value any) logging.Logger    { return m }
 func (m *MockLogger) WithFields(fields ...logging.Field) logging.Logger { return m }
+
+// The CSV writer derives Name from the payee/payer just before formatting. A
+// row with no party (an old CAMT card payment named only by the bank's text)
+// must keep the name its parser gave it rather than export a blank one.
+func TestUpdateNameFromParties_KeepsNameWithoutParty(t *testing.T) {
+	debit := Transaction{Name: "Coop-4225 Montreux", CreditDebit: TransactionTypeDebit}
+	debit.UpdateNameFromParties()
+	assert.Equal(t, "Coop-4225 Montreux", debit.Name)
+
+	credit := Transaction{Name: "RESULTAT DE CLOTURE", CreditDebit: TransactionTypeCredit}
+	credit.UpdateNameFromParties()
+	assert.Equal(t, "RESULTAT DE CLOTURE", credit.Name)
+
+	withParty := Transaction{Name: "old", Payee: "Migros", CreditDebit: TransactionTypeDebit}
+	withParty.UpdateNameFromParties()
+	assert.Equal(t, "Migros", withParty.Name, "a known party still wins")
+}

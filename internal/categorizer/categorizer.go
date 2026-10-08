@@ -267,9 +267,10 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 // recordLearning keeps what the AI taught us. Only AI answers are worth
 // keeping: direct and keyword hits are already in the YAML files. With
 // auto-learn on, the mapping is updated in memory and saved once when the
-// command ends (cmd/root finalize); with it off, the answer is staged.
+// command ends (cmd/root finalize); with it off, the answer is staged. An
+// "unknown" answer (Non Classé, Divers...) is never kept: it decides nothing.
 func (c *Categorizer) recordLearning(partyName string, isDebtor bool, category models.Category) {
-	if category.Source != "ai" || category.Name == "" || category.Name == models.CategoryUncategorized {
+	if category.Source != "ai" || models.IsUnknownCategory(category.Name) {
 		return
 	}
 	if !c.isAutoLearnEnabled {
