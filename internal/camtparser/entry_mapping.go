@@ -89,6 +89,12 @@ func (a *Adapter) entryToTransaction(entry camtEntry, statementAccount string) (
 	if transaction.Name == "" {
 		transaction.Name = transaction.PartyName
 	}
+	// Some entries name no party at all (older card payments put the merchant
+	// only in AddtlNtryInf). An empty name imports into iCompta as
+	// "Nouvelle opération", so show the bank's text instead.
+	if transaction.Name == "" {
+		transaction.Name = transaction.Description
+	}
 	if transaction.IsDebit() {
 		transaction.Payee = transaction.PartyName
 	} else {

@@ -267,9 +267,10 @@ func (c *Categorizer) Categorize(ctx context.Context, partyName string, isDebtor
 // recordLearning keeps what the AI taught us. Only AI answers are worth
 // keeping: direct and keyword hits are already in the YAML files. With
 // auto-learn on, the mapping is updated in memory and saved once when the
-// command ends (cmd/root finalize); with it off, the answer is staged.
+// command ends (cmd/root finalize); with it off, the answer is staged. An
+// "unknown" answer (Non Classé, Divers...) is never kept: it decides nothing.
 func (c *Categorizer) recordLearning(partyName string, isDebtor bool, category models.Category) {
-	if category.Source != "ai" || category.Name == "" || category.Name == models.CategoryUncategorized {
+	if category.Source != "ai" || models.IsUnknownCategory(category.Name) {
 		return
 	}
 	if !c.isAutoLearnEnabled {
@@ -472,6 +473,8 @@ func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 
 // validStaged normalizes keys (lowercase, trimmed) and keeps only entries whose
 // category passes the same check as AI answers, storing the canonical spelling.
+// An "unknown" category (Non Classé, Divers...) decides nothing, so it is
+// skipped and the merchant goes back to the AI.
 func (c *Categorizer) validStaged(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for party, category := range in {
@@ -481,6 +484,9 @@ func (c *Categorizer) validStaged(in map[string]string) map[string]string {
 				logging.Field{Key: "party", Value: party},
 				logging.Field{Key: "category", Value: category},
 			).Warn("Dropped staged suggestion not in categories.yaml")
+			continue
+		}
+		if models.IsUnknownCategory(canonical) {
 			continue
 		}
 		out[strings.ToLower(strings.TrimSpace(party))] = canonical

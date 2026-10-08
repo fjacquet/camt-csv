@@ -118,11 +118,17 @@ func (t *Transaction) IsCredit() bool {
 // UpdateNameFromParties sets the Name field based on the transaction type
 // - For debits, Name is set to Payee
 // - For credits, Name is set to Payer
+// An empty party leaves Name as it is: blanking it would export a row with no
+// name at all.
 func (t *Transaction) UpdateNameFromParties() {
+	party := ""
 	if t.IsDebit() {
-		t.Name = t.Payee
+		party = t.Payee
 	} else if t.IsCredit() {
-		t.Name = t.Payer
+		party = t.Payer
+	}
+	if party != "" {
+		t.Name = party
 	}
 }
 

@@ -105,6 +105,31 @@ func TestCategorize_AutoLearnOnlyFromAIAndNoSavePerTransaction(t *testing.T) {
 	assert.NotContains(t, saved, "migros lausanne", "keyword hits are not learned")
 }
 
+// "Non Classé" is a real entry in categories.yaml, so the AI may pick it. It
+// still means "no decision": learning it would pin the party to it for good,
+// and the AI would never be asked again.
+func TestCategorize_UnknownAIAnswerIsNotLearned(t *testing.T) {
+	ai := &countingAI{answers: map[string]string{"sdds sarl": "Non Classé", "kiro": "Abonnements"}}
+	st := &countingStore{MockCategoryStore: &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Non Classé"}, {Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}}
+	c := NewCategorizer(ai, nil, st, testLogger(), true, 0.70)
+	t.Cleanup(c.Shutdown)
+	ctx := context.Background()
+
+	got, err := c.Categorize(ctx, "SDDS Sarl", true, "-5", "2026-01-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Non Classé", got.Name, "the answer is still used for this run")
+	_, _ = c.Categorize(ctx, "Kiro", true, "-19", "2026-01-01", "")
+
+	require.NoError(t, c.SaveDebitorsToYAML())
+	saved := st.MockCategoryStore.DebtorMappings
+	assert.NotContains(t, saved, "sdds sarl", "an unknown category is not learned")
+	assert.Equal(t, "Abonnements", saved["kiro"])
+}
+
 func TestCategorize_AIAnswerMustBeAKnownCategory(t *testing.T) {
 	ai := &countingAI{answers: map[string]string{
 		"evil":  `=HYPERLINK("http://x")`,
@@ -267,6 +292,25 @@ func TestStaged_UnknownCategoryIsDropped(t *testing.T) {
 	got, err := c.Categorize(context.Background(), "Kiro", true, "-19", "2026-02-01", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Abonnements", got.Name)
+	assert.Equal(t, 1, ai.callCount())
+}
+
+// A staged "Non Classé" from before unknown answers stopped being staged must
+// not answer for the merchant: that pins it exactly like learning it would.
+func TestStaged_UnknownAnswerIsIgnored(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{"sdds sarl": "Non Classé"}}
+	ai := &countingAI{answers: map[string]string{"sdds sarl": "Abonnements"}}
+	st := &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Non Classé"}, {Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}
+	c := NewCategorizer(ai, nil, st, testLogger(), false, 0.70)
+	t.Cleanup(c.Shutdown)
+	c.SetStagingStore(staging)
+	got, err := c.Categorize(context.Background(), "SDDS Sarl", true, "-5", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name, "the AI is asked again")
 	assert.Equal(t, 1, ai.callCount())
 }
 
