@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-10-08
+
 ### Changed
 
 - Reuse staged AI suggestions as a categorization tier (after direct mappings and keywords), so a merchant the AI already classified is not sent to it again on later runs. Staged entries are matched case-insensitively and only kept if their category exists in categories.yaml. The tier is active when AI is enabled and auto-learn is off (staging mode).
