@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-10-08
+
 ### Fixed
 
 - Name CSV rows that have no counterparty after the bank's entry text. Older CAMT card payments name the merchant only in `AddtlNtryInf`, and the CSV writer replaced any name with the (empty) payee or payer, so these rows exported with no name and iCompta imported them as "Nouvelle opération" (about 2,200 rows in five years of BCV statements). A known payee or payer still sets the name.
