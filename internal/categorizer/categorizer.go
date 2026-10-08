@@ -473,6 +473,8 @@ func (c *Categorizer) SetStagingStore(staging StagingStoreInterface) {
 
 // validStaged normalizes keys (lowercase, trimmed) and keeps only entries whose
 // category passes the same check as AI answers, storing the canonical spelling.
+// An "unknown" category (Non Classé, Divers...) decides nothing, so it is
+// skipped and the merchant goes back to the AI.
 func (c *Categorizer) validStaged(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for party, category := range in {
@@ -482,6 +484,9 @@ func (c *Categorizer) validStaged(in map[string]string) map[string]string {
 				logging.Field{Key: "party", Value: party},
 				logging.Field{Key: "category", Value: category},
 			).Warn("Dropped staged suggestion not in categories.yaml")
+			continue
+		}
+		if models.IsUnknownCategory(canonical) {
 			continue
 		}
 		out[strings.ToLower(strings.TrimSpace(party))] = canonical

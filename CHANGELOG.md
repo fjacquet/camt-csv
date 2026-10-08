@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Name CSV rows that have no counterparty after the bank's entry text. Older CAMT card payments name the merchant only in `AddtlNtryInf`, and the CSV writer replaced any name with the (empty) payee or payer, so these rows exported with no name and iCompta imported them as "Nouvelle opération" (about 2,200 rows in five years of BCV statements). A known payee or payer still sets the name.
-- Never learn or stage an AI answer that is itself an "unknown" category (Non Classé, Divers, Autre, Uncategorized). "Non Classé" is a valid entry in categories.yaml, so the AI could pick it and auto-learn pinned the merchant to it for good. The list of unknown categories now lives in `models.IsUnknownCategory`, shared with `recategorize`.
+- Never learn or stage an AI answer that is itself an "unknown" category (Non Classé, Divers, Autre, Uncategorized). "Non Classé" is a valid entry in categories.yaml, so the AI could pick it and auto-learn pinned the merchant to it for good. Staged suggestions already holding one of these are ignored, so those merchants go back to the AI. The list of unknown categories now lives in `models.IsUnknownCategory`, shared with `recategorize`.
 
 ## [4.2.0] - 2026-10-08
 

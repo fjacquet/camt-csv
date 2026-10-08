@@ -295,6 +295,25 @@ func TestStaged_UnknownCategoryIsDropped(t *testing.T) {
 	assert.Equal(t, 1, ai.callCount())
 }
 
+// A staged "Non Classé" from before unknown answers stopped being staged must
+// not answer for the merchant: that pins it exactly like learning it would.
+func TestStaged_UnknownAnswerIsIgnored(t *testing.T) {
+	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{"sdds sarl": "Non Classé"}}
+	ai := &countingAI{answers: map[string]string{"sdds sarl": "Abonnements"}}
+	st := &store.MockCategoryStore{
+		Categories:       []models.CategoryConfig{{Name: "Non Classé"}, {Name: "Abonnements"}},
+		CreditorMappings: map[string]string{},
+		DebtorMappings:   map[string]string{},
+	}
+	c := NewCategorizer(ai, nil, st, testLogger(), false, 0.70)
+	t.Cleanup(c.Shutdown)
+	c.SetStagingStore(staging)
+	got, err := c.Categorize(context.Background(), "SDDS Sarl", true, "-5", "2026-02-01", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Abonnements", got.Name, "the AI is asked again")
+	assert.Equal(t, 1, ai.callCount())
+}
+
 func TestStaged_TierOrderAndDirection(t *testing.T) {
 	ctx := context.Background()
 	staging := &memStaging{creditors: map[string]string{}, debtors: map[string]string{"migros lausanne": "Abonnements", "kiro": "Abonnements"}}
