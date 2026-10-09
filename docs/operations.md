@@ -62,7 +62,7 @@ done
 
 ```dockerfile
 # See Dockerfile in project root for the full version
-FROM golang:1.27.1-alpine AS builder
+FROM golang:1.27.2-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -367,7 +367,7 @@ services:
 
 **CI/CD Pipeline** uses:
 
-- Go 1.27.1
+- Go 1.27.2
 - golangci-lint for code quality
 - gosec for security scanning (with SARIF output)
 - cyclonedx-gomod for SBOM generation (CycloneDX format)

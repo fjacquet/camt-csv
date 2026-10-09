@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Build with Go 1.27.2 and golang.org/x/net v0.60.0, fixing standard-library vulnerabilities reported by govulncheck in net/http, net/http/internal/http2, crypto/tls and mime/multipart (GO-2026-6603, -6605, -6607, -6608, -6610, -6611, -6613, -6617).
+- Update dependencies: shopspring/decimal v1.5.0, golang.org/x/sys v0.49.0, dustin/go-humanize v1.1.0, ncruces/go-strftime v1.1.0.
+- Makefile tool pin: golangci-lint v2.13.2 -> v2.14.0 (v2.13.2 cannot type-check against the Go 1.27.2 standard library).
+
 ## [4.2.1] - 2026-10-08
 
 ### Fixed
