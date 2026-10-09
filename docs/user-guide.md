@@ -57,7 +57,7 @@ Download pre-built binaries from [GitHub Releases](https://github.com/fjacquet/c
 ### Building from Source
 
 Prerequisites:
-- **Go 1.27.1 or higher**: [Download Go](https://golang.org/dl/)
+- **Go 1.27.2 or higher**: [Download Go](https://golang.org/dl/)
 - **pdftotext CLI tool** (for PDF processing):
   - **macOS**: `brew install poppler`
   - **Ubuntu/Debian**: `apt-get install poppler-utils`
