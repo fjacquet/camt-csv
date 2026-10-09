@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-10-09
+
 ### Added
 
 - Add `link-transfers preview|apply` to link both sides of transfers between your own iCompta accounts, so budgets and reports stop counting them as spending and income. Scope is the iCompta folder(s) given with `--folder`; pairs at most 2 days apart with no competing candidate are pre-approved, others are listed for review; apply backs the database up and writes only the links.
