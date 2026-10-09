@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `link-transfers preview|apply` to link both sides of transfers between your own iCompta accounts, so budgets and reports stop counting them as spending and income. Scope is the iCompta folder(s) given with `--folder`; pairs at most 2 days apart with no competing candidate are pre-approved, others are listed for review; apply backs the database up and writes only the links.
+
 ### Security
 
 - Build with Go 1.27.2 and golang.org/x/net v0.60.0, fixing standard-library vulnerabilities reported by govulncheck in net/http, net/http/internal/http2, crypto/tls and mime/multipart (GO-2026-6603, -6605, -6607, -6608, -6610, -6611, -6613, -6617).

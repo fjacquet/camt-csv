@@ -30,7 +30,7 @@ func TestRootCommand_HasOnlyTheKnownVerbs(t *testing.T) {
 	}
 	sort.Strings(names)
 
-	assert.Equal(t, []string{"categorize", "convert", "recategorize"}, names)
+	assert.Equal(t, []string{"categorize", "convert", "link-transfers", "recategorize"}, names)
 }
 
 func TestRootCommand_RemovedFormatCommandsAreGone(t *testing.T) {

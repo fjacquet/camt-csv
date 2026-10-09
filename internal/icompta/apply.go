@@ -45,57 +45,69 @@ func ICComptaRunning() (bool, error) {
 	return false, fmt.Errorf("check whether iCompta is running: %w", err)
 }
 
-// Apply writes the approved rows of a report into the database. It aborts
-// before writing anything if iCompta is running, if the data changed since the
-// preview, or if the database cannot be backed up consistently.
-func Apply(ctx context.Context, rep Report, opts ApplyOptions, log logging.Logger) (ApplyResult, error) {
+// openForWrite runs the checks every apply needs before touching the database:
+// iCompta closed, no pending WAL, data unchanged since the preview. It then
+// backs the database up, opens a write connection and checks integrity. The
+// backup path is returned as soon as the backup exists, even on a later error.
+func openForWrite(ctx context.Context, opts ApplyOptions, reportState string, log logging.Logger) (*sql.DB, string, error) {
 	running, err := opts.IsRunning()
 	if err != nil {
-		return ApplyResult{}, err
+		return nil, "", err
 	}
 	if running {
-		return ApplyResult{}, errors.New("iCompta is running: quit it before applying, it would overwrite or lock the database")
+		return nil, "", errors.New("iCompta is running: quit it before applying, it would overwrite or lock the database")
 	}
 	if fi, err := os.Stat(opts.DBPath + "-wal"); err == nil && fi.Size() > 0 {
-		return ApplyResult{}, fmt.Errorf("%s-wal is not empty: the database has uncommitted pages, a file copy would not be a consistent backup", opts.DBPath)
+		return nil, "", fmt.Errorf("%s-wal is not empty: the database has uncommitted pages, a file copy would not be a consistent backup", opts.DBPath)
 	}
 
 	ro, err := OpenReadOnly(ctx, opts.DBPath)
 	if err != nil {
-		return ApplyResult{}, err
+		return nil, "", err
 	}
 	state, err := ro.State(ctx)
 	_ = ro.Close()
 	if err != nil {
-		return ApplyResult{}, err
+		return nil, "", err
 	}
-	if state != rep.DBState {
-		return ApplyResult{}, fmt.Errorf("the database changed since the preview (preview saw %q, now %q): run preview again", rep.DBState, state)
+	if state != reportState {
+		return nil, "", fmt.Errorf("the database changed since the preview (preview saw %q, now %q): run preview again", reportState, state)
 	}
 
 	backup := fmt.Sprintf("%s.bak-%s", opts.DBPath, opts.Now().UTC().Format("20060102T150405Z"))
 	if err := copyVerified(opts.DBPath, backup); err != nil {
-		return ApplyResult{}, err
+		return nil, "", err
 	}
 	log.WithFields(logging.Field{Key: "backup", Value: backup}).Info("Database backed up")
 
-	res := ApplyResult{BackupPath: backup}
 	// _timeout is the validated shorthand for PRAGMA busy_timeout; _txlock=immediate
 	// takes the write lock at BEGIN instead of failing late on the first UPDATE.
 	uri, err := dsn(opts.DBPath, "_timeout=5000&_txlock=immediate")
 	if err != nil {
-		return res, err
+		return nil, backup, err
 	}
 	db, err := sql.Open("sqlite", uri)
 	if err != nil {
-		return res, fmt.Errorf("open database for writing: %w", err)
+		return nil, backup, fmt.Errorf("open database for writing: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	if err := integrityCheck(ctx, db); err != nil {
+		_ = db.Close()
+		return nil, backup, fmt.Errorf("before apply: %w", err)
+	}
+	return db, backup, nil
+}
+
+// Apply writes the approved rows of a report into the database. It aborts
+// before writing anything if iCompta is running, if the data changed since the
+// preview, or if the database cannot be backed up consistently.
+func Apply(ctx context.Context, rep Report, opts ApplyOptions, log logging.Logger) (ApplyResult, error) {
+	db, backup, err := openForWrite(ctx, opts, rep.DBState, log)
+	res := ApplyResult{BackupPath: backup}
+	if err != nil {
+		return res, err
 	}
 	defer func() { _ = db.Close() }()
-	db.SetMaxOpenConns(1)
-
-	if err := integrityCheck(ctx, db); err != nil {
-		return res, fmt.Errorf("before apply: %w", err)
-	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

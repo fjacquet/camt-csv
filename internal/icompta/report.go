@@ -69,16 +69,14 @@ func (r Report) Write(w io.Writer) error {
 	return cw.Error()
 }
 
-// ReadReport decodes a report, tolerating what a spreadsheet does to a CSV:
-// a UTF-8 BOM, CRLF line endings, trailing commas on the comment lines and any
-// case of yes/no.
-func ReadReport(rd io.Reader) (Report, error) {
-	br := bufio.NewReader(rd)
+// readReportPreamble skips a UTF-8 BOM and reads the leading "#" lines,
+// tolerating a spreadsheet's trailing commas. It returns the db_state value and
+// fails unless the magic line identified a report of this kind.
+func readReportPreamble(br *bufio.Reader, magic, kind string) (string, error) {
 	if b, err := br.Peek(3); err == nil && bytes.Equal(b, []byte{0xEF, 0xBB, 0xBF}) {
 		_, _ = br.Discard(3)
 	}
-
-	var rep Report
+	state := ""
 	magicSeen := false
 	for {
 		first, err := br.Peek(1)
@@ -88,21 +86,34 @@ func ReadReport(rd io.Reader) (Report, error) {
 		line, err := br.ReadString('\n')
 		line = strings.TrimRight(line, ", \r\n")
 		switch {
-		case line == reportMagic:
+		case line == magic:
 			magicSeen = true
 		case strings.HasPrefix(line, stateKey):
-			rep.DBState = strings.TrimPrefix(line, stateKey)
+			state = strings.TrimPrefix(line, stateKey)
 		}
 		if err != nil {
 			break
 		}
 	}
 	if !magicSeen {
-		return Report{}, fmt.Errorf("not a camt-csv recategorize report (missing %q line)", reportMagic)
+		return "", fmt.Errorf("not a camt-csv %s report (missing %q line)", kind, magic)
 	}
-	if rep.DBState == "" {
-		return Report{}, fmt.Errorf("report has no db_state line")
+	if state == "" {
+		return "", fmt.Errorf("report has no db_state line")
 	}
+	return state, nil
+}
+
+// ReadReport decodes a report, tolerating what a spreadsheet does to a CSV:
+// a UTF-8 BOM, CRLF line endings, trailing commas on the comment lines and any
+// case of yes/no.
+func ReadReport(rd io.Reader) (Report, error) {
+	br := bufio.NewReader(rd)
+	state, err := readReportPreamble(br, reportMagic, "recategorize")
+	if err != nil {
+		return Report{}, err
+	}
+	rep := Report{DBState: state}
 
 	cr := csv.NewReader(br)
 	cr.FieldsPerRecord = -1 // checked below so a wrong header reads as a header error

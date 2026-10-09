@@ -86,7 +86,7 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("open iCompta database: %w", err)
 	}
-	if err := requireColumns(ctx, db); err != nil {
+	if err := requireColumns(ctx, db, requiredColumns); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -96,16 +96,16 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 // Close releases the connection.
 func (s *Store) Close() error { return s.db.Close() }
 
-func requireColumns(ctx context.Context, db *sql.DB) error {
+func requireColumns(ctx context.Context, q rowsQuerier, required map[string][]string) error {
 	// Sorted so the first reported problem is deterministic.
-	tables := make([]string, 0, len(requiredColumns))
-	for table := range requiredColumns {
+	tables := make([]string, 0, len(required))
+	for table := range required {
 		tables = append(tables, table)
 	}
 	sort.Strings(tables)
 	for _, table := range tables {
-		cols := requiredColumns[table]
-		rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
+		cols := required[table]
+		rows, err := q.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
 		if err != nil {
 			return fmt.Errorf("inspect %s: %w", table, err)
 		}
@@ -198,11 +198,8 @@ ORDER BY t.date, s.ID`)
 			&amount, &c.CategoryID, &inv, &linked); err != nil {
 			return Snapshot{}, fmt.Errorf("scan split: %w", err)
 		}
-		if strings.TrimSpace(amount) != "" {
-			c.Amount, err = decimal.NewFromString(strings.TrimSpace(amount))
-			if err != nil {
-				return Snapshot{}, fmt.Errorf("split %s: amount %q: %w", c.SplitID, amount, err)
-			}
+		if c.Amount, err = parseSplitAmount(c.SplitID, amount); err != nil {
+			return Snapshot{}, err
 		}
 		c.CategoryName = cats.NameByID(c.CategoryID)
 		c.IsInvestment = inv == 1
@@ -213,6 +210,19 @@ ORDER BY t.date, s.ID`)
 		return Snapshot{}, fmt.Errorf("read splits: %w", err)
 	}
 	return Snapshot{Candidates: cands, Categories: cats, State: state}, nil
+}
+
+// parseSplitAmount reads an amount as iCompta stores it; empty means zero.
+func parseSplitAmount(splitID, raw string) (decimal.Decimal, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return decimal.Zero, nil
+	}
+	d, err := decimal.NewFromString(raw)
+	if err != nil {
+		return decimal.Decimal{}, fmt.Errorf("split %s: amount %q: %w", splitID, raw, err)
+	}
+	return d, nil
 }
 
 type rowsQuerier interface {

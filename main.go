@@ -11,6 +11,7 @@ import (
 
 	"fjacquet/camt-csv/cmd/categorize"
 	"fjacquet/camt-csv/cmd/convert"
+	"fjacquet/camt-csv/cmd/linktransfers"
 	"fjacquet/camt-csv/cmd/recategorize"
 	"fjacquet/camt-csv/cmd/root"
 
@@ -44,6 +45,7 @@ func init() {
 	root.Cmd.AddCommand(convert.Cmd)
 	root.Cmd.AddCommand(categorize.Cmd)
 	root.Cmd.AddCommand(recategorize.Cmd)
+	root.Cmd.AddCommand(linktransfers.Cmd)
 }
 
 // loadEnvSilently loads environment variables without logging anything
