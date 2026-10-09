@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -34,6 +35,7 @@ func ApplyLinks(ctx context.Context, rep TransferReport, opts ApplyOptions, log 
 		}
 	}
 	if len(twice) > 0 {
+		sort.Strings(twice)
 		return ApplyResult{}, fmt.Errorf("a split can be linked only once, but these appear in several approved rows: %s", strings.Join(twice, ", "))
 	}
 

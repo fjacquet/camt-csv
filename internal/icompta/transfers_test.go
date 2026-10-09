@@ -131,13 +131,67 @@ func TestEligibleLegs(t *testing.T) {
 	zero := leg("ZER", "A", "2026-01-10", "0.001")
 	planned := leg("PLN", "A", "2026-01-10", "-1")
 	planned.Status = "ICTransactionStatus.PlannedStatus"
-	early := leg("EAR", "A", "2025-12-31", "-1")
-	late := leg("LAT", "A", "2026-02-01", "-1")
 
-	got := EligibleLegs([]Leg{ok, out, linked, multi, zero, planned, early, late}, scope, "2026-01-01", "2026-01-31")
+	got := EligibleLegs([]Leg{ok, out, linked, multi, zero, planned}, scope)
 	require.Len(t, got, 1)
 	assert.Equal(t, "OK", got[0].SplitID)
+}
 
-	all := EligibleLegs([]Leg{ok, early, late}, scope, "", "")
-	assert.Len(t, all, 3, "no date bounds without --from/--to")
+func TestPairsInRange(t *testing.T) {
+	pairs := MatchTransfers([]Leg{leg("D", "A", "2026-08-30", "-100"), leg("C", "B", "2026-09-01", "100")})
+	require.Len(t, pairs, 1, "gap 2 days")
+	for _, tc := range []struct {
+		from, to string
+		kept     bool
+	}{
+		{"2026-09-01", "2026-09-30", true}, // credit inside
+		{"2026-08-01", "2026-08-31", true}, // debit inside
+		{"2026-10-01", "2026-10-31", false},
+		{"", "", true},
+	} {
+		assert.Equal(t, tc.kept, len(PairsInRange(pairs, tc.from, tc.to)) == 1, tc.from+".."+tc.to)
+	}
+}
+
+// Ambiguity is decided on every eligible leg, so a candidate just outside the
+// range still makes the in-range pair doubtful.
+func TestPairsInRange_AmbiguityCountsOutOfRangeLegs(t *testing.T) {
+	pairs := MatchTransfers([]Leg{
+		leg("D", "A", "2026-08-31", "-100"),
+		leg("C", "B", "2026-09-01", "100"),
+		leg("D2", "C", "2026-09-02", "-100"),
+	})
+	kept := PairsInRange(pairs, "2026-09-01", "2026-09-30")
+	require.Len(t, kept, 2)
+	for _, p := range kept {
+		assert.False(t, p.Sure)
+		assert.Equal(t, "2 candidates for the credit", p.Reason)
+	}
+}
+
+// A card purchase that coincides with a pocket move carries two real spending
+// categories: it must not be pre-approved.
+func TestMatchTransfers_DifferentSpendingCategoriesAreDoubtful(t *testing.T) {
+	c := leg("C", "B", "2026-01-10", "100")
+	c.Category = "Voyages"
+	d := leg("D", "A", "2026-01-10", "-100")
+	d.Category = "Abonnements"
+	pairs := MatchTransfers([]Leg{d, c})
+	require.Len(t, pairs, 1)
+	assert.False(t, pairs[0].Sure)
+	assert.Equal(t, "categories differ, neither is a transfer", pairs[0].Reason)
+	assert.Equal(t, "categories differ", pairs[0].Note)
+}
+
+// An uncategorised side does not block pre-approval; the note still shows.
+func TestMatchTransfers_UncategorisedSideStaysSure(t *testing.T) {
+	c := leg("C", "B", "2026-01-10", "100")
+	c.Category = ""
+	d := leg("D", "A", "2026-01-10", "-100")
+	d.Category = "Frais Bancaires"
+	pairs := MatchTransfers([]Leg{d, c})
+	require.Len(t, pairs, 1)
+	assert.True(t, pairs[0].Sure)
+	assert.Empty(t, pairs[0].Reason)
+	assert.Equal(t, "categories differ", pairs[0].Note)
 }

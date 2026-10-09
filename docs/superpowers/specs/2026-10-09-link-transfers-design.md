@@ -58,8 +58,9 @@ report's magic/state header lines. New code lives next to them in `internal/icom
 - `ICPerson` rows ("Personnes") are never candidates.
 - A `--folder` name that matches no folder is an error. Two folders with the same name are an
   error that names both paths: a silent wrong scope is worse than a stop.
-- `--from` / `--to` (ISO dates, inclusive) limit candidates to transactions dated in the
-  range, for the monthly re-run. Default: the whole database.
+- `--from` / `--to` (ISO dates, inclusive) keep the pairs with at least one leg dated in the
+  range. Matching runs on every eligible leg first, so boundary-crossing transfers are found
+  and ambiguity counts are complete. Default: the whole database.
 - `max_days` (4) and `sure_days` (2) are constants in v1, not settings.
 
 ## Matching rules (pure function, unit-tested)
@@ -88,8 +89,10 @@ Confidence:
   Several reasons are joined with `; `. Every combination of an ambiguous group is listed so
   the user can pick one.
 
-"categories differ" alone does not make a sure pair doubtful; it is shown in the report's
-`note` column.
+"categories differ" is shown in the `note` column. It makes a pair doubtful (reason
+`categories differ, neither is a transfer`) only when neither side is "Virements" nor an
+unknown/empty category: on real data this caught card purchases that coincided with Revolut
+pocket moves.
 
 Ordering: by debit date, then debit account name, then amount. This is deterministic, so two
 previews of the same database give the same report.

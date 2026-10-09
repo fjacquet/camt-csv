@@ -90,7 +90,14 @@ func TestRunPreview_DateBounds(t *testing.T) {
 	assert.Contains(t, err.Error(), "--from")
 	assert.NoFileExists(t, out)
 
+	// S1 (01-10) is before --from, but S2 (01-11) is inside: the pair is kept.
 	require.NoError(t, runPreviewWith(context.Background(), db, out, false, []string{"Fred"}, "2026-01-11", "", logging.NewMockLogger()))
 	b, _ := os.ReadFile(out)
-	assert.Len(t, strings.Split(strings.TrimSpace(string(b)), "\n"), 3, "S1 is before --from: no pair left")
+	assert.Len(t, strings.Split(strings.TrimSpace(string(b)), "\n"), 4)
+
+	// Both legs before --from: no pair left.
+	out = filepath.Join(t.TempDir(), "late.csv")
+	require.NoError(t, runPreviewWith(context.Background(), db, out, false, []string{"Fred"}, "2026-01-12", "", logging.NewMockLogger()))
+	b, _ = os.ReadFile(out)
+	assert.Len(t, strings.Split(strings.TrimSpace(string(b)), "\n"), 3, "both legs before --from")
 }

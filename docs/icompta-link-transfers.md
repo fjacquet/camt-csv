@@ -15,14 +15,20 @@ camt-csv link-transfers preview --db ~/Desktop/ic25.cdb --folder Fred -o pairs.c
 - `--folder` (required, repeatable) names the iCompta folder(s) holding your
   accounts. Every account under them, at any depth, is considered. Nothing else
   is. A folder name that does not exist, or exists twice, stops the command.
-- `--from` / `--to` (YYYY-MM-DD) limit the run to a period, for example the month
-  you just imported.
+- `--from` / `--to` (YYYY-MM-DD) keep the pairs with at least one side in that
+  period, for example the month you just imported. Matching still looks at every
+  transaction, so a transfer that leaves on the 30th and arrives on the 1st is
+  found from either month.
+- `--force` overwrites an existing report (without it, preview refuses to replace
+  a report you may have reviewed).
 
 A pair is the same amount in opposite directions, in two accounts of the same
 currency, at most 4 days apart, with each side the only split of its
 transaction, not planned and not already linked.
 
-- **sure** (`apply=yes`): at most 2 days apart and no competing candidate.
+- **sure** (`apply=yes`): at most 2 days apart and no competing candidate, and,
+  when the two sides have different categories, one of them is Virements or
+  uncategorized.
 - **doubtful** (`apply=no`): 3-4 days apart, or several candidates. The `reason`
   column says which. Every combination is listed: set `apply=yes` on the right
   one.
@@ -33,8 +39,8 @@ Columns: `debit_split_id, credit_split_id, debit_date, credit_date, gap_days,
 debit_account, credit_account, debit_name, credit_name, amount, debit_category,
 credit_category, confidence, reason, note, apply`.
 
-Transfers between CHF and EUR accounts never match (different amounts). Link
-them in iCompta by hand.
+Transfers between a CHF and a EUR account are never proposed: the two accounts
+have different currencies. Link them in iCompta by hand.
 
 ## 2. Apply
 

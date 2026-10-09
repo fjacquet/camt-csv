@@ -135,6 +135,22 @@ func TestApplyLinks_SplitInTwoApprovedRowsRejectsEverything(t *testing.T) {
 	assert.Empty(t, l)
 }
 
+// The error names the duplicated splits in a fixed order, whatever the map order.
+func TestApplyLinks_DuplicateErrorIsDeterministic(t *testing.T) {
+	path := newTransferFixtureDB(t)
+	rep := TransferReport{DBState: previewState(t, path), Rows: []TransferRow{
+		row("S3", "S6", true),
+		row("S1", "S2", true),
+		row("S1", "S4", true),
+		row("S3", "S5", true),
+	}}
+	for i := 0; i < 20; i++ {
+		_, err := ApplyLinks(context.Background(), rep, opts(path), logging.NewMockLogger())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "S1, S3")
+	}
+}
+
 func TestApplyLinks_RefusesWhileICComptaRuns(t *testing.T) {
 	path := newTransferFixtureDB(t)
 	o := opts(path)

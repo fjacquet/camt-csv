@@ -144,15 +144,15 @@ func runPreviewWith(ctx context.Context, db, out string, force bool, folderNames
 	if err != nil {
 		return err
 	}
-	pairs := icompta.MatchTransfers(icompta.EligibleLegs(snap.Legs, scope, from, to))
+	pairs := icompta.PairsInRange(icompta.MatchTransfers(icompta.EligibleLegs(snap.Legs, scope)), from, to)
 	rep := icompta.NewTransferReport(snap.State, pairs)
 	if err := rep.Write(f); err != nil {
 		return fmt.Errorf("write report: %w", err)
 	}
-	written = true
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("write report: %w", err)
 	}
+	written = true
 
 	sure := 0
 	for _, p := range pairs {
@@ -181,10 +181,13 @@ func runApply(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("report %s: %w", reportPath, err)
 	}
-	_, err = icompta.ApplyLinks(cmd.Context(), rep, icompta.ApplyOptions{
+	res, err := icompta.ApplyLinks(cmd.Context(), rep, icompta.ApplyOptions{
 		DBPath:    applyDB,
 		Now:       time.Now,
 		IsRunning: icompta.ICComptaRunning,
 	}, root.GetLogrusAdapter())
+	if err != nil && res.BackupPath != "" {
+		return fmt.Errorf("%w (backup: %s)", err, res.BackupPath)
+	}
 	return err
 }

@@ -96,7 +96,7 @@ func TestTransferSnapshot_EndToEndFindsTheOneSurePair(t *testing.T) {
 
 	scope, err := ResolveScope(snap.Accounts, []string{"Fred"})
 	require.NoError(t, err)
-	pairs := MatchTransfers(EligibleLegs(snap.Legs, scope, "", ""))
+	pairs := MatchTransfers(EligibleLegs(snap.Legs, scope))
 	require.Len(t, pairs, 1, "Lydie's S4 is out of scope, so S1/S2 stay unambiguous")
 	assert.Equal(t, "S1", pairs[0].Debit.SplitID)
 	assert.Equal(t, "S2", pairs[0].Credit.SplitID)
