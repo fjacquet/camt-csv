@@ -133,7 +133,7 @@ CLI usage: `camt-csv convert -i <input> -o <output> --format standard|icompta|ju
   - `config/` - Viper-based hierarchical configuration
   - `store/` - YAML category database management
   - `common/` - Shared CSV utilities
-  - `icompta/` - Recategorize an iCompta database (`ic25.cdb`): read-only `store`, pure `policy`/`report`, `preview` loop, `apply` with backup. Command: `cmd/recategorize`. Real-category splits run only local tiers (`Categorizer.CategorizeLocal`) and only a direct mapping may override them; keyword/semantic/AI only fill empty or "unknown" ones. Tests build fixture databases, never the real file. See `docs/icompta-recategorize.md`.
+  - `icompta/` - Recategorize an iCompta database (`ic25.cdb`): read-only `store`, pure `policy`/`report`, `preview` loop, `apply` with backup. Command: `cmd/recategorize`. Real-category splits run only local tiers (`Categorizer.CategorizeLocal`) and only a direct mapping may override them; keyword/semantic/AI only fill empty or "unknown" ones. Tests build fixture databases, never the real file. See `docs/icompta-recategorize.md`. `link-transfers` (`cmd/linktransfers`) reuses the same store/backup/apply rails to link both sides of own-account transfers: scope is `--folder` only, pairs are matched by `MatchTransfers` (pure), and apply writes only `linkedSplit` and modification dates. See `docs/icompta-link-transfers.md`.
 - `database/` - YAML configuration files for categorization rules
 
 ### Configuration Hierarchy
