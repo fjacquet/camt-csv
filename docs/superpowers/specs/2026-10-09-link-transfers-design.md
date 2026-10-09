@@ -31,7 +31,7 @@ Success:
 - Changing categories. Existing iCompta links carry the same category on both sides; when a
   candidate pair's categories differ, the report shows both and nothing is changed.
 - Splitting or merging transactions; transactions with more than one split are out of scope.
-- Linking to accounts the user does not manage (see Scope).
+- Linking to accounts outside the folders given at run time (see Scope).
 
 ## Pattern
 
@@ -50,27 +50,17 @@ report's magic/state header lines. New code lives next to them in `internal/icom
 
 ## Scope: which accounts
 
-- Candidates: rows of `ICAccount` with `class = 'ICAccount'`. `ICPerson` rows ("Personnes":
-  tracking entries for people) and `ICAccountsGroup` rows (folders) are never candidates.
-- Exclusions, by folder or account name, from config:
-
-  ```yaml
-  link_transfers:
-    exclude:            # folder or account names; a folder excludes everything under it
-      - CA-Lydie        # mother's accounts (power of attorney, not managed)
-      - CA-Tobias       # son's accounts
-      - Revolut Tobias
-    max_days: 4         # widest date gap for a candidate pair
-    sure_days: 2        # widest gap for a pair pre-marked apply=yes
-  ```
-
-  A folder exclusion applies to every account under it, at any depth (`ICAccount.parent`
-  chain). The code default is an empty exclude list. The user's list goes in the personal,
-  uncommitted config `~/.camt-csv/camt-csv.yaml`. The repository's `.camt-csv/config.yaml` is
-  tracked, and family members' names must not be committed. An exclude name that matches no account
-  or folder is a warning, not an error (a typo must be visible).
-- `--from` / `--to` (ISO dates, inclusive) limit candidates to transactions dated in the range,
-  for the monthly re-run. Default: the whole database.
+- `--folder NAME` (required, repeatable) names the iCompta folders (`ICAccount` rows with
+  `class = 'ICAccountsGroup'`) to work in. The scope is every account (`class = 'ICAccount'`)
+  under those folders, at any depth, through the `ICAccount.parent` chain. There is no config
+  setting and no exclude list: the user keeps the accounts they manage under one folder
+  ("Fred") and passes it at run time.
+- `ICPerson` rows ("Personnes") are never candidates.
+- A `--folder` name that matches no folder is an error. Two folders with the same name are an
+  error that names both paths: a silent wrong scope is worse than a stop.
+- `--from` / `--to` (ISO dates, inclusive) limit candidates to transactions dated in the
+  range, for the monthly re-run. Default: the whole database.
+- `max_days` (4) and `sure_days` (2) are constants in v1, not settings.
 
 ## Matching rules (pure function, unit-tested)
 
@@ -84,10 +74,10 @@ Input: the candidate splits. A split qualifies when:
 Two qualifying splits A (amount < 0) and B (amount > 0) form a candidate pair when:
 - they are in different accounts with the same currency (`ICAccount.currency`);
 - `|A.amount| = |B.amount|`, compared as decimals rounded to cents;
-- their transaction dates are at most `max_days` apart.
+- their transaction dates are at most 4 days (`max_days`) apart.
 
 Confidence:
-- **sure**: gap ≤ `sure_days`, and A has exactly one candidate B, and B exactly one candidate A.
+- **sure**: gap ≤ 2 days (`sure_days`), and A has exactly one candidate B, and B exactly one candidate A.
   Report `apply=yes`.
 - **doubtful**: any other candidate pair. Report `apply=no` and a reason. Reasons:
   - `gap N days`;
@@ -155,7 +145,7 @@ accounts and the amount.
 ## CLI
 
 ```
-camt-csv link-transfers preview --db ~/Desktop/ic25.cdb -o pairs.csv [--from 2026-09-01] [--to 2026-09-30] [--force]
+camt-csv link-transfers preview --db ~/Desktop/ic25.cdb --folder Fred -o pairs.csv [--from 2026-09-01] [--to 2026-09-30] [--force]
 camt-csv link-transfers apply   --db ~/Desktop/ic25.cdb --report pairs.csv
 ```
 
@@ -170,15 +160,16 @@ not build the categorizer or warm up embeddings. Documentation:
   - 3- and 4-day gaps (doubtful), 5-day gap (no pair);
   - two credits for one debit (both listed, doubtful);
   - different currencies (no pair);
-  - excluded account, excluded folder with a nested account, `ICPerson` (no pair);
+  - account outside the given folders, account nested two levels under one, `ICPerson` (no pair);
   - already-linked split;
   - Planned transaction;
   - multi-split transaction;
   - zero amount;
   - a cents-rounding case;
   - deterministic ordering.
-- **Scope resolution:** folder exclusion through two levels of `parent`; an unknown exclude
-  name warns.
+- **Scope resolution:** an account two levels under the folder is included; an account in
+  another folder is not; an unknown folder name is an error; a duplicate folder name is an
+  error naming both paths.
 - **Report:** write/read round trip, formula escaping, BOM/CRLF tolerance, wrong magic rejected.
 - **Apply, on fixture databases built in the test (never the real file):**
   - links are set both ways and modification dates updated;
