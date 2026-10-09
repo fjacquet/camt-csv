@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -110,7 +111,7 @@ func ReadTransferReport(rd io.Reader) (TransferReport, error) {
 	if err != nil {
 		return TransferReport{}, fmt.Errorf("read report rows: %w", err)
 	}
-	if len(records) == 0 || strings.Join(records[0], ",") != strings.Join(transferReportHeader, ",") {
+	if len(records) == 0 || !slices.Equal(records[0], transferReportHeader) {
 		return TransferReport{}, fmt.Errorf("report header is not %q", strings.Join(transferReportHeader, ","))
 	}
 	u := csvsafe.Unescape

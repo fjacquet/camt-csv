@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"fjacquet/camt-csv/internal/models"
-
 	"github.com/shopspring/decimal"
 )
 
@@ -26,7 +24,7 @@ const (
 const transferCategory = "Virements"
 
 func transferLike(category string) bool {
-	return models.IsUnknownCategory(category) || normalize(category) == normalize(transferCategory)
+	return IsUnknownCategory(category) || SameCategory(category, transferCategory)
 }
 
 // Leg is one split that could be one side of a transfer.
@@ -83,12 +81,16 @@ func MatchTransfers(legs []Leg) []Pair {
 	var cands []candidate
 	perDebit := map[int]int{}
 	perCredit := map[int]int{}
+	type bucket struct{ currency, cents string }
+	byAmount := map[bucket][]int{}
+	for j, c := range credits {
+		k := bucket{c.CurrencyID, c.Amount.Round(2).StringFixed(2)}
+		byAmount[k] = append(byAmount[k], j)
+	}
 	for i, d := range debits {
-		for j, c := range credits {
-			if d.AccountID == c.AccountID || d.CurrencyID != c.CurrencyID {
-				continue
-			}
-			if !d.Amount.Round(2).Neg().Equal(c.Amount.Round(2)) {
+		for _, j := range byAmount[bucket{d.CurrencyID, d.Amount.Round(2).Neg().StringFixed(2)}] {
+			c := credits[j]
+			if d.AccountID == c.AccountID {
 				continue
 			}
 			gap, ok := dayGap(d.Date, c.Date)

@@ -3,9 +3,6 @@ package icompta
 import (
 	"context"
 	"fmt"
-	"strings"
-
-	"github.com/shopspring/decimal"
 )
 
 // transferColumns are what link-transfers reads beyond requiredColumns. They are
@@ -70,10 +67,11 @@ FROM ICAccount`)
 	rows, err := tx.QueryContext(ctx, `
 SELECT s.ID, t.ID, COALESCE(t.account,''), substr(t.date,1,10), t.name,
        COALESCE(NULLIF(s.amount,''), t.amount, ''), COALESCE(s.category,''), COALESCE(t.status,''),
-       (SELECT COUNT(*) FROM ICTransactionSplit s2 WHERE s2."transaction" = t.ID),
+       n.splits,
        CASE WHEN COALESCE(s.linkedSplit,'') <> '' THEN 1 ELSE 0 END
 FROM ICTransactionSplit s
 JOIN ICTransaction t ON t.ID = s."transaction"
+JOIN (SELECT "transaction" AS tx, COUNT(*) AS splits FROM ICTransactionSplit GROUP BY "transaction") n ON n.tx = t.ID
 ORDER BY t.date, s.ID`)
 	if err != nil {
 		return TransferSnapshot{}, fmt.Errorf("read splits: %w", err)
@@ -88,11 +86,8 @@ ORDER BY t.date, s.ID`)
 			&amount, &categoryID, &l.Status, &l.SplitCount, &linked); err != nil {
 			return TransferSnapshot{}, fmt.Errorf("scan split: %w", err)
 		}
-		if strings.TrimSpace(amount) != "" {
-			l.Amount, err = decimal.NewFromString(strings.TrimSpace(amount))
-			if err != nil {
-				return TransferSnapshot{}, fmt.Errorf("split %s: amount %q: %w", l.SplitID, amount, err)
-			}
+		if l.Amount, err = parseSplitAmount(l.SplitID, amount); err != nil {
+			return TransferSnapshot{}, err
 		}
 		l.Category = cats.NameByID(categoryID)
 		l.AccountName = byID[l.AccountID].Name

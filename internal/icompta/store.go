@@ -198,11 +198,8 @@ ORDER BY t.date, s.ID`)
 			&amount, &c.CategoryID, &inv, &linked); err != nil {
 			return Snapshot{}, fmt.Errorf("scan split: %w", err)
 		}
-		if strings.TrimSpace(amount) != "" {
-			c.Amount, err = decimal.NewFromString(strings.TrimSpace(amount))
-			if err != nil {
-				return Snapshot{}, fmt.Errorf("split %s: amount %q: %w", c.SplitID, amount, err)
-			}
+		if c.Amount, err = parseSplitAmount(c.SplitID, amount); err != nil {
+			return Snapshot{}, err
 		}
 		c.CategoryName = cats.NameByID(c.CategoryID)
 		c.IsInvestment = inv == 1
@@ -213,6 +210,19 @@ ORDER BY t.date, s.ID`)
 		return Snapshot{}, fmt.Errorf("read splits: %w", err)
 	}
 	return Snapshot{Candidates: cands, Categories: cats, State: state}, nil
+}
+
+// parseSplitAmount reads an amount as iCompta stores it; empty means zero.
+func parseSplitAmount(splitID, raw string) (decimal.Decimal, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return decimal.Zero, nil
+	}
+	d, err := decimal.NewFromString(raw)
+	if err != nil {
+		return decimal.Decimal{}, fmt.Errorf("split %s: amount %q: %w", splitID, raw, err)
+	}
+	return d, nil
 }
 
 type rowsQuerier interface {

@@ -107,7 +107,7 @@ func checkDate(flag, v string) error {
 // runPreviewWith validates the dates, then opens the report before reading the
 // database, so a bad path fails at once and a reviewed report is never
 // overwritten by accident. A failed run leaves no report file.
-func runPreviewWith(ctx context.Context, db, out string, force bool, folderNames []string, from, to string, log logging.Logger) (err error) {
+func runPreviewWith(ctx context.Context, db, out string, force bool, folderNames []string, from, to string, log logging.Logger) error {
 	if err := checkDate("--from", from); err != nil {
 		return err
 	}

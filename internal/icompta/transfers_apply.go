@@ -108,13 +108,8 @@ WHERE s.ID = ?`, splitID).Scan(&side.txID, &amount, &linked)
 		return side, err
 	}
 	side.linked = linked != ""
-	if strings.TrimSpace(amount) != "" {
-		side.amount, err = decimal.NewFromString(strings.TrimSpace(amount))
-		if err != nil {
-			return side, fmt.Errorf("split %s: amount %q: %w", splitID, amount, err)
-		}
-	}
-	return side, nil
+	side.amount, err = parseSplitAmount(splitID, amount)
+	return side, err
 }
 
 // linkPair links one approved row. It returns a skip reason when the pair no
