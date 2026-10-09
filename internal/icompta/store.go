@@ -86,7 +86,7 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("open iCompta database: %w", err)
 	}
-	if err := requireColumns(ctx, db); err != nil {
+	if err := requireColumns(ctx, db, requiredColumns); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -96,16 +96,16 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 // Close releases the connection.
 func (s *Store) Close() error { return s.db.Close() }
 
-func requireColumns(ctx context.Context, db *sql.DB) error {
+func requireColumns(ctx context.Context, q rowsQuerier, required map[string][]string) error {
 	// Sorted so the first reported problem is deterministic.
-	tables := make([]string, 0, len(requiredColumns))
-	for table := range requiredColumns {
+	tables := make([]string, 0, len(required))
+	for table := range required {
 		tables = append(tables, table)
 	}
 	sort.Strings(tables)
 	for _, table := range tables {
-		cols := requiredColumns[table]
-		rows, err := db.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
+		cols := required[table]
+		rows, err := q.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
 		if err != nil {
 			return fmt.Errorf("inspect %s: %w", table, err)
 		}
