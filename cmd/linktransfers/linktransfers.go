@@ -43,8 +43,10 @@ transactions, and link them the way iCompta does, in two steps.
 
 Only accounts under the --folder folders are considered (any depth). A pair is
 the same amount in opposite directions, in two accounts of the same currency,
-at most 4 days apart. Pairs at most 2 days apart with no competing candidate are
-pre-approved (apply=yes); the others are listed with apply=no and a reason.
+at most 4 days apart. Pairs at most 2 days apart with no competing candidate, and,
+when the two sides have different categories, one of them a transfer or
+uncategorized, are pre-approved (apply=yes). The others are listed with apply=no
+and a reason.
 
 apply refuses to run while iCompta is open, backs up the database first, and
 changes only the link between the two splits: categories and amounts stay.`,
@@ -69,8 +71,8 @@ func init() {
 	previewCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Path of the report CSV to write")
 	previewCmd.Flags().BoolVar(&forceOutput, "force", false, "Overwrite the report if it already exists")
 	previewCmd.Flags().StringArrayVar(&folders, "folder", nil, "iCompta folder holding your accounts (repeatable)")
-	previewCmd.Flags().StringVar(&fromDate, "from", "", "Only transactions on or after this date (YYYY-MM-DD)")
-	previewCmd.Flags().StringVar(&toDate, "to", "", "Only transactions on or before this date (YYYY-MM-DD)")
+	previewCmd.Flags().StringVar(&fromDate, "from", "", "Only pairs with at least one side on or after this date (YYYY-MM-DD)")
+	previewCmd.Flags().StringVar(&toDate, "to", "", "Only pairs with at least one side on or before this date (YYYY-MM-DD)")
 	_ = previewCmd.MarkFlagRequired("db")
 	_ = previewCmd.MarkFlagRequired("output")
 	_ = previewCmd.MarkFlagRequired("folder")

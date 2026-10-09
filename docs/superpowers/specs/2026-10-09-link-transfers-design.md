@@ -84,7 +84,7 @@ Confidence:
   - `gap N days`;
   - `N candidates for the debit`;
   - `N candidates for the credit`;
-  - `categories differ`.
+  - `categories differ, neither is a transfer`.
 
   Several reasons are joined with `; `. Every combination of an ambiguous group is listed so
   the user can pick one.
