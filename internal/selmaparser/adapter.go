@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
@@ -35,7 +36,10 @@ func (a *Adapter) Parse(ctx context.Context, r io.Reader) ([]models.Transaction,
 			continue
 		}
 		if name, ok := a.securityNames[txs[i].Fund]; ok {
-			txs[i].Fund, txs[i].PartyName = name, name
+			// Fund keeps the full "ISIN-name" (the security); the payee is the readable name.
+			txs[i].Fund = name
+			txs[i].PartyName = strings.TrimPrefix(name, txs[i].PartyName+"-")
+			txs[i].Name = txs[i].PartyName
 		} else {
 			missing[txs[i].Fund] = true
 		}

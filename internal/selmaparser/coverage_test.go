@@ -123,5 +123,7 @@ func TestAdapter_SecurityNames(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, txs, 2)
 	assert.Equal(t, "IE00BMDBMP28-iShares", txs[0].Fund)
+	assert.Equal(t, "iShares", txs[0].PartyName)
+	assert.Equal(t, "iShares", txs[0].Name)
 	assert.Equal(t, "XX0000000000", txs[1].Fund) // unknown: left bare, warned
 }

@@ -75,6 +75,23 @@ Some columns carry constraints that are not obvious from the name:
   UUID into it, so it changes on every export. Never map it to `externalID` or
   `number`.
 
+## Selma: security vs payee
+
+With `convert --icompta-db ic25.cdb`, `Fund` holds the existing security's full
+name (`IE00BMDBMP28-iShares € Corp Bond ESG UCITS ETF CHF Hedged (Acc)`), which
+is what attaches the row to its ticker, and `Name` holds the readable name
+without the ISIN prefix. The `CSV-Selma` plugin must map them separately:
+
+| iCompta field | Column |
+| --- | --- |
+| `investmentTransactionInfo.security` | `Fund` |
+| `name` | `Name` |
+| `payee` | `Name` |
+
+Edit the plugin in iCompta itself (Preferences → Import) — never write
+`ic25.cdb` while iCompta is running. Securities missing from iCompta are never
+created by camt-csv: it logs `NEW SECURITY NEEDED` and leaves the bare ISIN.
+
 ## externalID coverage by parser
 
 | Parser | `BookkeepingNumber` source | Stable across re-exports |
