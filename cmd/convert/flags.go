@@ -21,6 +21,8 @@ func registerConvertFlags(cmd *cobra.Command) {
 	// because InitializeConfig builds its own Viper instance.
 	cmd.Flags().Bool("keep-payments", false,
 		"Import the monthly Viseca card settlement rows (dropped by default because the bank statement carries the same payments)")
+	cmd.Flags().String("icompta-db", "",
+		"Path to the iCompta database (ic25.cdb), opened read-only (safe while iCompta runs): Selma rows are named after the existing security \"ISIN-name\" so they attach to it and its ticker")
 	cmd.Flags().String("date-format", "DD.MM.YYYY",
 		"Date format in output: DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY, etc. (Go layout: 02.01.2006, 2006-01-02, 01/02/2006)")
 	// The flag has never been wired to the writers: output dates are always

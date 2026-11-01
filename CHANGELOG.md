@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `convert --icompta-db <ic25.cdb>` (or `parsers.selma.icompta_db`): name Selma rows after the existing iCompta security (`ISIN-name`) so they attach to it and its ticker. The database is opened read-only, safe while iCompta runs. An ISIN with no matching security is left bare and logged as `NEW SECURITY NEEDED`; nothing is ever created.
+
+### Fixed
+
+- Accept the French Selma CSV export (`Tenue des comptes n°`, `ISIN`, `Montant`, `Devise`, `Nombre d’actions`); it was rejected as an unrecognized format.
+
 ## [4.3.0] - 2026-10-09
 
 ### Added
