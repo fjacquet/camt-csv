@@ -12,6 +12,7 @@ import (
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/models"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -756,5 +757,26 @@ func TestConvertRevolutRowToTransaction_FeeOnlyRows(t *testing.T) {
 			assert.Equal(t, tt.wantDebit, tx.DebitFlag)
 			assert.True(t, tx.Fees.IsZero(), "the fee is the amount; reporting it twice double-counts it")
 		})
+	}
+}
+
+func TestConvertRow_FeeFoldedIntoAmount(t *testing.T) {
+	logger := logging.NewLogrusAdapter("info", "text")
+	base := RevolutCSVRow{
+		Type: "CARD_PAYMENT", Product: "Current", Description: "Amazon", Currency: "CHF", State: "COMPLETED",
+		StartedDate: "2025-02-02 10:00:00", CompletedDate: "2025-02-02 10:00:00",
+	}
+	for _, tc := range []struct{ amount, fee, want string }{
+		{"-9.45", "0.09", "-9.54"}, // fee increases the outflow
+		{"10.00", "0.10", "9.90"},  // fee reduces a credit
+		{"0.00", "-5.00", "5.00"},  // refund booked in Fee only
+	} {
+		row := base
+		row.Amount, row.Fee = tc.amount, tc.fee
+		tx, err := convertRevolutRowToTransaction(row, logger)
+		require.NoError(t, err)
+		got := tx.Amount // signed: negative for a debit
+		assert.True(t, decimal.RequireFromString(tc.want).Equal(got), "%s fee %s: got %s", tc.amount, tc.fee, got)
+		assert.True(t, tx.Fees.IsZero())
 	}
 }

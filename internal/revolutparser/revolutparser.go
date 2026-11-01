@@ -182,14 +182,20 @@ func convertRevolutRowToTransaction(row RevolutCSVRow, logger logging.Logger) (m
 		}
 	}
 
-	// Revolut books some charges and refunds (a Metal subscription) with a zero
-	// Amount and the money in Fee: the fee is then the movement itself, charged
-	// when positive and refunded when negative.
-	if amountDecimal.IsZero() && !feeDecimal.IsZero() {
-		isDebit = feeDecimal.IsPositive()
-		amountDecimal = feeDecimal.Abs()
-		feeDecimal = decimal.Zero
+	// The fee is part of what left the account (the export's Solde is
+	// Amount - Fee), and iCompta's plugin reads Fees only on investments, so a
+	// separate Fees column would silently drop it from the balance. Fold it into
+	// the amount. This also covers charges and refunds booked with a zero Amount
+	// and the money in Fee (a Metal subscription): charged when the fee is
+	// positive, refunded when negative.
+	signed := amountDecimal
+	if isDebit {
+		signed = signed.Neg()
 	}
+	net := signed.Sub(feeDecimal)
+	isDebit = net.IsNegative()
+	amountDecimal = net.Abs()
+	feeDecimal = decimal.Zero
 
 	// Use TransactionBuilder for consistent transaction construction
 	builder := models.NewTransactionBuilder().
