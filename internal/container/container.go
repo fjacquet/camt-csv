@@ -4,6 +4,7 @@
 package container
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"fjacquet/camt-csv/internal/config"
 	"fjacquet/camt-csv/internal/debitparser"
 	"fjacquet/camt-csv/internal/formatter"
+	"fjacquet/camt-csv/internal/icompta"
 	"fjacquet/camt-csv/internal/logging"
 	"fjacquet/camt-csv/internal/parser"
 	"fjacquet/camt-csv/internal/pdfparser"
@@ -181,6 +183,14 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// Selma parser
 	selmaParser := selmaparser.NewAdapter(logger)
 	selmaParser.SetCategorizer(cat)
+	if dbPath := cfg.Parsers.Selma.ICComptaDB; dbPath != "" {
+		names, err := icompta.SecurityNames(context.Background(), dbPath)
+		if err != nil {
+			logger.WithError(err).Warn("Cannot read iCompta securities; Selma rows keep the bare ISIN")
+		} else {
+			selmaParser.SetSecurityNames(names)
+		}
+	}
 	parsers[Selma] = selmaParser
 
 	// Debit parser

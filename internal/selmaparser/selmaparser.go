@@ -59,7 +59,7 @@ func ParseWithCategorizer(ctx context.Context, r io.Reader, logger logging.Logge
 	// Map header fields to struct fields
 	headerMap := make(map[int]string)
 	for i, h := range header {
-		headerMap[i] = common.NormalizeHeaderName(h)
+		headerMap[i] = canonicalHeader(h)
 	}
 
 	var transactions []models.Transaction
@@ -270,8 +270,13 @@ func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
 		"Number of Shares",
 	}
 
+	canonical := make([]string, len(header))
+	for i, h := range header {
+		canonical[i] = canonicalHeader(h)
+	}
+
 	// Check if all required headers are present
-	if missing := common.MissingColumn(header, requiredHeaders...); missing != "" {
+	if missing := common.MissingColumn(canonical, requiredHeaders...); missing != "" {
 		return false, &parsererror.ValidationError{
 			FilePath: "(from reader)",
 			Reason:   fmt.Sprintf("missing required header: %s", missing),
@@ -280,4 +285,25 @@ func validateFormat(r io.Reader, logger logging.Logger) (bool, error) {
 
 	logger.Debug("Selma CSV format validation successful")
 	return true, nil
+}
+
+// selmaHeaderAliases maps the French export's column names onto the English
+// ones the parser works with. "Nom du fonds" (fund name) is deliberately not
+// mapped: PartyName is the ISIN, which the French export puts in its own column.
+var selmaHeaderAliases = map[string]string{
+	"Tenue des comptes n°": "Bookkeeping No.",
+	"ISIN":                 "Fund",
+	"Montant":              "Amount",
+	"Devise":               "Currency",
+	"Nombre d’actions":     "Number of Shares",
+	"Nombre d'actions":     "Number of Shares",
+}
+
+// canonicalHeader normalizes a header name and translates French aliases.
+func canonicalHeader(name string) string {
+	n := common.NormalizeHeaderName(name)
+	if en, ok := selmaHeaderAliases[n]; ok {
+		return en
+	}
+	return n
 }

@@ -73,6 +73,11 @@ type Config struct {
 		Revolut struct {
 			DateFormatDetection bool `mapstructure:"date_format_detection" yaml:"date_format_detection"`
 		} `mapstructure:"revolut" yaml:"revolut"`
+		Selma struct {
+			// ICComptaDB is read-only: when set, Selma rows are named after the
+			// existing iCompta security ("ISIN-name") so they attach to it.
+			ICComptaDB string `mapstructure:"icompta_db" yaml:"icompta_db"`
+		} `mapstructure:"selma" yaml:"selma"`
 		Viseca struct {
 			// KeepPayments imports the monthly card settlement rows. Off by
 			// default: the bank statement already carries the same payments, so
@@ -202,6 +207,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("parsers.pdf.ocr_enabled", false)
 	v.SetDefault("parsers.revolut.date_format_detection", true)
 	v.SetDefault("parsers.viseca.keep_payments", false)
+	v.SetDefault("parsers.selma.icompta_db", "")
 
 	// Categories defaults
 	v.SetDefault("categories.file", "categories.yaml")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -96,4 +97,31 @@ func TestProcessTransactionsWithCategorizer_NilLogger(t *testing.T) {
 	result, err := ProcessTransactionsWithCategorizer(context.Background(), transactions, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
+}
+
+func TestParse_FrenchHeaders(t *testing.T) {
+	csv := "Date,Description,Tenue des comptes n°,Nom du fonds,ISIN,Montant,Devise,Nombre d’actions\n" +
+		"2026-09-07,trade,59301984361,iShares ETF,IE00BMDBMP28,-832.4,CHF,184.0\n"
+	a := NewAdapter(logging.NewLogrusAdapter("info", "text"))
+	ok, err := validateFormat(strings.NewReader(csv), nil)
+	require.NoError(t, err)
+	require.True(t, ok)
+	txs, err := a.Parse(context.Background(), strings.NewReader(csv))
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	assert.Equal(t, "IE00BMDBMP28", txs[0].PartyName)
+	assert.Equal(t, "59301984361", txs[0].BookkeepingNumber)
+	assert.Equal(t, "-832.4", txs[0].Amount.String())
+}
+
+func TestAdapter_SecurityNames(t *testing.T) {
+	csv := "Date,Description,Bookkeeping No.,Fund,Amount,Currency,Number of Shares\n" +
+		"2026-09-07,trade,1,IE00BMDBMP28,-8,CHF,1\n2026-09-07,trade,2,XX0000000000,-8,CHF,1\n"
+	a := NewAdapter(logging.NewLogrusAdapter("info", "text"))
+	a.SetSecurityNames(map[string]string{"IE00BMDBMP28": "IE00BMDBMP28-iShares"})
+	txs, err := a.Parse(context.Background(), strings.NewReader(csv))
+	require.NoError(t, err)
+	require.Len(t, txs, 2)
+	assert.Equal(t, "IE00BMDBMP28-iShares", txs[0].Fund)
+	assert.Equal(t, "XX0000000000", txs[1].Fund) // unknown: left bare, warned
 }

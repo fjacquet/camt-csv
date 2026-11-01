@@ -115,6 +115,9 @@ func applyFlagOverrides(cmd *cobra.Command) {
 			AppConfig.Parsers.Viseca.KeepPayments = keep
 		}
 	}
+	if f := cmd.Flags().Lookup("icompta-db"); f != nil && f.Changed {
+		AppConfig.Parsers.Selma.ICComptaDB = f.Value.String()
+	}
 }
 
 // initializeContainer creates the dependency injection container
