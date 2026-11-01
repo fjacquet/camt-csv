@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.1] - 2026-11-01
+
 ### Fixed
 
 - Fold the Revolut fee into the amount on every non-investment row, so the imported balance matches the statement (`Solde = Montant - Frais`). The fee was left in `Fees`, which the iCompta plugin reads only on investments, so card-payment fees were dropped on import.
