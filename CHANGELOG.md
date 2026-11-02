@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.2] - 2026-11-02
+
 ### Fixed
 
 - Attach Viseca PDF continuation lines (category, conversion rate, processing fee) to their own transaction instead of the next one, which shifted descriptions, fees and downstream categories by one row.
