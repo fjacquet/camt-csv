@@ -16,7 +16,6 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 		logging.Field{Key: "lineCount", Value: len(lines)})
 
 	var transactions []models.Transaction
-	var currentCategory string
 
 	// For debugging, dump the first few lines
 	for i := 0; i < min(20, len(lines)); i++ {
@@ -48,13 +47,7 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 
 		// Check if the line starts with a date (DD.MM.YY or DD.MM.YYYY format)
 		if !datePatternCapture.MatchString(line) {
-			// Not a transaction line, could be a category or additional info
-			// Store it to potentially attach to the previous transaction
-			if strings.TrimSpace(line) != "" && !strings.Contains(line, "XXXX") {
-				currentCategory = strings.TrimSpace(line)
-				logger.Debug("Found potential category line",
-					logging.Field{Key: "category", Value: currentCategory})
-			}
+			// Continuation line: consumed by the preceding transaction's look-ahead.
 			continue
 		}
 
@@ -152,51 +145,33 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 			continue
 		}
 
-		// Attach category if we have one
-		if currentCategory != "" {
-			tx.Description = tx.Description + " - " + currentCategory
-			logger.Debug("Added category to transaction",
-				logging.Field{Key: "category", Value: currentCategory})
-			currentCategory = "" // Reset for next transaction
-		}
-
-		// Look for additional information in following lines (exchange rate, processing fees)
-		var exchangeRateFound, processingFeeFound bool
-
-		for j := i + 1; j < min(i+3, len(lines)) && !exchangeRateFound && !processingFeeFound; j++ {
-			nextLine := strings.TrimSpace(lines[j])
-
-			// Skip empty lines
-			if nextLine == "" {
+		// Continuation lines follow their transaction: merchant category, then (for
+		// foreign currency) the conversion rate and the processing fee. They end at
+		// the next transaction or at any page furniture.
+		var category string
+		for j := i + 1; j < len(lines); j++ {
+			next := strings.TrimSpace(lines[j])
+			if next == "" {
 				continue
 			}
-
-			// If the next line starts with a date, it's a new transaction - stop looking
-			if datePatternCapture.MatchString(nextLine) {
+			if datePatternCapture.MatchString(next) || isVisecaFurniture(next) {
 				break
 			}
-
-			// Look for exchange rate information
-			if strings.Contains(nextLine, "Taux de conversion") {
-				exchangeRateMatch := exchangeRatePattern.FindStringSubmatch(nextLine)
-				if len(exchangeRateMatch) > 1 {
-					tx.ExchangeRate = models.ParseAmount(exchangeRateMatch[1])
-					exchangeRateFound = true
-					logger.Debug("Found exchange rate",
-						logging.Field{Key: "exchangeRate", Value: tx.ExchangeRate.String()})
+			switch {
+			case strings.Contains(next, "Taux de conversion"):
+				if m := exchangeRatePattern.FindStringSubmatch(next); len(m) > 1 {
+					tx.ExchangeRate = models.ParseAmount(m[1])
 				}
-			}
-
-			// Look for processing fee information
-			if strings.Contains(nextLine, "Frais de traitement") {
-				feeMatch := processingFeePattern.FindStringSubmatch(nextLine)
-				if len(feeMatch) > 1 {
-					tx.Fees = models.ParseAmount(feeMatch[1])
-					processingFeeFound = true
-					logger.Debug("Found processing fees",
-						logging.Field{Key: "fees", Value: tx.Fees.String()})
+			case strings.Contains(next, "Frais de traitement"):
+				if m := processingFeePattern.FindStringSubmatch(next); len(m) > 1 {
+					tx.Fees = models.ParseAmount(m[1])
 				}
+			case category == "":
+				category = next
 			}
+		}
+		if category != "" {
+			tx.Description += " - " + category
 		}
 
 		// Add transaction to list
@@ -218,6 +193,16 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 	logger.Info("Extracted transactions from Viseca PDF",
 		logging.Field{Key: "count", Value: len(processedTransactions)})
 	return processedTransactions, nil
+}
+
+// isVisecaFurniture reports lines that end a transaction's continuation block.
+func isVisecaFurniture(line string) bool {
+	for _, marker := range []string{"XXXX", "Limite de carte", "Report", "Total ", "Page ", "Date de", "Montant total"} {
+		if strings.Contains(line, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // formatDate parses a date string and returns time.Time
