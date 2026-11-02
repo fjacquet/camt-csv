@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Attach Viseca PDF continuation lines (category, conversion rate, processing fee) to their own transaction instead of the next one, which shifted descriptions, fees and downstream categories by one row.
+
+### Security
+
+- Update dependencies (`go get -u`): `golang.org/x/net` 0.62.0, `go.yaml.in/yaml/v3` 3.0.6, `modernc.org/sqlite` 1.61.1, `modernc.org/libc` 1.80.0, `gocarina/gocsv`.
+
 ## [4.4.1] - 2026-11-01
 
 ### Fixed

@@ -16,7 +16,6 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 		logging.Field{Key: "lineCount", Value: len(lines)})
 
 	var transactions []models.Transaction
-	var currentCategory string
 
 	// For debugging, dump the first few lines
 	for i := 0; i < min(20, len(lines)); i++ {
@@ -38,23 +37,13 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 		}
 
 		// Skip footers and other non-transaction lines
-		if strings.Contains(line, "Page") ||
-			strings.Contains(line, "Total intermédiaire") ||
-			strings.Contains(line, "Recouvrement") ||
-			strings.Contains(line, "Limite de carte") ||
-			strings.Contains(line, "Report") {
+		if isVisecaFurniture(line) {
 			continue
 		}
 
 		// Check if the line starts with a date (DD.MM.YY or DD.MM.YYYY format)
 		if !datePatternCapture.MatchString(line) {
-			// Not a transaction line, could be a category or additional info
-			// Store it to potentially attach to the previous transaction
-			if strings.TrimSpace(line) != "" && !strings.Contains(line, "XXXX") {
-				currentCategory = strings.TrimSpace(line)
-				logger.Debug("Found potential category line",
-					logging.Field{Key: "category", Value: currentCategory})
-			}
+			// Continuation line: consumed by the preceding transaction's look-ahead.
 			continue
 		}
 
@@ -152,51 +141,43 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 			continue
 		}
 
-		// Attach category if we have one
-		if currentCategory != "" {
-			tx.Description = tx.Description + " - " + currentCategory
-			logger.Debug("Added category to transaction",
-				logging.Field{Key: "category", Value: currentCategory})
-			currentCategory = "" // Reset for next transaction
-		}
-
-		// Look for additional information in following lines (exchange rate, processing fees)
-		var exchangeRateFound, processingFeeFound bool
-
-		for j := i + 1; j < min(i+3, len(lines)) && !exchangeRateFound && !processingFeeFound; j++ {
-			nextLine := strings.TrimSpace(lines[j])
-
-			// Skip empty lines
-			if nextLine == "" {
+		// Continuation lines follow their transaction: merchant category, then (for
+		// foreign currency) the conversion rate and the processing fee. They end at
+		// the next transaction or at any page furniture.
+		// A block is at most category + rate + fee; the category is only ever the
+		// first line, so stray text further down cannot become one.
+		var category string
+		seen := 0
+		for j := i + 1; j < len(lines) && seen < maxVisecaContinuation; j++ {
+			next := strings.TrimSpace(lines[j])
+			if next == "" {
 				continue
 			}
-
-			// If the next line starts with a date, it's a new transaction - stop looking
-			if datePatternCapture.MatchString(nextLine) {
+			if datePatternCapture.MatchString(next) || isVisecaFurniture(next) {
 				break
 			}
-
-			// Look for exchange rate information
-			if strings.Contains(nextLine, "Taux de conversion") {
-				exchangeRateMatch := exchangeRatePattern.FindStringSubmatch(nextLine)
-				if len(exchangeRateMatch) > 1 {
-					tx.ExchangeRate = models.ParseAmount(exchangeRateMatch[1])
-					exchangeRateFound = true
-					logger.Debug("Found exchange rate",
-						logging.Field{Key: "exchangeRate", Value: tx.ExchangeRate.String()})
+			seen++
+			switch {
+			case strings.Contains(next, "Taux de conversion"):
+				m := exchangeRatePattern.FindStringSubmatch(next)
+				if len(m) < 2 {
+					logger.Debug("Unparsed exchange rate line", logging.Field{Key: "line", Value: next})
+					continue
 				}
-			}
-
-			// Look for processing fee information
-			if strings.Contains(nextLine, "Frais de traitement") {
-				feeMatch := processingFeePattern.FindStringSubmatch(nextLine)
-				if len(feeMatch) > 1 {
-					tx.Fees = models.ParseAmount(feeMatch[1])
-					processingFeeFound = true
-					logger.Debug("Found processing fees",
-						logging.Field{Key: "fees", Value: tx.Fees.String()})
+				tx.ExchangeRate = models.ParseAmount(m[1])
+			case strings.Contains(next, "Frais de traitement"):
+				m := processingFeePattern.FindStringSubmatch(next)
+				if len(m) < 2 {
+					logger.Debug("Unparsed processing fee line", logging.Field{Key: "line", Value: next})
+					continue
 				}
+				tx.Fees = models.ParseAmount(m[1])
+			case seen == 1:
+				category = next
 			}
+		}
+		if category != "" {
+			tx.Description += " - " + category
 		}
 
 		// Add transaction to list
@@ -218,6 +199,30 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 	logger.Info("Extracted transactions from Viseca PDF",
 		logging.Field{Key: "count", Value: len(processedTransactions)})
 	return processedTransactions, nil
+}
+
+// maxVisecaContinuation bounds the lines read after a transaction: category,
+// conversion rate, processing fee.
+const maxVisecaContinuation = 3
+
+// visecaFurniturePrefixes start lines that are headers, totals or page footers,
+// never a transaction or one of its continuation lines. Matching is on the line
+// start so a merchant or category containing one of these words is unaffected.
+var visecaFurniturePrefixes = []string{
+	"Date", "Page", "Total", "Report", "Recouvrement", "Limite de carte", "Montant total",
+}
+
+// isVisecaFurniture reports lines that are not transaction content.
+func isVisecaFurniture(line string) bool {
+	if strings.Contains(line, "XXXX") {
+		return true
+	}
+	for _, prefix := range visecaFurniturePrefixes {
+		if strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // formatDate parses a date string and returns time.Time
