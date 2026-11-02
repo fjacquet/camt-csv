@@ -2,8 +2,7 @@ package pdfparser
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"fjacquet/camt-csv/internal/logging"
@@ -38,17 +37,14 @@ Date       valeur Détails                 Monnaie     Montant         CHF
                   Restaurants, bistros
 19.10.26 24.09.26 APPLE.COM/BILL, ITUNES.COM IE                                  8.35 -
                   Biens numériques
+20.10.26 21.10.26 NO CATEGORY MERCHANT, ZURICH CH                               5.00
+Recouvrement de la créance par
+Viseca Payment Services SA
 `
-	file := filepath.Join(t.TempDir(), "v.pdf")
-	require.NoError(t, os.WriteFile(file, []byte("x"), 0600))
-	f, err := os.Open(file)
-	require.NoError(t, err)
-	defer func() { _ = f.Close() }()
-
 	adapter := NewAdapter(logging.NewLogrusAdapter("info", "text"), NewMockPDFExtractor(text, nil))
-	txs, err := adapter.Parse(context.Background(), f)
+	txs, err := adapter.Parse(context.Background(), strings.NewReader("x"))
 	require.NoError(t, err)
-	require.Len(t, txs, 5)
+	require.Len(t, txs, 6)
 
 	want := []string{
 		" - Ordinateurs et logiciels",
@@ -57,6 +53,8 @@ Date       valeur Détails                 Monnaie     Montant         CHF
 		" - Restaurants, bistros",
 		" - Biens numériques",
 	}
+	// No category line of its own: trailing footer text must not be adopted.
+	assert.Equal(t, "NO CATEGORY MERCHANT, ZURICH CH", txs[5].Description)
 	for i, suffix := range want {
 		assert.Contains(t, txs[i].Description, suffix, "tx %d", i)
 		assert.NotContains(t, txs[i].Description, "Frais de traitement", "tx %d", i)

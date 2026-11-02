@@ -37,11 +37,7 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 		}
 
 		// Skip footers and other non-transaction lines
-		if strings.Contains(line, "Page") ||
-			strings.Contains(line, "Total intermédiaire") ||
-			strings.Contains(line, "Recouvrement") ||
-			strings.Contains(line, "Limite de carte") ||
-			strings.Contains(line, "Report") {
+		if isVisecaFurniture(line) {
 			continue
 		}
 
@@ -148,8 +144,11 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 		// Continuation lines follow their transaction: merchant category, then (for
 		// foreign currency) the conversion rate and the processing fee. They end at
 		// the next transaction or at any page furniture.
+		// A block is at most category + rate + fee; the category is only ever the
+		// first line, so stray text further down cannot become one.
 		var category string
-		for j := i + 1; j < len(lines); j++ {
+		seen := 0
+		for j := i + 1; j < len(lines) && seen < maxVisecaContinuation; j++ {
 			next := strings.TrimSpace(lines[j])
 			if next == "" {
 				continue
@@ -157,16 +156,23 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 			if datePatternCapture.MatchString(next) || isVisecaFurniture(next) {
 				break
 			}
+			seen++
 			switch {
 			case strings.Contains(next, "Taux de conversion"):
-				if m := exchangeRatePattern.FindStringSubmatch(next); len(m) > 1 {
-					tx.ExchangeRate = models.ParseAmount(m[1])
+				m := exchangeRatePattern.FindStringSubmatch(next)
+				if len(m) < 2 {
+					logger.Debug("Unparsed exchange rate line", logging.Field{Key: "line", Value: next})
+					continue
 				}
+				tx.ExchangeRate = models.ParseAmount(m[1])
 			case strings.Contains(next, "Frais de traitement"):
-				if m := processingFeePattern.FindStringSubmatch(next); len(m) > 1 {
-					tx.Fees = models.ParseAmount(m[1])
+				m := processingFeePattern.FindStringSubmatch(next)
+				if len(m) < 2 {
+					logger.Debug("Unparsed processing fee line", logging.Field{Key: "line", Value: next})
+					continue
 				}
-			case category == "":
+				tx.Fees = models.ParseAmount(m[1])
+			case seen == 1:
 				category = next
 			}
 		}
@@ -195,10 +201,24 @@ func parseVisecaTransactionsWithCategorizer(ctx context.Context, lines []string,
 	return processedTransactions, nil
 }
 
-// isVisecaFurniture reports lines that end a transaction's continuation block.
+// maxVisecaContinuation bounds the lines read after a transaction: category,
+// conversion rate, processing fee.
+const maxVisecaContinuation = 3
+
+// visecaFurniturePrefixes start lines that are headers, totals or page footers,
+// never a transaction or one of its continuation lines. Matching is on the line
+// start so a merchant or category containing one of these words is unaffected.
+var visecaFurniturePrefixes = []string{
+	"Date", "Page", "Total", "Report", "Recouvrement", "Limite de carte", "Montant total",
+}
+
+// isVisecaFurniture reports lines that are not transaction content.
 func isVisecaFurniture(line string) bool {
-	for _, marker := range []string{"XXXX", "Limite de carte", "Report", "Total ", "Page ", "Date de", "Montant total"} {
-		if strings.Contains(line, marker) {
+	if strings.Contains(line, "XXXX") {
+		return true
+	}
+	for _, prefix := range visecaFurniturePrefixes {
+		if strings.HasPrefix(line, prefix) {
 			return true
 		}
 	}
